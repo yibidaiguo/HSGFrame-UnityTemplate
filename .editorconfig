@@ -12,3 +12,39 @@ csharp_new_line_before_open_brace = all
 
 [*.{json,asmdef,yml}]
 indent_size = 2
+
+# 命名规则一律 warning 起步：这样 dotnet build 本身就成了秒级门禁的第一层，
+# 命名跑偏在编译期就报出来，不用等 gate.naming 那一步。
+[*.cs]
+dotnet_naming_rule.types_are_pascal_case.symbols = type_symbols
+dotnet_naming_rule.types_are_pascal_case.style = pascal_case_style
+dotnet_naming_rule.types_are_pascal_case.severity = warning
+
+dotnet_naming_rule.members_are_pascal_case.symbols = public_member_symbols
+dotnet_naming_rule.members_are_pascal_case.style = pascal_case_style
+dotnet_naming_rule.members_are_pascal_case.severity = warning
+
+dotnet_naming_rule.private_fields_have_underscore_prefix.symbols = private_field_symbols
+dotnet_naming_rule.private_fields_have_underscore_prefix.style = underscore_camel_case_style
+dotnet_naming_rule.private_fields_have_underscore_prefix.severity = warning
+
+dotnet_naming_rule.parameters_are_camel_case.symbols = parameter_symbols
+dotnet_naming_rule.parameters_are_camel_case.style = camel_case_style
+dotnet_naming_rule.parameters_are_camel_case.severity = warning
+
+dotnet_naming_symbols.type_symbols.applicable_kinds = class,struct,interface,enum,delegate
+dotnet_naming_symbols.type_symbols.applicable_accessibilities = *
+
+dotnet_naming_symbols.public_member_symbols.applicable_kinds = property,method,event
+dotnet_naming_symbols.public_member_symbols.applicable_accessibilities = public,internal,protected
+
+dotnet_naming_symbols.private_field_symbols.applicable_kinds = field
+dotnet_naming_symbols.private_field_symbols.applicable_accessibilities = private
+
+dotnet_naming_symbols.parameter_symbols.applicable_kinds = parameter
+dotnet_naming_symbols.parameter_symbols.applicable_accessibilities = *
+
+dotnet_naming_style.pascal_case_style.capitalization = pascal_case
+dotnet_naming_style.camel_case_style.capitalization = camel_case
+dotnet_naming_style.underscore_camel_case_style.capitalization = camel_case
+dotnet_naming_style.underscore_camel_case_style.required_prefix = _

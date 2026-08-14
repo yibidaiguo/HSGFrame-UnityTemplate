@@ -1,0 +1,23 @@
+{
+  "tableName": "背包",
+  "rows": [
+    {
+      "ItemId": 1001,
+      "ItemName": "木剑",
+      "StackLimit": 1,
+      "SellPrice": 25
+    },
+    {
+      "ItemId": 1002,
+      "ItemName": "治疗药水",
+      "StackLimit": 99,
+      "SellPrice": 10
+    },
+    {
+      "ItemId": 1003,
+      "ItemName": "皮甲",
+      "StackLimit": 1,
+      "SellPrice": 60
+    }
+  ]
+}

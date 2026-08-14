@@ -1,0 +1,10 @@
+{
+  "tableName": "背包",
+  "sheetName": "道具",
+  "fields": [
+    { "displayName": "编号",   "identifierName": "ItemId",     "typeName": "Int32",  "isPrimaryKey": true },
+    { "displayName": "名称",   "identifierName": "ItemName",   "typeName": "String", "isPrimaryKey": false },
+    { "displayName": "堆叠上限", "identifierName": "StackLimit", "typeName": "Int32",  "isPrimaryKey": false },
+    { "displayName": "售价",   "identifierName": "SellPrice",  "typeName": "Int32",  "isPrimaryKey": false }
+  ]
+}

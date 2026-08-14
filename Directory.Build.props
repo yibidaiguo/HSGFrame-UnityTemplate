@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- 没有这一条，.editorconfig 里的 dotnet_naming_rule 只在 IDE 里生效，
+         dotnet build 一声不吭 —— 秒级门禁那一层命名检查就等于没有。 -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+</Project>

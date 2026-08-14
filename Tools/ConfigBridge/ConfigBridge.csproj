@@ -1,16 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
-    <AssemblyName>Toolkit.CommandHost</AssemblyName>
-    <RootNamespace>Template.Toolkit.CommandHost</RootNamespace>
+    <AssemblyName>Toolkit.ConfigBridge</AssemblyName>
+    <RootNamespace>Template.Toolkit.ConfigBridge</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../CommandFramework/CommandFramework.csproj" />
-    <ProjectReference Include="../../ConfigBridge/ConfigBridge.csproj" />
+    <PackageReference Include="ClosedXML" Version="0.104.2" />
   </ItemGroup>
 </Project>
