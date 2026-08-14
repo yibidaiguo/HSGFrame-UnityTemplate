@@ -1,0 +1,7 @@
+{
+  "name": "Toolkit.Editor",
+  "rootNamespace": "Template.Toolkit.Editor",
+  "references": [],
+  "includePlatforms": ["Editor"],
+  "noEngineReferences": false
+}

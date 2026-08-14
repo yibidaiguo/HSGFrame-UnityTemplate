@@ -5,7 +5,8 @@
     "Logic.Contracts",
     "Logic.Data",
     "Logic.State",
-    "Unity.Mathematics"
+    "Unity.Mathematics",
+    "Logic.JsonShim"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

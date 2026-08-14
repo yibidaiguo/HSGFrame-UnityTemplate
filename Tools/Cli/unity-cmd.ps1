@@ -8,11 +8,12 @@
   纯 dotnet 侧的命令走同目录的 toolkit-cmd.ps1，那条路径不启动编辑器。
 #>
 param(
-    [Parameter(Mandatory = $true)][string]$ExecuteMethod,
+    [string]$ExecuteMethod,
     [string]$ArgumentsFile,
     [int]$TimeoutMinutes = 40,
     [string]$ProjectPath,
-    [string]$UnityExecutable = 'D:/Unity/Editor/6000.3.11f1/Unity.exe'
+    [string]$UnityExecutable = 'D:/Unity/Editor/6000.3.11f1/Unity.exe',
+    [ValidateSet('EditMode', 'PlayMode')][string]$RunTests
 )
 
 $ErrorActionPreference = 'Stop'
@@ -40,20 +41,41 @@ $logDirectory = Join-Path $PSScriptRoot '../../Logs'
 if (-not (Test-Path $logDirectory)) {
     New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 }
-$logFileName = 'unity-{0}-{1}.log' -f ($ExecuteMethod -replace '[^A-Za-z0-9\.]', '_'), (Get-Date -Format 'yyyyMMdd-HHmmss')
+$taskName = if ($RunTests) { "tests-$RunTests" } else { $ExecuteMethod }
+if (-not $taskName) {
+    Write-Host '[unity-cmd] 需要 -ExecuteMethod 或 -RunTests 其中之一'
+    exit 1
+}
+
+$logFileName = 'unity-{0}-{1}.log' -f ($taskName -replace '[^A-Za-z0-9\.]', '_'), (Get-Date -Format 'yyyyMMdd-HHmmss')
 $logPath = Join-Path $logDirectory $logFileName
 
-$unityArguments = @(
-    '-batchmode', '-quit', '-nographics',
-    '-projectPath', $ProjectPath,
-    '-executeMethod', $ExecuteMethod,
-    '-logFile', $logPath
-)
+# 跑测试时用 -runTests 而不是 -quit：测试运行器要自己决定退出时机，
+# 加 -quit 会在测试跑完前把编辑器关掉。
+if ($RunTests) {
+    $testResultPath = Join-Path $logDirectory ("测试结果-{0}-{1}.xml" -f $RunTests, (Get-Date -Format 'yyyyMMdd-HHmmss'))
+    $unityArguments = @(
+        '-batchmode', '-nographics',
+        '-projectPath', $ProjectPath,
+        '-runTests', '-testPlatform', $RunTests,
+        '-testResults', $testResultPath,
+        '-logFile', $logPath
+    )
+}
+else {
+    $unityArguments = @(
+        '-batchmode', '-quit', '-nographics',
+        '-projectPath', $ProjectPath,
+        '-executeMethod', $ExecuteMethod,
+        '-logFile', $logPath
+    )
+}
+
 if ($ArgumentsFile) {
     $unityArguments += @('-argumentsFile', (Resolve-Path $ArgumentsFile).Path)
 }
 
-Write-Host "[unity-cmd] 方法=$ExecuteMethod 超时=${TimeoutMinutes}分钟 日志=$logPath"
+Write-Host "[unity-cmd] 任务=$taskName 超时=${TimeoutMinutes}分钟 日志=$logPath"
 $process = Start-Process -FilePath $UnityExecutable -ArgumentList $unityArguments -PassThru
 
 # Wait-Process 超时抛异常但进程仍活着，必须显式强杀：
@@ -74,6 +96,13 @@ if ($timedOut) {
 }
 
 $exitCode = $process.ExitCode
+if ($RunTests -and (Test-Path $testResultPath)) {
+    Write-Host "[unity-cmd] 测试结果：$testResultPath"
+    $summary = ([xml](Get-Content -Raw $testResultPath)).'test-run'
+    if ($summary) {
+        Write-Host "[unity-cmd] 用例 $($summary.total) 条：通过 $($summary.passed)，失败 $($summary.failed)，跳过 $($summary.skipped)"
+    }
+}
 if ($exitCode -ne 0) {
     Write-Host "[unity-cmd] 失败，退出码 $exitCode。日志：$logPath"
     Show-LogTail -Path $logPath

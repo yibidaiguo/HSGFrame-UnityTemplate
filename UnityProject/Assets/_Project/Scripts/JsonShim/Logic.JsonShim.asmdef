@@ -1,0 +1,9 @@
+{
+  "name": "Logic.JsonShim",
+  "rootNamespace": "",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

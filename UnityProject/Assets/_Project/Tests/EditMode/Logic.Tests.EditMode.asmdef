@@ -1,0 +1,17 @@
+{
+  "name": "Logic.Tests.EditMode",
+  "rootNamespace": "Template.Logic.Tests.EditMode",
+  "references": [
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner",
+    "Logic.Data",
+    "Logic.State",
+    "Logic.Service",
+    "Unity.Mathematics"
+  ],
+  "includePlatforms": ["Editor"],
+  "precompiledReferences": ["nunit.framework.dll"],
+  "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+  "overrideReferences": true,
+  "autoReferenced": false
+}

@@ -3,7 +3,8 @@
   "rootNamespace": "Template.Logic.Data",
   "references": [
     "Logic.Contracts",
-    "Unity.Mathematics"
+    "Unity.Mathematics",
+    "Logic.JsonShim"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
