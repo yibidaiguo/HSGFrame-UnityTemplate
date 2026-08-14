@@ -15,13 +15,18 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# 路径从脚本自身位置推，而不是写死 "Template/"：
+# 阶段 14 的生成脚本会把这棵树整个复制成别的名字，写死目录名到那边就断了。
+$templateRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+
 if (-not $RepositoryRoot) {
-    $RepositoryRoot = Join-Path $PSScriptRoot '../../..'
+    $RepositoryRoot = Join-Path $templateRoot '..'
 }
 $RepositoryRoot = (Resolve-Path $RepositoryRoot).Path
 
-$solutionPath = Join-Path $RepositoryRoot 'Template/Solutions/Template.sln'
-$commandHostProject = Join-Path $RepositoryRoot 'Template/Tools/Cli/CommandHost/CommandHost.csproj'
+$templateRelativeName = [System.IO.Path]::GetRelativePath($RepositoryRoot, $templateRoot).Replace('\', '/')
+$solutionPath = Join-Path $templateRoot 'Solutions/Template.sln'
+$commandHostProject = Join-Path $templateRoot 'Tools/Cli/CommandHost/CommandHost.csproj'
 
 foreach ($requiredPath in @($solutionPath, $commandHostProject)) {
     if (-not (Test-Path $requiredPath)) {
@@ -61,19 +66,24 @@ Write-GateHeader '十秒级门禁 · dotnet build'
 if ($LASTEXITCODE -ne 0) { $failedGateNames += '十秒级门禁（dotnet build）' }
 
 Write-GateHeader '命名与注释规范'
-if ((Invoke-GateCommand -CommandName 'gate.naming' -CommandArguments @{ RootDirectory = 'Template' }) -ne 0) {
+if ((Invoke-GateCommand -CommandName 'gate.naming' -CommandArguments @{ RootDirectory = $templateRelativeName; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
     $failedGateNames += '命名检查器'
 }
 
 Write-GateHeader '测试基线锁'
-if ((Invoke-GateCommand -CommandName 'gate.baseline' -CommandArguments @{ RepositoryRoot = $RepositoryRoot }) -ne 0) {
+if ((Invoke-GateCommand -CommandName 'gate.baseline' -CommandArguments @{ RepositoryRoot = $RepositoryRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
     $failedGateNames += '测试基线锁'
 }
 
 Write-GateHeader '改动文件白名单'
 $changedPaths = @()
 $editorOwnedPaths = @()
-foreach ($statusLine in (& git -C $RepositoryRoot status --porcelain)) {
+# 生成出来的新项目可能还没 git init，那时白名单没有输入，视为无改动而不是让整条门禁崩掉。
+$statusLines = @()
+try { $statusLines = & git -C $RepositoryRoot status --porcelain 2>$null } catch { $statusLines = @() }
+if ($LASTEXITCODE -ne 0) { $statusLines = @() }
+
+foreach ($statusLine in $statusLines) {
     $path = $statusLine.Substring(3).Trim('"')
     # 重命名条目形如 "旧路径 -> 新路径"，白名单只关心落点。
     if ($path -match ' -> ') { $path = ($path -split ' -> ')[-1] }
@@ -85,12 +95,12 @@ foreach ($statusLine in (& git -C $RepositoryRoot status --porcelain)) {
 if ($editorOwnedPaths.Count -gt 0) {
     Write-Host "[gate] 知会：RPG_Unity/ 下有 $($editorOwnedPaths.Count) 处变化，来自常驻编辑器进程，未计入白名单判定"
 }
-if ((Invoke-GateCommand -CommandName 'gate.whitelist' -CommandArguments @{ ChangedPathsText = ($changedPaths -join "`n") }) -ne 0) {
+if ((Invoke-GateCommand -CommandName 'gate.whitelist' -CommandArguments @{ ChangedPathsText = ($changedPaths -join "`n"); ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
     $failedGateNames += '改动文件白名单'
 }
 
 Write-GateHeader '文档长度'
-if ((Invoke-GateCommand -CommandName 'gate.doc' -CommandArguments @{ RepositoryRoot = $RepositoryRoot }) -ne 0) {
+if ((Invoke-GateCommand -CommandName 'gate.doc' -CommandArguments @{ RepositoryRoot = $RepositoryRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
     $failedGateNames += '文档长度'
 }
 

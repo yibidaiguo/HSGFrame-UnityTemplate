@@ -1,5 +1,7 @@
 {
   "files": {
+    "Template/Solutions/AssetPipeline.Tests/AssetNameNormalizerTests.cs": "62af472f2db1703271e470a0d6c9053184b279c1e61e58fbca159a64da9e869e",
+    "Template/Solutions/AssetPipeline.Tests/AssetValidatorTests.cs": "7f0fb4c5effe3da5354fb37dd48326805a0fa6211a165d2c1cdeb5c6fa30cec6",
     "Template/Solutions/ConfigBridge.Tests/RoundTripTests.cs": "762726da8bdc571f4f7c2c8701ed28df06ab2c825451c517b768407844fc0f88",
     "Template/Solutions/Gates.Tests/DocumentLengthCheckerTests.cs": "7ec74fcb7489433b9a826e867c5a29775f1e61770e67896bcad79edf1eb74672",
     "Template/Solutions/Gates.Tests/FileWhitelistCheckerTests.cs": "809bf46acab367bc5895c8fea1c78a625197bd3feefa2232cf3e19e70a248393",
