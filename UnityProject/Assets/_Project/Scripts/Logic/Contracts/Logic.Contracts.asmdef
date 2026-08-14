@@ -1,9 +1,7 @@
 {
   "name": "Logic.Contracts",
   "rootNamespace": "Template.Logic.Contracts",
-  "references": [
-    "Logic.JsonShim"
-  ],
+  "references": [],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

@@ -10,7 +10,7 @@ namespace Template.Toolkit.ScaffoldTests
     {
         private const string ProjectName = "NewGame";
         private const string NewPrefix = "com.example.";
-        private const string TemplatePrefix = "com.hsghost.";
+        private const string TemplatePrefix = "com.gametemplateforagent.";
 
         private const string GateConfigJson = @"{
   ""changedPathWhitelist"": [
@@ -39,7 +39,7 @@ namespace Template.Toolkit.ScaffoldTests
             }
         }
 
-        /// <summary>com.hsghost.demo 目录在目标里变成新前缀加 demo。</summary>
+        /// <summary>com.gametemplateforagent.demo 目录在目标里变成新前缀加 demo。</summary>
         [Fact]
         public void CreateRenamesComHsghostDirectoryToPackagePrefix()
         {
@@ -51,7 +51,7 @@ namespace Template.Toolkit.ScaffoldTests
 
                 Assert.True(result.IsSuccess, result.Message);
                 Assert.True(Directory.Exists(Path.Combine(result.TargetPath, "com.example.demo")));
-                Assert.False(Directory.Exists(Path.Combine(result.TargetPath, "com.hsghost.demo")));
+                Assert.False(Directory.Exists(Path.Combine(result.TargetPath, "com.gametemplateforagent.demo")));
             }
             finally
             {
@@ -60,7 +60,7 @@ namespace Template.Toolkit.ScaffoldTests
             }
         }
 
-        /// <summary>文本文件里的 com.hsghost. 全部换成新前缀。</summary>
+        /// <summary>文本文件里的 com.gametemplateforagent. 全部换成新前缀。</summary>
         [Fact]
         public void CreateRewritesPackagePrefixInsideTextFiles()
         {
@@ -250,9 +250,9 @@ namespace Template.Toolkit.ScaffoldTests
             File.WriteAllText(Path.Combine(root, "README.md"), "前缀 " + TemplatePrefix + " 的说明");
             File.WriteAllText(Path.Combine(root, "CLAUDE.md"), "# 原有路标内容\n");
 
-            var demoDirectory = Path.Combine(root, "com.hsghost.demo");
+            var demoDirectory = Path.Combine(root, "com.gametemplateforagent.demo");
             Directory.CreateDirectory(demoDirectory);
-            File.WriteAllText(Path.Combine(demoDirectory, "info.json"), "{ \"name\": \"com.hsghost.demo\" }");
+            File.WriteAllText(Path.Combine(demoDirectory, "info.json"), "{ \"name\": \"com.gametemplateforagent.demo\" }");
 
             var binDirectory = Path.Combine(demoDirectory, "bin");
             Directory.CreateDirectory(binDirectory);

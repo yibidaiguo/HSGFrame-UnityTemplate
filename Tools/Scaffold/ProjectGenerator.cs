@@ -26,7 +26,7 @@ namespace Template.Toolkit.Scaffold
 
         private static readonly byte[] Utf8Bom = { 0xEF, 0xBB, 0xBF };
 
-        private const string TemplateDirectoryPrefix = "com.hsghost.";
+        private const string TemplateDirectoryPrefix = "com.gametemplateforagent.";
 
         // 模板说明文件缺失时退回这份内置文案，保证 CLAUDE.md 追加永不静默丢功能。
         private const string FallbackTemplateNotice = @"## 本项目由通用 Unity 模板生成
@@ -124,7 +124,7 @@ namespace Template.Toolkit.Scaffold
             }
         }
 
-        // 只改 com.hsghost. 开头的目录：com.hsghost.save + com.example. → com.example.save。
+        // 只改 com.gametemplateforagent. 开头的目录：com.gametemplateforagent.save + com.example. → com.example.save。
         private static string RenameDirectory(string directoryName, string packagePrefix)
         {
             if (directoryName.StartsWith(TemplateDirectoryPrefix, StringComparison.Ordinal))

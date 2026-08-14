@@ -1,0 +1,8 @@
+{
+  "name": "com.gametemplateforagent.input",
+  "version": "0.1.0",
+  "displayName": "输入",
+  "description": "按键绑定条目。",
+  "unity": "6000.3",
+  "author": { "name": "HSGhost" }
+}

@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using HSGhost.GraphAdapter;
+using GameTemplateForAgent.GraphAdapter;
 using Xunit;
 
-namespace HSGhost.GraphAdapter.Tests
+namespace GameTemplateForAgent.GraphAdapter.Tests
 {
     /// <summary>图 JSON 往返与最小执行器的测试。</summary>
     public class GraphExecutorTests

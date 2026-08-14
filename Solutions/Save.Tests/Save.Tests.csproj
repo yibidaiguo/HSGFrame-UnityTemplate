@@ -12,6 +12,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../../Packages/com.hsghost.save/Runtime/**/*.cs" LinkBase="Save" />
+    <Compile Include="../../Packages/com.gametemplateforagent.save/Runtime/**/*.cs" LinkBase="Save" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,7 @@
+{
+  "name": "GameTemplateForAgent.GraphAdapter",
+  "rootNamespace": "GameTemplateForAgent.GraphAdapter",
+  "references": [],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}

@@ -12,6 +12,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../../Packages/com.hsghost.hotfix/Runtime/**/*.cs" LinkBase="Hotfix" />
+    <Compile Include="../../Packages/com.gametemplateforagent.hotfix/Runtime/**/*.cs" LinkBase="Hotfix" />
   </ItemGroup>
 </Project>

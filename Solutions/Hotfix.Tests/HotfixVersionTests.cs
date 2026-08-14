@@ -1,7 +1,7 @@
-using HSGhost.Hotfix;
+using GameTemplateForAgent.Hotfix;
 using Xunit;
 
-namespace HSGhost.Hotfix.Tests
+namespace GameTemplateForAgent.Hotfix.Tests
 {
     /// <summary>热更版本号解析与比较的测试。</summary>
     public class HotfixVersionTests

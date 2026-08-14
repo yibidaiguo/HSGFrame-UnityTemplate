@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using HSGhost.Save;
+using GameTemplateForAgent.Save;
 using Xunit;
 
-namespace HSGhost.Save.Tests
+namespace GameTemplateForAgent.Save.Tests
 {
     /// <summary>存档 JSON 往返与版本迁移链的测试。</summary>
     public class SaveMigrationTests

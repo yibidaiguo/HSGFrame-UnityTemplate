@@ -1,0 +1,8 @@
+{
+  "name": "com.gametemplateforagent.graphadapter",
+  "version": "0.1.0",
+  "displayName": "节点图适配层",
+  "description": "自带最小执行器的节点图 JSON 镜像适配层，图 JSON 读入可执行、结果可断言。",
+  "unity": "6000.3",
+  "author": { "name": "HSGhost" }
+}

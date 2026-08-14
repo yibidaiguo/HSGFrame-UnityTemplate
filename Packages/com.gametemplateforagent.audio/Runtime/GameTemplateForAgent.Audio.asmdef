@@ -1,0 +1,7 @@
+{
+  "name": "GameTemplateForAgent.Audio",
+  "rootNamespace": "GameTemplateForAgent.Audio",
+  "references": [],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}

@@ -1,0 +1,7 @@
+{
+  "name": "GameTemplateForAgent.Save",
+  "rootNamespace": "GameTemplateForAgent.Save",
+  "references": [],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}

@@ -1,8 +1,0 @@
-{
-  "name": "com.hsghost.hotfix",
-  "version": "0.1.0",
-  "displayName": "热更",
-  "description": "热更版本比对、启动器状态机与失败回滚，下载与落盘走接口。",
-  "unity": "6000.3",
-  "author": { "name": "HSGhost" }
-}

@@ -1,4 +1,4 @@
-using HSGhost.UiFramework;
+using GameTemplateForAgent.UiFramework;
 using Xunit;
 
 namespace Template.UiFramework.Tests

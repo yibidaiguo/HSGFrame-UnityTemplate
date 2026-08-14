@@ -11,9 +11,6 @@
   <ItemGroup>
     <Compile Include="../../UnityProject/Assets/_Project/Scripts/Logic/**/*.cs" LinkBase="Logic" />
     <Compile Include="../UnityShim/**/*.cs" LinkBase="UnityShim" />
-    <!-- 只在纯 .NET 侧编译的 Logic 代码：用到 System.Text.Json 这类 Unity 没有的 BCL 类型的部分
-         放这里，Unity 侧就不会因为找不到类型而编译失败（16a 实测踩到）。 -->
-    <Compile Include="../LogicDotNet/**/*.cs" LinkBase="LogicDotNet" />
   </ItemGroup>
 
   <ItemGroup>

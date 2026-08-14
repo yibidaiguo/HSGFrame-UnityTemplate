@@ -4,8 +4,7 @@
   "references": [
     "Logic.Contracts",
     "Logic.Data",
-    "Unity.Mathematics",
-    "Logic.JsonShim"
+    "Unity.Mathematics"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

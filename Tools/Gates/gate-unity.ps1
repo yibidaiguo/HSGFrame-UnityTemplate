@@ -40,6 +40,18 @@ $testExitCode = $LASTEXITCODE
 if ($testExitCode -eq 124) { exit 124 }
 if ($testExitCode -ne 0) { $failedGateNames += 'EditMode 测试' }
 
+# 「0 条测试」也算不过：程序集加载失败时 Unity 照样退出码 0，
+# 症状就是用例数悄悄变成 0——真踩过（补 System.Text.Json dll 那次漏了 Unsafe）。
+$latestResult = Get-ChildItem (Join-Path $templateRoot 'Logs') -Filter '测试结果-EditMode-*.xml' -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime | Select-Object -Last 1
+if ($latestResult) {
+    $totalCount = [int]([xml](Get-Content -Raw $latestResult.FullName)).'test-run'.total
+    if ($totalCount -eq 0) {
+        Write-Host '[gate-unity] EditMode 用例数为 0——测试没被发现，按不通过处理'
+        $failedGateNames += 'EditMode 测试（用例数为 0）'
+    }
+}
+
 Write-Host ''
 Write-Host '[gate-unity] ==== .meta 完整性 ===='
 $missingMetaPaths = @()
