@@ -9,16 +9,18 @@ namespace Template.Toolkit.UiScaffold
     /// <summary>从面板定义渲染 UXML / USS / C# 三件套。</summary>
     public static class PanelScaffolder
     {
-        private static readonly string TemplatesDirectoryRelativePath = Path.Combine("Template", "Tools", "UiScaffold", "Templates");
+        // 相对模板根定位，而不是相对仓库根：模板树被生成脚本复制成别的项目名之后，
+        // 写死 "Template" 这一段就找不到模板文件了。
+        private static readonly string TemplatesDirectoryRelativePath = Path.Combine("Tools", "UiScaffold", "Templates");
 
         /// <summary>按面板标识名生成 UXML / USS / C# 三件套，返回写出的文件路径列表。</summary>
-        /// <param name="repositoryRoot">仓库根目录，模板文件以此为基准定位。</param>
+        /// <param name="templateRoot">模板根目录（模板树自身的根），模板文件以此为基准定位。</param>
         /// <param name="definition">面板定义模型。</param>
         /// <param name="outputDirectory">三件套输出目录，不存在时自动创建。</param>
-        public static IReadOnlyList<string> Scaffold(string repositoryRoot, UiPanelDefinitionSource definition, string outputDirectory)
+        public static IReadOnlyList<string> Scaffold(string templateRoot, UiPanelDefinitionSource definition, string outputDirectory)
         {
             Directory.CreateDirectory(outputDirectory);
-            var templatesDirectory = Path.Combine(repositoryRoot, TemplatesDirectoryRelativePath);
+            var templatesDirectory = Path.Combine(templateRoot, TemplatesDirectoryRelativePath);
 
             var outputs = new List<string>
             {

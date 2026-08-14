@@ -88,9 +88,9 @@ namespace Template.Logic.Tests
         [Fact]
         public void SampleVillageLevelHasExactlyOneMissingChunk()
         {
-            var repositoryRoot = FindRepositoryRoot();
-            var levelPath = Path.Combine(repositoryRoot, "Template", "Levels", "村庄", "关卡.json");
-            var chunkPath = Path.Combine(repositoryRoot, "Template", "Levels", "村庄", "区块_村口.json");
+            var templateRoot = FindTemplateRoot();
+            var levelPath = Path.Combine(templateRoot, "Levels", "村庄", "关卡.json");
+            var chunkPath = Path.Combine(templateRoot, "Levels", "村庄", "区块_村口.json");
 
             Assert.True(File.Exists(levelPath), $"样例关卡文件不存在：{levelPath}");
             Assert.True(File.Exists(chunkPath), $"样例区块文件不存在：{chunkPath}");
@@ -122,15 +122,16 @@ namespace Template.Logic.Tests
             Assert.Contains(errors, error => error.Contains("重复"));
         }
 
-        // 测试工作目录不稳定，不能靠相对路径硬拼：从程序集目录逐级向上找含 Template 目录的那一级作为仓库根。
-        private static string FindRepositoryRoot()
+        // 测试工作目录不稳定，不能靠相对路径硬拼：从程序集目录逐级向上找带 Tools/Gates/Config 的那一级作为模板根——
+        // 模板被复制成别的项目名之后，这个标记仍然成立，而目录名 "Template" 不再成立。
+        private static string FindTemplateRoot()
         {
             var directory = new DirectoryInfo(AppContext.BaseDirectory);
             var searched = new List<string>();
             while (directory != null)
             {
                 searched.Add(directory.FullName);
-                if (Directory.Exists(Path.Combine(directory.FullName, "Template")))
+                if (File.Exists(Path.Combine(directory.FullName, "Tools", "Gates", "Config", "gate-config.json")))
                 {
                     return directory.FullName;
                 }

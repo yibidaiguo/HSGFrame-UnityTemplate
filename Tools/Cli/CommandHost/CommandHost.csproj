@@ -16,5 +16,7 @@
     <ProjectReference Include="../../UiScaffold/UiScaffold.csproj" />
     <ProjectReference Include="../../Indexing/Indexing.csproj" />
     <ProjectReference Include="../../AssetPipeline/AssetPipeline.csproj" />
+    <ProjectReference Include="../../Scaffold/ProjectScaffold.csproj" />
+    <ProjectReference Include="../../CodeGen/CodeGen.csproj" />
   </ItemGroup>
 </Project>

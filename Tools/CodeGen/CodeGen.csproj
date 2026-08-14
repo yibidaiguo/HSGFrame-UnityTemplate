@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Toolkit.CodeGen</AssemblyName>
+    <RootNamespace>Template.Toolkit.CodeGen</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Scriban" Version="7.2.6" />
+    <ProjectReference Include="../ConfigBridge/ConfigBridge.csproj" />
+  </ItemGroup>
+</Project>

@@ -70,20 +70,21 @@ namespace Template.UiFramework.Tests
             Assert.Equal(firstCs, secondCs);
         }
 
-        private static UiPanelDefinitionSource LoadDefinition(string repositoryRoot)
+        private static UiPanelDefinitionSource LoadDefinition(string templateRoot)
         {
-            var definitionPath = Path.Combine(repositoryRoot, "Template", "Solutions", "UiFramework.Tests", "TestData", "主界面.uidef.json");
+            var definitionPath = Path.Combine(templateRoot, "Solutions", "UiFramework.Tests", "TestData", "主界面.uidef.json");
             var json = File.ReadAllText(definitionPath);
             return JsonSerializer.Deserialize<UiPanelDefinitionSource>(json);
         }
 
-        // 测试工作目录不稳定，不能靠相对路径硬拼：从程序集目录逐级向上找含 Template 目录的那一级作为仓库根。
-        private static string FindRepositoryRoot()
+        // 测试工作目录不稳定，不能靠相对路径硬拼：从程序集目录逐级向上找带 Tools/Gates/Config 的那一级作为模板根——
+        // 模板被复制成别的项目名之后，这个标记仍然成立，而目录名 "Template" 不再成立。
+        private static string FindTemplateRoot()
         {
             var directory = new DirectoryInfo(AppContext.BaseDirectory);
             while (directory != null)
             {
-                if (Directory.Exists(Path.Combine(directory.FullName, "Template")))
+                if (File.Exists(Path.Combine(directory.FullName, "Tools", "Gates", "Config", "gate-config.json")))
                 {
                     return directory.FullName;
                 }
@@ -99,7 +100,7 @@ namespace Template.UiFramework.Tests
         {
             public ScaffoldFixture()
             {
-                RepositoryRoot = FindRepositoryRoot();
+                RepositoryRoot = FindTemplateRoot();
                 OutputDirectory = Path.Combine(Path.GetTempPath(), "UiScaffoldTests", Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(OutputDirectory);
             }

@@ -1,5 +1,6 @@
 {
   "tableName": "背包",
+  "tableIdentifierName": "Bag",
   "sheetName": "道具",
   "fields": [
     { "displayName": "编号",   "identifierName": "ItemId",     "typeName": "Int32",  "isPrimaryKey": true },

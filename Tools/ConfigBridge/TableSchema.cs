@@ -9,6 +9,9 @@ namespace Template.Toolkit.ConfigBridge
         /// <summary>表名，例如「背包」，同时是 schema 与 xlsx 文件名的主干。</summary>
         public string TableName { get; set; }
 
+        /// <summary>表的英文标识名，用作生成代码的类名，例如 Bag。</summary>
+        public string TableIdentifierName { get; set; }
+
         /// <summary>xlsx 里承载这张表的 Sheet 名。</summary>
         public string SheetName { get; set; }
 

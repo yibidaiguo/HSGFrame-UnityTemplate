@@ -1,0 +1,14 @@
+// 秒级门禁：格式、文本规范与 dotnet test，不启 Unity，全程 < 10 秒。
+// 触发时机：AI 每改一次代码都跑；CI 里每次 push 也重跑同一套检查。
+// 失败意味着：本次改动引入了编译错误或既有测试回归，必须立刻修，不该进入后续流水线。
+
+pipeline {
+    agent any
+    stages {
+        stage('dotnet test') {
+            steps {
+                bat 'dotnet test Template/Solutions/Template.sln --nologo'
+            }
+        }
+    }
+}

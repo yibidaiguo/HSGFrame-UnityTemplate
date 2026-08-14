@@ -1,0 +1,10 @@
+{
+  "targets": [
+    {
+      "targetName": "背包表访问代码",
+      "targetKind": "TableAccess",
+      "inputPath": "Config/Schema/背包.schema.json",
+      "outputPath": "UnityProject/Assets/_Project/Scripts/Logic/Data/_Generated/BagTable.cs"
+    }
+  ]
+}

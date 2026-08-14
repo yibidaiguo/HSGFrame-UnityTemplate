@@ -12,7 +12,7 @@ namespace HSGhost.GraphAdapter.Tests
         [Fact]
         public void SampleGraphRoundTripsThroughJson()
         {
-            var filePath = Path.Combine(FindRepositoryRoot(), "Template", "Graphs", "示例流程图.json");
+            var filePath = Path.Combine(FindTemplateRoot(), "Graphs", "示例流程图.json");
             var original = GraphJsonCodec.LoadFromFile(filePath);
 
             var json = GraphJsonCodec.ToJson(original);
@@ -94,7 +94,7 @@ namespace HSGhost.GraphAdapter.Tests
 
         private static GraphDocument LoadSampleGraph()
         {
-            var filePath = Path.Combine(FindRepositoryRoot(), "Template", "Graphs", "示例流程图.json");
+            var filePath = Path.Combine(FindTemplateRoot(), "Graphs", "示例流程图.json");
             return GraphJsonCodec.LoadFromFile(filePath);
         }
 
@@ -112,10 +112,10 @@ namespace HSGhost.GraphAdapter.Tests
             return instance;
         }
 
-        private static string FindRepositoryRoot()
+        private static string FindTemplateRoot()
         {
             var directory = new DirectoryInfo(AppContext.BaseDirectory);
-            while (directory != null && !Directory.Exists(Path.Combine(directory.FullName, "Template")))
+            while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Tools", "Gates", "Config", "gate-config.json")))
             {
                 directory = directory.Parent;
             }

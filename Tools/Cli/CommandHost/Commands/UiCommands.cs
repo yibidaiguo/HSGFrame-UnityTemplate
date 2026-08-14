@@ -16,10 +16,10 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("三件套的输出目录")]
         public string OutputDirectory { get; set; }
 
-        /// <summary>仓库根目录，用于定位模板。</summary>
-        [Summary("仓库根目录，用于定位模板")]
-        [System.ComponentModel.DefaultValue(".")]
-        public string RepositoryRoot { get; set; }
+        /// <summary>模板根目录，用于定位 scriban 模板。</summary>
+        [Summary("模板根目录，用于定位 scriban 模板")]
+        [System.ComponentModel.DefaultValue("Template")]
+        public string TemplateRoot { get; set; }
     }
 
     /// <summary>界面骨架生成命令：从面板定义产出 UXML + USS + C# 三件套。</summary>
@@ -45,8 +45,8 @@ namespace Template.Toolkit.CommandHost.Commands
                 File.ReadAllText(arguments.DefinitionPath),
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-            var repositoryRoot = string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot;
-            var writtenPaths = PanelScaffolder.Scaffold(repositoryRoot, definition, arguments.OutputDirectory);
+            var templateRoot = string.IsNullOrWhiteSpace(arguments.TemplateRoot) ? "Template" : arguments.TemplateRoot;
+            var writtenPaths = PanelScaffolder.Scaffold(templateRoot, definition, arguments.OutputDirectory);
 
             return CommandResult.Success($"面板「{definition.PanelName}」三件套已生成，共 {writtenPaths.Count} 个文件", writtenPaths);
         }

@@ -1,0 +1,31 @@
+// 发布流水线：夜间构建之后追加发布 stage，手动触发、多平台、打标归档。
+// 触发时机：手动，按需打版本号。
+// 失败意味着：发布产物不完整或归档失败，不能对外发版，需修复后重跑。
+
+pipeline {
+    agent any
+    stages {
+        stage('dotnet build') {
+            steps {
+                bat 'dotnet build Template/Solutions/Template.sln --nologo'
+            }
+        }
+        stage('gate.naming') {
+            steps {
+                bat 'dotnet run --project Template/Tools/Cli/CommandHost/CommandHost.csproj -- run gate.naming --arguments-file gate-naming.json'
+            }
+        }
+        // 需要 Unity：真编译 + 冒烟，编辑器 batchmode 冷启动，耗时按分钟计。
+        stage('Unity 构建') {
+            steps {
+                bat 'pwsh ./Template/Tools/Cli/unity-cmd.ps1 -ExecuteMethod <方法全名> -TimeoutMinutes 40'
+            }
+        }
+        // 需要 Unity：打多平台包 + 打标归档。
+        stage('发布') {
+            steps {
+                bat 'pwsh ./Template/Tools/Cli/unity-cmd.ps1 -ExecuteMethod <发布方法全名> -TimeoutMinutes 60'
+            }
+        }
+    }
+}
