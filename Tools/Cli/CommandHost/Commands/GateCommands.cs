@@ -24,9 +24,9 @@ namespace Template.Toolkit.CommandHost.Commands
     /// <summary>测试基线锁命令的参数。</summary>
     public sealed class GateBaselineArguments
     {
-        /// <summary>仓库根目录。</summary>
-        [Summary("仓库根目录")]
-        public string RepositoryRoot { get; set; }
+        /// <summary>模板根目录：测试与基线都在模板内，路径以它为基准才不随模板放在哪里而变。</summary>
+        [Summary("模板根目录，测试与基线路径都以它为基准")]
+        public string TemplateRoot { get; set; }
 
         /// <summary>为 true 时重建基线，否则校验基线。</summary>
         [Summary("为 true 时重建基线，否则校验基线")]
@@ -110,22 +110,22 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("测试基线锁：登记或校验测试文件哈希")]
         public static CommandResult Execute(GateBaselineArguments arguments)
         {
-            if (string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            if (string.IsNullOrWhiteSpace(arguments.TemplateRoot))
             {
-                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+                return CommandResult.Failure("参数 TemplateRoot 为必填项");
             }
 
-            var configurationPath = GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, arguments.RepositoryRoot);
+            var configurationPath = GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, arguments.TemplateRoot);
             var configuration = GateConfiguration.LoadFromFile(configurationPath);
             var baselinePath = GateCommandSupport.ResolveBaselinePath(configurationPath);
 
             if (arguments.UpdateBaseline)
             {
-                TestBaselineLock.WriteBaseline(arguments.RepositoryRoot, configuration, baselinePath);
+                TestBaselineLock.WriteBaseline(arguments.TemplateRoot, configuration, baselinePath);
                 return CommandResult.Success("测试基线已重建");
             }
 
-            var findings = TestBaselineLock.Check(arguments.RepositoryRoot, configuration, baselinePath);
+            var findings = TestBaselineLock.Check(arguments.TemplateRoot, configuration, baselinePath);
             return GateCommandSupport.ToResult("测试基线校验", findings);
         }
     }

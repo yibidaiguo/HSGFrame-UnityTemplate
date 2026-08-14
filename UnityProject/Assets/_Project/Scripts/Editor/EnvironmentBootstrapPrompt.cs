@@ -13,7 +13,7 @@ namespace Template.Toolkit.Editor
     public static class EnvironmentBootstrapPrompt
     {
         // 同一次编辑器会话里问过一次就够了，域重载会重跑这个构造函数。
-        private const string AskedSessionKey = "GameTemplateForAgent.环境初始化.本次会话已询问";
+        private const string AskedSessionKey = "Toolkit.环境初始化.本次会话已询问";
 
         static EnvironmentBootstrapPrompt()
         {
@@ -38,7 +38,7 @@ namespace Template.Toolkit.Editor
             var install = EditorUtility.DisplayDialog(
                 "开发环境还没装",
                 "HybridCLR 的本地 il2cpp 数据还没装（约 800 MB，装在工程内的 HybridCLRData/，不进仓库）。\n\n"
-                    + "现在装吗？也可以之后从菜单 GameTemplateForAgent/初始化开发环境 手动装。",
+                    + "现在装吗？也可以之后从菜单 工具链/初始化开发环境 手动装。",
                 "现在装",
                 "以后再说");
 

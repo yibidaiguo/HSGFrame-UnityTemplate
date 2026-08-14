@@ -68,12 +68,12 @@ Write-GateHeader '十秒级门禁 · dotnet build'
 if ($LASTEXITCODE -ne 0) { $failedGateNames += '十秒级门禁（dotnet build）' }
 
 Write-GateHeader '命名与注释规范'
-if ((Invoke-GateCommand -CommandName 'gate.naming' -CommandArguments @{ RootDirectory = $templateRelativeName; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
+if ((Invoke-GateCommand -CommandName 'gate.naming' -CommandArguments @{ RootDirectory = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
     $failedGateNames += '命名检查器'
 }
 
 Write-GateHeader '测试基线锁'
-if ((Invoke-GateCommand -CommandName 'gate.baseline' -CommandArguments @{ RepositoryRoot = $RepositoryRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
+if ((Invoke-GateCommand -CommandName 'gate.baseline' -CommandArguments @{ TemplateRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
     $failedGateNames += '测试基线锁'
 }
 

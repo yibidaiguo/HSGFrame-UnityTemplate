@@ -14,7 +14,9 @@ namespace Template.Toolkit.Editor
     /// </remarks>
     public static class EnvironmentInstaller
     {
-        private const string MenuPath = "GameTemplateForAgent/初始化开发环境";
+        // 菜单根名保持通用：模板会被生成成任意项目名，把模板自己的名字焊在这里，
+        // 新项目的菜单就会顶着一个不属于它的名字（MenuItem 路径是编译期常量，运行时换不掉）。
+        private const string MenuPath = "工具链/初始化开发环境";
 
         /// <summary>菜单入口：人点一下就装。</summary>
         [MenuItem(MenuPath)]

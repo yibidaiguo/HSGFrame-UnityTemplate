@@ -18,7 +18,7 @@
     "Solutions/Logic.Tests/HealthTests.cs": "c6b69b8e85d1a58ca5307236abcb9e8bb9e7dfbff8e87f76a06a0e2a63b56d3e",
     "Solutions/Logic.Tests/LevelRoundTripTests.cs": "01562856753102f5a84d4d406f37eadb5ef33ddd28ed8eeaee784649b77fa2f5",
     "Solutions/Save.Tests/SaveMigrationTests.cs": "8afa0839a42347163000fd3b5ca8cdbdae8301e8e41c60c914dc81c59022c326",
-    "Solutions/Scaffold.Tests/ProjectGeneratorTests.cs": "6ab5427d26862c42d5cf0b64175b47d4fcfcd45982a4de469c70aaea3cb45e7e",
+    "Solutions/Scaffold.Tests/ProjectGeneratorTests.cs": "cc8dbe80cda1730971fd0a83c5b38fc4324fc722acec2668ca88a1d80b80d885",
     "Solutions/Toolkit.Tests/CommandRegistryTests.cs": "48958ebb8d0fd40c2ba39c93280ce63593fe8dd4ca67ee2250dacb75ada927ea",
     "Solutions/UiFramework.Tests/PanelScaffolderTests.cs": "df81709b5347ceadc184b8ab080f825b50ddd63c70dcdca4de53031a58a61fed",
     "Solutions/UiFramework.Tests/PanelStackTests.cs": "3986cdf93a14bd0df9b9efc566dae057bfe6bbc0b1cb6d283491c5820a6dbb2e"

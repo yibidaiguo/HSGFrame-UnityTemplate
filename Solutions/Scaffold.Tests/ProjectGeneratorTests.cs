@@ -231,6 +231,34 @@ namespace Template.Toolkit.ScaffoldTests
             }
         }
 
+
+        /// <summary>模板自身的标识名在生成时换成新项目名，新项目不再顶着模板的名字。</summary>
+        [Fact]
+        public void CreateReplacesTemplateIdentifierNameWithProjectName()
+        {
+            var templateRoot = CreateTemplateTree();
+            var targetDirectory = CreateTargetDirectory();
+            try
+            {
+                File.WriteAllText(
+                    Path.Combine(templateRoot, "标识名样本.cs"),
+                    "namespace GameTemplateForAgent.Save { }");
+
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+
+                Assert.True(result.IsSuccess, result.Message);
+
+                var generated = File.ReadAllText(Path.Combine(targetDirectory, ProjectName, "标识名样本.cs"));
+                Assert.Contains("namespace " + ProjectName + ".Save", generated);
+                Assert.DoesNotContain("GameTemplateForAgent", generated);
+            }
+            finally
+            {
+                Directory.Delete(templateRoot, true);
+                Directory.Delete(targetDirectory, true);
+            }
+        }
+
         private static ProjectCreationResult RunGenerator(string templateRoot, string targetDirectory, string projectName, string packagePrefix)
         {
             return ProjectGenerator.Create(new ProjectCreationOptions

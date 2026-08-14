@@ -14,19 +14,28 @@ namespace Template.Toolkit.Scaffold
         private static readonly Regex PackagePrefixPattern = new Regex("^[a-z0-9]+(\\.[a-z0-9]+)*\\.$", RegexOptions.Compiled);
 
         // 这些目录是编译 / 引擎 / 版本控制的生成物，复制进新项目只会带过去一堆垃圾。
+        // HybridCLRData 尤其要跳：它是 800 MB 的本地 il2cpp 数据，且与编辑器版本绑定，
+        // 复制过去既让生成变慢几十倍，又会给新项目一份可能过期的环境——环境该由新项目自己装。
         private static readonly string[] SkipSegments =
         {
-            "bin", "obj", "Logs", "Build", ".git", "Library", "Temp", "MemoryCaptures"
+            "bin", "obj", "Logs", "Build", ".git", "Library", "Temp", "MemoryCaptures", "HybridCLRData"
         };
 
+        // 凡是可能写着包名或模板标识名的文本格式都要列进来。
+        // 漏掉 .scriban 会让生成出来的代码引用错命名空间（模板里写着 using <模板名>.UiFramework）。
         private static readonly string[] TextExtensions =
         {
-            ".json", ".asmdef", ".md", ".csproj", ".cs", ".ps1"
+            ".json", ".asmdef", ".md", ".csproj", ".cs", ".ps1",
+            ".scriban", ".toml", ".sln", ".uss", ".uxml", ".txt"
         };
 
         private static readonly byte[] Utf8Bom = { 0xEF, 0xBB, 0xBF };
 
         private const string TemplateDirectoryPrefix = "com.gametemplateforagent.";
+
+        // 模板自身的标识名。生成新项目时连同它一起换掉，否则新项目的程序集、命名空间、
+        // 文档标题会一直顶着模板的名字——菜单叫「RPG模板工具」那类问题就是这么来的。
+        private const string TemplateIdentifierName = "GameTemplateForAgent";
 
         // 模板说明文件缺失时退回这份内置文案，保证 CLAUDE.md 追加永不静默丢功能。
         private const string FallbackTemplateNotice = @"## 本项目由通用 Unity 模板生成
@@ -78,15 +87,16 @@ namespace Template.Toolkit.Scaffold
             }
 
             var copiedFileCount = 0;
-            CopyTree(options.TemplateRoot, targetPath, options.PackagePrefix, ref copiedFileCount);
+            CopyTree(options.TemplateRoot, targetPath, options.PackagePrefix, options.ProjectName, ref copiedFileCount);
 
             RewriteGateWhitelist(targetPath, options.ProjectName);
             AppendTemplateNotice(targetPath, options.TemplateRoot, options.ProjectName, options.PackagePrefix);
+            RebuildTestBaseline(targetPath);
 
             return ProjectCreationResult.Success(targetPath, copiedFileCount, $"已生成新项目到 {targetPath}");
         }
 
-        private static void CopyTree(string sourceRoot, string targetRoot, string packagePrefix, ref int copiedFileCount)
+        private static void CopyTree(string sourceRoot, string targetRoot, string packagePrefix, string projectName, ref int copiedFileCount)
         {
             Directory.CreateDirectory(targetRoot);
 
@@ -100,22 +110,22 @@ namespace Template.Toolkit.Scaffold
 
                 if (Directory.Exists(entry))
                 {
-                    var targetDirectoryName = RenameDirectory(name, packagePrefix);
-                    CopyTree(entry, Path.Combine(targetRoot, targetDirectoryName), packagePrefix, ref copiedFileCount);
+                    var targetDirectoryName = RenameDirectory(name, packagePrefix, projectName);
+                    CopyTree(entry, Path.Combine(targetRoot, targetDirectoryName), packagePrefix, projectName, ref copiedFileCount);
                 }
                 else
                 {
-                    CopyFile(entry, Path.Combine(targetRoot, name), packagePrefix);
+                    CopyFile(entry, Path.Combine(targetRoot, RenameDirectory(name, packagePrefix, projectName)), packagePrefix, projectName);
                     copiedFileCount++;
                 }
             }
         }
 
-        private static void CopyFile(string sourcePath, string targetPath, string packagePrefix)
+        private static void CopyFile(string sourcePath, string targetPath, string packagePrefix, string projectName)
         {
             if (IsTextFile(sourcePath))
             {
-                RewriteTextFile(sourcePath, targetPath, packagePrefix);
+                RewriteTextFile(sourcePath, targetPath, packagePrefix, projectName);
             }
             else
             {
@@ -125,17 +135,18 @@ namespace Template.Toolkit.Scaffold
         }
 
         // 只改 com.gametemplateforagent. 开头的目录：com.gametemplateforagent.save + com.example. → com.example.save。
-        private static string RenameDirectory(string directoryName, string packagePrefix)
+        private static string RenameDirectory(string directoryName, string packagePrefix, string projectName)
         {
             if (directoryName.StartsWith(TemplateDirectoryPrefix, StringComparison.Ordinal))
             {
                 return packagePrefix + directoryName.Substring(TemplateDirectoryPrefix.Length);
             }
 
-            return directoryName;
+            // asmdef 这类文件名里也带模板标识名（GameTemplateForAgent.Save.asmdef）。
+            return directoryName.Replace(TemplateIdentifierName, projectName, StringComparison.Ordinal);
         }
 
-        private static void RewriteTextFile(string sourcePath, string targetPath, string packagePrefix)
+        private static void RewriteTextFile(string sourcePath, string targetPath, string packagePrefix, string projectName)
         {
             var bytes = File.ReadAllBytes(sourcePath);
             var hasBom = HasUtf8Bom(bytes);
@@ -143,9 +154,26 @@ namespace Template.Toolkit.Scaffold
                 ? Encoding.UTF8.GetString(bytes, Utf8Bom.Length, bytes.Length - Utf8Bom.Length)
                 : Encoding.UTF8.GetString(bytes);
 
-            text = text.Replace(TemplateDirectoryPrefix, packagePrefix, StringComparison.Ordinal);
+            text = text
+                .Replace(TemplateDirectoryPrefix, packagePrefix, StringComparison.Ordinal)
+                .Replace(TemplateIdentifierName, projectName, StringComparison.Ordinal);
 
             WriteUtf8(targetPath, text, hasBom);
+        }
+
+        // 生成时改写了测试文件的内容（命名空间跟着项目名换），模板那份基线的哈希就对不上了。
+        // 不在这里重建，新项目第一次跑门禁必然红——而阶段 14 的验收正是「新项目里门禁全绿」。
+        private static void RebuildTestBaseline(string targetRoot)
+        {
+            var configurationPath = Path.Combine(targetRoot, "Tools", "Gates", "Config", "gate-config.json");
+            if (!File.Exists(configurationPath))
+            {
+                return;
+            }
+
+            var configuration = Template.Toolkit.Gates.GateConfiguration.LoadFromFile(configurationPath);
+            var baselinePath = Path.Combine(targetRoot, "Tools", "Gates", "Config", "test-baseline.json");
+            Template.Toolkit.Gates.TestBaselineLock.WriteBaseline(targetRoot, configuration, baselinePath);
         }
 
         // 把 changedPathWhitelist 第一项从 Template/ 换成 <ProjectName>/，让门禁认新项目根。
