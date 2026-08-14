@@ -1,0 +1,33 @@
+{
+  "graphId": "示例流程图",
+  "module": "对话",
+  "graphType": "流程",
+  "entryInstanceIds": ["起点"],
+  "instances": [
+    {
+      "instanceId": "起点",
+      "nodeType": "设置变量",
+      "parameters": { "变量名": "好感度", "值": "10" },
+      "ports": { "下一步": "判断好感" }
+    },
+    {
+      "instanceId": "判断好感",
+      "nodeType": "分支",
+      "parameters": { "变量名": "好感度", "等于": "10" },
+      "ports": { "真": "友好结局", "假": "冷淡结局" }
+    },
+    {
+      "instanceId": "友好结局",
+      "nodeType": "设置变量",
+      "parameters": { "变量名": "结局", "值": "友好" },
+      "ports": { "下一步": "结束" }
+    },
+    {
+      "instanceId": "冷淡结局",
+      "nodeType": "设置变量",
+      "parameters": { "变量名": "结局", "值": "冷淡" },
+      "ports": { "下一步": "结束" }
+    },
+    { "instanceId": "结束", "nodeType": "结束", "parameters": {}, "ports": {} }
+  ]
+}
