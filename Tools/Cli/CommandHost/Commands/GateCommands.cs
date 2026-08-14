@@ -115,9 +115,9 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure("参数 RepositoryRoot 为必填项");
             }
 
-            var configuration = GateConfiguration.LoadFromFile(
-                GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, arguments.RepositoryRoot));
-            var baselinePath = GateCommandSupport.ResolveBaselinePath(arguments.RepositoryRoot);
+            var configurationPath = GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, arguments.RepositoryRoot);
+            var configuration = GateConfiguration.LoadFromFile(configurationPath);
+            var baselinePath = GateCommandSupport.ResolveBaselinePath(configurationPath);
 
             if (arguments.UpdateBaseline)
             {
@@ -189,8 +189,6 @@ namespace Template.Toolkit.CommandHost.Commands
     {
         private const string DefaultConfigurationRelativePath = "Template/Tools/Gates/Config/gate-config.json";
 
-        private const string DefaultBaselineRelativePath = "Template/Tools/Gates/Config/test-baseline.json";
-
         internal static string ResolveConfigurationPath(string configuredPath, string repositoryRoot)
         {
             if (!string.IsNullOrWhiteSpace(configuredPath))
@@ -201,9 +199,12 @@ namespace Template.Toolkit.CommandHost.Commands
             return Path.Combine(repositoryRoot, DefaultConfigurationRelativePath);
         }
 
-        internal static string ResolveBaselinePath(string repositoryRoot)
+        internal static string ResolveBaselinePath(string configurationPath)
         {
-            return Path.Combine(repositoryRoot, DefaultBaselineRelativePath);
+            // 基线与门禁配置永远同目录：模板可能是仓库子目录，也可能自己就是仓库根，
+            // 拼死 "Template/..." 在后一种形态下会指到不存在的路径。
+            var configurationDirectory = Path.GetDirectoryName(Path.GetFullPath(configurationPath));
+            return Path.Combine(configurationDirectory, "test-baseline.json");
         }
 
         internal static CommandResult ToResult(string gateName, IReadOnlyList<GateFinding> findings)

@@ -1,4 +1,12 @@
-# Template · 路标
+# GameTemplateForAgent · 路标
+
+一个面向 AI 协作的 Unity 通用游戏模板：纯 C# 逻辑层 + 命令层 + 四级门禁。
+`Logic.*` 保持零 UnityEngine 依赖，靠双工程结构让同一批逻辑源码既能在 Unity 里编译，
+又能在纯 `dotnet test` 下跑测试。
+
+本仓库 2026-08-15 从 `D:\Projects\Unity\RPG` 的 `Template/` 子目录搬出，
+带着完整的 14 次阶段提交历史。
+
 
 一个 Unity 通用游戏模板：纯 C# 逻辑层 + 命令层 + 四级门禁。Logic.* 保持零 UnityEngine 依赖，靠双工程结构让同一批逻辑源码既能在 Unity 里编译，又能在纯 `dotnet test` 下跑测试。
 

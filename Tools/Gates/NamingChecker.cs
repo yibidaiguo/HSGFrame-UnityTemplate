@@ -219,7 +219,8 @@ namespace Template.Toolkit.Gates
 
             foreach (var segment in directoryPath.Replace('\\', '/').Split('/'))
             {
-                if (segment.Length == 0 || segment.Contains(':'))
+                // "." / ".." 是相对路径的构件，不是目录名（扫描根传 "." 时会走到这里）。
+                if (segment.Length == 0 || segment.Contains(':') || segment == "." || segment == "..")
                 {
                     continue;
                 }

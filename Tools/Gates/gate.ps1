@@ -20,7 +20,9 @@ $ErrorActionPreference = 'Stop'
 $templateRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 
 if (-not $RepositoryRoot) {
-    $RepositoryRoot = Join-Path $templateRoot '..'
+    # 模板可能是仓库里的一个子目录（RPG/Template/），也可能自己就是仓库根（独立模板仓库）。
+    # 靠 .git 判断，别假设「模板根的上一级就是仓库根」。
+    $RepositoryRoot = if (Test-Path (Join-Path $templateRoot '.git')) { $templateRoot } else { Join-Path $templateRoot '..' }
 }
 $RepositoryRoot = (Resolve-Path $RepositoryRoot).Path
 

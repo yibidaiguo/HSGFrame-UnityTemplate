@@ -19,6 +19,13 @@ namespace Template.Toolkit.Gates
                 .Select(NormalizeSlashes)
                 .ToList();
 
+            // 空名单表示不限制：模板自己就是仓库根时（独立模板仓库），整棵树都是产出区，
+            // 再列白名单等于把每个顶层目录抄一遍，没有信息量。
+            if (whitelist.Count == 0)
+            {
+                return findings;
+            }
+
             foreach (var path in changedPaths)
             {
                 if (string.IsNullOrWhiteSpace(path))

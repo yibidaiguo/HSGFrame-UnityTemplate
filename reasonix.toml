@@ -1,0 +1,78 @@
+# Reasonix 项目权限配置 —— GameTemplateForAgent（独立模板仓库）
+#
+# 这份是模板仓库自己的一份，从 D:\Projects\Unity\RPG\reasonix.toml 复制后改路径而来。
+# 模板已于 2026-08-15 从 RPG 仓库搬出，写盘根随之变成本仓库根。
+#
+# Windows 注意：Reasonix 的 bash 工具走 Git Bash，反斜杠路径会被 shell 吞掉，
+# 实际执行的是正斜杠形式 —— 所以涉及路径的规则两种斜杠都列。
+
+[permissions]
+mode = "ask"          # 兜底仍然要问；放行的只有下面列出的
+allow_dynamic_bash = true   # 关键：允许「效果不可静态判定」的命令（dotnet/git -C 等）；deny 与精确规则仍优先
+
+allow = [
+    # ---- .NET 工具链（验证 2 / 6 / 7 的主力） ----
+    'Bash(dotnet build*)',
+    'Bash(dotnet test*)',
+    'Bash(dotnet new*)',
+    'Bash(dotnet add*)',
+    'Bash(dotnet restore*)',
+    'Bash(dotnet run*)',
+    'Bash(dotnet nuget*)',
+    'Bash(dotnet --*)',
+    'Bash(dotnet sln*)',
+
+    # ---- Unity batchmode（验证 1 / 3 / 4 / 5，仅 6000.3.11f1） ----
+    'Bash(D:\Unity\Editor\6000.3.11f1\Unity.exe -batchmode*)',
+    'Bash(D:/Unity/Editor/6000.3.11f1/Unity.exe -batchmode*)',
+    'Bash("D:\Unity\Editor\6000.3.11f1\Unity.exe" -batchmode*)',
+    'Bash("D:/Unity/Editor/6000.3.11f1/Unity.exe" -batchmode*)',
+
+    # ---- 只读探查 ----
+    'Bash(git status*)',
+    'Bash(git diff*)',
+    'Bash(git log*)',
+    'Bash(git show*)',
+    'Bash(git rev-parse*)',
+    'Bash(git ls-files*)',
+    'Bash(git -C * status*)',
+    'Bash(git -C * diff*)',
+    'Bash(git -C * log*)',
+    'Bash(ls*)',
+    'Bash(find*)',
+    'Bash(cat*)',
+    'Bash(head*)',
+    'Bash(tail*)',
+    'Bash(grep*)',
+    'Bash(mkdir*)',
+
+    # ---- 编辑：只放行验证目录，其余靠 deny 兜底 ----
+    'Edit(**)',
+    'Write(**)',
+]
+
+deny = [
+    # ---- 不可恢复操作 ----
+    'Bash(rm -rf*)',
+    'Bash(rm -r*)',
+    'Bash(git clean*)',
+    'Bash(git checkout*)',
+    'Bash(git reset*)',
+    'Bash(git restore*)',
+
+    # ---- 提交由 Claude 验收全绿后自己做，子代理不碰 ----
+    'Bash(git add*)',
+    'Bash(git commit*)',
+    'Bash(git push*)',
+    'Bash(git tag*)',
+    'Bash(git branch*)',
+
+    # ---- 门禁与规范配置由人维护：执行后端改代码，不改判定标准 ----
+    'Edit(Tools/Gates/Config/**)',
+    'Write(Tools/Gates/Config/**)',
+    'Edit(.gitignore)',
+    'Edit(.gitattributes)',
+    'Edit(reasonix.toml)',
+]
+
+# 补：git -C 形式（排查中发现原配置漏了这条）
