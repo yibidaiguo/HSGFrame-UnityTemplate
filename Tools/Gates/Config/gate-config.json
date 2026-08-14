@@ -1,0 +1,23 @@
+{
+  "abbreviationBlacklist": ["Mgr", "Cfg", "Svc", "Btn", "Idx", "Tmp", "Utils", "Ctx", "Param", "Attr", "Conf"],
+  "directoryNameBlacklist": ["misc", "common", "utils", "helper", "stuff", "temp", "new"],
+  "directoryNamePattern": "^[A-Za-z_][A-Za-z0-9_.]*$",
+  "documentLineLimit": 200,
+  "documentExemptions": [
+    "Doc/挂机任务书.md",
+    "Doc/挂机日志.md",
+    "Doc/改造方案.md",
+    "Doc/JKFrameDoc/",
+    "Doc/系统文档/"
+  ],
+  "changedPathWhitelist": [
+    "Template/",
+    "RebuiltRPG/",
+    "Doc/挂机日志.md",
+    "Doc/挂机任务书.md",
+    "Doc/改造方案.md",
+    "reasonix.toml",
+    ".mcp.json"
+  ],
+  "testFileGlobs": ["Template/Solutions/*.Tests/*.cs"]
+}

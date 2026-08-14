@@ -12,5 +12,6 @@
   <ItemGroup>
     <ProjectReference Include="../CommandFramework/CommandFramework.csproj" />
     <ProjectReference Include="../../ConfigBridge/ConfigBridge.csproj" />
+    <ProjectReference Include="../../Gates/Gates.csproj" />
   </ItemGroup>
 </Project>

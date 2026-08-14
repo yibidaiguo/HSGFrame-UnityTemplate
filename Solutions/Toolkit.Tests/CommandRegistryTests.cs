@@ -5,6 +5,7 @@ using Xunit;
 
 namespace Template.Toolkit.Tests
 {
+    /// <summary>命令注册表的反射扫描与参数 schema 推导测试。</summary>
     public class CommandRegistryTests
     {
         [Fact]

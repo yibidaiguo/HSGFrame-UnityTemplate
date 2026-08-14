@@ -2,15 +2,16 @@ using Template.Logic.State;
 
 namespace Template.Logic.Service
 {
-    // 占位服务：伤害结算
+    /// <summary>伤害结算服务。</summary>
     public static class DamageService
     {
-        public static void Apply(UnitState 目标, int 伤害值)
+        /// <summary>对目标结算一次伤害，血量下限为零。</summary>
+        public static void Apply(UnitState target, int damageAmount)
         {
-            目标.血量 -= 伤害值;
-            if (目标.血量 < 0)
+            target.Health -= damageAmount;
+            if (target.Health < 0)
             {
-                目标.血量 = 0;
+                target.Health = 0;
             }
         }
     }

@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Template.Toolkit.CommandFramework;
@@ -106,7 +108,19 @@ namespace Template.Toolkit.CommandHost
                 descriptor.ArgumentType,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-            var result = descriptor.Invoke(arguments);
+            // 命令抛异常时也要吐一条结构化日志再退出：挂机跑时裸栈回溯没人看，
+            // 而调用方（gate.ps1 / 流水线）只认退出码与日志流。
+            CommandResult result;
+            try
+            {
+                result = descriptor.Invoke(arguments);
+            }
+            catch (TargetInvocationException exception)
+            {
+                var inner = exception.InnerException ?? exception;
+                EmitLog(commandName, "错误", $"命令执行抛出 {inner.GetType().Name}：{inner.Message}", success: false);
+                return 1;
+            }
 
             foreach (var line in result.OutputLines)
             {
@@ -139,25 +153,22 @@ namespace Template.Toolkit.CommandHost
 
         private static void EmitLog(string commandName, string level, string content, bool? success)
         {
-            var timestamp = DateTime.Now.ToString("o");
+            // 日志键面向人，按方案原则 1 用中文；但键名走字典而不是匿名类型的属性名，
+            // 这样标识符仍然全是英文，两条规矩不打架。字典保序，输出的字段顺序稳定。
+            var payload = new Dictionary<string, string>
+            {
+                ["时间"] = DateTime.Now.ToString("o"),
+                ["级别"] = level,
+                ["命令"] = commandName
+            };
 
-            // 结论行多一个「结果」字段，普通日志行只有「内容」。
-            var payload = success.HasValue
-                ? (object)new
-                {
-                    时间 = timestamp,
-                    级别 = level,
-                    命令 = commandName,
-                    结果 = success.Value ? "成功" : "失败",
-                    内容 = content
-                }
-                : new
-                {
-                    时间 = timestamp,
-                    级别 = level,
-                    命令 = commandName,
-                    内容 = content
-                };
+            // 结论行比普通日志行多一个「结果」。
+            if (success.HasValue)
+            {
+                payload["结果"] = success.Value ? "成功" : "失败";
+            }
+
+            payload["内容"] = content;
 
             Console.WriteLine(JsonSerializer.Serialize(payload, LogOptions));
         }

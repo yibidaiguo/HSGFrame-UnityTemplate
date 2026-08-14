@@ -9,6 +9,7 @@ using Xunit;
 
 namespace Template.Toolkit.ConfigBridge.Tests
 {
+    /// <summary>配置表桥接的往返、格式保真、基线拦截与 schema 校验测试。</summary>
     public class RoundTripTests
     {
         private const string SchemaJson = """

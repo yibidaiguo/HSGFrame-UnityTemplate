@@ -1,10 +1,15 @@
 namespace Template.Logic.Data
 {
-    // 占位配置结构：单位模板（静态配置数据）
+    /// <summary>单位的静态配置数据。</summary>
     public class UnitTemplate
     {
-        public int 编号;
-        public string 名称;
-        public int 初始血量;
+        /// <summary>单位编号。</summary>
+        public int UnitId;
+
+        /// <summary>单位名称。</summary>
+        public string UnitName;
+
+        /// <summary>出场时的血量。</summary>
+        public int InitialHealth;
     }
 }
