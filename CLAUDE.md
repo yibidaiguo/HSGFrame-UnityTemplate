@@ -16,7 +16,8 @@
 |---|---|
 | `Solutions/` | 纯 .NET 解决方案：`Logic.Core`（link Unity 源码 + Shim）与 `Logic.Tests`（xunit 测试） |
 | `Solutions/UnityShim/` | Unity 序列化特性的空实现 Shim，仅供纯 .NET 侧编译 |
-| `Tools/` | 工具与依赖快照（`Tools/Deps/Unity.Mathematics.dll`） |
+| `Tools/Cli/` | 命令层：`CommandFramework`（特性标记 + 反射扫描 + schema 推导）、`CommandHost`（命令宿主）、`unity-cmd.ps1`（Unity batchmode 入口，带超时必杀）、`toolkit-cmd.ps1`（纯 dotnet 快路径） |
+| `Tools/Deps/` | 依赖快照（`Unity.Mathematics.dll`，取自 Unity 6000.3.11f1） |
 | `UnityProject/` | Unity 工程本体，`Assets/_Project/Scripts/Logic/` 下按 Contracts / Data / State / Service 分层 |
 | `Doc/` | 改造方案等文档（在仓库根目录，不在模板内） |
 

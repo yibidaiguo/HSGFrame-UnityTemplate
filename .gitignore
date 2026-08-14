@@ -6,6 +6,9 @@
 bin/
 obj/
 
+# 命令层运行日志（unity-cmd.ps1 落盘用）
+Logs/
+
 # Unity 生成物（人第一次打开工程时才长出来）
 UnityProject/Library/
 UnityProject/Temp/

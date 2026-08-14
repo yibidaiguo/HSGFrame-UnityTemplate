@@ -1,0 +1,173 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using Template.Toolkit.CommandFramework;
+using Template.Toolkit.CommandHost.Commands;
+
+namespace Template.Toolkit.CommandHost
+{
+    /// <summary>
+    /// 命令宿主入口：在 Unity 编辑器关闭时，用纯 dotnet 方式驱动编辑器命令。
+    /// </summary>
+    public static class Program
+    {
+        private static readonly JsonSerializerOptions LogOptions = new JsonSerializerOptions
+        {
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+
+        public static int Main(string[] args)
+        {
+            if (args.Length == 0)
+            {
+                PrintUsage();
+                return 2;
+            }
+
+            switch (args[0])
+            {
+                case "list":
+                    return ListCommands();
+                case "describe":
+                    return DescribeCommand(args);
+                case "run":
+                    return RunCommand(args);
+                default:
+                    PrintUsage();
+                    return 2;
+            }
+        }
+
+        private static int ListCommands()
+        {
+            var commands = CommandRegistry.ScanAssemblies(typeof(Program).Assembly);
+            foreach (var command in commands)
+            {
+                Console.WriteLine($"{command.CommandName}\t{command.Description}");
+            }
+
+            return 0;
+        }
+
+        private static int DescribeCommand(string[] args)
+        {
+            if (args.Length < 2)
+            {
+                PrintUsage();
+                return 2;
+            }
+
+            var commandName = args[1];
+            var descriptor = FindCommand(commandName);
+            if (descriptor == null)
+            {
+                Console.WriteLine($"未找到命令：{commandName}");
+                return 2;
+            }
+
+            Console.WriteLine(CommandRegistry.DescribeAsJson(descriptor));
+            return 0;
+        }
+
+        private static int RunCommand(string[] args)
+        {
+            if (args.Length < 2)
+            {
+                PrintUsage();
+                return 2;
+            }
+
+            var commandName = args[1];
+            var jsonPath = ReadOption(args, "--arguments-file");
+            if (jsonPath == null)
+            {
+                PrintUsage();
+                return 2;
+            }
+
+            var descriptor = FindCommand(commandName);
+            if (descriptor == null)
+            {
+                Console.WriteLine($"未找到命令：{commandName}");
+                return 2;
+            }
+
+            if (!File.Exists(jsonPath))
+            {
+                Console.WriteLine($"参数文件不存在：{jsonPath}");
+                return 2;
+            }
+
+            var json = File.ReadAllText(jsonPath);
+            var arguments = JsonSerializer.Deserialize(
+                json,
+                descriptor.ArgumentType,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            var result = descriptor.Invoke(arguments);
+
+            foreach (var line in result.OutputLines)
+            {
+                EmitLog(commandName, "信息", line, success: null);
+            }
+
+            EmitLog(commandName, result.IsSuccess ? "信息" : "错误", result.Message, result.IsSuccess);
+
+            return result.IsSuccess ? 0 : 1;
+        }
+
+        private static CommandDescriptor FindCommand(string commandName)
+        {
+            var commands = CommandRegistry.ScanAssemblies(typeof(Program).Assembly);
+            return commands.FirstOrDefault(command => command.CommandName == commandName);
+        }
+
+        private static string ReadOption(string[] args, string optionName)
+        {
+            for (var index = 0; index < args.Length - 1; index++)
+            {
+                if (args[index] == optionName)
+                {
+                    return args[index + 1];
+                }
+            }
+
+            return null;
+        }
+
+        private static void EmitLog(string commandName, string level, string content, bool? success)
+        {
+            var timestamp = DateTime.Now.ToString("o");
+
+            // 结论行多一个「结果」字段，普通日志行只有「内容」。
+            var payload = success.HasValue
+                ? (object)new
+                {
+                    时间 = timestamp,
+                    级别 = level,
+                    命令 = commandName,
+                    结果 = success.Value ? "成功" : "失败",
+                    内容 = content
+                }
+                : new
+                {
+                    时间 = timestamp,
+                    级别 = level,
+                    命令 = commandName,
+                    内容 = content
+                };
+
+            Console.WriteLine(JsonSerializer.Serialize(payload, LogOptions));
+        }
+
+        private static void PrintUsage()
+        {
+            Console.WriteLine("用法：");
+            Console.WriteLine("  unity-cmd list");
+            Console.WriteLine("  unity-cmd describe <命令名>");
+            Console.WriteLine("  unity-cmd run <命令名> --arguments-file <json路径>");
+        }
+    }
+}

@@ -5,6 +5,13 @@
 *.json      text
 *.asmdef    text
 
+# PowerShell 脚本统一 CRLF + UTF-8 带 BOM：
+# Windows PowerShell 5.1 把无 BOM 的 UTF-8 当 ANSI 读，中文注释会截断字符串，
+# 报错位置和真实原因完全对不上。
+# BOM 字节直接存进 blob（git 的 working-tree-encoding 只认 UTF-16/32 那几个带 BOM 的名字，
+# 写成 UTF-8-BOM 会让 git add 直接报 "failed to encode"），所以这里只钉行尾。
+*.ps1       text eol=crlf
+
 *.dll       binary
 *.png       binary
 *.xlsx      binary
