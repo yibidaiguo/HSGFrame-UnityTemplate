@@ -26,3 +26,7 @@ UnityProject/obj/
 UnityProject/Build/
 UnityProject/Builds/
 UnityProject/MemoryCaptures/
+
+# HybridCLR 的本地 il2cpp 数据（819 MB）：由「初始化开发环境」现装，不进仓库。
+# 这也是模板要有一键初始化的根本原因——环境不可能靠 clone 带过来。
+UnityProject/HybridCLRData/

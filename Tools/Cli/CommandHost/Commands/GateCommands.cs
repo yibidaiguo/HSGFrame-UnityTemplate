@@ -92,7 +92,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, Environment.CurrentDirectory));
 
             var findings = NamingChecker.Check(
-                NamingChecker.EnumerateSourceFiles(arguments.RootDirectory),
+                NamingChecker.EnumerateSourceFiles(arguments.RootDirectory, configuration.SourceScanSkipSegments),
                 configuration);
 
             return GateCommandSupport.ToResult("命名与注释规范门禁", findings);

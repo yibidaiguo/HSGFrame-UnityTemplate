@@ -1,9 +1,11 @@
 {
   "dependencies": {
+    "com.code-philosophy.hybridclr": "https://github.com/focus-creative-games/hybridclr_unity.git#v8.13.0",
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
+    "com.tuyoogame.yooasset": "https://github.com/tuyoogame/YooAsset.git?path=Assets/YooAsset#3.0.5",
     "com.unity.mathematics": "1.3.3",
-    "com.unity.test-framework": "1.4.6",
+    "com.unity.modules.jsonserialize": "1.0.0",
     "com.unity.modules.uielements": "1.0.0",
-    "com.unity.modules.jsonserialize": "1.0.0"
+    "com.unity.test-framework": "1.4.6"
   }
 }

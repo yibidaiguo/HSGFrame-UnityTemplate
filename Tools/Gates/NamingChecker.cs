@@ -60,8 +60,24 @@ namespace Template.Toolkit.Gates
                 return Enumerable.Empty<string>();
             }
 
+            return EnumerateSourceFiles(rootDirectory, Array.Empty<string>());
+        }
+
+        /// <summary>
+        /// 同上，另外跳过调用方指定的目录名（第三方源码与生成物走这条）。
+        /// </summary>
+        /// <param name="rootDirectory">扫描根目录。</param>
+        /// <param name="extraSkipSegments">额外要跳过的目录名。</param>
+        public static IEnumerable<string> EnumerateSourceFiles(string rootDirectory, IReadOnlyList<string> extraSkipSegments)
+        {
+            if (!Directory.Exists(rootDirectory))
+            {
+                return Enumerable.Empty<string>();
+            }
+
+            var skipSegments = EnumerateSkipSegments.Concat(extraSkipSegments ?? Array.Empty<string>()).ToArray();
             return Directory.EnumerateFiles(rootDirectory, "*.cs", SearchOption.AllDirectories)
-                .Where(path => !ContainsAnySegment(path, EnumerateSkipSegments));
+                .Where(path => !ContainsAnySegment(path, skipSegments));
         }
 
         private static IReadOnlyList<GateFinding> CheckFile(string filePath, GateConfiguration configuration)

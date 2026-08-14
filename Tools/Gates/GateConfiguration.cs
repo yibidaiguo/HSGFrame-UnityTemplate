@@ -25,6 +25,9 @@ namespace Template.Toolkit.Gates
         /// <summary>改动文件路径白名单前缀。</summary>
         public IReadOnlyList<string> ChangedPathWhitelist { get; set; }
 
+        /// <summary>源码扫描要跳过的目录名，用来排除第三方与生成物（如 HybridCLRData）。</summary>
+        public IReadOnlyList<string> SourceScanSkipSegments { get; set; }
+
         /// <summary>测试源文件的 glob 模式。</summary>
         public IReadOnlyList<string> TestFileGlobs { get; set; }
 

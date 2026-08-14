@@ -27,5 +27,11 @@
   "changedPathWhitelist": [],
   "testFileGlobs": [
     "Solutions/*.Tests/*.cs"
+  ],
+  "sourceScanSkipSegments": [
+    "HybridCLRData",
+    "PackageCache",
+    "Build",
+    "Logs"
   ]
 }

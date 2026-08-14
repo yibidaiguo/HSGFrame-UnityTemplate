@@ -1,7 +1,13 @@
 {
   "name": "Toolkit.Editor",
   "rootNamespace": "Template.Toolkit.Editor",
-  "references": [],
-  "includePlatforms": ["Editor"],
+  "references": [
+    "HybridCLR.Editor",
+    "YooAsset",
+    "YooAsset.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
   "noEngineReferences": false
 }
