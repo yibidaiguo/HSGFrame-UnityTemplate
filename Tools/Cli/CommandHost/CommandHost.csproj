@@ -13,6 +13,7 @@
     <ProjectReference Include="../CommandFramework/CommandFramework.csproj" />
     <ProjectReference Include="../../ConfigBridge/ConfigBridge.csproj" />
     <ProjectReference Include="../../Gates/Gates.csproj" />
+    <ProjectReference Include="../../UiScaffold/UiScaffold.csproj" />
     <ProjectReference Include="../../Indexing/Indexing.csproj" />
   </ItemGroup>
 </Project>

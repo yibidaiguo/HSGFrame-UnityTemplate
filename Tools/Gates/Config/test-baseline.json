@@ -10,6 +10,8 @@
     "Template/Solutions/Logic.Tests/HealthTests.cs": "f08e68f3b92ead80d339c150a6826653d95b479da5d0fce910f3525b5081d401",
     "Template/Solutions/Logic.Tests/LevelRoundTripTests.cs": "949d3ca57cb3bf27c5e29ad9273dffff088e04c30a96693d35566b8ebc8e43ae",
     "Template/Solutions/Save.Tests/SaveMigrationTests.cs": "a6e8693c2b3419b15b09567b8b0fd86692c6122dbbb640c0ea5a20054445471f",
-    "Template/Solutions/Toolkit.Tests/CommandRegistryTests.cs": "464d3b927f662fb17838d999120cde5169e285f9362accc7546b7f5483a7076e"
+    "Template/Solutions/Toolkit.Tests/CommandRegistryTests.cs": "464d3b927f662fb17838d999120cde5169e285f9362accc7546b7f5483a7076e",
+    "Template/Solutions/UiFramework.Tests/PanelScaffolderTests.cs": "3986f3839db7727e4d20f50611a5265895f1da03b7c3ea84245ce563c9f44e78",
+    "Template/Solutions/UiFramework.Tests/PanelStackTests.cs": "dfbfc0794b5ae14b179200a2f9f3730707fd3177b526b497c051cc7723aa889a"
   }
 }

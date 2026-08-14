@@ -1,0 +1,5 @@
+.面板-根 {
+    flex-grow: 1;
+    background-color: var(--颜色-背景);
+    padding: var(--间距-中);
+}
