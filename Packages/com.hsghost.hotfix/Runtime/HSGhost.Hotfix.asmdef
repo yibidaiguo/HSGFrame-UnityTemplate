@@ -1,0 +1,7 @@
+{
+  "name": "HSGhost.Hotfix",
+  "rootNamespace": "HSGhost.Hotfix",
+  "references": [],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}
