@@ -12,6 +12,12 @@ Logs/
 # 打包中间产物（pack-hotfix.ps1 的清单与包目录）
 Build/
 
+# 执行后端跑任务时留下的一次性脚本，本轮保持不删（删除属不可逆动作），留给人处置：
+# Tools/_sample_gen/ 是阶段 4 生成样例 xlsx 的一次性工程，
+# Solutions/_tmp.PlaceholderCheck/ 是某次占位检查的残留。
+Tools/_sample_gen/
+Solutions/_tmp.PlaceholderCheck/
+
 # Unity 生成物（人第一次打开工程时才长出来）
 UnityProject/Library/
 UnityProject/Temp/
