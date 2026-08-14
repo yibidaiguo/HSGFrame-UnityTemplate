@@ -1,0 +1,18 @@
+{
+  "name": "Logic.State",
+  "rootNamespace": "Template.Logic.State",
+  "references": [
+    "Logic.Contracts",
+    "Logic.Data",
+    "Unity.Mathematics"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}

@@ -1,0 +1,16 @@
+# 仓库根 .gitignore 全局忽略了 *.csproj / *.sln，这里把 Template 自建的工程文件重新纳入
+!*.csproj
+!*.sln
+
+# 编译产物
+bin/
+obj/
+
+# Unity 生成物（人第一次打开工程时才长出来）
+UnityProject/Library/
+UnityProject/Temp/
+UnityProject/Logs/
+UnityProject/obj/
+UnityProject/Build/
+UnityProject/Builds/
+UnityProject/MemoryCaptures/

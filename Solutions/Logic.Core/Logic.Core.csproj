@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Logic.Core</AssemblyName>
+    <RootNamespace>Template.Logic</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../UnityProject/Assets/_Project/Scripts/Logic/**/*.cs" LinkBase="Logic" />
+    <Compile Include="../UnityShim/**/*.cs" LinkBase="UnityShim" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Unity.Mathematics">
+      <HintPath>../../Tools/Deps/Unity.Mathematics.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,17 @@
+{
+  "name": "Logic.Data",
+  "rootNamespace": "Template.Logic.Data",
+  "references": [
+    "Logic.Contracts",
+    "Unity.Mathematics"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}
