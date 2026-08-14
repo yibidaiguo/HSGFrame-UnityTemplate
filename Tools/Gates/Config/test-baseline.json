@@ -9,6 +9,7 @@
     "Template/Solutions/Indexing.Tests/McpRequestHandlerTests.cs": "b6d778190fe6af555fb442c531fd563db93f6a12a82d995949521608a19814fd",
     "Template/Solutions/Logic.Tests/HealthTests.cs": "f08e68f3b92ead80d339c150a6826653d95b479da5d0fce910f3525b5081d401",
     "Template/Solutions/Logic.Tests/LevelRoundTripTests.cs": "949d3ca57cb3bf27c5e29ad9273dffff088e04c30a96693d35566b8ebc8e43ae",
+    "Template/Solutions/Save.Tests/SaveMigrationTests.cs": "a6e8693c2b3419b15b09567b8b0fd86692c6122dbbb640c0ea5a20054445471f",
     "Template/Solutions/Toolkit.Tests/CommandRegistryTests.cs": "464d3b927f662fb17838d999120cde5169e285f9362accc7546b7f5483a7076e"
   }
 }

@@ -1,0 +1,8 @@
+{
+  "name": "com.hsghost.objectpool",
+  "version": "0.1.0",
+  "displayName": "对象池",
+  "description": "按需创建、用后归还的对象池。",
+  "unity": "6000.3",
+  "author": { "name": "HSGhost" }
+}

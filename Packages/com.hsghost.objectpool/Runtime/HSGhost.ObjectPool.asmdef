@@ -1,0 +1,7 @@
+{
+  "name": "HSGhost.ObjectPool",
+  "rootNamespace": "HSGhost.ObjectPool",
+  "references": [],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}

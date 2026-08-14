@@ -1,0 +1,7 @@
+{
+  "name": "HSGhost.Localization",
+  "rootNamespace": "HSGhost.Localization",
+  "references": [],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}

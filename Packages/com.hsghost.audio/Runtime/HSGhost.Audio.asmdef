@@ -1,0 +1,7 @@
+{
+  "name": "HSGhost.Audio",
+  "rootNamespace": "HSGhost.Audio",
+  "references": [],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}

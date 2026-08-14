@@ -1,0 +1,8 @@
+{
+  "name": "com.hsghost.localization",
+  "version": "0.1.0",
+  "displayName": "本地化",
+  "description": "键到译文的查表本地化。",
+  "unity": "6000.3",
+  "author": { "name": "HSGhost" }
+}
