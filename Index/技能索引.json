@@ -1,0 +1,20 @@
+{
+  "indexName": "技能索引",
+  "sourceRoot": "Template/Config/Mirror",
+  "sourceHash": "36d464c93704c7675f4492d413d77ab46fa8f730af9537c9a60bc1519d76285f",
+  "generatedAtUtc": "2026-08-14T20:21:23Z",
+  "entries": [
+    {
+      "relativePath": "Template/Config/Mirror/.baseline.json",
+      "fileName": ".baseline.json",
+      "assetGuid": "",
+      "fileHash": "14353845796f74052b26a92abbe242588d04964f7c9d729324f0fffb2d81cfd4"
+    },
+    {
+      "relativePath": "Template/Config/Mirror/背包.json",
+      "fileName": "背包.json",
+      "assetGuid": "",
+      "fileHash": "ab6a2c8d925f07e6f5c2c50d298a67a3c6d9488be8b143426cc61261611713aa"
+    }
+  ]
+}

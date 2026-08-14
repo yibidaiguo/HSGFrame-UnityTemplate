@@ -5,6 +5,8 @@
     "Template/Solutions/Gates.Tests/FileWhitelistCheckerTests.cs": "809bf46acab367bc5895c8fea1c78a625197bd3feefa2232cf3e19e70a248393",
     "Template/Solutions/Gates.Tests/NamingCheckerTests.cs": "af76490ed28269f63d1085b625e2417b450e16a2aa752144cd11523039308698",
     "Template/Solutions/Gates.Tests/TestBaselineLockTests.cs": "4d0c36e7bdcdd1ed89e814f0dada81373e3ab1d4f33c0884460893265968617e",
+    "Template/Solutions/Indexing.Tests/IndexBuilderTests.cs": "f092da971b3e5104f63a3faabab569629a9731f2394c0b0cc7bf4771b340d7dd",
+    "Template/Solutions/Indexing.Tests/McpRequestHandlerTests.cs": "b6d778190fe6af555fb442c531fd563db93f6a12a82d995949521608a19814fd",
     "Template/Solutions/Logic.Tests/HealthTests.cs": "f08e68f3b92ead80d339c150a6826653d95b479da5d0fce910f3525b5081d401",
     "Template/Solutions/Logic.Tests/LevelRoundTripTests.cs": "949d3ca57cb3bf27c5e29ad9273dffff088e04c30a96693d35566b8ebc8e43ae",
     "Template/Solutions/Toolkit.Tests/CommandRegistryTests.cs": "464d3b927f662fb17838d999120cde5169e285f9362accc7546b7f5483a7076e"
