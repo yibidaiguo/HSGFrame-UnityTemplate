@@ -37,6 +37,12 @@ namespace Template.Toolkit.Gates
         /// <summary>测试源文件的 glob 模式。</summary>
         public IReadOnlyList<string> TestFileGlobs { get; set; }
 
+        /// <summary>宿主项目专属名字黑名单：出现在标识符、菜单路径、路径字面量里就报。</summary>
+        public IReadOnlyList<string> GenericNameBlacklist { get; set; }
+
+        /// <summary>通用性检查的整文件豁免：按仓库相对路径前缀豁免的文件。</summary>
+        public IReadOnlyList<string> GenericNameExemptPaths { get; set; }
+
         /// <summary>从配置文件读取门禁配置。</summary>
         /// <param name="configPath">gate-config.json 的路径。</param>
         public static GateConfiguration LoadFromFile(string configPath)

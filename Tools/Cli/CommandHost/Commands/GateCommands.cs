@@ -115,6 +115,46 @@ namespace Template.Toolkit.CommandHost.Commands
         }
     }
 
+    /// <summary>通用性门禁命令的参数。</summary>
+    public sealed class GateGenericArguments
+    {
+        /// <summary>要扫描的源文件根目录。</summary>
+        [Summary("要扫描的源文件根目录")]
+        public string RootDirectory { get; set; }
+
+        /// <summary>门禁配置文件路径，默认取仓库内的 gate-config.json。</summary>
+        [Summary("门禁配置文件路径，默认取仓库内的 gate-config.json")]
+        [DefaultValue("Tools/Gates/Config/gate-config.json")]
+        public string ConfigurationPath { get; set; }
+    }
+
+    /// <summary>通用性门禁命令：宿主项目专属名字有没有焊进通用件。</summary>
+    public static class GateGenericCommand
+    {
+        /// <summary>
+        /// 跑通用性检查，返回结构化发现列表。
+        /// </summary>
+        /// <param name="arguments">通用性门禁参数。</param>
+        [EditorCommand("gate.generic")]
+        [Summary("通用性门禁：标识符、菜单路径、路径字面量里不允许出现宿主项目专属名字")]
+        public static CommandResult Execute(GateGenericArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.RootDirectory))
+            {
+                return CommandResult.Failure("参数 RootDirectory 为必填项");
+            }
+
+            var configuration = GateConfiguration.LoadFromFile(
+                GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, Environment.CurrentDirectory));
+
+            var findings = GenericNameChecker.Check(
+                NamingChecker.EnumerateSourceFiles(arguments.RootDirectory, configuration.SourceScanSkipSegments),
+                configuration);
+
+            return GateCommandSupport.ToResult("通用性门禁", findings);
+        }
+    }
+
     /// <summary>测试基线锁命令：登记或校验测试源文件哈希。</summary>
     public static class GateBaselineCommand
     {

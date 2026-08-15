@@ -72,6 +72,11 @@ if ((Invoke-GateCommand -CommandName 'gate.naming' -CommandArguments @{ RootDire
     $failedGateNames += '命名检查器'
 }
 
+Write-GateHeader '通用性检查'
+if ((Invoke-GateCommand -CommandName 'gate.generic' -CommandArguments @{ RootDirectory = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
+    $failedGateNames += '通用性检查'
+}
+
 Write-GateHeader '测试基线锁'
 if ((Invoke-GateCommand -CommandName 'gate.baseline' -CommandArguments @{ TemplateRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
     $failedGateNames += '测试基线锁'
@@ -170,5 +175,5 @@ if ($failedGateNames.Count -gt 0) {
     exit 1
 }
 
-Write-Host '[gate] PASS —— 七道门禁全绿'
+Write-Host '[gate] PASS —— 八道门禁全绿'
 exit 0

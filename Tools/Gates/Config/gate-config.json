@@ -66,6 +66,16 @@
     "Build",
     "Logs"
   ],
+  "genericNameBlacklist": [
+    "RPG",
+    "RebuiltRPG",
+    "RebuiltRpg",
+    "MyGame"
+  ],
+  "genericNameExemptPaths": [
+    "Solutions/Gates.Tests/",
+    "Solutions/Toolkit.Tests/"
+  ],
   "playerBuildEntryMethod": "Template.Toolkit.Editor.PlayerBuildCommandLine.BuildWindows",
   "editorOwnedPathPrefixes": []
 }
