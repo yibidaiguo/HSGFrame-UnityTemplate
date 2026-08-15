@@ -1,0 +1,54 @@
+{
+  "流水线": [
+    {
+      "名称": "秒级门禁",
+      "说明": "格式、文本规范与 dotnet test，不启 Unity",
+      "步骤": [
+        { "名称": "dotnet test", "程序": "dotnet",
+          "参数": ["test", "Solutions/Template.sln", "--nologo"], "需要Unity": false }
+      ]
+    },
+    {
+      "名称": "十秒级门禁",
+      "说明": "全解决方案编译再加门禁脚本，不启 Unity",
+      "步骤": [
+        { "名称": "dotnet build", "程序": "dotnet",
+          "参数": ["build", "Solutions/Template.sln", "--nologo"], "需要Unity": false },
+        { "名称": "门禁脚本", "程序": "pwsh",
+          "参数": ["-NoProfile", "-File", "Tools/Gates/gate.ps1"], "需要Unity": false }
+      ]
+    },
+    {
+      "名称": "夜间构建",
+      "说明": "十秒级门禁两步，再加一步 Unity 真编译",
+      "步骤": [
+        { "名称": "dotnet build", "程序": "dotnet",
+          "参数": ["build", "Solutions/Template.sln", "--nologo"], "需要Unity": false },
+        { "名称": "门禁脚本", "程序": "pwsh",
+          "参数": ["-NoProfile", "-File", "Tools/Gates/gate.ps1"], "需要Unity": false },
+        { "名称": "Unity 真编译", "程序": "pwsh",
+          "参数": ["-NoProfile", "-File", "Tools/Cli/unity-cmd.ps1",
+            "-ExecuteMethod", "Template.Toolkit.Editor.CompileCheckEntry.Run",
+            "-TimeoutMinutes", "40"], "需要Unity": true }
+      ]
+    },
+    {
+      "名称": "发布",
+      "说明": "夜间构建三步，再加一步出包",
+      "步骤": [
+        { "名称": "dotnet build", "程序": "dotnet",
+          "参数": ["build", "Solutions/Template.sln", "--nologo"], "需要Unity": false },
+        { "名称": "门禁脚本", "程序": "pwsh",
+          "参数": ["-NoProfile", "-File", "Tools/Gates/gate.ps1"], "需要Unity": false },
+        { "名称": "Unity 真编译", "程序": "pwsh",
+          "参数": ["-NoProfile", "-File", "Tools/Cli/unity-cmd.ps1",
+            "-ExecuteMethod", "Template.Toolkit.Editor.CompileCheckEntry.Run",
+            "-TimeoutMinutes", "40"], "需要Unity": true },
+        { "名称": "出包", "程序": "pwsh",
+          "参数": ["-NoProfile", "-File", "Tools/Cli/unity-cmd.ps1",
+            "-ExecuteMethod", "Template.Toolkit.Editor.PlayerBuildCommandLine.BuildWindows",
+            "-TimeoutMinutes", "60"], "需要Unity": true }
+      ]
+    }
+  ]
+}

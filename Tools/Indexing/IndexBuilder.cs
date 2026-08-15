@@ -28,12 +28,15 @@ namespace Template.Toolkit.Indexing
                         continue;
                     }
 
+                    var fileInfo = new FileInfo(filePath);
                     entries.Add(new IndexEntry
                     {
                         RelativePath = relativePath,
                         FileName = Path.GetFileName(filePath),
                         AssetGuid = ReadAssetGuid(filePath),
-                        FileHash = ComputeSha256(filePath)
+                        FileHash = ComputeSha256(filePath),
+                        FileLength = fileInfo.Length,
+                        LastWriteTimeUtcTicks = fileInfo.LastWriteTimeUtc.Ticks
                     });
                 }
             }
@@ -57,6 +60,82 @@ namespace Template.Toolkit.Indexing
         {
             var document = Build(repositoryRoot, definition);
             document.SaveToFile(Path.Combine(repositoryRoot, definition.OutputPath));
+        }
+
+        /// <summary>
+        /// 增量重建索引：文件长度与最后写入时间都没变的条目复用上次的哈希，其余照全量重算。
+        /// previousDocument 为 null 时退回全量。同一份磁盘状态下，结果与 Build 完全一致。
+        /// </summary>
+        /// <param name="templateRoot">仓库根目录，相对路径都以此为基准。</param>
+        /// <param name="definition">索引定义。</param>
+        /// <param name="previousDocument">上一份索引文档，可为 null。</param>
+        public static IndexDocument BuildIncremental(
+            string templateRoot,
+            IndexDefinition definition,
+            IndexDocument previousDocument)
+        {
+            if (previousDocument == null)
+            {
+                return Build(templateRoot, definition);
+            }
+
+            var previousByPath = previousDocument.Entries.ToDictionary(entry => entry.RelativePath);
+            var sourceDirectory = Path.Combine(templateRoot, definition.SourceRoot);
+            var entries = new List<IndexEntry>();
+            var reusedEntryCount = 0;
+
+            if (Directory.Exists(sourceDirectory))
+            {
+                foreach (var filePath in Directory.EnumerateFiles(sourceDirectory, definition.FilePattern, SearchOption.AllDirectories))
+                {
+                    var relativePath = Path.GetRelativePath(templateRoot, filePath).Replace('\\', '/');
+                    if (ShouldSkip(relativePath))
+                    {
+                        continue;
+                    }
+
+                    var fileInfo = new FileInfo(filePath);
+                    if (previousByPath.TryGetValue(relativePath, out var previous)
+                        && previous.FileLength == fileInfo.Length
+                        && previous.LastWriteTimeUtcTicks == fileInfo.LastWriteTimeUtc.Ticks)
+                    {
+                        entries.Add(new IndexEntry
+                        {
+                            RelativePath = relativePath,
+                            FileName = Path.GetFileName(filePath),
+                            AssetGuid = previous.AssetGuid,
+                            FileHash = previous.FileHash,
+                            FileLength = previous.FileLength,
+                            LastWriteTimeUtcTicks = previous.LastWriteTimeUtcTicks
+                        });
+                        reusedEntryCount++;
+                    }
+                    else
+                    {
+                        entries.Add(new IndexEntry
+                        {
+                            RelativePath = relativePath,
+                            FileName = Path.GetFileName(filePath),
+                            AssetGuid = ReadAssetGuid(filePath),
+                            FileHash = ComputeSha256(filePath),
+                            FileLength = fileInfo.Length,
+                            LastWriteTimeUtcTicks = fileInfo.LastWriteTimeUtc.Ticks
+                        });
+                    }
+                }
+            }
+
+            entries.Sort((left, right) => string.CompareOrdinal(left.RelativePath, right.RelativePath));
+
+            return new IndexDocument
+            {
+                IndexName = definition.IndexName,
+                SourceRoot = definition.SourceRoot,
+                SourceHash = ComputeSourceHash(entries),
+                GeneratedAtUtc = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                Entries = entries,
+                ReusedEntryCount = reusedEntryCount
+            };
         }
 
         // 源哈希算法必须稳定：按相对路径升序，逐个拼 "<相对路径>:<文件哈希>\n"，

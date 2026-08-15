@@ -2,7 +2,7 @@
   门禁总编排：按由快到慢的顺序跑完四道检查，任何一道红就地停下。
 
   用法：
-    .\gate.ps1 [-RepositoryRoot D:\Projects\Unity\RPG]
+    .\gate.ps1 [-RepositoryRoot <仓库根目录>]
 
   检查逻辑全部在 C# 侧（Toolkit.Gates + 命令宿主），这个脚本只负责调用与汇总，
   这样执行后端也能用 dotnet test 自己验证门禁本身。
@@ -20,7 +20,7 @@ $ErrorActionPreference = 'Stop'
 $templateRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 
 if (-not $RepositoryRoot) {
-    # 模板可能是仓库里的一个子目录（RPG/Template/），也可能自己就是仓库根（独立模板仓库）。
+    # 模板可能是仓库里的一个子目录，也可能自己就是仓库根（独立模板仓库）。
     # 靠 .git 判断，别假设「模板根的上一级就是仓库根」。
     $RepositoryRoot = if (Test-Path (Join-Path $templateRoot '.git')) { $templateRoot } else { Join-Path $templateRoot '..' }
 }
@@ -82,20 +82,44 @@ $changedPaths = @()
 $editorOwnedPaths = @()
 # 生成出来的新项目可能还没 git init，那时白名单没有输入，视为无改动而不是让整条门禁崩掉。
 $statusLines = @()
-try { $statusLines = & git -C $RepositoryRoot status --porcelain 2>$null } catch { $statusLines = @() }
-if ($LASTEXITCODE -ne 0) { $statusLines = @() }
+# git 输出的是 UTF-8 字节，PowerShell 默认按控制台代码页（中文 Windows 上是 936）解码，
+# 于是中文路径会被解成乱码，白名单前缀永远匹配不上。这里临时把解码方式钉成 UTF-8。
+# 另外 core.quotepath=false 让 git 直接吐原文，而不是 \346\224\271 这样的八进制转义。
+$previousOutputEncoding = [Console]::OutputEncoding
+try {
+    [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
+    $statusLines = & git -C $RepositoryRoot -c core.quotepath=false status --porcelain 2>$null
+    if ($LASTEXITCODE -ne 0) { $statusLines = @() }
+} catch {
+    $statusLines = @()
+} finally {
+    [Console]::OutputEncoding = $previousOutputEncoding
+}
+
+$editorOwnedPrefixes = @()
+$gateConfigPath = Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json'
+if (Test-Path $gateConfigPath) {
+    $gateConfig = Get-Content -Raw -Path $gateConfigPath | ConvertFrom-Json
+    if ($gateConfig.editorOwnedPathPrefixes) { $editorOwnedPrefixes = @($gateConfig.editorOwnedPathPrefixes) }
+}
 
 foreach ($statusLine in $statusLines) {
     $path = $statusLine.Substring(3).Trim('"')
     # 重命名条目形如 "旧路径 -> 新路径"，白名单只关心落点。
     if ($path -match ' -> ') { $path = ($path -split ' -> ')[-1] }
 
-    # RPG_Unity/ 下的变化由一个常驻的 Unity 编辑器进程自己写（Addressables 组、场景、Library/），
-    # 工具链两侧对它都是 deny，所以在白名单判定前摘出去，只报一行知会。
-    if ($path.StartsWith('RPG_Unity/')) { $editorOwnedPaths += $path } else { $changedPaths += $path }
+    # 有些目录由常驻的 Unity 编辑器进程自己写（Addressables 组、场景、Library/），
+    # 工具链两侧对它们都是 deny，所以在白名单判定前摘出去，只报一行知会。
+    # 目录名是每个宿主项目自己的事，写在 gate-config.json 的 editorOwnedPathPrefixes 里，
+    # 别焊进这个脚本——模板不该知道宿主的旧工程叫什么。
+    $isEditorOwned = $false
+    foreach ($prefix in $editorOwnedPrefixes) {
+        if ($path.StartsWith($prefix)) { $isEditorOwned = $true; break }
+    }
+    if ($isEditorOwned) { $editorOwnedPaths += $path } else { $changedPaths += $path }
 }
 if ($editorOwnedPaths.Count -gt 0) {
-    Write-Host "[gate] 知会：RPG_Unity/ 下有 $($editorOwnedPaths.Count) 处变化，来自常驻编辑器进程，未计入白名单判定"
+    Write-Host "[gate] 知会：编辑器自有目录下有 $($editorOwnedPaths.Count) 处变化，未计入白名单判定"
 }
 if ((Invoke-GateCommand -CommandName 'gate.whitelist' -CommandArguments @{ ChangedPathsText = ($changedPaths -join "`n"); ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
     $failedGateNames += '改动文件白名单'
@@ -106,11 +130,45 @@ if ((Invoke-GateCommand -CommandName 'gate.doc' -CommandArguments @{ RepositoryR
     $failedGateNames += '文档长度'
 }
 
+# 生成物幂等：仓库里已生成的产物必须与当前 schema / 定义一致，谁手改了产物这里就会红。
+Write-GateHeader '生成物幂等'
+$idempotencyFailed = $false
+
+if ((Invoke-GateCommand -CommandName 'codegen.run' -CommandArguments @{ TemplateRoot = $templateRoot; VerifyOnly = $true }) -ne 0) {
+    $idempotencyFailed = $true
+}
+
+$uiDefinitionsDirectory = Join-Path $templateRoot 'UI/Definitions'
+$uiDefinitions = @()
+if (Test-Path $uiDefinitionsDirectory) {
+    $uiDefinitions = @(Get-ChildItem $uiDefinitionsDirectory -Filter '*.uidef.json')
+}
+
+# 刚生成的新项目还没有面板定义，这时没有可校验的产物，跳过而不是让整条门禁崩掉。
+if ($uiDefinitions.Count -eq 0) {
+    Write-Host "[gate] 知会：$uiDefinitionsDirectory 下没有面板定义，跳过 ui.scaffold 的幂等校验"
+} else {
+    foreach ($definition in $uiDefinitions) {
+        if ((Invoke-GateCommand -CommandName 'ui.scaffold' -CommandArguments @{
+                DefinitionPath = $definition.FullName
+                OutputDirectory = (Join-Path $templateRoot 'UI/Generated')
+                TemplateRoot = $templateRoot
+                VerifyOnly = $true
+            }) -ne 0) {
+            $idempotencyFailed = $true
+        }
+    }
+}
+
+if ($idempotencyFailed) {
+    $failedGateNames += '生成物幂等'
+}
+
 Write-Host ''
 if ($failedGateNames.Count -gt 0) {
     Write-Host "[gate] FAIL —— 未通过：$($failedGateNames -join '、')"
     exit 1
 }
 
-Write-Host '[gate] PASS —— 六道门禁全绿'
+Write-Host '[gate] PASS —— 七道门禁全绿'
 exit 0

@@ -1,0 +1,16 @@
+{
+  "name": "Level.Tests.EditMode",
+  "rootNamespace": "Template.Presentation.Level.Tests.EditMode",
+  "references": [
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner",
+    "Logic.Data",
+    "Presentation.Level",
+    "Toolkit.Editor"
+  ],
+  "includePlatforms": ["Editor"],
+  "precompiledReferences": ["nunit.framework.dll"],
+  "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+  "overrideReferences": true,
+  "autoReferenced": false
+}

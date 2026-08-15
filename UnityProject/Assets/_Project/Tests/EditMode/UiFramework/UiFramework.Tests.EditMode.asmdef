@@ -1,0 +1,15 @@
+{
+  "name": "UiFramework.Tests.EditMode",
+  "rootNamespace": "Template.Presentation.UI.Tests.EditMode",
+  "references": [
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner",
+    "GameTemplateForAgent.UiFramework",
+    "GameTemplateForAgent.UiFramework.Unity"
+  ],
+  "includePlatforms": ["Editor"],
+  "precompiledReferences": ["nunit.framework.dll"],
+  "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+  "overrideReferences": true,
+  "autoReferenced": false
+}

@@ -29,6 +29,28 @@ namespace Template.Toolkit.CommandHost.Commands
         public string AssetDirectory { get; set; }
     }
 
+    /// <summary>收件箱归档命令的参数。</summary>
+    public sealed class AssetImportArguments
+    {
+        /// <summary>收件箱目录。</summary>
+        [Summary("收件箱目录")]
+        public string InboxDirectory { get; set; }
+
+        /// <summary>Assets 根目录，路由表里的目标目录相对它解析。</summary>
+        [Summary("Assets 根目录，路由表里的目标目录相对它解析")]
+        public string AssetsRootDirectory { get; set; }
+
+        /// <summary>路由表路径，留空时取收件箱目录下的 归档路由.json。</summary>
+        [Summary("路由表路径，留空时取收件箱目录下的 归档路由.json")]
+        [DefaultValue("")]
+        public string RoutingTablePath { get; set; }
+
+        /// <summary>为 true 时只列出计划而不落盘。</summary>
+        [Summary("为 true 时只列出计划而不落盘")]
+        [DefaultValue(false)]
+        public bool PlanOnly { get; set; }
+    }
+
     /// <summary>资产重命名命令：把目录里的文件名整成规范名。</summary>
     public static class AssetRenameCommand
     {
@@ -109,6 +131,200 @@ namespace Template.Toolkit.CommandHost.Commands
             return CommandResult.Failure(
                 $"资产校验失败，问题 {findings.Count} 条",
                 findings.Select(finding => finding.ToDisplayText()).ToList());
+        }
+    }
+
+    /// <summary>收件箱归档命令：按路由把资产分派到正式目录并按规则改名。</summary>
+    public static class AssetImportCommand
+    {
+        /// <summary>把收件箱里的资产按路由归档到正式目录并按规则改名。</summary>
+        /// <param name="arguments">归档参数。</param>
+        [EditorCommand("asset.import")]
+        [Summary("把收件箱里的资产按路由归档到正式目录并按规则改名")]
+        public static CommandResult Execute(AssetImportArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.InboxDirectory) || !Directory.Exists(arguments.InboxDirectory))
+            {
+                return CommandResult.Failure(
+                    $"位置：{arguments.InboxDirectory}；原因：收件箱目录不存在或未提供；修复：传入存在的收件箱目录；参考：asset.import 把收件箱资产归档到正式目录");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.AssetsRootDirectory) || !Directory.Exists(arguments.AssetsRootDirectory))
+            {
+                return CommandResult.Failure(
+                    $"位置：{arguments.AssetsRootDirectory}；原因：Assets 根目录不存在或未提供；修复：传入存在的 Assets 根目录；参考：路由表里的目标目录相对 Assets 根解析");
+            }
+
+            var assetsRoot = Path.GetFullPath(arguments.AssetsRootDirectory);
+
+            // [DefaultValue] 只让命令框架把参数判成选填，不会把默认值填进参数对象，这里自己兜底。
+            var routingTablePath = string.IsNullOrWhiteSpace(arguments.RoutingTablePath)
+                ? Path.Combine(arguments.InboxDirectory, "归档路由.json")
+                : arguments.RoutingTablePath;
+
+            AssetRoutingTable routingTable;
+            try
+            {
+                routingTable = AssetRoutingTable.LoadFromFile(routingTablePath);
+            }
+            catch (AssetRoutingException exception)
+            {
+                return CommandResult.Failure(exception.Message);
+            }
+
+            IReadOnlyList<AssetArchivePlan> plans;
+            try
+            {
+                plans = AssetInboxArchiver.Plan(arguments.InboxDirectory, assetsRoot, routingTable);
+            }
+            catch (AssetRoutingException exception)
+            {
+                return CommandResult.Failure(exception.Message);
+            }
+
+            if (plans.Count == 0)
+            {
+                return CommandResult.Success("收件箱里没有可归档的文件");
+            }
+
+            var lines = new List<string>();
+            foreach (var plan in plans)
+            {
+                var displayDirectory = Path.GetRelativePath(assetsRoot, plan.TargetDirectory).Replace('\\', '/');
+                lines.Add($"{Path.GetFileName(plan.SourcePath)} → {displayDirectory}/{plan.TargetFileName}");
+            }
+
+            if (arguments.PlanOnly)
+            {
+                return CommandResult.Success($"待归档 {plans.Count} 个文件", lines);
+            }
+
+            int movedCount;
+            try
+            {
+                movedCount = AssetInboxArchiver.Apply(plans);
+            }
+            catch (IOException exception)
+            {
+                return CommandResult.Failure(exception.Message);
+            }
+
+            return CommandResult.Success($"已归档 {movedCount} 个文件", lines);
+        }
+    }
+
+    /// <summary>资产引用扫描命令的参数。</summary>
+    public sealed class AssetReferencesArguments
+    {
+        /// <summary>Assets 根目录。</summary>
+        [Summary("Assets 根目录")]
+        public string AssetsRootDirectory { get; set; }
+    }
+
+    /// <summary>资产引用扫描命令：按 .meta 的 guid 报出无人引用的资产与悬空引用。</summary>
+    public static class AssetReferencesCommand
+    {
+        /// <summary>扫描 Assets 根下的 guid 级引用关系。</summary>
+        /// <param name="arguments">扫描参数。</param>
+        [EditorCommand("asset.references")]
+        [Summary("按 .meta 的 guid 扫描资产引用，报出无人引用的资产与悬空引用")]
+        public static CommandResult Execute(AssetReferencesArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.AssetsRootDirectory)
+                || !Directory.Exists(arguments.AssetsRootDirectory))
+            {
+                return CommandResult.Failure(
+                    $"位置：{arguments.AssetsRootDirectory}；原因：Assets 根目录不存在；" +
+                    "修复：把 AssetsRootDirectory 指向 Unity 工程的 Assets 目录；" +
+                    "参考：UnityProject/Assets");
+            }
+
+            // Packages 与 PackageCache 里的资产也持有 guid：场景与预制引用 UPM 包里的脚本时
+            // 写的就是那些 guid，不把它们算进认领表的话每个引用都会被误报成悬空。
+            var unityProjectRoot = Directory.GetParent(Path.GetFullPath(arguments.AssetsRootDirectory))?.FullName;
+            var guidSourceDirectories = CollectGuidSourceDirectories(unityProjectRoot);
+
+            var report = AssetReferenceScanner.Scan(
+                arguments.AssetsRootDirectory,
+                scannedExtensions: null,
+                additionalGuidSourceDirectories: guidSourceDirectories);
+
+            var lines = new List<string>();
+            foreach (var path in report.UnreferencedAssetPaths)
+            {
+                lines.Add($"无人引用：{path}");
+            }
+
+            var danglingCount = 0;
+            foreach (var pair in report.DanglingReferences)
+            {
+                foreach (var guid in pair.Value)
+                {
+                    lines.Add($"悬空引用：{pair.Key} 指向 guid {guid}，找不到对应资产");
+                    danglingCount++;
+                }
+            }
+
+            // 悬空引用是真错（引用断了），无人引用只是线索（可能是刚加进来还没接线），
+            // 所以只有前者让命令失败。
+            if (danglingCount > 0)
+            {
+                return CommandResult.Failure($"引用扫描发现悬空引用 {danglingCount} 条", lines);
+            }
+
+            return CommandResult.Success(
+                $"引用扫描完成：无人引用 {report.UnreferencedAssetPaths.Count} 个，悬空引用 0 条",
+                lines);
+        }
+
+        // guid 来源目录：内嵌包目录、包缓存，外加 manifest.json 里那些 file: 引用的本地包。
+        // file: 包是就地引用的，Unity 不会把它们复制进 PackageCache，所以必须从 manifest 里解析出来，
+        // 否则引用它们脚本的每个资产都会被误报成悬空引用。
+        private static string[] CollectGuidSourceDirectories(string unityProjectRoot)
+        {
+            if (string.IsNullOrEmpty(unityProjectRoot))
+            {
+                return Array.Empty<string>();
+            }
+
+            var packagesDirectory = Path.Combine(unityProjectRoot, "Packages");
+            var directories = new List<string>
+            {
+                packagesDirectory,
+                Path.Combine(unityProjectRoot, "Library", "PackageCache"),
+            };
+
+            var manifestPath = Path.Combine(packagesDirectory, "manifest.json");
+            if (!File.Exists(manifestPath))
+            {
+                return directories.ToArray();
+            }
+
+            try
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(manifestPath));
+                if (!document.RootElement.TryGetProperty("dependencies", out var dependencies))
+                {
+                    return directories.ToArray();
+                }
+
+                foreach (var dependency in dependencies.EnumerateObject())
+                {
+                    var value = dependency.Value.GetString();
+                    if (value == null || !value.StartsWith("file:", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    directories.Add(Path.GetFullPath(Path.Combine(packagesDirectory, value.Substring("file:".Length))));
+                }
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // manifest 坏掉时退回只用内嵌包与包缓存，扫描照常进行。
+            }
+
+            return directories.ToArray();
         }
     }
 }

@@ -1,0 +1,8 @@
+{
+  "name": "com.hsgframe.event",
+  "version": "0.1.0",
+  "displayName": "HSGFrame 事件",
+  "description": "纯 C# 事件总线：无参与单负载两种形状，订阅返回句柄，Dispose 即退订。",
+  "unity": "6000.3",
+  "author": { "name": "HSGhost" }
+}

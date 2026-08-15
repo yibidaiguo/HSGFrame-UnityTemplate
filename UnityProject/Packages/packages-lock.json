@@ -24,6 +24,102 @@
       },
       "hash": "4ce7dd3cc54e37e2ed6dc59cb5a047f3dccb3f50"
     },
+    "com.gametemplateforagent.audio": {
+      "version": "file:../../Packages/com.gametemplateforagent.audio",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.gametemplateforagent.graphadapter": {
+      "version": "file:../../Packages/com.gametemplateforagent.graphadapter",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.gametemplateforagent.input": {
+      "version": "file:../../Packages/com.gametemplateforagent.input",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.gametemplateforagent.localization": {
+      "version": "file:../../Packages/com.gametemplateforagent.localization",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.gametemplateforagent.objectpool": {
+      "version": "file:../../Packages/com.gametemplateforagent.objectpool",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.gametemplateforagent.timer": {
+      "version": "file:../../Packages/com.gametemplateforagent.timer",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.gametemplateforagent.uiframework": {
+      "version": "file:../../Packages/com.gametemplateforagent.uiframework",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.unity.modules.uielements": "1.0.0"
+      }
+    },
+    "com.graphtest.dialogue": {
+      "version": "file:../../../../GraphTest/Release/Packages/com.graphtest.dialogue",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.graphtest.nodeeditor": "0.1.5",
+        "com.unity.modules.audio": "1.0.0",
+        "com.unity.modules.imgui": "1.0.0"
+      }
+    },
+    "com.graphtest.nodeeditor": {
+      "version": "file:../../../../GraphTest/Release/Packages/com.graphtest.nodeeditor",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.hsgframe.event": {
+      "version": "file:../../Packages/com.hsgframe.event",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.hsgframe.logging": {
+      "version": "file:../../Packages/com.hsgframe.logging",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.hsgframe.monodriver": {
+      "version": "file:../../Packages/com.hsgframe.monodriver",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.hsgframe.resource": {
+      "version": "file:../../Packages/com.hsgframe.resource",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.hsgframe.scene": {
+      "version": "file:../../Packages/com.hsgframe.scene",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.hsgframe.worldspaceui": {
+      "version": "file:../../Packages/com.hsgframe.worldspaceui",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
     "com.tuyoogame.yooasset": {
       "version": "https://github.com/tuyoogame/YooAsset.git?path=Assets/YooAsset#3.0.5",
       "depth": 0,
@@ -76,6 +172,15 @@
         "com.unity.modules.jsonserialize": "1.0.0"
       }
     },
+    "com.unity.ugui": {
+      "version": "2.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {
+        "com.unity.modules.ui": "1.0.0",
+        "com.unity.modules.imgui": "1.0.0"
+      }
+    },
     "com.unity.modules.animation": {
       "version": "1.0.0",
       "depth": 1,
@@ -83,6 +188,12 @@
       "dependencies": {}
     },
     "com.unity.modules.assetbundle": {
+      "version": "1.0.0",
+      "depth": 1,
+      "source": "builtin",
+      "dependencies": {}
+    },
+    "com.unity.modules.audio": {
       "version": "1.0.0",
       "depth": 1,
       "source": "builtin",

@@ -4,7 +4,9 @@
   "references": [
     "HybridCLR.Editor",
     "YooAsset",
-    "YooAsset.Editor"
+    "YooAsset.Editor",
+    "Logic.Data",
+    "Presentation.Level"
   ],
   "includePlatforms": [
     "Editor"

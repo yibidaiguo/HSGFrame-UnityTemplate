@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 473f2cada8b8aa14490780723f1d7dd8, type: 3}
+  m_Name: LineNode
+  m_EditorClassIdentifier: Dialogue.Unity::Dialogue.LineNode
+  id: dialogue.Line
+  displayName: Dialogue Line
+  category: 
+  docString: 
+  purity: 0
+  role: 2
+  inputPorts:
+  - name: in
+    type:
+      rid: 2898929822792155345
+    arity:
+      kind: 4
+      min: 0
+      max: 0
+  outputPorts:
+  - name: next
+    type:
+      rid: 2898929822792155346
+    arity:
+      kind: 3
+      min: 0
+      max: 0
+  parameters:
+  - name: lineKey
+    type:
+      rid: 2898929822792155347
+    defaultJson: 
+    hasBounds: 0
+    boundsMin: 0
+    boundsMax: 0
+    choiceSource: dialogue.lineKeys
+  runtimeKind: 0
+  blackboardReads: []
+  blackboardWrites: []
+  constraints: []
+  version: 1
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }
+    - rid: 2898929822792155345
+      type: {class: TypeRef, ns: NodeEditor, asm: NodeEditor.Runtime}
+      data:
+        kind: 5
+        primitive: 0
+        enumOrObjectName: 
+        element:
+          rid: -2
+    - rid: 2898929822792155346
+      type: {class: TypeRef, ns: NodeEditor, asm: NodeEditor.Runtime}
+      data:
+        kind: 5
+        primitive: 0
+        enumOrObjectName: 
+        element:
+          rid: -2
+    - rid: 2898929822792155347
+      type: {class: TypeRef, ns: NodeEditor, asm: NodeEditor.Runtime}
+      data:
+        kind: 0
+        primitive: 3
+        enumOrObjectName: 
+        element:
+          rid: -2

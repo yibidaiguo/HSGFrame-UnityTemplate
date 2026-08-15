@@ -1,30 +1,32 @@
-// 发布流水线：夜间构建之后追加发布 stage，手动触发、多平台、打标归档。
+// 发布流水线：夜间构建三步之后追加出包 stage，手动触发、打标归档。
 // 触发时机：手动，按需打版本号。
 // 失败意味着：发布产物不完整或归档失败，不能对外发版，需修复后重跑。
+//
+// 步骤与 Pipelines/流水线定义.json 里的「发布」逐条对应。
+// 出包入口方法名是每个项目自己的东西，同一个值也记在 gate-config.json 的 playerBuildEntryMethod。
 
 pipeline {
     agent any
     stages {
         stage('dotnet build') {
             steps {
-                bat 'dotnet build Template/Solutions/Template.sln --nologo'
+                bat 'dotnet build Solutions/Template.sln --nologo'
             }
         }
-        stage('gate.naming') {
+        stage('七道门禁') {
             steps {
-                bat 'dotnet run --project Template/Tools/Cli/CommandHost/CommandHost.csproj -- run gate.naming --arguments-file gate-naming.json'
+                bat 'pwsh -NoProfile -File Tools/Gates/gate.ps1'
             }
         }
-        // 需要 Unity：真编译 + 冒烟，编辑器 batchmode 冷启动，耗时按分钟计。
-        stage('Unity 构建') {
+        stage('Unity 真编译') {
             steps {
-                bat 'pwsh ./Template/Tools/Cli/unity-cmd.ps1 -ExecuteMethod <方法全名> -TimeoutMinutes 40'
+                bat 'pwsh -NoProfile -File Tools/Cli/unity-cmd.ps1 -ExecuteMethod Template.Toolkit.Editor.CompileCheckEntry.Run -TimeoutMinutes 40'
             }
         }
-        // 需要 Unity：打多平台包 + 打标归档。
-        stage('发布') {
+        // 需要 Unity：出 Windows 包。
+        stage('出包') {
             steps {
-                bat 'pwsh ./Template/Tools/Cli/unity-cmd.ps1 -ExecuteMethod <发布方法全名> -TimeoutMinutes 60'
+                bat 'pwsh -NoProfile -File Tools/Cli/unity-cmd.ps1 -ExecuteMethod Template.Toolkit.Editor.PlayerBuildCommandLine.BuildWindows -TimeoutMinutes 60'
             }
         }
     }

@@ -14,4 +14,19 @@
   <ItemGroup>
     <Compile Include="../../Packages/com.gametemplateforagent.graphadapter/Runtime/**/*.cs" LinkBase="GraphAdapter" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="NodeEditor.Runtime">
+      <HintPath>../../Tools/Deps/NodeEditor.Runtime.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="NodeEditor.UnityShim">
+      <HintPath>../../Tools/Deps/NodeEditor.UnityShim.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Dialogue.Runtime">
+      <HintPath>../../Tools/Deps/Dialogue.Runtime.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
 </Project>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -41,7 +41,7 @@ namespace Template.Toolkit.Gates
                         normalized,
                         "改动路径落在白名单之外",
                         "把改动限定在任务书声明的白名单目录内",
-                        "Template/Tools/Gates/Config/gate-config.json"));
+                        "Tools/Gates/Config/gate-config.json"));
                 }
             }
 

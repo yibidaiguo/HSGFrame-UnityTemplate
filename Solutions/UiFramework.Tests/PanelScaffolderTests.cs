@@ -32,7 +32,7 @@ namespace Template.UiFramework.Tests
             PanelScaffolder.Scaffold(fixture.RepositoryRoot, definition, fixture.OutputDirectory);
 
             var uxml = File.ReadAllText(Path.Combine(fixture.OutputDirectory, "MainPanel.uxml"));
-            Assert.Contains("name=\"血条\"", uxml);
+            Assert.Contains("name=\"HealthBar\"", uxml);
             Assert.Contains("ui:Button", uxml);
         }
 

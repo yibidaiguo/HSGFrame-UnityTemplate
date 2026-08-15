@@ -87,7 +87,10 @@ namespace Template.Toolkit.Scaffold
             }
 
             var copiedFileCount = 0;
-            CopyTree(options.TemplateRoot, targetPath, options.PackagePrefix, options.ProjectName, ref copiedFileCount);
+            // 源模板自己的目录名（本仓库里是 RebuiltRPG）也要换掉：它是「上一个宿主」的名字，
+            // 留在配置与文档里就成了新项目身上的一处旧身份。
+            var sourceIdentifierName = new DirectoryInfo(Path.GetFullPath(options.TemplateRoot)).Name;
+            CopyTree(options.TemplateRoot, targetPath, options.PackagePrefix, options.ProjectName, sourceIdentifierName, ref copiedFileCount);
 
             RewriteGateWhitelist(targetPath, options.ProjectName);
             AppendTemplateNotice(targetPath, options.TemplateRoot, options.ProjectName, options.PackagePrefix);
@@ -96,7 +99,7 @@ namespace Template.Toolkit.Scaffold
             return ProjectCreationResult.Success(targetPath, copiedFileCount, $"已生成新项目到 {targetPath}");
         }
 
-        private static void CopyTree(string sourceRoot, string targetRoot, string packagePrefix, string projectName, ref int copiedFileCount)
+        private static void CopyTree(string sourceRoot, string targetRoot, string packagePrefix, string projectName, string sourceIdentifierName, ref int copiedFileCount)
         {
             Directory.CreateDirectory(targetRoot);
 
@@ -111,21 +114,21 @@ namespace Template.Toolkit.Scaffold
                 if (Directory.Exists(entry))
                 {
                     var targetDirectoryName = RenameDirectory(name, packagePrefix, projectName);
-                    CopyTree(entry, Path.Combine(targetRoot, targetDirectoryName), packagePrefix, projectName, ref copiedFileCount);
+                    CopyTree(entry, Path.Combine(targetRoot, targetDirectoryName), packagePrefix, projectName, sourceIdentifierName, ref copiedFileCount);
                 }
                 else
                 {
-                    CopyFile(entry, Path.Combine(targetRoot, RenameDirectory(name, packagePrefix, projectName)), packagePrefix, projectName);
+                    CopyFile(entry, Path.Combine(targetRoot, RenameDirectory(name, packagePrefix, projectName)), packagePrefix, projectName, sourceIdentifierName);
                     copiedFileCount++;
                 }
             }
         }
 
-        private static void CopyFile(string sourcePath, string targetPath, string packagePrefix, string projectName)
+        private static void CopyFile(string sourcePath, string targetPath, string packagePrefix, string projectName, string sourceIdentifierName)
         {
             if (IsTextFile(sourcePath))
             {
-                RewriteTextFile(sourcePath, targetPath, packagePrefix, projectName);
+                RewriteTextFile(sourcePath, targetPath, packagePrefix, projectName, sourceIdentifierName);
             }
             else
             {
@@ -146,7 +149,7 @@ namespace Template.Toolkit.Scaffold
             return directoryName.Replace(TemplateIdentifierName, projectName, StringComparison.Ordinal);
         }
 
-        private static void RewriteTextFile(string sourcePath, string targetPath, string packagePrefix, string projectName)
+        private static void RewriteTextFile(string sourcePath, string targetPath, string packagePrefix, string projectName, string sourceIdentifierName)
         {
             var bytes = File.ReadAllBytes(sourcePath);
             var hasBom = HasUtf8Bom(bytes);
@@ -157,6 +160,13 @@ namespace Template.Toolkit.Scaffold
             text = text
                 .Replace(TemplateDirectoryPrefix, packagePrefix, StringComparison.Ordinal)
                 .Replace(TemplateIdentifierName, projectName, StringComparison.Ordinal);
+
+            // 源模板目录名与项目名相同时跳过，免得把刚换好的名字又替一遍。
+            if (!string.IsNullOrEmpty(sourceIdentifierName)
+                && !string.Equals(sourceIdentifierName, projectName, StringComparison.Ordinal))
+            {
+                text = text.Replace(sourceIdentifierName, projectName, StringComparison.Ordinal);
+            }
 
             WriteUtf8(targetPath, text, hasBom);
         }

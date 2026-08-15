@@ -12,6 +12,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../../Packages/com.gametemplateforagent.hotfix/Runtime/**/*.cs" LinkBase="Hotfix" />
+    <ProjectReference Include="../../Tools/Hotfix/Hotfix.csproj" />
   </ItemGroup>
 </Project>

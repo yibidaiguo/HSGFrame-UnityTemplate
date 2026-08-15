@@ -14,5 +14,11 @@ namespace Template.Toolkit.Indexing
 
         /// <summary>文件内容的 SHA256，小写十六进制。</summary>
         public string FileHash { get; set; }
+
+        /// <summary>文件字节长度，增量重建时作为「没变」的判据之一。</summary>
+        public long FileLength { get; set; }
+
+        /// <summary>文件最后写入时刻的 UTC ticks，增量重建时作为「没变」的判据之一。</summary>
+        public long LastWriteTimeUtcTicks { get; set; }
     }
 }

@@ -1,7 +1,7 @@
 {
   "name": "GameTemplateForAgent.GraphAdapter",
   "rootNamespace": "GameTemplateForAgent.GraphAdapter",
-  "references": [],
+  "references": ["NodeEditor.Runtime", "Dialogue.Runtime"],
   "includePlatforms": [],
   "noEngineReferences": true
 }

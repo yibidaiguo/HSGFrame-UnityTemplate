@@ -2,10 +2,26 @@
   "dependencies": {
     "com.code-philosophy.hybridclr": "https://github.com/focus-creative-games/hybridclr_unity.git#v8.13.0",
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
+    "com.gametemplateforagent.audio": "file:../../Packages/com.gametemplateforagent.audio",
+    "com.gametemplateforagent.graphadapter": "file:../../Packages/com.gametemplateforagent.graphadapter",
+    "com.gametemplateforagent.input": "file:../../Packages/com.gametemplateforagent.input",
+    "com.gametemplateforagent.localization": "file:../../Packages/com.gametemplateforagent.localization",
+    "com.gametemplateforagent.objectpool": "file:../../Packages/com.gametemplateforagent.objectpool",
+    "com.gametemplateforagent.timer": "file:../../Packages/com.gametemplateforagent.timer",
+    "com.gametemplateforagent.uiframework": "file:../../Packages/com.gametemplateforagent.uiframework",
+    "com.graphtest.dialogue": "file:../../../../GraphTest/Release/Packages/com.graphtest.dialogue",
+    "com.graphtest.nodeeditor": "file:../../../../GraphTest/Release/Packages/com.graphtest.nodeeditor",
+    "com.hsgframe.event": "file:../../Packages/com.hsgframe.event",
+    "com.hsgframe.logging": "file:../../Packages/com.hsgframe.logging",
+    "com.hsgframe.monodriver": "file:../../Packages/com.hsgframe.monodriver",
+    "com.hsgframe.resource": "file:../../Packages/com.hsgframe.resource",
+    "com.hsgframe.scene": "file:../../Packages/com.hsgframe.scene",
+    "com.hsgframe.worldspaceui": "file:../../Packages/com.hsgframe.worldspaceui",
     "com.tuyoogame.yooasset": "https://github.com/tuyoogame/YooAsset.git?path=Assets/YooAsset#3.0.5",
     "com.unity.mathematics": "1.3.3",
     "com.unity.modules.jsonserialize": "1.0.0",
     "com.unity.modules.uielements": "1.0.0",
-    "com.unity.test-framework": "1.4.6"
+    "com.unity.test-framework": "1.4.6",
+    "com.unity.ugui": "2.0.0"
   }
 }

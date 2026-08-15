@@ -1,0 +1,21 @@
+{
+  "name": "Presentation.Framework",
+  "rootNamespace": "Template.Presentation.Framework",
+  "references": [
+    "HSGFrame.MonoDriver",
+    "HSGFrame.Logging",
+    "HSGFrame.Event",
+    "HSGFrame.Scene",
+    "GameTemplateForAgent.Audio",
+    "GameTemplateForAgent.Localization"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

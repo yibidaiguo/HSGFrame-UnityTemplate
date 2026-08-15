@@ -1,0 +1,7 @@
+{
+  "name": "HSGFrame.Logging",
+  "rootNamespace": "HSGFrame.Logging",
+  "references": [],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}

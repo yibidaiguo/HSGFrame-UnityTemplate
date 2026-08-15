@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 65d8e6e8484e8b54a89b976212eb6d8d, type: 3}
+  m_Name: StartNode
+  m_EditorClassIdentifier: Dialogue.Unity::Dialogue.StartNode
+  id: dialogue.Start
+  displayName: Start
+  category: 
+  docString: 
+  purity: 0
+  role: 3
+  inputPorts: []
+  outputPorts:
+  - name: next
+    type:
+      rid: 2898929822792155352
+    arity:
+      kind: 0
+      min: 1
+      max: 0
+  parameters: []
+  runtimeKind: 0
+  blackboardReads: []
+  blackboardWrites: []
+  constraints: []
+  version: 1
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }
+    - rid: 2898929822792155352
+      type: {class: TypeRef, ns: NodeEditor, asm: NodeEditor.Runtime}
+      data:
+        kind: 5
+        primitive: 0
+        enumOrObjectName: 
+        element:
+          rid: -2

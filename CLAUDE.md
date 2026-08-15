@@ -1,12 +1,6 @@
-# GameTemplateForAgent · 路标
+# Template · 路标
 
-一个面向 AI 协作的 Unity 通用游戏模板：纯 C# 逻辑层 + 命令层 + 四级门禁。
-`Logic.*` 保持零 UnityEngine 依赖，靠双工程结构让同一批逻辑源码既能在 Unity 里编译，
-又能在纯 `dotnet test` 下跑测试。
-
-本仓库 2026-08-15 从 `D:\Projects\Unity\RPG` 的 `Template/` 子目录搬出，
-带着完整的 14 次阶段提交历史。
-
+一个 Unity 通用游戏模板：纯 C# 逻辑层 + 命令层 + 四级门禁。Logic.* 保持零 UnityEngine 依赖，靠双工程结构让同一批逻辑源码既能在 Unity 里编译，又能在纯 `dotnet test` 下跑测试。
 
 ## 五条铁律
 
@@ -33,3 +27,11 @@
 dotnet build Template/Solutions/Template.sln
 dotnet test Template/Solutions/Template.sln
 ```
+
+## 本项目由通用 Unity 模板生成
+
+- 项目名：RebuiltRPG
+- UPM 包前缀：com.gametemplateforagent.
+- 命名空间沿用模板的 `Template.*`，需要改名时做一次全局替换（模板首轮刻意没做这一步）
+
+跑门禁：`./RebuiltRPG/Tools/Gates/gate.ps1`

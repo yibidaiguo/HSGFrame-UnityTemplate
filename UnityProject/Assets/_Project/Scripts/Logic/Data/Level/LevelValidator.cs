@@ -14,7 +14,11 @@ namespace Template.Logic.Data.Level
             {
                 if (!chunksByName.ContainsKey(chunkName))
                 {
-                    errors.Add($"区块 {chunkName} 的文件缺失");
+                    errors.Add(ComposeError(
+                        $"区块 {chunkName}",
+                        "区块文件缺失",
+                        "在关卡目录下补上该区块的 json 文件",
+                        "Levels/村庄/区块_村口.json"));
                 }
             }
 
@@ -22,7 +26,11 @@ namespace Template.Logic.Data.Level
             {
                 if (!level.ChunkNames.Contains(chunkName))
                 {
-                    errors.Add($"区块 {chunkName} 未登记进关卡清单");
+                    errors.Add(ComposeError(
+                        $"区块 {chunkName}",
+                        "区块未登记进关卡清单",
+                        "把这个区块名加进 关卡.json 的区块清单，或删掉多余的区块文件",
+                        "Levels/村庄/关卡.json"));
                 }
             }
 
@@ -33,21 +41,38 @@ namespace Template.Logic.Data.Level
                 {
                     if (string.IsNullOrEmpty(placement.EntityId))
                     {
-                        errors.Add("实体编号为空");
+                        errors.Add(ComposeError(
+                            "实体编号",
+                            "实体编号为空",
+                            "给这个实体补一个唯一编号",
+                            "村口_守卫_01"));
                     }
                     else if (!seenEntityIds.Add(placement.EntityId))
                     {
-                        errors.Add($"实体编号 {placement.EntityId} 重复");
+                        errors.Add(ComposeError(
+                            $"实体编号 {placement.EntityId}",
+                            "实体编号重复",
+                            "给重复的实体改一个唯一编号",
+                            "村口_守卫_01"));
                     }
 
                     if (string.IsNullOrEmpty(placement.EntityKind))
                     {
-                        errors.Add("实体类别为空");
+                        errors.Add(ComposeError(
+                            "实体类别",
+                            "实体类别为空",
+                            "给这个实体补上类别（NPC / 触发器 / 刷怪点 / 可交互物 / 传送点 / 任务物件）",
+                            "NPC"));
                     }
                 }
             }
 
             return errors;
+        }
+
+        private static string ComposeError(string location, string reason, string fix, string reference)
+        {
+            return $"位置：{location}；原因：{reason}；修复：{fix}；参考：{reference}";
         }
     }
 }

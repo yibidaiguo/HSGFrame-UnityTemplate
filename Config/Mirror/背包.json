@@ -3,21 +3,603 @@
   "rows": [
     {
       "ItemId": 1001,
-      "ItemName": "木剑",
+      "ItemName": "首行·改",
       "StackLimit": 1,
-      "SellPrice": 25
+      "SellPrice": 1234
     },
     {
       "ItemId": 1002,
-      "ItemName": "治疗药水",
+      "ItemName": "治疗药水·1",
       "StackLimit": 99,
-      "SellPrice": 10
+      "SellPrice": 17
     },
     {
       "ItemId": 1003,
-      "ItemName": "皮甲",
+      "ItemName": "皮甲·1",
+      "StackLimit": 99,
+      "SellPrice": 24
+    },
+    {
+      "ItemId": 1004,
+      "ItemName": "铁剑·1",
       "StackLimit": 1,
-      "SellPrice": 60
+      "SellPrice": 31
+    },
+    {
+      "ItemId": 1005,
+      "ItemName": "法杖·1",
+      "StackLimit": 99,
+      "SellPrice": 38
+    },
+    {
+      "ItemId": 1006,
+      "ItemName": "布靴·1",
+      "StackLimit": 99,
+      "SellPrice": 45
+    },
+    {
+      "ItemId": 1007,
+      "ItemName": "护符·1",
+      "StackLimit": 1,
+      "SellPrice": 52
+    },
+    {
+      "ItemId": 1008,
+      "ItemName": "卷轴·1",
+      "StackLimit": 99,
+      "SellPrice": 59
+    },
+    {
+      "ItemId": 1009,
+      "ItemName": "矿石·1",
+      "StackLimit": 99,
+      "SellPrice": 66
+    },
+    {
+      "ItemId": 1010,
+      "ItemName": "药草·1",
+      "StackLimit": 1,
+      "SellPrice": 73
+    },
+    {
+      "ItemId": 1011,
+      "ItemName": "木剑·2",
+      "StackLimit": 99,
+      "SellPrice": 80
+    },
+    {
+      "ItemId": 1012,
+      "ItemName": "治疗药水·2",
+      "StackLimit": 99,
+      "SellPrice": 87
+    },
+    {
+      "ItemId": 1013,
+      "ItemName": "皮甲·2",
+      "StackLimit": 1,
+      "SellPrice": 94
+    },
+    {
+      "ItemId": 1014,
+      "ItemName": "铁剑·2",
+      "StackLimit": 99,
+      "SellPrice": 101
+    },
+    {
+      "ItemId": 1015,
+      "ItemName": "法杖·2",
+      "StackLimit": 99,
+      "SellPrice": 108
+    },
+    {
+      "ItemId": 1016,
+      "ItemName": "布靴·2",
+      "StackLimit": 1,
+      "SellPrice": 115
+    },
+    {
+      "ItemId": 1017,
+      "ItemName": "护符·2",
+      "StackLimit": 99,
+      "SellPrice": 122
+    },
+    {
+      "ItemId": 1018,
+      "ItemName": "卷轴·2",
+      "StackLimit": 99,
+      "SellPrice": 129
+    },
+    {
+      "ItemId": 1019,
+      "ItemName": "矿石·2",
+      "StackLimit": 1,
+      "SellPrice": 136
+    },
+    {
+      "ItemId": 1020,
+      "ItemName": "药草·2",
+      "StackLimit": 99,
+      "SellPrice": 143
+    },
+    {
+      "ItemId": 1021,
+      "ItemName": "木剑·3",
+      "StackLimit": 99,
+      "SellPrice": 150
+    },
+    {
+      "ItemId": 1022,
+      "ItemName": "治疗药水·3",
+      "StackLimit": 1,
+      "SellPrice": 157
+    },
+    {
+      "ItemId": 1023,
+      "ItemName": "皮甲·3",
+      "StackLimit": 99,
+      "SellPrice": 164
+    },
+    {
+      "ItemId": 1024,
+      "ItemName": "铁剑·3",
+      "StackLimit": 99,
+      "SellPrice": 171
+    },
+    {
+      "ItemId": 1025,
+      "ItemName": "法杖·3",
+      "StackLimit": 1,
+      "SellPrice": 178
+    },
+    {
+      "ItemId": 1026,
+      "ItemName": "布靴·3",
+      "StackLimit": 99,
+      "SellPrice": 185
+    },
+    {
+      "ItemId": 1027,
+      "ItemName": "护符·3",
+      "StackLimit": 99,
+      "SellPrice": 192
+    },
+    {
+      "ItemId": 1028,
+      "ItemName": "卷轴·3",
+      "StackLimit": 1,
+      "SellPrice": 199
+    },
+    {
+      "ItemId": 1029,
+      "ItemName": "矿石·3",
+      "StackLimit": 99,
+      "SellPrice": 206
+    },
+    {
+      "ItemId": 1030,
+      "ItemName": "药草·3",
+      "StackLimit": 99,
+      "SellPrice": 213
+    },
+    {
+      "ItemId": 1031,
+      "ItemName": "木剑·4",
+      "StackLimit": 1,
+      "SellPrice": 220
+    },
+    {
+      "ItemId": 1032,
+      "ItemName": "治疗药水·4",
+      "StackLimit": 99,
+      "SellPrice": 227
+    },
+    {
+      "ItemId": 1033,
+      "ItemName": "皮甲·4",
+      "StackLimit": 99,
+      "SellPrice": 234
+    },
+    {
+      "ItemId": 1034,
+      "ItemName": "铁剑·4",
+      "StackLimit": 1,
+      "SellPrice": 241
+    },
+    {
+      "ItemId": 1035,
+      "ItemName": "法杖·4",
+      "StackLimit": 99,
+      "SellPrice": 248
+    },
+    {
+      "ItemId": 1036,
+      "ItemName": "布靴·4",
+      "StackLimit": 99,
+      "SellPrice": 255
+    },
+    {
+      "ItemId": 1037,
+      "ItemName": "护符·4",
+      "StackLimit": 1,
+      "SellPrice": 262
+    },
+    {
+      "ItemId": 1038,
+      "ItemName": "卷轴·4",
+      "StackLimit": 99,
+      "SellPrice": 269
+    },
+    {
+      "ItemId": 1039,
+      "ItemName": "矿石·4",
+      "StackLimit": 99,
+      "SellPrice": 276
+    },
+    {
+      "ItemId": 1040,
+      "ItemName": "药草·4",
+      "StackLimit": 1,
+      "SellPrice": 283
+    },
+    {
+      "ItemId": 1041,
+      "ItemName": "木剑·5",
+      "StackLimit": 99,
+      "SellPrice": 290
+    },
+    {
+      "ItemId": 1042,
+      "ItemName": "治疗药水·5",
+      "StackLimit": 99,
+      "SellPrice": 297
+    },
+    {
+      "ItemId": 1043,
+      "ItemName": "皮甲·5",
+      "StackLimit": 1,
+      "SellPrice": 304
+    },
+    {
+      "ItemId": 1044,
+      "ItemName": "铁剑·5",
+      "StackLimit": 99,
+      "SellPrice": 311
+    },
+    {
+      "ItemId": 1045,
+      "ItemName": "法杖·5",
+      "StackLimit": 99,
+      "SellPrice": 318
+    },
+    {
+      "ItemId": 1046,
+      "ItemName": "布靴·5",
+      "StackLimit": 1,
+      "SellPrice": 325
+    },
+    {
+      "ItemId": 1047,
+      "ItemName": "护符·5",
+      "StackLimit": 99,
+      "SellPrice": 332
+    },
+    {
+      "ItemId": 1048,
+      "ItemName": "卷轴·5",
+      "StackLimit": 99,
+      "SellPrice": 339
+    },
+    {
+      "ItemId": 1049,
+      "ItemName": "矿石·5",
+      "StackLimit": 1,
+      "SellPrice": 346
+    },
+    {
+      "ItemId": 1050,
+      "ItemName": "药草·5",
+      "StackLimit": 99,
+      "SellPrice": 353
+    },
+    {
+      "ItemId": 1051,
+      "ItemName": "木剑·6",
+      "StackLimit": 99,
+      "SellPrice": 360
+    },
+    {
+      "ItemId": 1052,
+      "ItemName": "治疗药水·6",
+      "StackLimit": 1,
+      "SellPrice": 367
+    },
+    {
+      "ItemId": 1053,
+      "ItemName": "皮甲·6",
+      "StackLimit": 99,
+      "SellPrice": 374
+    },
+    {
+      "ItemId": 1054,
+      "ItemName": "铁剑·6",
+      "StackLimit": 99,
+      "SellPrice": 381
+    },
+    {
+      "ItemId": 1055,
+      "ItemName": "法杖·6",
+      "StackLimit": 1,
+      "SellPrice": 388
+    },
+    {
+      "ItemId": 1056,
+      "ItemName": "布靴·6",
+      "StackLimit": 99,
+      "SellPrice": 395
+    },
+    {
+      "ItemId": 1057,
+      "ItemName": "护符·6",
+      "StackLimit": 99,
+      "SellPrice": 402
+    },
+    {
+      "ItemId": 1058,
+      "ItemName": "卷轴·6",
+      "StackLimit": 1,
+      "SellPrice": 409
+    },
+    {
+      "ItemId": 1059,
+      "ItemName": "矿石·6",
+      "StackLimit": 99,
+      "SellPrice": 416
+    },
+    {
+      "ItemId": 1060,
+      "ItemName": "药草·6",
+      "StackLimit": 99,
+      "SellPrice": 423
+    },
+    {
+      "ItemId": 1061,
+      "ItemName": "木剑·7",
+      "StackLimit": 1,
+      "SellPrice": 430
+    },
+    {
+      "ItemId": 1062,
+      "ItemName": "治疗药水·7",
+      "StackLimit": 99,
+      "SellPrice": 437
+    },
+    {
+      "ItemId": 1063,
+      "ItemName": "皮甲·7",
+      "StackLimit": 99,
+      "SellPrice": 444
+    },
+    {
+      "ItemId": 1064,
+      "ItemName": "铁剑·7",
+      "StackLimit": 1,
+      "SellPrice": 451
+    },
+    {
+      "ItemId": 1065,
+      "ItemName": "法杖·7",
+      "StackLimit": 99,
+      "SellPrice": 458
+    },
+    {
+      "ItemId": 1066,
+      "ItemName": "布靴·7",
+      "StackLimit": 99,
+      "SellPrice": 465
+    },
+    {
+      "ItemId": 1067,
+      "ItemName": "护符·7",
+      "StackLimit": 1,
+      "SellPrice": 472
+    },
+    {
+      "ItemId": 1068,
+      "ItemName": "卷轴·7",
+      "StackLimit": 99,
+      "SellPrice": 479
+    },
+    {
+      "ItemId": 1069,
+      "ItemName": "矿石·7",
+      "StackLimit": 99,
+      "SellPrice": 486
+    },
+    {
+      "ItemId": 1070,
+      "ItemName": "药草·7",
+      "StackLimit": 1,
+      "SellPrice": 493
+    },
+    {
+      "ItemId": 1071,
+      "ItemName": "木剑·8",
+      "StackLimit": 99,
+      "SellPrice": 500
+    },
+    {
+      "ItemId": 1072,
+      "ItemName": "治疗药水·8",
+      "StackLimit": 99,
+      "SellPrice": 507
+    },
+    {
+      "ItemId": 1073,
+      "ItemName": "皮甲·8",
+      "StackLimit": 1,
+      "SellPrice": 514
+    },
+    {
+      "ItemId": 1074,
+      "ItemName": "铁剑·8",
+      "StackLimit": 99,
+      "SellPrice": 521
+    },
+    {
+      "ItemId": 1075,
+      "ItemName": "法杖·8",
+      "StackLimit": 99,
+      "SellPrice": 528
+    },
+    {
+      "ItemId": 1076,
+      "ItemName": "布靴·8",
+      "StackLimit": 1,
+      "SellPrice": 535
+    },
+    {
+      "ItemId": 1077,
+      "ItemName": "护符·8",
+      "StackLimit": 99,
+      "SellPrice": 542
+    },
+    {
+      "ItemId": 1078,
+      "ItemName": "卷轴·8",
+      "StackLimit": 99,
+      "SellPrice": 549
+    },
+    {
+      "ItemId": 1079,
+      "ItemName": "矿石·8",
+      "StackLimit": 1,
+      "SellPrice": 556
+    },
+    {
+      "ItemId": 1080,
+      "ItemName": "药草·8",
+      "StackLimit": 99,
+      "SellPrice": 563
+    },
+    {
+      "ItemId": 1081,
+      "ItemName": "木剑·9",
+      "StackLimit": 99,
+      "SellPrice": 570
+    },
+    {
+      "ItemId": 1082,
+      "ItemName": "治疗药水·9",
+      "StackLimit": 1,
+      "SellPrice": 577
+    },
+    {
+      "ItemId": 1083,
+      "ItemName": "皮甲·9",
+      "StackLimit": 99,
+      "SellPrice": 584
+    },
+    {
+      "ItemId": 1084,
+      "ItemName": "铁剑·9",
+      "StackLimit": 99,
+      "SellPrice": 591
+    },
+    {
+      "ItemId": 1085,
+      "ItemName": "法杖·9",
+      "StackLimit": 1,
+      "SellPrice": 598
+    },
+    {
+      "ItemId": 1086,
+      "ItemName": "布靴·9",
+      "StackLimit": 99,
+      "SellPrice": 605
+    },
+    {
+      "ItemId": 1087,
+      "ItemName": "护符·9",
+      "StackLimit": 99,
+      "SellPrice": 612
+    },
+    {
+      "ItemId": 1088,
+      "ItemName": "卷轴·9",
+      "StackLimit": 1,
+      "SellPrice": 619
+    },
+    {
+      "ItemId": 1089,
+      "ItemName": "矿石·9",
+      "StackLimit": 99,
+      "SellPrice": 626
+    },
+    {
+      "ItemId": 1090,
+      "ItemName": "药草·9",
+      "StackLimit": 99,
+      "SellPrice": 633
+    },
+    {
+      "ItemId": 1091,
+      "ItemName": "木剑·10",
+      "StackLimit": 1,
+      "SellPrice": 640
+    },
+    {
+      "ItemId": 1092,
+      "ItemName": "治疗药水·10",
+      "StackLimit": 99,
+      "SellPrice": 647
+    },
+    {
+      "ItemId": 1093,
+      "ItemName": "皮甲·10",
+      "StackLimit": 99,
+      "SellPrice": 654
+    },
+    {
+      "ItemId": 1094,
+      "ItemName": "铁剑·10",
+      "StackLimit": 1,
+      "SellPrice": 661
+    },
+    {
+      "ItemId": 1095,
+      "ItemName": "法杖·10",
+      "StackLimit": 99,
+      "SellPrice": 668
+    },
+    {
+      "ItemId": 1096,
+      "ItemName": "布靴·10",
+      "StackLimit": 99,
+      "SellPrice": 675
+    },
+    {
+      "ItemId": 1097,
+      "ItemName": "护符·10",
+      "StackLimit": 1,
+      "SellPrice": 682
+    },
+    {
+      "ItemId": 1098,
+      "ItemName": "卷轴·10",
+      "StackLimit": 99,
+      "SellPrice": 689
+    },
+    {
+      "ItemId": 1099,
+      "ItemName": "矿石·10",
+      "StackLimit": 99,
+      "SellPrice": 696
+    },
+    {
+      "ItemId": 1100,
+      "ItemName": "末行·改",
+      "StackLimit": 1,
+      "SellPrice": 4321
     }
   ]
 }

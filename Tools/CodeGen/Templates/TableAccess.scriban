@@ -15,25 +15,49 @@ namespace Template.Logic.Data.Generated
 {{ end ~}}
 {{~ end ~}}
     }
+{{~ if 主键清单.size == 1 ~}}
 
     /// <summary>配置表「{{ 表名 }}」的访问入口，按主键查行。</summary>
     public sealed class {{ 类名 }}Table
     {
-        private readonly Dictionary<{{ 主键类型 }}, {{ 类名 }}Row> _rowsByPrimaryKey = new Dictionary<{{ 主键类型 }}, {{ 类名 }}Row>();
+        private readonly Dictionary<{{ 主键清单[0].类型 }}, {{ 类名 }}Row> _rowsByPrimaryKey = new Dictionary<{{ 主键清单[0].类型 }}, {{ 类名 }}Row>();
 
         /// <summary>全部行。</summary>
         public IReadOnlyCollection<{{ 类名 }}Row> Rows => _rowsByPrimaryKey.Values;
 
         /// <summary>按主键取一行，取不到返回 null。</summary>
-        public {{ 类名 }}Row Find({{ 主键类型 }} {{ 主键参数名 }})
+        public {{ 类名 }}Row Find({{ 主键清单[0].类型 }} {{ 主键清单[0].参数名 }})
         {
-            return _rowsByPrimaryKey.TryGetValue({{ 主键参数名 }}, out var row) ? row : null;
+            return _rowsByPrimaryKey.TryGetValue({{ 主键清单[0].参数名 }}, out var row) ? row : null;
         }
 
         /// <summary>装入一行，主键重复时覆盖。</summary>
         public void Add({{ 类名 }}Row row)
         {
-            _rowsByPrimaryKey[row.{{ 主键标识名 }}] = row;
+            _rowsByPrimaryKey[row.{{ 主键清单[0].标识名 }}] = row;
         }
     }
+{{~ else ~}}
+
+    /// <summary>配置表「{{ 表名 }}」的访问入口，主键多于一个，按「{{ for 主键 in 主键清单 }}{{ 主键.显示名 }}{{ if !for.last }}|{{ end }}{{ end }}」的顺序把各主键值用 | 拼成复合键查行。</summary>
+    public sealed class {{ 类名 }}Table
+    {
+        private readonly Dictionary<string, {{ 类名 }}Row> _rowsByCompositeKey = new Dictionary<string, {{ 类名 }}Row>();
+
+        /// <summary>全部行。</summary>
+        public IReadOnlyCollection<{{ 类名 }}Row> Rows => _rowsByCompositeKey.Values;
+
+        /// <summary>按复合主键取一行，取不到返回 null。键由各主键值按「{{ for 主键 in 主键清单 }}{{ 主键.显示名 }}{{ if !for.last }}|{{ end }}{{ end }}」顺序拼接。</summary>
+        public {{ 类名 }}Row Find({{ for 主键 in 主键清单 }}{{ 主键.类型 }} {{ 主键.参数名 }}{{ if !for.last }}, {{ end }}{{ end }})
+        {
+            return _rowsByCompositeKey.TryGetValue({{ for 主键 in 主键清单 }}{{ 主键.参数名 }}{{ if !for.last }} + "|" + {{ end }}{{ end }}, out var row) ? row : null;
+        }
+
+        /// <summary>装入一行，主键重复时覆盖。</summary>
+        public void Add({{ 类名 }}Row row)
+        {
+            _rowsByCompositeKey[{{ for 主键 in 主键清单 }}row.{{ 主键.标识名 }}{{ if !for.last }} + "|" + {{ end }}{{ end }}] = row;
+        }
+    }
+{{~ end ~}}
 }

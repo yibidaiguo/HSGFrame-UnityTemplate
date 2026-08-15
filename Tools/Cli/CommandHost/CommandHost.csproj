@@ -18,5 +18,7 @@
     <ProjectReference Include="../../AssetPipeline/AssetPipeline.csproj" />
     <ProjectReference Include="../../Scaffold/ProjectScaffold.csproj" />
     <ProjectReference Include="../../CodeGen/CodeGen.csproj" />
+    <ProjectReference Include="../../Hotfix/Hotfix.csproj" />
+    <ProjectReference Include="../../Dashboard/Dashboard.csproj" />
   </ItemGroup>
 </Project>

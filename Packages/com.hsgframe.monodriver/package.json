@@ -1,0 +1,8 @@
+{
+  "name": "com.hsgframe.monodriver",
+  "version": "0.1.0",
+  "displayName": "HSGFrame Mono 驱动",
+  "description": "纯 C# 帧回调登记表：把每帧、每晚帧、每固定帧要调的委托登记在这里，由宿主按帧驱动。",
+  "unity": "6000.3",
+  "author": { "name": "HSGhost" }
+}

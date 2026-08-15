@@ -10,6 +10,12 @@ namespace Template.Toolkit.Gates
         /// <summary>标识符缩写黑名单，例如 Mgr、Cfg。</summary>
         public IReadOnlyList<string> AbbreviationBlacklist { get; set; }
 
+        /// <summary>
+        /// 豁免缩写检查的标识符，逐字匹配。
+        /// 只用于第三方 API 的成员名——那些名字由对方定，改不了，而调用点又绕不开写出它们。
+        /// </summary>
+        public IReadOnlyList<string> AbbreviationExemptIdentifiers { get; set; }
+
         /// <summary>目录名黑名单，例如 misc、common。</summary>
         public IReadOnlyList<string> DirectoryNameBlacklist { get; set; }
 

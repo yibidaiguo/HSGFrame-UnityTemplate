@@ -1,0 +1,17 @@
+{
+  "name": "Presentation.WorldSpaceUI",
+  "rootNamespace": "Template.Presentation.WorldSpaceUI",
+  "references": [
+    "HSGFrame.WorldSpaceUI",
+    "UnityEngine.UI"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

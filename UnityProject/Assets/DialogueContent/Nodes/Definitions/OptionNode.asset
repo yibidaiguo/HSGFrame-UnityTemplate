@@ -1,0 +1,95 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d6f135c669d80b4e96bef2569a2c209, type: 3}
+  m_Name: OptionNode
+  m_EditorClassIdentifier: Dialogue.Unity::Dialogue.OptionNode
+  id: dialogue.Option
+  displayName: Option
+  category: 
+  docString: 
+  purity: 0
+  role: 3
+  inputPorts:
+  - name: in
+    type:
+      rid: 2898929822792155348
+    arity:
+      kind: 0
+      min: 1
+      max: 0
+  outputPorts:
+  - name: next
+    type:
+      rid: 2898929822792155349
+    arity:
+      kind: 0
+      min: 1
+      max: 0
+  parameters:
+  - name: optionKey
+    type:
+      rid: 2898929822792155350
+    defaultJson: 
+    hasBounds: 0
+    boundsMin: 0
+    boundsMax: 0
+    choiceSource: dialogue.optionKeys
+  - name: gate
+    type:
+      rid: 2898929822792155351
+    defaultJson: 
+    hasBounds: 0
+    boundsMin: 0
+    boundsMax: 0
+    choiceSource: 
+  runtimeKind: 0
+  blackboardReads: []
+  blackboardWrites: []
+  constraints: []
+  version: 1
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }
+    - rid: 2898929822792155348
+      type: {class: TypeRef, ns: NodeEditor, asm: NodeEditor.Runtime}
+      data:
+        kind: 5
+        primitive: 0
+        enumOrObjectName: 
+        element:
+          rid: -2
+    - rid: 2898929822792155349
+      type: {class: TypeRef, ns: NodeEditor, asm: NodeEditor.Runtime}
+      data:
+        kind: 5
+        primitive: 0
+        enumOrObjectName: 
+        element:
+          rid: -2
+    - rid: 2898929822792155350
+      type: {class: TypeRef, ns: NodeEditor, asm: NodeEditor.Runtime}
+      data:
+        kind: 0
+        primitive: 3
+        enumOrObjectName: 
+        element:
+          rid: -2
+    - rid: 2898929822792155351
+      type: {class: TypeRef, ns: NodeEditor, asm: NodeEditor.Runtime}
+      data:
+        kind: 7
+        primitive: 0
+        enumOrObjectName: Condition
+        element:
+          rid: -2

@@ -1,7 +1,16 @@
 {
   "indexName": "场景索引",
-  "sourceRoot": "Template/UnityProject/Assets",
-  "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "generatedAtUtc": "2026-08-14T20:21:23Z",
-  "entries": []
+  "sourceRoot": "UnityProject/Assets",
+  "sourceHash": "542c7f163b0720083a493989b8f33fe0ffabd14962164d19abbc45a3eb1c9347",
+  "generatedAtUtc": "2026-08-15T08:30:21Z",
+  "entries": [
+    {
+      "relativePath": "UnityProject/Assets/_Project/Scenes/村庄.unity",
+      "fileName": "村庄.unity",
+      "assetGuid": "6906ea9f737e2e64cad7f9f4398dc4b7",
+      "fileHash": "7cf626ec91add122bae0f50cbc6b12adbbcb66af1233a48138b2d72feca3d202",
+      "fileLength": 44619,
+      "lastWriteTimeUtcTicks": 639223751638288680
+    }
+  ]
 }

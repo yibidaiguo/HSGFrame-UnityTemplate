@@ -5,6 +5,18 @@
       "targetKind": "TableAccess",
       "inputPath": "Config/Schema/背包.schema.json",
       "outputPath": "UnityProject/Assets/_Project/Scripts/Logic/Data/_Generated/BagTable.cs"
+    },
+    {
+      "targetName": "技能表访问代码",
+      "targetKind": "TableAccess",
+      "inputPath": "Config/Schema/技能.schema.json",
+      "outputPath": "UnityProject/Assets/_Project/Scripts/Logic/Data/_Generated/SkillTable.cs"
+    },
+    {
+      "targetName": "怪物表访问代码",
+      "targetKind": "TableAccess",
+      "inputPath": "Config/Schema/怪物.schema.json",
+      "outputPath": "UnityProject/Assets/_Project/Scripts/Logic/Data/_Generated/MonsterTable.cs"
     }
   ]
 }

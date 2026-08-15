@@ -31,18 +31,33 @@ namespace Template.Toolkit.CodeGen
                 throw new NotSupportedException($"暂不支持的生成种类：{target.TargetKind}");
             }
 
-            var schema = SchemaLoader.LoadFromFile(Path.Combine(templateRoot, target.InputPath));
-            var primaryKey = schema.Fields.FirstOrDefault(field => field.IsPrimaryKey)
-                ?? throw new InvalidOperationException($"表「{schema.TableName}」没有标记主键字段");
+            var schemaPath = Path.Combine(templateRoot, target.InputPath);
+            if (!File.Exists(schemaPath))
+            {
+                throw new InvalidOperationException($"生成目标「{target.TargetName}」的输入 schema 不存在：{target.InputPath}");
+            }
+
+            var schema = SchemaLoader.LoadFromFile(schemaPath);
+            var primaryKeys = schema.Fields.Where(field => field.IsPrimaryKey).ToList();
+            if (primaryKeys.Count == 0)
+            {
+                throw new InvalidOperationException($"表「{schema.TableName}」没有标记主键字段");
+            }
 
             var model = new ScriptObject
             {
                 ["输入路径"] = target.InputPath.Replace('\\', '/'),
                 ["表名"] = schema.TableName,
                 ["类名"] = schema.TableIdentifierName,
-                ["主键类型"] = ToClrTypeName(primaryKey.TypeName),
-                ["主键标识名"] = primaryKey.IdentifierName,
-                ["主键参数名"] = ToCamelCase(primaryKey.IdentifierName),
+                ["主键清单"] = primaryKeys
+                    .Select(key => new ScriptObject
+                    {
+                        ["显示名"] = key.DisplayName,
+                        ["类型"] = ToClrTypeName(key.TypeName),
+                        ["标识名"] = key.IdentifierName,
+                        ["参数名"] = ToCamelCase(key.IdentifierName)
+                    })
+                    .ToList(),
                 ["字段清单"] = schema.Fields
                     .Select(field => new ScriptObject
                     {

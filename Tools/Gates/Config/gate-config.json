@@ -12,6 +12,9 @@
     "Attr",
     "Conf"
   ],
+  "abbreviationExemptIdentifiers": [
+    "paramName"
+  ],
   "directoryNameBlacklist": [
     "misc",
     "common",
@@ -23,8 +26,37 @@
   ],
   "directoryNamePattern": "^[A-Za-z_][A-Za-z0-9_.]*$",
   "documentLineLimit": 200,
-  "documentExemptions": [],
-  "changedPathWhitelist": [],
+  "documentExemptions": [
+    "Doc/挂机任务书.md",
+    "Doc/挂机日志.md",
+    "Doc/改造方案.md",
+    "Doc/JKFrameDoc/",
+    "Doc/系统文档/",
+    "Doc/正式化任务书.md",
+    "Doc/正式化日志.md",
+    "Doc/正式化清单.md"
+  ],
+  "changedPathWhitelist": [
+    "Tools/",
+    "Solutions/",
+    "Packages/",
+    "UnityProject/",
+    "Pipelines/",
+    "Config/",
+    "Levels/",
+    "Graphs/",
+    "UI/",
+    "Index/",
+    "Memory/",
+    "CLAUDE.md",
+    "开始使用.md",
+    "迁移清单.md",
+    "reasonix.toml",
+    ".gitignore",
+    ".gitattributes",
+    ".editorconfig",
+    "Directory.Build.props"
+  ],
   "testFileGlobs": [
     "Solutions/*.Tests/*.cs"
   ],
@@ -33,5 +65,7 @@
     "PackageCache",
     "Build",
     "Logs"
-  ]
+  ],
+  "playerBuildEntryMethod": "Template.Toolkit.Editor.PlayerBuildCommandLine.BuildWindows",
+  "editorOwnedPathPrefixes": []
 }

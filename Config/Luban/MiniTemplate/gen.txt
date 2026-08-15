@@ -1,0 +1,17 @@
+set WORKSPACE=..
+set LUBAN_DLL=%WORKSPACE%\Tools\Luban\Luban.dll
+set CONF_ROOT=.
+
+dotnet %LUBAN_DLL% ^
+    -t all ^
+    -c cs-simple-json ^
+    -c cs-bin ^
+    -d json ^
+    -d bin ^
+    --conf %CONF_ROOT%\luban.conf ^
+    -x cs-simple-json.outputCodeDir=..\..\..\RPG_Unity\Assets\Gen\code ^
+    -x cs-bin.outputCodeDir=..\..\..\RPG_Unity\Assets\Gen\bin ^
+    -x json.outputDataDir=..\..\..\RPG_Unity\Assets\StreamingAssets\Luban\GenerateDatas\json  ^
+    -x bin.outputDataDir=..\..\..\RPG_Unity\Assets\StreamingAssets\Luban\GenerateDatas\bin
+
+pause

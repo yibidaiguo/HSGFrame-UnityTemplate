@@ -92,21 +92,47 @@ namespace Template.Toolkit.CommandHost
             var descriptor = FindCommand(commandName);
             if (descriptor == null)
             {
-                Console.WriteLine($"未找到命令：{commandName}");
+                var diagnostic = new CommandDiagnostic(
+                    commandName,
+                    "未找到命令",
+                    "核对命令名，或先跑 toolkit-cmd.ps1 list 看有哪些命令",
+                    "先跑 toolkit-cmd.ps1 list 看有哪些命令");
+                EmitLog(commandName, "错误", diagnostic.ToString(), success: false);
                 return 2;
             }
 
             if (!File.Exists(jsonPath))
             {
-                Console.WriteLine($"参数文件不存在：{jsonPath}");
+                var diagnostic = new CommandDiagnostic(
+                    jsonPath,
+                    "参数文件不存在",
+                    "先把参数写进这个 JSON 文件，再重新执行",
+                    "Tools/Cli/CommandHost/Commands/IndexCommands.cs");
+                EmitLog(commandName, "错误", diagnostic.ToString(), success: false);
                 return 2;
             }
 
             var json = File.ReadAllText(jsonPath);
+
+            var diagnostics = CommandArgumentValidator.Validate(descriptor, json);
+            if (diagnostics.Count > 0)
+            {
+                foreach (var diagnostic in diagnostics)
+                {
+                    EmitLog(commandName, "错误", diagnostic.ToString(), success: null);
+                }
+
+                EmitLog(commandName, "错误", $"参数校验失败，问题 {diagnostics.Count} 条", success: false);
+                return 2;
+            }
+
             var arguments = JsonSerializer.Deserialize(
                 json,
                 descriptor.ArgumentType,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            CommandExecutionContext.ProgressRootDirectory = ReadOption(args, "--progress-root") ?? Environment.CurrentDirectory;
+            CommandExecutionContext.ArgumentsJson = json;
 
             // 命令抛异常时也要吐一条结构化日志再退出：挂机跑时裸栈回溯没人看，
             // 而调用方（gate.ps1 / 流水线）只认退出码与日志流。
@@ -180,5 +206,15 @@ namespace Template.Toolkit.CommandHost
             Console.WriteLine("  unity-cmd describe <命令名>");
             Console.WriteLine("  unity-cmd run <命令名> --arguments-file <json路径>");
         }
+    }
+
+    /// <summary>命令执行上下文：把本轮进程的参数 JSON 与断点根目录传给命令实现。</summary>
+    internal static class CommandExecutionContext
+    {
+        /// <summary>断点文件根目录，命令实现从这里推导断点文件路径。</summary>
+        internal static string ProgressRootDirectory { get; set; }
+
+        /// <summary>本轮命令的参数 JSON 原文，命令实现用它计算输入哈希。</summary>
+        internal static string ArgumentsJson { get; set; }
     }
 }

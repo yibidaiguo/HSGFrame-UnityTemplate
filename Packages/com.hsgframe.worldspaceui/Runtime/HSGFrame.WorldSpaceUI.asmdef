@@ -1,0 +1,7 @@
+{
+  "name": "HSGFrame.WorldSpaceUI",
+  "rootNamespace": "HSGFrame.WorldSpaceUI",
+  "references": [],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}

@@ -1,8 +1,16 @@
 {
   "tables": {
     "背包": {
-      "workbookHash": "b399d7c374c411b0556e34ac46e4cbdd0c5dcfb235e36106e9f64857ef71c9fe",
-      "mirrorHash": "ab6a2c8d925f07e6f5c2c50d298a67a3c6d9488be8b143426cc61261611713aa"
+      "workbookHash": "c79956e4a9c77657d9b12e257a9f91b7c8ec4b1e9f34abec3ff20e7691027362",
+      "mirrorHash": "b649abc302665dac832a262ccd68283ace774667251230d9c9d676d1462d1249"
+    },
+    "技能": {
+      "workbookHash": "271c2ab4eda0c726e3f81af2cf50ca77dafae22c82ce53a83922f5a9f246ea84",
+      "mirrorHash": "2ed7d73856ad9069978bc16f81bff2b52f79fbee7ad993e3ec2f3517a41c1105"
+    },
+    "怪物": {
+      "workbookHash": "5737bfc32bea3e12e43e38b5eddd170c8075ca9e963fc0a26ea1170460ac07d4",
+      "mirrorHash": "415a68af6fa762e57c1d6efcc1ab474cd301bb574f30e1541e2ab4ae0fa6e582"
     }
   }
 }

@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37194ef5d636b39419296989e9685eee, type: 3}
+  m_Name: EndNode
+  m_EditorClassIdentifier: Dialogue.Unity::Dialogue.EndNode
+  id: dialogue.End
+  displayName: End
+  category: 
+  docString: 
+  purity: 0
+  role: 3
+  inputPorts:
+  - name: in
+    type:
+      rid: 2898929822792155339
+    arity:
+      kind: 4
+      min: 0
+      max: 0
+  outputPorts: []
+  parameters: []
+  runtimeKind: 0
+  blackboardReads: []
+  blackboardWrites: []
+  constraints: []
+  version: 1
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }
+    - rid: 2898929822792155339
+      type: {class: TypeRef, ns: NodeEditor, asm: NodeEditor.Runtime}
+      data:
+        kind: 5
+        primitive: 0
+        enumOrObjectName: 
+        element:
+          rid: -2

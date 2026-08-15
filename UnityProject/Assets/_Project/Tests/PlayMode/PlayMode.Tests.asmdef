@@ -1,0 +1,27 @@
+{
+  "name": "PlayMode.Tests",
+  "rootNamespace": "Template.Tests.PlayMode",
+  "references": [
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner",
+    "GameTemplateForAgent.ObjectPool",
+    "GameTemplateForAgent.Audio",
+    "HSGFrame.Event",
+    "HSGFrame.MonoDriver",
+    "HSGFrame.Logging",
+    "HSGFrame.Scene",
+    "HSGFrame.Resource",
+    "HSGFrame.WorldSpaceUI",
+    "Presentation.Framework",
+    "Presentation.WorldSpaceUI",
+    "Presentation.Level",
+    "Logic.Data",
+    "YooAsset"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "precompiledReferences": ["nunit.framework.dll"],
+  "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+  "overrideReferences": true,
+  "autoReferenced": false
+}

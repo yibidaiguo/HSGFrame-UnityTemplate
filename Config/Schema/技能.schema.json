@@ -1,0 +1,12 @@
+{
+  "tableName": "技能",
+  "tableIdentifierName": "Skill",
+  "sheetName": "技能",
+  "fields": [
+    { "displayName": "编号",     "identifierName": "SkillId",       "typeName": "Int32",   "isPrimaryKey": true },
+    { "displayName": "全局编号", "identifierName": "GlobalSkillId", "typeName": "Int64",   "isPrimaryKey": false },
+    { "displayName": "技能名称", "identifierName": "SkillName",     "typeName": "String",  "isPrimaryKey": false },
+    { "displayName": "冷却秒数", "identifierName": "CooldownSeconds", "typeName": "Single", "isPrimaryKey": false },
+    { "displayName": "是否被动", "identifierName": "IsPassive",     "typeName": "Boolean", "isPrimaryKey": false }
+  ]
+}

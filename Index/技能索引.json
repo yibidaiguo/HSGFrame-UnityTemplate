@@ -1,20 +1,40 @@
 {
   "indexName": "技能索引",
-  "sourceRoot": "Template/Config/Mirror",
-  "sourceHash": "36d464c93704c7675f4492d413d77ab46fa8f730af9537c9a60bc1519d76285f",
-  "generatedAtUtc": "2026-08-14T20:21:23Z",
+  "sourceRoot": "Config/Mirror",
+  "sourceHash": "92a9e4e2d3961e4c5c7a557e523a6436d23d2502ffd48a0c788fb069157c854f",
+  "generatedAtUtc": "2026-08-15T08:30:21Z",
   "entries": [
     {
-      "relativePath": "Template/Config/Mirror/.baseline.json",
+      "relativePath": "Config/Mirror/.baseline.json",
       "fileName": ".baseline.json",
       "assetGuid": "",
-      "fileHash": "14353845796f74052b26a92abbe242588d04964f7c9d729324f0fffb2d81cfd4"
+      "fileHash": "0cc32a1e5eed1357949d0db6b893a5565824471af60044eb5944abd2ddff086c",
+      "fileLength": 635,
+      "lastWriteTimeUtcTicks": 639223512395714117
     },
     {
-      "relativePath": "Template/Config/Mirror/背包.json",
+      "relativePath": "Config/Mirror/怪物.json",
+      "fileName": "怪物.json",
+      "assetGuid": "",
+      "fileHash": "415a68af6fa762e57c1d6efcc1ab474cd301bb574f30e1541e2ab4ae0fa6e582",
+      "fileLength": 18150,
+      "lastWriteTimeUtcTicks": 639223512395653220
+    },
+    {
+      "relativePath": "Config/Mirror/技能.json",
+      "fileName": "技能.json",
+      "assetGuid": "",
+      "fileHash": "2ed7d73856ad9069978bc16f81bff2b52f79fbee7ad993e3ec2f3517a41c1105",
+      "fileLength": 20544,
+      "lastWriteTimeUtcTicks": 639223499593717462
+    },
+    {
+      "relativePath": "Config/Mirror/背包.json",
       "fileName": "背包.json",
       "assetGuid": "",
-      "fileHash": "ab6a2c8d925f07e6f5c2c50d298a67a3c6d9488be8b143426cc61261611713aa"
+      "fileHash": "b649abc302665dac832a262ccd68283ace774667251230d9c9d676d1462d1249",
+      "fileLength": 11976,
+      "lastWriteTimeUtcTicks": 639223499563391801
     }
   ]
 }

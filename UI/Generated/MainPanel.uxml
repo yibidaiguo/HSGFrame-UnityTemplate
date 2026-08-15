@@ -1,7 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:VisualElement name="主界面" class="面板-根">
-        <ui:ProgressBar name="血条" />
-        <ui:Label name="金币文本" />
-        <ui:Button name="背包按钮" />
+        <ui:ProgressBar name="HealthBar" />
+        <ui:Label name="CoinText" />
+        <ui:Button name="InventoryButton" />
     </ui:VisualElement>
 </ui:UXML>

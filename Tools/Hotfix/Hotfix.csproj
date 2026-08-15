@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Toolkit.Hotfix</AssemblyName>
+    <RootNamespace>Template.Toolkit.Hotfix</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../Packages/com.gametemplateforagent.hotfix/Runtime/**/*.cs" LinkBase="Hotfix" />
+  </ItemGroup>
+</Project>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Template.Toolkit.Indexing
 {
@@ -31,6 +32,10 @@ namespace Template.Toolkit.Indexing
 
         /// <summary>索引条目列表。</summary>
         public IReadOnlyList<IndexEntry> Entries { get; set; } = Array.Empty<IndexEntry>();
+
+        /// <summary>本次运行复用旧条目的数量，只做统计，不写入索引文件。</summary>
+        [JsonIgnore]
+        public int ReusedEntryCount { get; set; }
 
         /// <summary>把索引写到指定路径（自动建目录）。</summary>
         /// <param name="path">输出文件路径。</param>

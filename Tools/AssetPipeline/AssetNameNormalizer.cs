@@ -19,6 +19,16 @@ namespace Template.Toolkit.AssetPipeline
                 ? originalFileName
                 : originalFileName.Substring(0, originalFileName.Length - extension.Length);
 
+            var prefix = rule?.FileNamePrefix ?? string.Empty;
+
+            // 先把已有的前缀摘掉再拆词，末尾统一补回。少了这一步，「T_UiButtonNormal」里的
+            // 「T」会被当成一个普通词参与拼接，结果既丢了下划线又被重新补一次前缀，
+            // 规范化就不再幂等。
+            if (!string.IsNullOrEmpty(prefix) && stem.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                stem = stem.Substring(prefix.Length);
+            }
+
             var words = ReplaceSeparators(stem)
                 .Split('_', StringSplitOptions.RemoveEmptyEntries)
                 .Select(PascalCaseWord)
@@ -30,8 +40,7 @@ namespace Template.Toolkit.AssetPipeline
                 normalizedStem = "未命名";
             }
 
-            var prefix = rule?.FileNamePrefix ?? string.Empty;
-            if (!string.IsNullOrEmpty(prefix) && !normalizedStem.StartsWith(prefix, StringComparison.Ordinal))
+            if (!string.IsNullOrEmpty(prefix))
             {
                 normalizedStem = prefix + normalizedStem;
             }
@@ -91,7 +100,30 @@ namespace Template.Toolkit.AssetPipeline
         private static bool ShouldSkip(string fileName)
         {
             return fileName.EndsWith(".meta", StringComparison.Ordinal)
-                || string.Equals(fileName, "导入规则.json", StringComparison.Ordinal);
+                || IsPipelineConfigurationFile(fileName);
+        }
+
+        // 「混合大小写」＝ 词里既有大写字母又有小写字母（如 UiButtonNormal / SwordHit）。
+        // 全大写（BOSS / FX）与全小写（attack）不算，它们要被压成 PascalCase。
+        private static bool IsMixedCase(string word)
+        {
+            var hasUpper = false;
+            var hasLower = false;
+            foreach (var character in word)
+            {
+                if (char.IsUpper(character)) { hasUpper = true; }
+                else if (char.IsLower(character)) { hasLower = true; }
+            }
+
+            return hasUpper && hasLower;
+        }
+
+        /// <summary>判断一个文件名是不是资产管线自己的配置文件（这些文件不参与规范化与校验）。</summary>
+        /// <param name="fileName">文件名。</param>
+        public static bool IsPipelineConfigurationFile(string fileName)
+        {
+            return string.Equals(fileName, "导入规则.json", StringComparison.Ordinal)
+                || string.Equals(fileName, "归档路由.json", StringComparison.Ordinal);
         }
 
         // 撞车去重：两个乱名可能归一后同名（例如「a b.png」与「a_b.png」都归一成 AB.png），
@@ -123,11 +155,20 @@ namespace Template.Toolkit.AssetPipeline
 
         // PascalCase 只作用于 ASCII 字母：对词首字符转大写、其余转小写。
         // 中文字符与数字经 ToUpper/ToLower 不变，因此中文词与纯数字词天然原样保留。
+        //
+        // 已经是混合大小写的词原样保留，这一条是幂等性的关键：
+        // 「UiButtonNormal」若照常规压成「Uibuttonnormal」，规范化过的名字再跑一次又会变，
+        // 于是 asset.import 产出的名字会被 asset.validate 立刻判成不合规。
         private static string PascalCaseWord(string word)
         {
             if (word.Length == 0)
             {
                 return word;
+            }
+
+            if (IsMixedCase(word))
+            {
+                return char.IsLower(word[0]) ? char.ToUpperInvariant(word[0]) + word.Substring(1) : word;
             }
 
             var builder = new StringBuilder(word.Length);

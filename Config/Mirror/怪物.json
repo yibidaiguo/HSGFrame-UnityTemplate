@@ -1,0 +1,845 @@
+{
+  "tableName": "怪物",
+  "rows": [
+    {
+      "LevelId": 1,
+      "MonsterId": 1,
+      "MonsterName": "首行·改",
+      "HealthPoint": 1234,
+      "IsElite": false
+    },
+    {
+      "LevelId": 1,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·1层",
+      "HealthPoint": 90,
+      "IsElite": false
+    },
+    {
+      "LevelId": 1,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·1层",
+      "HealthPoint": 95,
+      "IsElite": false
+    },
+    {
+      "LevelId": 1,
+      "MonsterId": 4,
+      "MonsterName": "野狼·1层",
+      "HealthPoint": 100,
+      "IsElite": false
+    },
+    {
+      "LevelId": 1,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·1层",
+      "HealthPoint": 105,
+      "IsElite": false
+    },
+    {
+      "LevelId": 1,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·1层",
+      "HealthPoint": 110,
+      "IsElite": true
+    },
+    {
+      "LevelId": 2,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·2层",
+      "HealthPoint": 115,
+      "IsElite": false
+    },
+    {
+      "LevelId": 2,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·2层",
+      "HealthPoint": 120,
+      "IsElite": false
+    },
+    {
+      "LevelId": 2,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·2层",
+      "HealthPoint": 125,
+      "IsElite": false
+    },
+    {
+      "LevelId": 2,
+      "MonsterId": 4,
+      "MonsterName": "野狼·2层",
+      "HealthPoint": 130,
+      "IsElite": false
+    },
+    {
+      "LevelId": 2,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·2层",
+      "HealthPoint": 135,
+      "IsElite": false
+    },
+    {
+      "LevelId": 2,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·2层",
+      "HealthPoint": 140,
+      "IsElite": true
+    },
+    {
+      "LevelId": 3,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·3层",
+      "HealthPoint": 145,
+      "IsElite": false
+    },
+    {
+      "LevelId": 3,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·3层",
+      "HealthPoint": 150,
+      "IsElite": false
+    },
+    {
+      "LevelId": 3,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·3层",
+      "HealthPoint": 155,
+      "IsElite": false
+    },
+    {
+      "LevelId": 3,
+      "MonsterId": 4,
+      "MonsterName": "野狼·3层",
+      "HealthPoint": 160,
+      "IsElite": false
+    },
+    {
+      "LevelId": 3,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·3层",
+      "HealthPoint": 165,
+      "IsElite": false
+    },
+    {
+      "LevelId": 3,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·3层",
+      "HealthPoint": 170,
+      "IsElite": true
+    },
+    {
+      "LevelId": 4,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·4层",
+      "HealthPoint": 175,
+      "IsElite": false
+    },
+    {
+      "LevelId": 4,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·4层",
+      "HealthPoint": 180,
+      "IsElite": false
+    },
+    {
+      "LevelId": 4,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·4层",
+      "HealthPoint": 185,
+      "IsElite": false
+    },
+    {
+      "LevelId": 4,
+      "MonsterId": 4,
+      "MonsterName": "野狼·4层",
+      "HealthPoint": 190,
+      "IsElite": false
+    },
+    {
+      "LevelId": 4,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·4层",
+      "HealthPoint": 195,
+      "IsElite": false
+    },
+    {
+      "LevelId": 4,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·4层",
+      "HealthPoint": 200,
+      "IsElite": true
+    },
+    {
+      "LevelId": 5,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·5层",
+      "HealthPoint": 205,
+      "IsElite": false
+    },
+    {
+      "LevelId": 5,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·5层",
+      "HealthPoint": 210,
+      "IsElite": false
+    },
+    {
+      "LevelId": 5,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·5层",
+      "HealthPoint": 215,
+      "IsElite": false
+    },
+    {
+      "LevelId": 5,
+      "MonsterId": 4,
+      "MonsterName": "野狼·5层",
+      "HealthPoint": 220,
+      "IsElite": false
+    },
+    {
+      "LevelId": 5,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·5层",
+      "HealthPoint": 225,
+      "IsElite": false
+    },
+    {
+      "LevelId": 5,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·5层",
+      "HealthPoint": 230,
+      "IsElite": true
+    },
+    {
+      "LevelId": 6,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·6层",
+      "HealthPoint": 235,
+      "IsElite": false
+    },
+    {
+      "LevelId": 6,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·6层",
+      "HealthPoint": 240,
+      "IsElite": false
+    },
+    {
+      "LevelId": 6,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·6层",
+      "HealthPoint": 245,
+      "IsElite": false
+    },
+    {
+      "LevelId": 6,
+      "MonsterId": 4,
+      "MonsterName": "野狼·6层",
+      "HealthPoint": 250,
+      "IsElite": false
+    },
+    {
+      "LevelId": 6,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·6层",
+      "HealthPoint": 255,
+      "IsElite": false
+    },
+    {
+      "LevelId": 6,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·6层",
+      "HealthPoint": 260,
+      "IsElite": true
+    },
+    {
+      "LevelId": 7,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·7层",
+      "HealthPoint": 265,
+      "IsElite": false
+    },
+    {
+      "LevelId": 7,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·7层",
+      "HealthPoint": 270,
+      "IsElite": false
+    },
+    {
+      "LevelId": 7,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·7层",
+      "HealthPoint": 275,
+      "IsElite": false
+    },
+    {
+      "LevelId": 7,
+      "MonsterId": 4,
+      "MonsterName": "野狼·7层",
+      "HealthPoint": 280,
+      "IsElite": false
+    },
+    {
+      "LevelId": 7,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·7层",
+      "HealthPoint": 285,
+      "IsElite": false
+    },
+    {
+      "LevelId": 7,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·7层",
+      "HealthPoint": 290,
+      "IsElite": true
+    },
+    {
+      "LevelId": 8,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·8层",
+      "HealthPoint": 295,
+      "IsElite": false
+    },
+    {
+      "LevelId": 8,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·8层",
+      "HealthPoint": 300,
+      "IsElite": false
+    },
+    {
+      "LevelId": 8,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·8层",
+      "HealthPoint": 305,
+      "IsElite": false
+    },
+    {
+      "LevelId": 8,
+      "MonsterId": 4,
+      "MonsterName": "野狼·8层",
+      "HealthPoint": 310,
+      "IsElite": false
+    },
+    {
+      "LevelId": 8,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·8层",
+      "HealthPoint": 315,
+      "IsElite": false
+    },
+    {
+      "LevelId": 8,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·8层",
+      "HealthPoint": 320,
+      "IsElite": true
+    },
+    {
+      "LevelId": 9,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·9层",
+      "HealthPoint": 325,
+      "IsElite": false
+    },
+    {
+      "LevelId": 9,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·9层",
+      "HealthPoint": 330,
+      "IsElite": false
+    },
+    {
+      "LevelId": 9,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·9层",
+      "HealthPoint": 335,
+      "IsElite": false
+    },
+    {
+      "LevelId": 9,
+      "MonsterId": 4,
+      "MonsterName": "野狼·9层",
+      "HealthPoint": 340,
+      "IsElite": false
+    },
+    {
+      "LevelId": 9,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·9层",
+      "HealthPoint": 345,
+      "IsElite": false
+    },
+    {
+      "LevelId": 9,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·9层",
+      "HealthPoint": 350,
+      "IsElite": true
+    },
+    {
+      "LevelId": 10,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·10层",
+      "HealthPoint": 355,
+      "IsElite": false
+    },
+    {
+      "LevelId": 10,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·10层",
+      "HealthPoint": 360,
+      "IsElite": false
+    },
+    {
+      "LevelId": 10,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·10层",
+      "HealthPoint": 365,
+      "IsElite": false
+    },
+    {
+      "LevelId": 10,
+      "MonsterId": 4,
+      "MonsterName": "野狼·10层",
+      "HealthPoint": 370,
+      "IsElite": false
+    },
+    {
+      "LevelId": 10,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·10层",
+      "HealthPoint": 375,
+      "IsElite": false
+    },
+    {
+      "LevelId": 10,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·10层",
+      "HealthPoint": 380,
+      "IsElite": true
+    },
+    {
+      "LevelId": 11,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·11层",
+      "HealthPoint": 385,
+      "IsElite": false
+    },
+    {
+      "LevelId": 11,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·11层",
+      "HealthPoint": 390,
+      "IsElite": false
+    },
+    {
+      "LevelId": 11,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·11层",
+      "HealthPoint": 395,
+      "IsElite": false
+    },
+    {
+      "LevelId": 11,
+      "MonsterId": 4,
+      "MonsterName": "野狼·11层",
+      "HealthPoint": 400,
+      "IsElite": false
+    },
+    {
+      "LevelId": 11,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·11层",
+      "HealthPoint": 405,
+      "IsElite": false
+    },
+    {
+      "LevelId": 11,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·11层",
+      "HealthPoint": 410,
+      "IsElite": true
+    },
+    {
+      "LevelId": 12,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·12层",
+      "HealthPoint": 415,
+      "IsElite": false
+    },
+    {
+      "LevelId": 12,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·12层",
+      "HealthPoint": 420,
+      "IsElite": false
+    },
+    {
+      "LevelId": 12,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·12层",
+      "HealthPoint": 425,
+      "IsElite": false
+    },
+    {
+      "LevelId": 12,
+      "MonsterId": 4,
+      "MonsterName": "野狼·12层",
+      "HealthPoint": 430,
+      "IsElite": false
+    },
+    {
+      "LevelId": 12,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·12层",
+      "HealthPoint": 435,
+      "IsElite": false
+    },
+    {
+      "LevelId": 12,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·12层",
+      "HealthPoint": 440,
+      "IsElite": true
+    },
+    {
+      "LevelId": 13,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·13层",
+      "HealthPoint": 445,
+      "IsElite": false
+    },
+    {
+      "LevelId": 13,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·13层",
+      "HealthPoint": 450,
+      "IsElite": false
+    },
+    {
+      "LevelId": 13,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·13层",
+      "HealthPoint": 455,
+      "IsElite": false
+    },
+    {
+      "LevelId": 13,
+      "MonsterId": 4,
+      "MonsterName": "野狼·13层",
+      "HealthPoint": 460,
+      "IsElite": false
+    },
+    {
+      "LevelId": 13,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·13层",
+      "HealthPoint": 465,
+      "IsElite": false
+    },
+    {
+      "LevelId": 13,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·13层",
+      "HealthPoint": 470,
+      "IsElite": true
+    },
+    {
+      "LevelId": 14,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·14层",
+      "HealthPoint": 475,
+      "IsElite": false
+    },
+    {
+      "LevelId": 14,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·14层",
+      "HealthPoint": 480,
+      "IsElite": false
+    },
+    {
+      "LevelId": 14,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·14层",
+      "HealthPoint": 485,
+      "IsElite": false
+    },
+    {
+      "LevelId": 14,
+      "MonsterId": 4,
+      "MonsterName": "野狼·14层",
+      "HealthPoint": 490,
+      "IsElite": false
+    },
+    {
+      "LevelId": 14,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·14层",
+      "HealthPoint": 495,
+      "IsElite": false
+    },
+    {
+      "LevelId": 14,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·14层",
+      "HealthPoint": 500,
+      "IsElite": true
+    },
+    {
+      "LevelId": 15,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·15层",
+      "HealthPoint": 505,
+      "IsElite": false
+    },
+    {
+      "LevelId": 15,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·15层",
+      "HealthPoint": 510,
+      "IsElite": false
+    },
+    {
+      "LevelId": 15,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·15层",
+      "HealthPoint": 515,
+      "IsElite": false
+    },
+    {
+      "LevelId": 15,
+      "MonsterId": 4,
+      "MonsterName": "野狼·15层",
+      "HealthPoint": 520,
+      "IsElite": false
+    },
+    {
+      "LevelId": 15,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·15层",
+      "HealthPoint": 525,
+      "IsElite": false
+    },
+    {
+      "LevelId": 15,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·15层",
+      "HealthPoint": 530,
+      "IsElite": true
+    },
+    {
+      "LevelId": 16,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·16层",
+      "HealthPoint": 535,
+      "IsElite": false
+    },
+    {
+      "LevelId": 16,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·16层",
+      "HealthPoint": 540,
+      "IsElite": false
+    },
+    {
+      "LevelId": 16,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·16层",
+      "HealthPoint": 545,
+      "IsElite": false
+    },
+    {
+      "LevelId": 16,
+      "MonsterId": 4,
+      "MonsterName": "野狼·16层",
+      "HealthPoint": 550,
+      "IsElite": false
+    },
+    {
+      "LevelId": 16,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·16层",
+      "HealthPoint": 555,
+      "IsElite": false
+    },
+    {
+      "LevelId": 16,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·16层",
+      "HealthPoint": 560,
+      "IsElite": true
+    },
+    {
+      "LevelId": 17,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·17层",
+      "HealthPoint": 565,
+      "IsElite": false
+    },
+    {
+      "LevelId": 17,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·17层",
+      "HealthPoint": 570,
+      "IsElite": false
+    },
+    {
+      "LevelId": 17,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·17层",
+      "HealthPoint": 575,
+      "IsElite": false
+    },
+    {
+      "LevelId": 17,
+      "MonsterId": 4,
+      "MonsterName": "野狼·17层",
+      "HealthPoint": 580,
+      "IsElite": false
+    },
+    {
+      "LevelId": 17,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·17层",
+      "HealthPoint": 585,
+      "IsElite": false
+    },
+    {
+      "LevelId": 17,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·17层",
+      "HealthPoint": 590,
+      "IsElite": true
+    },
+    {
+      "LevelId": 18,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·18层",
+      "HealthPoint": 595,
+      "IsElite": false
+    },
+    {
+      "LevelId": 18,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·18层",
+      "HealthPoint": 600,
+      "IsElite": false
+    },
+    {
+      "LevelId": 18,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·18层",
+      "HealthPoint": 605,
+      "IsElite": false
+    },
+    {
+      "LevelId": 18,
+      "MonsterId": 4,
+      "MonsterName": "野狼·18层",
+      "HealthPoint": 610,
+      "IsElite": false
+    },
+    {
+      "LevelId": 18,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·18层",
+      "HealthPoint": 615,
+      "IsElite": false
+    },
+    {
+      "LevelId": 18,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·18层",
+      "HealthPoint": 620,
+      "IsElite": true
+    },
+    {
+      "LevelId": 19,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·19层",
+      "HealthPoint": 625,
+      "IsElite": false
+    },
+    {
+      "LevelId": 19,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·19层",
+      "HealthPoint": 630,
+      "IsElite": false
+    },
+    {
+      "LevelId": 19,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·19层",
+      "HealthPoint": 635,
+      "IsElite": false
+    },
+    {
+      "LevelId": 19,
+      "MonsterId": 4,
+      "MonsterName": "野狼·19层",
+      "HealthPoint": 640,
+      "IsElite": false
+    },
+    {
+      "LevelId": 19,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·19层",
+      "HealthPoint": 645,
+      "IsElite": false
+    },
+    {
+      "LevelId": 19,
+      "MonsterId": 6,
+      "MonsterName": "石像鬼·19层",
+      "HealthPoint": 650,
+      "IsElite": true
+    },
+    {
+      "LevelId": 20,
+      "MonsterId": 1,
+      "MonsterName": "史莱姆·20层",
+      "HealthPoint": 655,
+      "IsElite": false
+    },
+    {
+      "LevelId": 20,
+      "MonsterId": 2,
+      "MonsterName": "哥布林·20层",
+      "HealthPoint": 660,
+      "IsElite": false
+    },
+    {
+      "LevelId": 20,
+      "MonsterId": 3,
+      "MonsterName": "骷髅兵·20层",
+      "HealthPoint": 665,
+      "IsElite": false
+    },
+    {
+      "LevelId": 20,
+      "MonsterId": 4,
+      "MonsterName": "野狼·20层",
+      "HealthPoint": 670,
+      "IsElite": false
+    },
+    {
+      "LevelId": 20,
+      "MonsterId": 5,
+      "MonsterName": "毒蛛·20层",
+      "HealthPoint": 675,
+      "IsElite": false
+    },
+    {
+      "LevelId": 20,
+      "MonsterId": 6,
+      "MonsterName": "末行·改",
+      "HealthPoint": 4321,
+      "IsElite": true
+    }
+  ]
+}

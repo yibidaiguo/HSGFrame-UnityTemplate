@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -17,7 +17,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
         /// <summary>门禁配置文件路径，默认取仓库内的 gate-config.json。</summary>
         [Summary("门禁配置文件路径，默认取仓库内的 gate-config.json")]
-        [DefaultValue("Template/Tools/Gates/Config/gate-config.json")]
+        [DefaultValue("Tools/Gates/Config/gate-config.json")]
         public string ConfigurationPath { get; set; }
     }
 
@@ -35,20 +35,23 @@ namespace Template.Toolkit.CommandHost.Commands
 
         /// <summary>门禁配置文件路径，默认取仓库内的 gate-config.json。</summary>
         [Summary("门禁配置文件路径，默认取仓库内的 gate-config.json")]
-        [DefaultValue("Template/Tools/Gates/Config/gate-config.json")]
+        [DefaultValue("Tools/Gates/Config/gate-config.json")]
         public string ConfigurationPath { get; set; }
     }
 
     /// <summary>改动路径白名单门禁命令的参数。</summary>
     public sealed class GateWhitelistArguments
     {
-        /// <summary>按换行分隔的改动路径文本。</summary>
-        [Summary("按换行分隔的改动路径文本")]
+        /// <summary>按换行分隔的改动路径文本，没有改动时留空。</summary>
+        // 标成选填：刚生成出来的新项目还没有 git 仓库，git status 吐不出任何东西，
+        // 这时候「没有改动路径」是正常状态，不该让门禁因为参数为空而红。
+        [Summary("按换行分隔的改动路径文本，没有改动时留空")]
+        [DefaultValue("")]
         public string ChangedPathsText { get; set; }
 
         /// <summary>门禁配置文件路径，默认取仓库内的 gate-config.json。</summary>
         [Summary("门禁配置文件路径，默认取仓库内的 gate-config.json")]
-        [DefaultValue("Template/Tools/Gates/Config/gate-config.json")]
+        [DefaultValue("Tools/Gates/Config/gate-config.json")]
         public string ConfigurationPath { get; set; }
     }
 
@@ -66,7 +69,20 @@ namespace Template.Toolkit.CommandHost.Commands
 
         /// <summary>门禁配置文件路径，默认取仓库内的 gate-config.json。</summary>
         [Summary("门禁配置文件路径，默认取仓库内的 gate-config.json")]
-        [DefaultValue("Template/Tools/Gates/Config/gate-config.json")]
+        [DefaultValue("Tools/Gates/Config/gate-config.json")]
+        public string ConfigurationPath { get; set; }
+    }
+
+    /// <summary>.meta 完整性门禁命令的参数。</summary>
+    public sealed class MetaGateArguments
+    {
+        /// <summary>UnityProject/Assets 的路径。</summary>
+        [Summary("UnityProject/Assets 的路径")]
+        public string AssetsRootDirectory { get; set; }
+
+        /// <summary>门禁配置文件路径，默认取模板内的 gate-config.json。</summary>
+        [Summary("门禁配置文件路径，默认取模板内的 gate-config.json")]
+        [DefaultValue("Tools/Gates/Config/gate-config.json")]
         public string ConfigurationPath { get; set; }
     }
 
@@ -184,10 +200,35 @@ namespace Template.Toolkit.CommandHost.Commands
         }
     }
 
+    /// <summary>.meta 完整性门禁命令：Unity 资产缺失或孤儿 .meta 各报一条。</summary>
+    public static class GateMetaCommand
+    {
+        /// <summary>
+        /// 检查 Assets 目录下每个资产是否都有配对的 .meta。
+        /// </summary>
+        /// <param name="arguments">.meta 完整性门禁参数。</param>
+        [EditorCommand("gate.meta")]
+        [Summary("Unity 资产的 .meta 完整性门禁：缺失与孤儿各报一条")]
+        public static CommandResult CheckMeta(MetaGateArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.AssetsRootDirectory))
+            {
+                return CommandResult.Failure("参数 AssetsRootDirectory 为必填项");
+            }
+
+            var configuration = GateConfiguration.LoadFromFile(
+                GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, Environment.CurrentDirectory));
+
+            var findings = MetaIntegrityChecker.Check(arguments.AssetsRootDirectory, configuration);
+
+            return GateCommandSupport.ToResult("meta 完整性门禁", findings);
+        }
+    }
+
     /// <summary>门禁命令的公共路径解析与结果封装。</summary>
     internal static class GateCommandSupport
     {
-        private const string DefaultConfigurationRelativePath = "Template/Tools/Gates/Config/gate-config.json";
+        private const string DefaultConfigurationRelativePath = "Tools/Gates/Config/gate-config.json";
 
         internal static string ResolveConfigurationPath(string configuredPath, string repositoryRoot)
         {
@@ -202,7 +243,7 @@ namespace Template.Toolkit.CommandHost.Commands
         internal static string ResolveBaselinePath(string configurationPath)
         {
             // 基线与门禁配置永远同目录：模板可能是仓库子目录，也可能自己就是仓库根，
-            // 拼死 "Template/..." 在后一种形态下会指到不存在的路径。
+            // 拼死带模板目录名的路径，在后一种形态下会指到不存在的地方。
             var configurationDirectory = Path.GetDirectoryName(Path.GetFullPath(configurationPath));
             return Path.Combine(configurationDirectory, "test-baseline.json");
         }

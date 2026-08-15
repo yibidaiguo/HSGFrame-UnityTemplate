@@ -86,7 +86,9 @@ namespace Template.Logic.Tests
         }
 
         [Fact]
-        public void SampleVillageLevelHasExactlyOneMissingChunk()
+        // 样例关卡的两个区块文件现在都在（阶段 7 补齐），这条盯的是「只喂进其中一块时另一块报缺失」，
+        // 与磁盘上有几份区块文件无关，所以断言维持原样，只把名字改成它真正测的东西。
+        public void FeedingOnlyOneChunkReportsTheOtherAsMissing()
         {
             var templateRoot = FindTemplateRoot();
             var levelPath = Path.Combine(templateRoot, "Levels", "村庄", "关卡.json");

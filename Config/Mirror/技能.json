@@ -1,0 +1,845 @@
+{
+  "tableName": "技能",
+  "rows": [
+    {
+      "SkillId": 2001,
+      "GlobalSkillId": 900000000000,
+      "SkillName": "首行·改",
+      "CooldownSeconds": 9.75,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2002,
+      "GlobalSkillId": 900000000001,
+      "SkillName": "寒霜击·1",
+      "CooldownSeconds": 0.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2003,
+      "GlobalSkillId": 900000000002,
+      "SkillName": "疾风术·1",
+      "CooldownSeconds": 1,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2004,
+      "GlobalSkillId": 900000000003,
+      "SkillName": "大地盾·1",
+      "CooldownSeconds": 1.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2005,
+      "GlobalSkillId": 900000000004,
+      "SkillName": "雷霆刃·1",
+      "CooldownSeconds": 1.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2006,
+      "GlobalSkillId": 900000000005,
+      "SkillName": "幽影环·1",
+      "CooldownSeconds": 1.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2007,
+      "GlobalSkillId": 900000000006,
+      "SkillName": "圣光斩·1",
+      "CooldownSeconds": 2,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2008,
+      "GlobalSkillId": 900000000007,
+      "SkillName": "剧毒击·1",
+      "CooldownSeconds": 2.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2009,
+      "GlobalSkillId": 900000000008,
+      "SkillName": "烈焰术·2",
+      "CooldownSeconds": 2.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2010,
+      "GlobalSkillId": 900000000009,
+      "SkillName": "寒霜盾·2",
+      "CooldownSeconds": 2.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2011,
+      "GlobalSkillId": 900000000010,
+      "SkillName": "疾风刃·2",
+      "CooldownSeconds": 3,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2012,
+      "GlobalSkillId": 900000000011,
+      "SkillName": "大地环·2",
+      "CooldownSeconds": 3.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2013,
+      "GlobalSkillId": 900000000012,
+      "SkillName": "雷霆斩·2",
+      "CooldownSeconds": 3.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2014,
+      "GlobalSkillId": 900000000013,
+      "SkillName": "幽影击·2",
+      "CooldownSeconds": 3.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2015,
+      "GlobalSkillId": 900000000014,
+      "SkillName": "圣光术·2",
+      "CooldownSeconds": 4,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2016,
+      "GlobalSkillId": 900000000015,
+      "SkillName": "剧毒盾·2",
+      "CooldownSeconds": 4.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2017,
+      "GlobalSkillId": 900000000016,
+      "SkillName": "烈焰刃·3",
+      "CooldownSeconds": 4.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2018,
+      "GlobalSkillId": 900000000017,
+      "SkillName": "寒霜环·3",
+      "CooldownSeconds": 4.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2019,
+      "GlobalSkillId": 900000000018,
+      "SkillName": "疾风斩·3",
+      "CooldownSeconds": 5,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2020,
+      "GlobalSkillId": 900000000019,
+      "SkillName": "大地击·3",
+      "CooldownSeconds": 5.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2021,
+      "GlobalSkillId": 900000000020,
+      "SkillName": "雷霆术·3",
+      "CooldownSeconds": 5.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2022,
+      "GlobalSkillId": 900000000021,
+      "SkillName": "幽影盾·3",
+      "CooldownSeconds": 5.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2023,
+      "GlobalSkillId": 900000000022,
+      "SkillName": "圣光刃·3",
+      "CooldownSeconds": 6,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2024,
+      "GlobalSkillId": 900000000023,
+      "SkillName": "剧毒环·3",
+      "CooldownSeconds": 6.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2025,
+      "GlobalSkillId": 900000000024,
+      "SkillName": "烈焰斩·4",
+      "CooldownSeconds": 6.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2026,
+      "GlobalSkillId": 900000000025,
+      "SkillName": "寒霜击·4",
+      "CooldownSeconds": 6.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2027,
+      "GlobalSkillId": 900000000026,
+      "SkillName": "疾风术·4",
+      "CooldownSeconds": 7,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2028,
+      "GlobalSkillId": 900000000027,
+      "SkillName": "大地盾·4",
+      "CooldownSeconds": 7.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2029,
+      "GlobalSkillId": 900000000028,
+      "SkillName": "雷霆刃·4",
+      "CooldownSeconds": 7.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2030,
+      "GlobalSkillId": 900000000029,
+      "SkillName": "幽影环·4",
+      "CooldownSeconds": 7.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2031,
+      "GlobalSkillId": 900000000030,
+      "SkillName": "圣光斩·4",
+      "CooldownSeconds": 8,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2032,
+      "GlobalSkillId": 900000000031,
+      "SkillName": "剧毒击·4",
+      "CooldownSeconds": 8.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2033,
+      "GlobalSkillId": 900000000032,
+      "SkillName": "烈焰术·5",
+      "CooldownSeconds": 8.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2034,
+      "GlobalSkillId": 900000000033,
+      "SkillName": "寒霜盾·5",
+      "CooldownSeconds": 8.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2035,
+      "GlobalSkillId": 900000000034,
+      "SkillName": "疾风刃·5",
+      "CooldownSeconds": 9,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2036,
+      "GlobalSkillId": 900000000035,
+      "SkillName": "大地环·5",
+      "CooldownSeconds": 9.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2037,
+      "GlobalSkillId": 900000000036,
+      "SkillName": "雷霆斩·5",
+      "CooldownSeconds": 9.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2038,
+      "GlobalSkillId": 900000000037,
+      "SkillName": "幽影击·5",
+      "CooldownSeconds": 9.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2039,
+      "GlobalSkillId": 900000000038,
+      "SkillName": "圣光术·5",
+      "CooldownSeconds": 10,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2040,
+      "GlobalSkillId": 900000000039,
+      "SkillName": "剧毒盾·5",
+      "CooldownSeconds": 10.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2041,
+      "GlobalSkillId": 900000000040,
+      "SkillName": "烈焰刃·6",
+      "CooldownSeconds": 10.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2042,
+      "GlobalSkillId": 900000000041,
+      "SkillName": "寒霜环·6",
+      "CooldownSeconds": 10.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2043,
+      "GlobalSkillId": 900000000042,
+      "SkillName": "疾风斩·6",
+      "CooldownSeconds": 11,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2044,
+      "GlobalSkillId": 900000000043,
+      "SkillName": "大地击·6",
+      "CooldownSeconds": 11.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2045,
+      "GlobalSkillId": 900000000044,
+      "SkillName": "雷霆术·6",
+      "CooldownSeconds": 11.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2046,
+      "GlobalSkillId": 900000000045,
+      "SkillName": "幽影盾·6",
+      "CooldownSeconds": 11.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2047,
+      "GlobalSkillId": 900000000046,
+      "SkillName": "圣光刃·6",
+      "CooldownSeconds": 12,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2048,
+      "GlobalSkillId": 900000000047,
+      "SkillName": "剧毒环·6",
+      "CooldownSeconds": 12.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2049,
+      "GlobalSkillId": 900000000048,
+      "SkillName": "烈焰斩·7",
+      "CooldownSeconds": 12.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2050,
+      "GlobalSkillId": 900000000049,
+      "SkillName": "寒霜击·7",
+      "CooldownSeconds": 12.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2051,
+      "GlobalSkillId": 900000000050,
+      "SkillName": "疾风术·7",
+      "CooldownSeconds": 13,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2052,
+      "GlobalSkillId": 900000000051,
+      "SkillName": "大地盾·7",
+      "CooldownSeconds": 13.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2053,
+      "GlobalSkillId": 900000000052,
+      "SkillName": "雷霆刃·7",
+      "CooldownSeconds": 13.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2054,
+      "GlobalSkillId": 900000000053,
+      "SkillName": "幽影环·7",
+      "CooldownSeconds": 13.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2055,
+      "GlobalSkillId": 900000000054,
+      "SkillName": "圣光斩·7",
+      "CooldownSeconds": 14,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2056,
+      "GlobalSkillId": 900000000055,
+      "SkillName": "剧毒击·7",
+      "CooldownSeconds": 14.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2057,
+      "GlobalSkillId": 900000000056,
+      "SkillName": "烈焰术·8",
+      "CooldownSeconds": 14.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2058,
+      "GlobalSkillId": 900000000057,
+      "SkillName": "寒霜盾·8",
+      "CooldownSeconds": 14.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2059,
+      "GlobalSkillId": 900000000058,
+      "SkillName": "疾风刃·8",
+      "CooldownSeconds": 15,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2060,
+      "GlobalSkillId": 900000000059,
+      "SkillName": "大地环·8",
+      "CooldownSeconds": 15.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2061,
+      "GlobalSkillId": 900000000060,
+      "SkillName": "雷霆斩·8",
+      "CooldownSeconds": 15.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2062,
+      "GlobalSkillId": 900000000061,
+      "SkillName": "幽影击·8",
+      "CooldownSeconds": 15.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2063,
+      "GlobalSkillId": 900000000062,
+      "SkillName": "圣光术·8",
+      "CooldownSeconds": 16,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2064,
+      "GlobalSkillId": 900000000063,
+      "SkillName": "剧毒盾·8",
+      "CooldownSeconds": 16.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2065,
+      "GlobalSkillId": 900000000064,
+      "SkillName": "烈焰刃·9",
+      "CooldownSeconds": 16.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2066,
+      "GlobalSkillId": 900000000065,
+      "SkillName": "寒霜环·9",
+      "CooldownSeconds": 16.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2067,
+      "GlobalSkillId": 900000000066,
+      "SkillName": "疾风斩·9",
+      "CooldownSeconds": 17,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2068,
+      "GlobalSkillId": 900000000067,
+      "SkillName": "大地击·9",
+      "CooldownSeconds": 17.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2069,
+      "GlobalSkillId": 900000000068,
+      "SkillName": "雷霆术·9",
+      "CooldownSeconds": 17.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2070,
+      "GlobalSkillId": 900000000069,
+      "SkillName": "幽影盾·9",
+      "CooldownSeconds": 17.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2071,
+      "GlobalSkillId": 900000000070,
+      "SkillName": "圣光刃·9",
+      "CooldownSeconds": 18,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2072,
+      "GlobalSkillId": 900000000071,
+      "SkillName": "剧毒环·9",
+      "CooldownSeconds": 18.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2073,
+      "GlobalSkillId": 900000000072,
+      "SkillName": "烈焰斩·10",
+      "CooldownSeconds": 18.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2074,
+      "GlobalSkillId": 900000000073,
+      "SkillName": "寒霜击·10",
+      "CooldownSeconds": 18.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2075,
+      "GlobalSkillId": 900000000074,
+      "SkillName": "疾风术·10",
+      "CooldownSeconds": 19,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2076,
+      "GlobalSkillId": 900000000075,
+      "SkillName": "大地盾·10",
+      "CooldownSeconds": 19.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2077,
+      "GlobalSkillId": 900000000076,
+      "SkillName": "雷霆刃·10",
+      "CooldownSeconds": 19.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2078,
+      "GlobalSkillId": 900000000077,
+      "SkillName": "幽影环·10",
+      "CooldownSeconds": 19.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2079,
+      "GlobalSkillId": 900000000078,
+      "SkillName": "圣光斩·10",
+      "CooldownSeconds": 20,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2080,
+      "GlobalSkillId": 900000000079,
+      "SkillName": "剧毒击·10",
+      "CooldownSeconds": 20.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2081,
+      "GlobalSkillId": 900000000080,
+      "SkillName": "烈焰术·11",
+      "CooldownSeconds": 20.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2082,
+      "GlobalSkillId": 900000000081,
+      "SkillName": "寒霜盾·11",
+      "CooldownSeconds": 20.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2083,
+      "GlobalSkillId": 900000000082,
+      "SkillName": "疾风刃·11",
+      "CooldownSeconds": 21,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2084,
+      "GlobalSkillId": 900000000083,
+      "SkillName": "大地环·11",
+      "CooldownSeconds": 21.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2085,
+      "GlobalSkillId": 900000000084,
+      "SkillName": "雷霆斩·11",
+      "CooldownSeconds": 21.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2086,
+      "GlobalSkillId": 900000000085,
+      "SkillName": "幽影击·11",
+      "CooldownSeconds": 21.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2087,
+      "GlobalSkillId": 900000000086,
+      "SkillName": "圣光术·11",
+      "CooldownSeconds": 22,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2088,
+      "GlobalSkillId": 900000000087,
+      "SkillName": "剧毒盾·11",
+      "CooldownSeconds": 22.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2089,
+      "GlobalSkillId": 900000000088,
+      "SkillName": "烈焰刃·12",
+      "CooldownSeconds": 22.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2090,
+      "GlobalSkillId": 900000000089,
+      "SkillName": "寒霜环·12",
+      "CooldownSeconds": 22.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2091,
+      "GlobalSkillId": 900000000090,
+      "SkillName": "疾风斩·12",
+      "CooldownSeconds": 23,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2092,
+      "GlobalSkillId": 900000000091,
+      "SkillName": "大地击·12",
+      "CooldownSeconds": 23.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2093,
+      "GlobalSkillId": 900000000092,
+      "SkillName": "雷霆术·12",
+      "CooldownSeconds": 23.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2094,
+      "GlobalSkillId": 900000000093,
+      "SkillName": "幽影盾·12",
+      "CooldownSeconds": 23.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2095,
+      "GlobalSkillId": 900000000094,
+      "SkillName": "圣光刃·12",
+      "CooldownSeconds": 24,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2096,
+      "GlobalSkillId": 900000000095,
+      "SkillName": "剧毒环·12",
+      "CooldownSeconds": 24.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2097,
+      "GlobalSkillId": 900000000096,
+      "SkillName": "烈焰斩·13",
+      "CooldownSeconds": 24.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2098,
+      "GlobalSkillId": 900000000097,
+      "SkillName": "寒霜击·13",
+      "CooldownSeconds": 24.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2099,
+      "GlobalSkillId": 900000000098,
+      "SkillName": "疾风术·13",
+      "CooldownSeconds": 25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2100,
+      "GlobalSkillId": 900000000099,
+      "SkillName": "大地盾·13",
+      "CooldownSeconds": 25.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2101,
+      "GlobalSkillId": 900000000100,
+      "SkillName": "雷霆刃·13",
+      "CooldownSeconds": 25.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2102,
+      "GlobalSkillId": 900000000101,
+      "SkillName": "幽影环·13",
+      "CooldownSeconds": 25.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2103,
+      "GlobalSkillId": 900000000102,
+      "SkillName": "圣光斩·13",
+      "CooldownSeconds": 26,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2104,
+      "GlobalSkillId": 900000000103,
+      "SkillName": "剧毒击·13",
+      "CooldownSeconds": 26.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2105,
+      "GlobalSkillId": 900000000104,
+      "SkillName": "烈焰术·14",
+      "CooldownSeconds": 26.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2106,
+      "GlobalSkillId": 900000000105,
+      "SkillName": "寒霜盾·14",
+      "CooldownSeconds": 26.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2107,
+      "GlobalSkillId": 900000000106,
+      "SkillName": "疾风刃·14",
+      "CooldownSeconds": 27,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2108,
+      "GlobalSkillId": 900000000107,
+      "SkillName": "大地环·14",
+      "CooldownSeconds": 27.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2109,
+      "GlobalSkillId": 900000000108,
+      "SkillName": "雷霆斩·14",
+      "CooldownSeconds": 27.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2110,
+      "GlobalSkillId": 900000000109,
+      "SkillName": "幽影击·14",
+      "CooldownSeconds": 27.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2111,
+      "GlobalSkillId": 900000000110,
+      "SkillName": "圣光术·14",
+      "CooldownSeconds": 28,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2112,
+      "GlobalSkillId": 900000000111,
+      "SkillName": "剧毒盾·14",
+      "CooldownSeconds": 28.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2113,
+      "GlobalSkillId": 900000000112,
+      "SkillName": "烈焰刃·15",
+      "CooldownSeconds": 28.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2114,
+      "GlobalSkillId": 900000000113,
+      "SkillName": "寒霜环·15",
+      "CooldownSeconds": 28.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2115,
+      "GlobalSkillId": 900000000114,
+      "SkillName": "疾风斩·15",
+      "CooldownSeconds": 29,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2116,
+      "GlobalSkillId": 900000000115,
+      "SkillName": "大地击·15",
+      "CooldownSeconds": 29.25,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2117,
+      "GlobalSkillId": 900000000116,
+      "SkillName": "雷霆术·15",
+      "CooldownSeconds": 29.5,
+      "IsPassive": true
+    },
+    {
+      "SkillId": 2118,
+      "GlobalSkillId": 900000000117,
+      "SkillName": "幽影盾·15",
+      "CooldownSeconds": 29.75,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2119,
+      "GlobalSkillId": 900000000118,
+      "SkillName": "圣光刃·15",
+      "CooldownSeconds": 30,
+      "IsPassive": false
+    },
+    {
+      "SkillId": 2120,
+      "GlobalSkillId": 900000000119,
+      "SkillName": "末行·改",
+      "CooldownSeconds": 8.25,
+      "IsPassive": false
+    }
+  ]
+}

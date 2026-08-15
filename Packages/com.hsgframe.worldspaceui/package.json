@@ -1,0 +1,8 @@
+{
+  "name": "com.hsgframe.worldspaceui",
+  "version": "0.1.0",
+  "displayName": "HSGFrame 世界空间 UI",
+  "description": "世界空间锚点（血条、伤害飘字、头顶名牌）显示与缩放的纯逻辑判定。",
+  "unity": "6000.3",
+  "author": { "name": "HSGhost" }
+}

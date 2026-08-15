@@ -44,8 +44,8 @@ namespace Template.Toolkit.ConfigBridge
     {
         private readonly string _configRoot;
 
-        /// <summary>用配置根目录构造服务。</summary>
-        public ConfigSyncService(string configRoot = "Template/Config")
+        /// <summary>用配置根目录构造服务；相对路径以模板根目录为基准。</summary>
+        public ConfigSyncService(string configRoot = "Config")
         {
             _configRoot = configRoot;
         }
@@ -78,7 +78,7 @@ namespace Template.Toolkit.ConfigBridge
             }
         }
 
-        /// <summary>把镜像 JSON 回写进 Excel，先校验基线哈希，不一致则一个字都不写。</summary>
+        /// <summary>把镜像 JSON 回写进 Excel；写之前先做占用检测与基线哈希校验，任一不过就一个字节都不写。</summary>
         public ConfigOperationResult Apply(string tableName)
         {
             try
@@ -88,10 +88,17 @@ namespace Template.Toolkit.ConfigBridge
                 var mirrorPath = MirrorPath(tableName);
                 var baselinePath = BaselinePath();
 
+                // 占用检测必须放在基线哈希之前：文件被独占时连读哈希都会被锁卡住，
+                // 先把「被占用」这个更靠前的失败拦下，才不会漏成裸异常。
+                if (!TryOpenWorkbookExclusively(workbookPath, out var busyReason))
+                {
+                    return ConfigOperationResult.Failure(busyReason);
+                }
+
                 var baseline = BaselineStore.Load(baselinePath);
                 if (!baseline.IsWorkbookInSync(tableName, workbookPath, out var reason))
                 {
-                    return ConfigOperationResult.Failure($"{reason}（先跑 config.sync 再 apply）");
+                    return ConfigOperationResult.Failure(DescribeWorkbookOutOfSync(workbookPath, baselinePath, reason));
                 }
 
                 var mirror = MirrorDocument.LoadFromFile(mirrorPath);
@@ -204,6 +211,41 @@ namespace Template.Toolkit.ConfigBridge
         private string BaselinePath()
         {
             return Path.Combine(_configRoot, "Mirror", ".baseline.json");
+        }
+
+        /// <summary>以独占读写方式打开 xlsx 一次并立刻释放，探测它是否正被其他进程占用。</summary>
+        private static bool TryOpenWorkbookExclusively(string workbookPath, out string busyReason)
+        {
+            busyReason = string.Empty;
+
+            // 文件不存在时没有「被占用」可言，后续写入会走新建分支，这里直接放行。
+            if (!File.Exists(workbookPath))
+            {
+                return true;
+            }
+
+            try
+            {
+                using var stream = new FileStream(workbookPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                return true;
+            }
+            catch (IOException)
+            {
+                busyReason = "xlsx 正被其他程序占用（文件被占用，多半是 Excel 或 WPS 开着），关掉占用它的程序再重试。";
+                return false;
+            }
+        }
+
+        /// <summary>拼出 xlsx 与基线不一致时的失败消息，带位置、原因、修复动作与参考四要素。</summary>
+        private static string DescribeWorkbookOutOfSync(string workbookPath, string baselinePath, string reason)
+        {
+            if (reason.Contains("没有记录", StringComparison.Ordinal))
+            {
+                return $"{reason}。位置：{workbookPath}。先跑一次 config.sync 建立基线，再重做你的编辑。参考：{baselinePath}。";
+            }
+
+            return $"xlsx 在上次同步之后被改过，直接回写会覆盖掉别人的改动。位置：{workbookPath}。" +
+                   $"先跑一次 config.sync 把 Excel 的改动收进镜像，再重做你的编辑。参考：{baselinePath}。细节：{reason}。";
         }
 
         private static bool IsNullOrEmptyValue(object value)

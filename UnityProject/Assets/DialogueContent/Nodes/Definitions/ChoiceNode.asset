@@ -1,0 +1,78 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68d52d3f404bf48479af80ae1cc4a54d, type: 3}
+  m_Name: ChoiceNode
+  m_EditorClassIdentifier: Dialogue.Unity::Dialogue.ChoiceNode
+  id: dialogue.Choice
+  displayName: Choice
+  category: 
+  docString: 
+  purity: 0
+  role: 3
+  inputPorts:
+  - name: in
+    type:
+      rid: 2898929822792155332
+    arity:
+      kind: 4
+      min: 0
+      max: 0
+  outputPorts:
+  - name: options
+    type:
+      rid: 2898929822792155333
+    arity:
+      kind: 1
+      min: 1
+      max: 0
+  - name: fallback
+    type:
+      rid: 2898929822792155334
+    arity:
+      kind: 3
+      min: 0
+      max: 0
+  parameters: []
+  runtimeKind: 0
+  blackboardReads: []
+  blackboardWrites: []
+  constraints: []
+  version: 1
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }
+    - rid: 2898929822792155332
+      type: {class: TypeRef, ns: NodeEditor, asm: NodeEditor.Runtime}
+      data:
+        kind: 5
+        primitive: 0
+        enumOrObjectName: 
+        element:
+          rid: -2
+    - rid: 2898929822792155333
+      type: {class: TypeRef, ns: NodeEditor, asm: NodeEditor.Runtime}
+      data:
+        kind: 5
+        primitive: 0
+        enumOrObjectName: 
+        element:
+          rid: -2
+    - rid: 2898929822792155334
+      type: {class: TypeRef, ns: NodeEditor, asm: NodeEditor.Runtime}
+      data:
+        kind: 5
+        primitive: 0
+        enumOrObjectName: 
+        element:
+          rid: -2

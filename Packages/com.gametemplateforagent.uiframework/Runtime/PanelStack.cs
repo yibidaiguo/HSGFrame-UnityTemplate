@@ -65,6 +65,25 @@ namespace GameTemplateForAgent.UiFramework
             return _stacks.TryGetValue(layer, out var stack) ? stack.Count : 0;
         }
 
+        /// <summary>指定层当前的面板数量。</summary>
+        /// <param name="layer">目标层。</param>
+        public int CountOf(PanelLayer layer)
+        {
+            return CountIn(layer);
+        }
+
+        /// <summary>从栈顶到栈底列出指定层的全部面板标识名。</summary>
+        /// <param name="layer">目标层。</param>
+        public IReadOnlyList<string> ListFromTop(PanelLayer layer)
+        {
+            if (!_stacks.TryGetValue(layer, out var stack))
+            {
+                return Array.Empty<string>();
+            }
+
+            return new List<string>(stack);
+        }
+
         /// <summary>清空指定层的全部面板，不影响其它层。</summary>
         /// <param name="layer">目标层。</param>
         public void ClearLayer(PanelLayer layer)
@@ -90,6 +109,19 @@ namespace GameTemplateForAgent.UiFramework
             return false;
         }
 
+        /// <summary>从指定层移除一个面板标识名，移除成功返回 true。</summary>
+        /// <param name="layer">目标层。</param>
+        /// <param name="panelIdentifierName">面板标识名。</param>
+        public bool Remove(PanelLayer layer, string panelIdentifierName)
+        {
+            if (string.IsNullOrEmpty(panelIdentifierName))
+            {
+                return false;
+            }
+
+            return RemoveFromLayer(layer, panelIdentifierName);
+        }
+
         private static PanelLayer[] BuildLayersFromTopToBottom()
         {
             var values = (PanelLayer[])Enum.GetValues(typeof(PanelLayer));
@@ -108,11 +140,11 @@ namespace GameTemplateForAgent.UiFramework
             return stack;
         }
 
-        private void RemoveFromLayer(PanelLayer layer, string panelIdentifierName)
+        private bool RemoveFromLayer(PanelLayer layer, string panelIdentifierName)
         {
-            if (!_stacks.TryGetValue(layer, out var stack))
+            if (!_stacks.TryGetValue(layer, out var stack) || stack.Count == 0)
             {
-                return;
+                return false;
             }
 
             // Stack 枚举自顶向底，先收集去掉命中项后的剩余项，再从底到顶重建，保持相对顺序不变。
@@ -125,6 +157,11 @@ namespace GameTemplateForAgent.UiFramework
                 }
             }
 
+            if (kept.Count == stack.Count)
+            {
+                return false;
+            }
+
             var rebuilt = new Stack<string>();
             for (var index = kept.Count - 1; index >= 0; index--)
             {
@@ -132,6 +169,7 @@ namespace GameTemplateForAgent.UiFramework
             }
 
             _stacks[layer] = rebuilt;
+            return true;
         }
     }
 }

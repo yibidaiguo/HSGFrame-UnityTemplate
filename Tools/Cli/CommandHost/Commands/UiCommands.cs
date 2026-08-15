@@ -20,6 +20,11 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("模板根目录，用于定位 scriban 模板")]
         [System.ComponentModel.DefaultValue("Template")]
         public string TemplateRoot { get; set; }
+
+        /// <summary>为 true 时只比对不落盘。</summary>
+        [Summary("为 true 时只比对不落盘")]
+        [System.ComponentModel.DefaultValue(false)]
+        public bool VerifyOnly { get; set; }
     }
 
     /// <summary>界面骨架生成命令：从面板定义产出 UXML + USS + C# 三件套。</summary>
@@ -46,6 +51,15 @@ namespace Template.Toolkit.CommandHost.Commands
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             var templateRoot = string.IsNullOrWhiteSpace(arguments.TemplateRoot) ? "Template" : arguments.TemplateRoot;
+
+            if (arguments.VerifyOnly)
+            {
+                var problems = PanelScaffolder.Verify(templateRoot, definition, arguments.OutputDirectory);
+                return problems.Count == 0
+                    ? CommandResult.Success("UI 三件套与定义一致")
+                    : CommandResult.Failure($"UI 三件套与定义不一致，问题 {problems.Count} 条", problems);
+            }
+
             var writtenPaths = PanelScaffolder.Scaffold(templateRoot, definition, arguments.OutputDirectory);
 
             return CommandResult.Success($"面板「{definition.PanelName}」三件套已生成，共 {writtenPaths.Count} 个文件", writtenPaths);

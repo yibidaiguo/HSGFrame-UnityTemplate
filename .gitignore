@@ -1,4 +1,4 @@
-# 仓库根 .gitignore 全局忽略了 *.csproj / *.sln，这里把 Template 自建的工程文件重新纳入
+﻿# 仓库根 .gitignore 全局忽略了 *.csproj / *.sln，这里把 Template 自建的工程文件重新纳入
 !*.csproj
 !*.sln
 
@@ -12,12 +12,6 @@ Logs/
 # 打包中间产物（pack-hotfix.ps1 的清单与包目录）
 Build/
 
-# 执行后端跑任务时留下的一次性脚本，本轮保持不删（删除属不可逆动作），留给人处置：
-# Tools/_sample_gen/ 是阶段 4 生成样例 xlsx 的一次性工程，
-# Solutions/_tmp.PlaceholderCheck/ 是某次占位检查的残留。
-Tools/_sample_gen/
-Solutions/_tmp.PlaceholderCheck/
-
 # Unity 生成物（人第一次打开工程时才长出来）
 UnityProject/Library/
 UnityProject/Temp/
@@ -25,8 +19,19 @@ UnityProject/Logs/
 UnityProject/obj/
 UnityProject/Build/
 UnityProject/Builds/
+
+# YooAsset 模拟构建与真构建的资源包产出：由「工具链/资源/模拟构建资源包」现产，不进仓库。
+UnityProject/Bundles/
 UnityProject/MemoryCaptures/
 
-# HybridCLR 的本地 il2cpp 数据（819 MB）：由「初始化开发环境」现装，不进仓库。
-# 这也是模板要有一键初始化的根本原因——环境不可能靠 clone 带过来。
+# HybridCLR 的本地 il2cpp 数据（约 800 MB）：由「初始化开发环境」现装，不进仓库。
 UnityProject/HybridCLRData/
+
+# 命令层断点文件与一次性参数文件的落脚处，不进仓库。
+Temp/
+
+# 执行后端跑任务时留下的一次性工程，本轮保持不删（删除属不可逆动作），留给人处置：
+# Tools/_sample_gen/ 是阶段 4 生成样例 xlsx 的一次性工程，
+# Solutions/_tmp.PlaceholderCheck/ 是某次占位检查的残留。
+Tools/_sample_gen/
+Solutions/_tmp.PlaceholderCheck/

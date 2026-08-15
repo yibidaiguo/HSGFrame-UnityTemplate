@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -13,7 +13,7 @@ namespace Template.Toolkit.Gates
     {
         private const string FixActionText = "测试断言的改动走单独一次提交并带 [测试变更] 标记，然后跑 gate.baseline 的更新模式重建基线";
 
-        private const string ReferenceExamplePath = "Template/Tools/Gates/Config/test-baseline.json";
+        private const string ReferenceExamplePath = "Tools/Gates/Config/test-baseline.json";
 
         /// <summary>
         /// 按测试文件 glob 收集全部测试源文件，计算 SHA256 并写入基线 JSON。

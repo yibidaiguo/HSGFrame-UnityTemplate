@@ -1,0 +1,8 @@
+{
+  "name": "com.hsgframe.logging",
+  "version": "0.1.0",
+  "displayName": "HSGFrame 日志",
+  "description": "纯 C# 日志：等级过滤 + 可插拔落点（sink）+ 格式化。",
+  "unity": "6000.3",
+  "author": { "name": "HSGhost" }
+}

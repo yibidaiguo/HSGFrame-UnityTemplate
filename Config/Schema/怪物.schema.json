@@ -1,0 +1,12 @@
+{
+  "tableName": "怪物",
+  "tableIdentifierName": "Monster",
+  "sheetName": "怪物",
+  "fields": [
+    { "displayName": "关卡编号", "identifierName": "LevelId",     "typeName": "Int32",   "isPrimaryKey": true },
+    { "displayName": "怪物编号", "identifierName": "MonsterId",   "typeName": "Int32",   "isPrimaryKey": true },
+    { "displayName": "怪物名称", "identifierName": "MonsterName", "typeName": "String",  "isPrimaryKey": false },
+    { "displayName": "生命值",   "identifierName": "HealthPoint", "typeName": "Int32",   "isPrimaryKey": false },
+    { "displayName": "是否精英", "identifierName": "IsElite",     "typeName": "Boolean", "isPrimaryKey": false }
+  ]
+}

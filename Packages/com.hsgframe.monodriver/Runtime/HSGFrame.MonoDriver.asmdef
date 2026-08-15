@@ -1,0 +1,7 @@
+{
+  "name": "HSGFrame.MonoDriver",
+  "rootNamespace": "HSGFrame.MonoDriver",
+  "references": [],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}

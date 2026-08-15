@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Template.Toolkit.CodeGen;
@@ -11,7 +12,7 @@ namespace Template.Toolkit.CodeGen.Tests
     {
         private static CodeGenerationTarget BagTarget()
         {
-            return LoadConfiguration().Targets.Single();
+            return LoadConfiguration().Targets.Single(target => target.TargetName == "背包表访问代码");
         }
 
         [Fact]
@@ -48,10 +49,11 @@ namespace Template.Toolkit.CodeGen.Tests
         public void VerifyReportsDriftAfterProductIsEdited()
         {
             var templateRoot = FindTemplateRoot();
-            var configuration = LoadConfiguration();
-            var outputPath = Path.Combine(templateRoot, configuration.Targets.Single().OutputPath);
+            var target = BagTarget();
+            var configuration = BagConfiguration();
+            var outputPath = Path.Combine(templateRoot, target.OutputPath);
 
-            CodeGenerator.WriteIfChanged(templateRoot, configuration.Targets.Single());
+            CodeGenerator.WriteIfChanged(templateRoot, target);
             var originalText = File.ReadAllText(outputPath);
             try
             {
@@ -71,7 +73,7 @@ namespace Template.Toolkit.CodeGen.Tests
         public void VerifyPassesForFreshlyGeneratedProduct()
         {
             var templateRoot = FindTemplateRoot();
-            var configuration = LoadConfiguration();
+            var configuration = BagConfiguration();
 
             CodeGenerator.WriteIfChanged(templateRoot, configuration.Targets.Single());
 
@@ -82,6 +84,16 @@ namespace Template.Toolkit.CodeGen.Tests
         {
             return CodeGenerationConfiguration.LoadFromFile(
                 Path.Combine(FindTemplateRoot(), "Tools", "CodeGen", "Config", "codegen-config.json"));
+        }
+
+        // 生成清单现在有三条 target，但这两条「手改一个产物 / 刚生成即一致」的用例只关心背包这一张表，
+        // 所以用单 target 清单隔离，避免 Verify 顺带把尚未生成的技能表、怪物表也报成缺失。
+        private static CodeGenerationConfiguration BagConfiguration()
+        {
+            return new CodeGenerationConfiguration
+            {
+                Targets = new List<CodeGenerationTarget> { BagTarget() }
+            };
         }
 
         // 从程序集目录逐级向上找带 Tools/Gates/Config 的那一级作为模板根——

@@ -1,19 +1,21 @@
-// 十秒级门禁：全解决方案编译 + 命名/注释规范，不启 Unity，全程 5~20 秒。
+// 十秒级门禁：全解决方案编译 + 七道门禁，不启 Unity，全程 5~20 秒。
 // 触发时机：AI 改完一批文件后跑；CI 里紧随秒级门禁。
-// 失败意味着：有编译错误（命名规则由 .editorconfig 在 build 时报出）或命名/注释违规，
+// 失败意味着：有编译错误，或命名/基线/白名单/文档/生成物幂等之中某一道没过。
 // 这一步抓掉约 90% 的编译错误，比启动 Unity 便宜得多。
+//
+// 步骤与 Pipelines/流水线定义.json 里的「十秒级门禁」逐条对应。
 
 pipeline {
     agent any
     stages {
         stage('dotnet build') {
             steps {
-                bat 'dotnet build Template/Solutions/Template.sln --nologo'
+                bat 'dotnet build Solutions/Template.sln --nologo'
             }
         }
-        stage('gate.naming') {
+        stage('七道门禁') {
             steps {
-                bat 'dotnet run --project Template/Tools/Cli/CommandHost/CommandHost.csproj -- run gate.naming --arguments-file gate-naming.json'
+                bat 'pwsh -NoProfile -File Tools/Gates/gate.ps1'
             }
         }
     }

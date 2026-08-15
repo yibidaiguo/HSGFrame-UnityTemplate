@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -102,7 +102,7 @@ namespace Template.Toolkit.Gates
                         $"{filePath}:{lineNumber}",
                         "公开类型缺少中文 <summary> 注释",
                         "给公开类型补一行中文摘要",
-                        "Template/Tools/Cli/CommandFramework/CommandRegistry.cs"));
+                        "Tools/Cli/CommandFramework/CommandRegistry.cs"));
                 }
             }
 
@@ -118,12 +118,20 @@ namespace Template.Toolkit.Gates
         {
             var findings = new List<GateFinding>();
             var blacklist = configuration.AbbreviationBlacklist ?? Array.Empty<string>();
+            var exemptions = configuration.AbbreviationExemptIdentifiers ?? Array.Empty<string>();
             var reportedTokens = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (Match match in IdentifierPattern.Matches(code))
             {
                 var token = match.Value;
                 if (reportedTokens.Contains(token))
+                {
+                    continue;
+                }
+
+                // 第三方 API 的成员名由对方定，调用点绕不开写出它们。豁免逐字匹配而不是按词段，
+                // 免得一条豁免顺带把我们自己代码里同词段的标识符也放过去。
+                if (exemptions.Contains(token, StringComparer.Ordinal))
                 {
                     continue;
                 }
@@ -139,7 +147,7 @@ namespace Template.Toolkit.Gates
                         $"{filePath}:{lineNumber}",
                         $"标识符「{token}」含缩写「{entry}」",
                         "换成完整单词",
-                        "Template/Tools/Cli/CommandFramework/CommandRegistry.cs"));
+                        "Tools/Cli/CommandFramework/CommandRegistry.cs"));
                     reportedTokens.Add(token);
                     break;
                 }
@@ -164,7 +172,7 @@ namespace Template.Toolkit.Gates
                         $"{filePath}:{lineNumber}",
                         $"标识符「{token}」含中文",
                         "标识符换成英文完整单词，中文写进注释或 [JsonPropertyName] 一类的数据键",
-                        "Template/UnityProject/Assets/_Project/Scripts/Logic/Data/Level/LogicEntityPlacement.cs"));
+                        "UnityProject/Assets/_Project/Scripts/Logic/Data/Level/LogicEntityPlacement.cs"));
                 }
             }
 
@@ -252,7 +260,7 @@ namespace Template.Toolkit.Gates
                         filePath,
                         $"目录名「{segment}」命中目录黑名单",
                         "换一个有意义的完整单词目录名",
-                        "Template/Tools/Cli/CommandFramework"));
+                        "Tools/Cli/CommandFramework"));
                     continue;
                 }
 
@@ -262,7 +270,7 @@ namespace Template.Toolkit.Gates
                         filePath,
                         $"目录名「{segment}」不符合命名规范",
                         "改用字母、数字、下划线、点，且以字母或下划线开头",
-                        "Template/Tools/Cli/CommandFramework"));
+                        "Tools/Cli/CommandFramework"));
                 }
             }
 

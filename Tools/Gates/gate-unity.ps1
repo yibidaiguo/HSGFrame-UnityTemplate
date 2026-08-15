@@ -17,8 +17,21 @@ $ErrorActionPreference = 'Stop'
 $templateRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $unityCommand = Join-Path $templateRoot 'Tools/Cli/unity-cmd.ps1'
 $assetsRoot = Join-Path $templateRoot 'UnityProject/Assets'
+$commandHostProject = Join-Path $templateRoot 'Tools/Cli/CommandHost/CommandHost.csproj'
 
 $failedGateNames = @()
+
+function Invoke-GateCommand {
+    param([string]$CommandName, [hashtable]$CommandArguments)
+
+    $argumentsPath = Join-Path ([System.IO.Path]::GetTempPath()) ("gate-{0}.json" -f ($CommandName -replace '\.', '-'))
+    $CommandArguments | ConvertTo-Json -Depth 5 | Set-Content -Path $argumentsPath -Encoding utf8
+
+    # Out-Host 是必需的：不消费掉子进程的输出，它会连同退出码一起成为函数的返回值，
+    # 调用方拿到的就是数组而不是整数，判定永远为「失败」。
+    & dotnet run --project $commandHostProject --verbosity quiet -- run $CommandName --arguments-file $argumentsPath | Out-Host
+    return $LASTEXITCODE
+}
 
 Write-Host ''
 Write-Host '[gate-unity] ==== Unity 真编译 ===='
@@ -54,29 +67,8 @@ if ($latestResult) {
 
 Write-Host ''
 Write-Host '[gate-unity] ==== .meta 完整性 ===='
-$missingMetaPaths = @()
-$orphanMetaPaths = @()
-
-foreach ($item in (Get-ChildItem -Path $assetsRoot -Recurse -Force)) {
-    if ($item.Name -eq '.DS_Store') { continue }
-
-    if ($item.Extension -eq '.meta') {
-        # 孤儿 meta：对应的资产已经不在了，Unity 下次打开会把它当垃圾留在库里。
-        $ownerPath = $item.FullName.Substring(0, $item.FullName.Length - 5)
-        if (-not (Test-Path -LiteralPath $ownerPath)) { $orphanMetaPaths += $item.FullName }
-        continue
-    }
-
-    if (-not (Test-Path -LiteralPath ($item.FullName + '.meta'))) { $missingMetaPaths += $item.FullName }
-}
-
-if ($missingMetaPaths.Count -gt 0 -or $orphanMetaPaths.Count -gt 0) {
-    foreach ($path in $missingMetaPaths) { Write-Host "[gate-unity] 缺少 .meta：$path" }
-    foreach ($path in $orphanMetaPaths) { Write-Host "[gate-unity] 孤儿 .meta：$path" }
+if ((Invoke-GateCommand -CommandName 'gate.meta' -CommandArguments @{ AssetsRootDirectory = $assetsRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
     $failedGateNames += '.meta 完整性'
-}
-else {
-    Write-Host '[gate-unity] .meta 完整性通过，问题 0 条'
 }
 
 Write-Host ''

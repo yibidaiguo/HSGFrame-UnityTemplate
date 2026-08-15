@@ -129,7 +129,7 @@ namespace Template.Toolkit.Dashboard
                         WriteHtml(response);
                         break;
                     case "/events":
-                        WriteEvents(response);
+                        WriteEvents(request, response);
                         break;
                     case "/api/recent":
                         WriteRecent(response);
@@ -167,7 +167,7 @@ namespace Template.Toolkit.Dashboard
             response.Close();
         }
 
-        private void WriteEvents(HttpListenerResponse response)
+        private void WriteEvents(HttpListenerRequest request, HttpListenerResponse response)
         {
             response.StatusCode = (int)HttpStatusCode.OK;
             response.ContentType = "text/event-stream; charset=utf-8";
@@ -180,7 +180,15 @@ namespace Template.Toolkit.Dashboard
             // 不先 flush 一次，头会一直憋到第一条真实事件才发出，连接建立这一步就死等。
             WriteComment(stream);
 
-            var subscription = _channel.Subscribe(line => WriteEvent(stream, line));
+            // 告诉浏览器断线后隔多久重连，并顺带把重连间隔也冲出去。
+            WriteRetry(stream);
+
+            // 断点重连：浏览器原生会在重连请求里带上 Last-Event-ID，这里只补发编号比它大的行。
+            var afterEventId = ParseLastEventId(request.Headers["Last-Event-ID"]);
+
+            var subscription = _channel.Subscribe(
+                (eventId, line) => WriteEvent(stream, eventId, line),
+                afterEventId);
             try
             {
                 // 保持连接直到客户端断开：断开后下一次写出抛异常，这里退出循环并清理订阅。
@@ -200,6 +208,17 @@ namespace Template.Toolkit.Dashboard
             }
         }
 
+        // Last-Event-ID 头是字符串，非数字时按「不带断点」处理，补发全部历史而不是抛异常。
+        private static long? ParseLastEventId(string header)
+        {
+            if (string.IsNullOrWhiteSpace(header))
+            {
+                return null;
+            }
+
+            return long.TryParse(header, out var eventId) ? eventId : (long?)null;
+        }
+
         private static void WriteComment(Stream stream)
         {
             var payload = Encoding.UTF8.GetBytes(": connected\n\n");
@@ -207,9 +226,16 @@ namespace Template.Toolkit.Dashboard
             stream.Flush();
         }
 
-        private static void WriteEvent(Stream stream, string line)
+        private static void WriteRetry(Stream stream)
         {
-            var payload = Encoding.UTF8.GetBytes("data: " + line + "\n\n");
+            var payload = Encoding.UTF8.GetBytes("retry: 3000\n\n");
+            stream.Write(payload, 0, payload.Length);
+            stream.Flush();
+        }
+
+        private static void WriteEvent(Stream stream, long eventId, string line)
+        {
+            var payload = Encoding.UTF8.GetBytes($"id: {eventId}\ndata: {line}\n\n");
             stream.Write(payload, 0, payload.Length);
             stream.Flush();
         }
