@@ -19,10 +19,6 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <summary>新项目名，同时是复制过去之后的目录名。</summary>
         [Summary("新项目名，同时是复制过去之后的目录名")]
         public string ProjectName { get; set; }
-
-        /// <summary>新的 UPM 包前缀，形如 com.example.（结尾带点）。</summary>
-        [Summary("新的 UPM 包前缀，形如 com.example.（结尾带点）")]
-        public string PackagePrefix { get; set; }
     }
 
     /// <summary>新建项目命令：把模板树复制成一个新项目并改掉项目标识。</summary>
@@ -38,8 +34,7 @@ namespace Template.Toolkit.CommandHost.Commands
             {
                 TemplateRoot = string.IsNullOrWhiteSpace(arguments.TemplateRoot) ? "Template" : arguments.TemplateRoot,
                 TargetDirectory = arguments.TargetDirectory,
-                ProjectName = arguments.ProjectName,
-                PackagePrefix = arguments.PackagePrefix
+                ProjectName = arguments.ProjectName
             };
 
             var result = ProjectGenerator.Create(options);

@@ -1,0 +1,8 @@
+{
+  "name": "com.hsgframe.save",
+  "version": "0.1.0",
+  "displayName": "存档",
+  "description": "状态快照式存档，带版本迁移链。",
+  "unity": "6000.3",
+  "author": { "name": "HSGhost" }
+}

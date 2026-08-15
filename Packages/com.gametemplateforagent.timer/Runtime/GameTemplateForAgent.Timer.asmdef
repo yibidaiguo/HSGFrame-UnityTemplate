@@ -1,7 +1,0 @@
-{
-  "name": "GameTemplateForAgent.Timer",
-  "rootNamespace": "GameTemplateForAgent.Timer",
-  "references": [],
-  "includePlatforms": [],
-  "noEngineReferences": true
-}

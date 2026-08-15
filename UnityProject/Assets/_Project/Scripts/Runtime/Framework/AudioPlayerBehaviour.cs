@@ -1,4 +1,4 @@
-using GameTemplateForAgent.Audio;
+using HSGFrame.Audio;
 using UnityEngine;
 
 namespace Template.Presentation.Framework

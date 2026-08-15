@@ -1,0 +1,7 @@
+{
+  "name": "HSGFrame.ObjectPool",
+  "rootNamespace": "HSGFrame.ObjectPool",
+  "references": [],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}

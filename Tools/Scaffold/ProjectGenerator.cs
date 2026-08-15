@@ -11,8 +11,6 @@ namespace Template.Toolkit.Scaffold
     {
         private static readonly Regex ProjectNamePattern = new Regex("^[A-Za-z][A-Za-z0-9_.]*$", RegexOptions.Compiled);
 
-        private static readonly Regex PackagePrefixPattern = new Regex("^[a-z0-9]+(\\.[a-z0-9]+)*\\.$", RegexOptions.Compiled);
-
         // 这些目录是编译 / 引擎 / 版本控制的生成物，复制进新项目只会带过去一堆垃圾。
         // HybridCLRData 尤其要跳：它是 800 MB 的本地 il2cpp 数据，且与编辑器版本绑定，
         // 复制过去既让生成变慢几十倍，又会给新项目一份可能过期的环境——环境该由新项目自己装。
@@ -21,8 +19,8 @@ namespace Template.Toolkit.Scaffold
             "bin", "obj", "Logs", "Build", ".git", "Library", "Temp", "MemoryCaptures", "HybridCLRData", "Bundles"
         };
 
-        // 凡是可能写着包名或模板标识名的文本格式都要列进来。
-        // 漏掉 .scriban 会让生成出来的代码引用错命名空间（模板里写着 using <模板名>.UiFramework）。
+        // 凡是可能写着模板身份的文本格式都要列进来。
+        // 漏掉 .scriban 会让生成出来的代码引用错命名空间（模板里写着 using <模板身份>.Toolkit.*）。
         private static readonly string[] TextExtensions =
         {
             ".json", ".asmdef", ".md", ".csproj", ".cs", ".ps1",
@@ -37,15 +35,19 @@ namespace Template.Toolkit.Scaffold
 
         private static readonly byte[] Utf8Bom = { 0xEF, 0xBB, 0xBF };
 
-        private const string TemplateDirectoryPrefix = "com.gametemplateforagent.";
+        /// <summary>
+        /// 模板自身的根命名空间。生成新项目时按项目名整体替换掉它。
+        /// 公开出来是给测试用的：测试要拿它当「被测的模板身份」，写死字面量的话，
+        /// 用本模板生成新项目时那些字面量会被生成器一起改掉，新项目里测试就自我矛盾了。
+        /// </summary>
+        public const string TemplateRootNamespace = "Template";
 
-        // 模板自身的标识名。生成新项目时连同它一起换掉，否则新项目的程序集、命名空间、
-        // 文档标题会一直顶着模板的名字——菜单叫「RPG模板工具」那类问题就是这么来的。
-        private const string TemplateIdentifierName = "GameTemplateForAgent";
-
-        // 模板解决方案文件名。它是 Template. 开头但后面接小写，命名空间正则刻意不匹配它，
-        // 单独一条规则改名，免得把 Scriban 的 Template.Parse 之类一起误伤。
-        private const string TemplateSolutionFileName = "Template.sln";
+        /// <summary>
+        /// 模板自身的解决方案文件名。它是根命名空间开头但后面接小写，命名空间正则刻意不匹配它，
+        /// 单独一条规则改名，免得把 Scriban 的同名 API 之类一起误伤。
+        /// 由根命名空间拼出来而不是写死，理由同上。
+        /// </summary>
+        public const string TemplateSolutionFileName = TemplateRootNamespace + ".sln";
 
         // 判据：Template 前面不能紧挨标识符字符或点（挡掉 Scriban.Template.Parse），
         // 后面必须是点加一个大写字母（挡掉 Template.sln、Templates 目录）。
@@ -57,14 +59,14 @@ namespace Template.Toolkit.Scaffold
         private const string FallbackTemplateNotice = @"## 本项目由通用 Unity 模板生成
 
 - 项目名：{{项目名}}
-- UPM 包前缀：{{包前缀}}
 - 命名空间：`{{项目名}}.*`（生成时已由 project.create 从模板的 `Template.*` 整体替换）
+- 框架包沿用 `com.hsgframe.*` / `HSGFrame.*`：HSGFrame 是框架自己的名字，不跟项目走
 
 跑门禁：`./{{项目名}}/Tools/Gates/gate.ps1`
 ";
 
         /// <summary>
-        /// 按参数把模板树复制成一个新项目，改写 UPM 包前缀与项目自述文件。
+        /// 按参数把模板树复制成一个新项目，改写命名空间与项目自述文件。
         /// </summary>
         /// <param name="options">生成参数。</param>
         public static ProjectCreationResult Create(ProjectCreationOptions options)
@@ -84,11 +86,6 @@ namespace Template.Toolkit.Scaffold
                 return ProjectCreationResult.Failure("ProjectName 需匹配 ^[A-Za-z][A-Za-z0-9_.]*$");
             }
 
-            if (string.IsNullOrWhiteSpace(options.PackagePrefix) || !PackagePrefixPattern.IsMatch(options.PackagePrefix))
-            {
-                return ProjectCreationResult.Failure("PackagePrefix 需匹配 ^[a-z0-9]+(\\.[a-z0-9]+)*\\.$");
-            }
-
             if (string.IsNullOrWhiteSpace(options.TargetDirectory))
             {
                 return ProjectCreationResult.Failure("TargetDirectory 不能为空");
@@ -106,17 +103,17 @@ namespace Template.Toolkit.Scaffold
             // 源模板自己的目录名（本仓库里是 RebuiltRPG）也要换掉：它是「上一个宿主」的名字，
             // 留在配置与文档里就成了新项目身上的一处旧身份。
             var sourceIdentifierName = new DirectoryInfo(Path.GetFullPath(options.TemplateRoot)).Name;
-            CopyTree(options.TemplateRoot, targetPath, options.PackagePrefix, options.ProjectName, sourceIdentifierName, ref copiedFileCount);
+            CopyTree(options.TemplateRoot, targetPath, options.ProjectName, sourceIdentifierName, ref copiedFileCount);
 
             RewriteGateWhitelist(targetPath, options.ProjectName);
             WriteHostGateConfiguration(targetPath, options.ProjectName);
-            AppendTemplateNotice(targetPath, options.TemplateRoot, options.ProjectName, options.PackagePrefix);
+            AppendTemplateNotice(targetPath, options.TemplateRoot, options.ProjectName);
             RebuildTestBaseline(targetPath);
 
             return ProjectCreationResult.Success(targetPath, copiedFileCount, $"已生成新项目到 {targetPath}");
         }
 
-        private static void CopyTree(string sourceRoot, string targetRoot, string packagePrefix, string projectName, string sourceIdentifierName, ref int copiedFileCount)
+        private static void CopyTree(string sourceRoot, string targetRoot, string projectName, string sourceIdentifierName, ref int copiedFileCount)
         {
             Directory.CreateDirectory(targetRoot);
 
@@ -130,22 +127,22 @@ namespace Template.Toolkit.Scaffold
 
                 if (Directory.Exists(entry))
                 {
-                    var targetDirectoryName = RenameDirectory(name, packagePrefix, projectName);
-                    CopyTree(entry, Path.Combine(targetRoot, targetDirectoryName), packagePrefix, projectName, sourceIdentifierName, ref copiedFileCount);
+                    var targetDirectoryName = RenameDirectory(name, projectName);
+                    CopyTree(entry, Path.Combine(targetRoot, targetDirectoryName), projectName, sourceIdentifierName, ref copiedFileCount);
                 }
                 else
                 {
-                    CopyFile(entry, Path.Combine(targetRoot, RenameDirectory(name, packagePrefix, projectName)), packagePrefix, projectName, sourceIdentifierName);
+                    CopyFile(entry, Path.Combine(targetRoot, RenameDirectory(name, projectName)), projectName, sourceIdentifierName);
                     copiedFileCount++;
                 }
             }
         }
 
-        private static void CopyFile(string sourcePath, string targetPath, string packagePrefix, string projectName, string sourceIdentifierName)
+        private static void CopyFile(string sourcePath, string targetPath, string projectName, string sourceIdentifierName)
         {
             if (IsTextFile(sourcePath))
             {
-                RewriteTextFile(sourcePath, targetPath, packagePrefix, projectName, sourceIdentifierName);
+                RewriteTextFile(sourcePath, targetPath, projectName, sourceIdentifierName);
             }
             else
             {
@@ -154,14 +151,11 @@ namespace Template.Toolkit.Scaffold
             }
         }
 
-        // 只改 com.gametemplateforagent. 开头的目录：com.gametemplateforagent.save + com.example. → com.example.save。
-        private static string RenameDirectory(string directoryName, string packagePrefix, string projectName)
+        // 目录名与文件名里也带模板身份，按与内容同一套判据改。
+        // 框架包（com.hsgframe.* / HSGFrame.*）刻意不在替换范围内：HSGFrame 是框架自己的名字，
+        // 地位与 Unity.Mathematics 一样是依赖，不跟宿主项目改名。
+        private static string RenameDirectory(string directoryName, string projectName)
         {
-            if (directoryName.StartsWith(TemplateDirectoryPrefix, StringComparison.Ordinal))
-            {
-                return packagePrefix + directoryName.Substring(TemplateDirectoryPrefix.Length);
-            }
-
             // 解决方案文件名单独一条：Template.sln → <项目名>.sln。
             if (string.Equals(directoryName, TemplateSolutionFileName, StringComparison.Ordinal))
             {
@@ -169,21 +163,16 @@ namespace Template.Toolkit.Scaffold
             }
 
             // 文件名里也带根命名空间（Template.Hotfix.Analyzer.dll 与它的 .meta）。
-            var renamed = TemplateNamespacePattern.Replace(directoryName, projectName + ".");
-            return renamed.Replace(TemplateIdentifierName, projectName, StringComparison.Ordinal);
+            return TemplateNamespacePattern.Replace(directoryName, projectName + ".");
         }
 
-        private static void RewriteTextFile(string sourcePath, string targetPath, string packagePrefix, string projectName, string sourceIdentifierName)
+        private static void RewriteTextFile(string sourcePath, string targetPath, string projectName, string sourceIdentifierName)
         {
             var bytes = File.ReadAllBytes(sourcePath);
             var hasBom = HasUtf8Bom(bytes);
             var text = hasBom
                 ? Encoding.UTF8.GetString(bytes, Utf8Bom.Length, bytes.Length - Utf8Bom.Length)
                 : Encoding.UTF8.GetString(bytes);
-
-            text = text
-                .Replace(TemplateDirectoryPrefix, packagePrefix, StringComparison.Ordinal)
-                .Replace(TemplateIdentifierName, projectName, StringComparison.Ordinal);
 
             // 解决方案文件名要先换：它是 Template. 开头但后面小写，命名空间正则不管它。
             text = text.Replace(TemplateSolutionFileName, projectName + ".sln", StringComparison.Ordinal);
@@ -279,14 +268,12 @@ namespace Template.Toolkit.Scaffold
             WriteUtf8(Path.Combine(configDirectory, "gate-config.host.json"), content, hasBom: false);
         }
 
-        private static void AppendTemplateNotice(string targetRoot, string templateRoot, string projectName, string packagePrefix)
+        private static void AppendTemplateNotice(string targetRoot, string templateRoot, string projectName)
         {
             var templatePath = Path.Combine(templateRoot, "Tools", "Scaffold", "Templates", "新项目说明.md");
             var template = File.Exists(templatePath) ? ReadUtf8Text(templatePath) : FallbackTemplateNotice;
 
-            var notice = template
-                .Replace("{{项目名}}", projectName, StringComparison.Ordinal)
-                .Replace("{{包前缀}}", packagePrefix, StringComparison.Ordinal);
+            var notice = template.Replace("{{项目名}}", projectName, StringComparison.Ordinal);
 
             AppendUtf8Text(Path.Combine(targetRoot, "CLAUDE.md"), notice);
         }

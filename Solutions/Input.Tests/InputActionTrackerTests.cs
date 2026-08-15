@@ -1,8 +1,8 @@
 using System;
-using GameTemplateForAgent.Input;
+using HSGFrame.Input;
 using Xunit;
 
-namespace GameTemplateForAgent.Input.Tests
+namespace HSGFrame.Input.Tests
 {
     /// <summary>动作状态跟踪器的按下/按住/抬起状态迁移测试。</summary>
     public class InputActionTrackerTests

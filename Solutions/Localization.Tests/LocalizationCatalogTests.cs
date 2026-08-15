@@ -1,8 +1,8 @@
 using System;
-using GameTemplateForAgent.Localization;
+using HSGFrame.Localization;
 using Xunit;
 
-namespace GameTemplateForAgent.Localization.Tests
+namespace HSGFrame.Localization.Tests
 {
     /// <summary>本地化目录的登记、回退降级与语言变化事件测试。</summary>
     public class LocalizationCatalogTests

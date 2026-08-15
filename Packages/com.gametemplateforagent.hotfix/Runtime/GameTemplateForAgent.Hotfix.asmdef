@@ -1,7 +1,0 @@
-{
-  "name": "GameTemplateForAgent.Hotfix",
-  "rootNamespace": "GameTemplateForAgent.Hotfix",
-  "references": [],
-  "includePlatforms": [],
-  "noEngineReferences": true
-}

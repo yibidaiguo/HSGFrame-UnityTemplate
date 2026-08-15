@@ -4,8 +4,8 @@
   "references": [
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner",
-    "GameTemplateForAgent.UiFramework",
-    "GameTemplateForAgent.UiFramework.Unity"
+    "HSGFrame.UiFramework",
+    "HSGFrame.UiFramework.Unity"
   ],
   "includePlatforms": ["Editor"],
   "precompiledReferences": ["nunit.framework.dll"],

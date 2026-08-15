@@ -1,0 +1,7 @@
+{
+  "name": "HSGFrame.Audio",
+  "rootNamespace": "HSGFrame.Audio",
+  "references": [],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}

@@ -1,7 +1,7 @@
-using GameTemplateForAgent.Timer;
+using HSGFrame.Timer;
 using Xunit;
 
-namespace GameTemplateForAgent.Timer.Tests
+namespace HSGFrame.Timer.Tests
 {
     /// <summary>计时器系统的边界与错误路径测试，钉住实现当前的真实语义。</summary>
     public class TimerSystemBoundaryTests

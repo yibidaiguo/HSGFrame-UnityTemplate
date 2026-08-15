@@ -1,7 +1,0 @@
-{
-  "name": "GameTemplateForAgent.Input",
-  "rootNamespace": "GameTemplateForAgent.Input",
-  "references": [],
-  "includePlatforms": [],
-  "noEngineReferences": true
-}

@@ -1,5 +1,5 @@
 using System.Collections;
-using GameTemplateForAgent.Audio;
+using HSGFrame.Audio;
 using HSGFrame.Event;
 using HSGFrame.Logging;
 using NUnit.Framework;

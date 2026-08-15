@@ -7,11 +7,11 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using GameTemplateForAgent.Hotfix;
+using HSGFrame.Hotfix;
 using Template.Toolkit.Hotfix;
 using Xunit;
 
-namespace GameTemplateForAgent.Hotfix.Tests
+namespace HSGFrame.Hotfix.Tests
 {
     /// <summary>热更端到端测试：用真的本地服务器跑通整条更新链路。</summary>
     public class HotfixEndToEndTests

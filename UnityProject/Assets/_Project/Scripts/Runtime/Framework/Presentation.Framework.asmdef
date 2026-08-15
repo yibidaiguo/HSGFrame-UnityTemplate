@@ -6,8 +6,8 @@
     "HSGFrame.Logging",
     "HSGFrame.Event",
     "HSGFrame.Scene",
-    "GameTemplateForAgent.Audio",
-    "GameTemplateForAgent.Localization"
+    "HSGFrame.Audio",
+    "HSGFrame.Localization"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

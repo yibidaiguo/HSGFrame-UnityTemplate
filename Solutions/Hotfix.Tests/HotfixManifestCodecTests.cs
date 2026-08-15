@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using GameTemplateForAgent.Hotfix;
+using HSGFrame.Hotfix;
 using Xunit;
 
-namespace GameTemplateForAgent.Hotfix.Tests
+namespace HSGFrame.Hotfix.Tests
 {
     /// <summary>热更清单 JSON 编解码的测试。</summary>
     public class HotfixManifestCodecTests

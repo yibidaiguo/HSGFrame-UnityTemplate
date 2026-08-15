@@ -4,8 +4,8 @@
   "references": [
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner",
-    "GameTemplateForAgent.ObjectPool",
-    "GameTemplateForAgent.Audio",
+    "HSGFrame.ObjectPool",
+    "HSGFrame.Audio",
     "HSGFrame.Event",
     "HSGFrame.MonoDriver",
     "HSGFrame.Logging",

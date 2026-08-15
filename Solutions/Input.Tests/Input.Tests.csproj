@@ -14,6 +14,6 @@
 
   <ItemGroup>
     <Compile Include="*.cs" />
-    <Compile Include="../../Packages/com.gametemplateforagent.input/Runtime/**/*.cs" LinkBase="Input" />
+    <Compile Include="../../Packages/com.hsgframe.input/Runtime/**/*.cs" LinkBase="Input" />
   </ItemGroup>
 </Project>

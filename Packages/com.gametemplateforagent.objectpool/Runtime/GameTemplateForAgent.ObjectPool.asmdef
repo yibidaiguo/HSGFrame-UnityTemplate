@@ -1,7 +1,0 @@
-{
-  "name": "GameTemplateForAgent.ObjectPool",
-  "rootNamespace": "GameTemplateForAgent.ObjectPool",
-  "references": [],
-  "includePlatforms": [],
-  "noEngineReferences": true
-}

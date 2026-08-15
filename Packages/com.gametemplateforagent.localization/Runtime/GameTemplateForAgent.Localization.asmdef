@@ -1,7 +1,0 @@
-{
-  "name": "GameTemplateForAgent.Localization",
-  "rootNamespace": "GameTemplateForAgent.Localization",
-  "references": [],
-  "includePlatforms": [],
-  "noEngineReferences": true
-}

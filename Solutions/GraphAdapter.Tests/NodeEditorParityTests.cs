@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using GameTemplateForAgent.GraphAdapter;
+using HSGFrame.GraphAdapter;
 using Xunit;
 
-namespace GameTemplateForAgent.GraphAdapter.Tests
+namespace HSGFrame.GraphAdapter.Tests
 {
     /// <summary>真执行器与自带最小执行器的对拍，以及翻译层与真执行器自身的边界测试。</summary>
     public class NodeEditorParityTests

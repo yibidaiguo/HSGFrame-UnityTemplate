@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using GameTemplateForAgent.Hotfix;
+using HSGFrame.Hotfix;
 using Xunit;
 
-namespace GameTemplateForAgent.Hotfix.Tests
+namespace HSGFrame.Hotfix.Tests
 {
     /// <summary>热更启动器状态机与失败回滚的测试。</summary>
     public class HotfixLauncherTests

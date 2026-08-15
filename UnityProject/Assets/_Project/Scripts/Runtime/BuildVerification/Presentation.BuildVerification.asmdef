@@ -4,7 +4,7 @@
   "references": [
     "HybridCLR.Runtime",
     "YooAsset",
-    "GameTemplateForAgent.Save"
+    "HSGFrame.Save"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

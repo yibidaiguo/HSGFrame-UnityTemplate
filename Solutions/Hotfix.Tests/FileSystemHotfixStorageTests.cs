@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using GameTemplateForAgent.Hotfix;
+using HSGFrame.Hotfix;
 using Xunit;
 
-namespace GameTemplateForAgent.Hotfix.Tests
+namespace HSGFrame.Hotfix.Tests
 {
     /// <summary>文件系统热更存储的测试：临时目录做夹具，跑完清理。</summary>
     public class FileSystemHotfixStorageTests

@@ -24,80 +24,56 @@
       },
       "hash": "4ce7dd3cc54e37e2ed6dc59cb5a047f3dccb3f50"
     },
-    "com.gametemplateforagent.audio": {
-      "version": "file:../../Packages/com.gametemplateforagent.audio",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {}
-    },
-    "com.gametemplateforagent.graphadapter": {
-      "version": "file:../../Packages/com.gametemplateforagent.graphadapter",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {}
-    },
-    "com.gametemplateforagent.hotfix": {
-      "version": "file:../../Packages/com.gametemplateforagent.hotfix",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {}
-    },
-    "com.gametemplateforagent.input": {
-      "version": "file:../../Packages/com.gametemplateforagent.input",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {}
-    },
-    "com.gametemplateforagent.localization": {
-      "version": "file:../../Packages/com.gametemplateforagent.localization",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {}
-    },
-    "com.gametemplateforagent.objectpool": {
-      "version": "file:../../Packages/com.gametemplateforagent.objectpool",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {}
-    },
-    "com.gametemplateforagent.save": {
-      "version": "file:../../Packages/com.gametemplateforagent.save",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {}
-    },
-    "com.gametemplateforagent.timer": {
-      "version": "file:../../Packages/com.gametemplateforagent.timer",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {}
-    },
-    "com.gametemplateforagent.uiframework": {
-      "version": "file:../../Packages/com.gametemplateforagent.uiframework",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {
-        "com.unity.modules.uielements": "1.0.0"
-      }
-    },
     "com.graphtest.dialogue": {
-      "version": "file:../../../../GraphTest/Release/Packages/com.graphtest.dialogue",
+      "version": "https://github.com/yibidaiguo/NodeGraph.git?path=/Packages/com.graphtest.dialogue#v0.1.6",
       "depth": 0,
-      "source": "local",
+      "source": "git",
       "dependencies": {
         "com.graphtest.nodeeditor": "0.1.6",
         "com.unity.modules.audio": "1.0.0",
         "com.unity.modules.imgui": "1.0.0"
-      }
+      },
+      "hash": "487458eb5cc2914a7645c8bbcaa2259fca20aba2"
     },
     "com.graphtest.nodeeditor": {
-      "version": "file:../../../../GraphTest/Release/Packages/com.graphtest.nodeeditor",
+      "version": "https://github.com/yibidaiguo/NodeGraph.git?path=/Packages/com.graphtest.nodeeditor#v0.1.6",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "487458eb5cc2914a7645c8bbcaa2259fca20aba2"
+    },
+    "com.hsgframe.audio": {
+      "version": "file:../../Packages/com.hsgframe.audio",
       "depth": 0,
       "source": "local",
       "dependencies": {}
     },
     "com.hsgframe.event": {
       "version": "file:../../Packages/com.hsgframe.event",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.hsgframe.graphadapter": {
+      "version": "file:../../Packages/com.hsgframe.graphadapter",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.hsgframe.hotfix": {
+      "version": "file:../../Packages/com.hsgframe.hotfix",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.hsgframe.input": {
+      "version": "file:../../Packages/com.hsgframe.input",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.hsgframe.localization": {
+      "version": "file:../../Packages/com.hsgframe.localization",
       "depth": 0,
       "source": "local",
       "dependencies": {}
@@ -114,8 +90,20 @@
       "source": "local",
       "dependencies": {}
     },
+    "com.hsgframe.objectpool": {
+      "version": "file:../../Packages/com.hsgframe.objectpool",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
     "com.hsgframe.resource": {
       "version": "file:../../Packages/com.hsgframe.resource",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.hsgframe.save": {
+      "version": "file:../../Packages/com.hsgframe.save",
       "depth": 0,
       "source": "local",
       "dependencies": {}
@@ -125,6 +113,20 @@
       "depth": 0,
       "source": "local",
       "dependencies": {}
+    },
+    "com.hsgframe.timer": {
+      "version": "file:../../Packages/com.hsgframe.timer",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.hsgframe.uiframework": {
+      "version": "file:../../Packages/com.hsgframe.uiframework",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.unity.modules.uielements": "1.0.0"
+      }
     },
     "com.hsgframe.worldspaceui": {
       "version": "file:../../Packages/com.hsgframe.worldspaceui",

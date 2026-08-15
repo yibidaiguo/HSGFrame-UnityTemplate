@@ -9,8 +9,18 @@ namespace Template.Toolkit.ScaffoldTests
     public class ProjectGeneratorTests
     {
         private const string ProjectName = "NewGame";
-        private const string NewPrefix = "com.example.";
-        private const string TemplatePrefix = "com.gametemplateforagent.";
+
+        // HSGFrame 是框架自己的名字，与 Unity.Mathematics 地位相同，不跟宿主项目改名。
+        // 生成器因此不再有「包前缀」这个参数，这个常量只是临时树里的样本值。
+        private const string FrameworkPrefix = "com.hsgframe.";
+
+        // 下面这些是**测试数据**——它们代表「模板的根命名空间」这个被测概念，
+        // 不是本文件自己的命名空间。一律从生成器的公开常量取，不写死字面量：
+        // 写死的话，用本模板生成新项目时生成器会把这些期望值连同真命名空间一起替换掉，
+        // 于是新项目里这几条测试自我矛盾（喂进去的样本已是新名字，断言却还要求它变成新名字）。
+        private const string TemplateRootToken = ProjectGenerator.TemplateRootNamespace;
+        private static readonly string TemplateNamespaceSample = TemplateRootToken + ".Toolkit";
+        private static readonly string TemplateSolutionName = ProjectGenerator.TemplateSolutionFileName;
 
         private const string GateConfigJson = @"{
   ""changedPathWhitelist"": [
@@ -27,54 +37,10 @@ namespace Template.Toolkit.ScaffoldTests
             var targetDirectory = CreateTargetDirectory();
             try
             {
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
 
                 Assert.True(result.IsSuccess, result.Message);
                 Assert.Equal(9, result.CreatedFileCount);
-            }
-            finally
-            {
-                Directory.Delete(templateRoot, true);
-                Directory.Delete(targetDirectory, true);
-            }
-        }
-
-        /// <summary>com.gametemplateforagent.demo 目录在目标里变成新前缀加 demo。</summary>
-        [Fact]
-        public void CreateRenamesComHsghostDirectoryToPackagePrefix()
-        {
-            var templateRoot = CreateTemplateTree();
-            var targetDirectory = CreateTargetDirectory();
-            try
-            {
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
-
-                Assert.True(result.IsSuccess, result.Message);
-                Assert.True(Directory.Exists(Path.Combine(result.TargetPath, "com.example.demo")));
-                Assert.False(Directory.Exists(Path.Combine(result.TargetPath, "com.gametemplateforagent.demo")));
-            }
-            finally
-            {
-                Directory.Delete(templateRoot, true);
-                Directory.Delete(targetDirectory, true);
-            }
-        }
-
-        /// <summary>文本文件里的 com.gametemplateforagent. 全部换成新前缀。</summary>
-        [Fact]
-        public void CreateRewritesPackagePrefixInsideTextFiles()
-        {
-            var templateRoot = CreateTemplateTree();
-            var targetDirectory = CreateTargetDirectory();
-            try
-            {
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
-
-                var infoPath = Path.Combine(result.TargetPath, "com.example.demo", "info.json");
-                var content = File.ReadAllText(infoPath);
-
-                Assert.Contains("com.example.", content);
-                Assert.DoesNotContain(TemplatePrefix, content);
             }
             finally
             {
@@ -91,9 +57,9 @@ namespace Template.Toolkit.ScaffoldTests
             var targetDirectory = CreateTargetDirectory();
             try
             {
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
 
-                Assert.False(File.Exists(Path.Combine(result.TargetPath, "com.example.demo", "bin", "build.dll")));
+                Assert.False(File.Exists(Path.Combine(result.TargetPath, FrameworkPrefix + "demo", "bin", "build.dll")));
                 Assert.False(File.Exists(Path.Combine(result.TargetPath, "obj", "temp.o")));
             }
             finally
@@ -103,7 +69,7 @@ namespace Template.Toolkit.ScaffoldTests
             }
         }
 
-        /// <summary>CLAUDE.md 追加了模板生成说明，占位符替换成项目名与包前缀。</summary>
+        /// <summary>CLAUDE.md 追加了模板生成说明，占位符替换成项目名。</summary>
         [Fact]
         public void CreateAppendsTemplateNoticeToClaudeFile()
         {
@@ -111,14 +77,13 @@ namespace Template.Toolkit.ScaffoldTests
             var targetDirectory = CreateTargetDirectory();
             try
             {
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
 
                 var claudePath = Path.Combine(result.TargetPath, "CLAUDE.md");
                 var content = File.ReadAllText(claudePath);
 
                 Assert.Contains("本项目由通用 Unity 模板生成", content);
                 Assert.Contains("项目名：" + ProjectName, content);
-                Assert.Contains("UPM 包前缀：" + NewPrefix, content);
             }
             finally
             {
@@ -135,7 +100,7 @@ namespace Template.Toolkit.ScaffoldTests
             var targetDirectory = CreateTargetDirectory();
             try
             {
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
 
                 var configPath = Path.Combine(result.TargetPath, "Tools", "Gates", "Config", "gate-config.json");
                 var content = File.ReadAllText(configPath);
@@ -162,7 +127,7 @@ namespace Template.Toolkit.ScaffoldTests
                 Directory.CreateDirectory(existingProject);
                 File.WriteAllText(Path.Combine(existingProject, "occupied.txt"), "occupied");
 
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
 
                 Assert.False(result.IsSuccess);
                 Assert.Contains("已有内容", result.Message);
@@ -182,7 +147,7 @@ namespace Template.Toolkit.ScaffoldTests
             var targetDirectory = CreateTargetDirectory();
             try
             {
-                var result = RunGenerator(templateRoot, targetDirectory, "My Project", NewPrefix);
+                var result = RunGenerator(templateRoot, targetDirectory, "My Project");
 
                 Assert.False(result.IsSuccess);
             }
@@ -201,7 +166,7 @@ namespace Template.Toolkit.ScaffoldTests
             var targetDirectory = CreateTargetDirectory();
             try
             {
-                var result = RunGenerator(templateRoot, targetDirectory, "我的项目", NewPrefix);
+                var result = RunGenerator(templateRoot, targetDirectory, "我的项目");
 
                 Assert.False(result.IsSuccess);
             }
@@ -212,54 +177,7 @@ namespace Template.Toolkit.ScaffoldTests
             }
         }
 
-        /// <summary>包前缀不以点结尾时返回失败。</summary>
-        [Fact]
-        public void CreateFailsWhenPackagePrefixHasNoTrailingDot()
-        {
-            var templateRoot = CreateTemplateTree();
-            var targetDirectory = CreateTargetDirectory();
-            try
-            {
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, "com.example");
-
-                Assert.False(result.IsSuccess);
-            }
-            finally
-            {
-                Directory.Delete(templateRoot, true);
-                Directory.Delete(targetDirectory, true);
-            }
-        }
-
-
-        /// <summary>模板自身的标识名在生成时换成新项目名，新项目不再顶着模板的名字。</summary>
-        [Fact]
-        public void CreateReplacesTemplateIdentifierNameWithProjectName()
-        {
-            var templateRoot = CreateTemplateTree();
-            var targetDirectory = CreateTargetDirectory();
-            try
-            {
-                File.WriteAllText(
-                    Path.Combine(templateRoot, "标识名样本.cs"),
-                    "namespace GameTemplateForAgent.Save { }");
-
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
-
-                Assert.True(result.IsSuccess, result.Message);
-
-                var generated = File.ReadAllText(Path.Combine(targetDirectory, ProjectName, "标识名样本.cs"));
-                Assert.Contains("namespace " + ProjectName + ".Save", generated);
-                Assert.DoesNotContain("GameTemplateForAgent", generated);
-            }
-            finally
-            {
-                Directory.Delete(templateRoot, true);
-                Directory.Delete(targetDirectory, true);
-            }
-        }
-
-        /// <summary>根命名空间 Template. 换成新项目名，Scriban 的 Template.Parse 不被误伤。</summary>
+        /// <summary>根命名空间换成新项目名，Scriban 那个同名 API 不被误伤。</summary>
         [Fact]
         public void CreateReplacesRootNamespaceButKeepsScribanTemplateApi()
         {
@@ -267,14 +185,14 @@ namespace Template.Toolkit.ScaffoldTests
             var targetDirectory = CreateTargetDirectory();
             try
             {
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
 
                 Assert.True(result.IsSuccess, result.Message);
                 var content = File.ReadAllText(Path.Combine(result.TargetPath, "命名空间样本.cs"));
 
                 Assert.Contains("namespace " + ProjectName + ".Toolkit.Demo", content);
-                Assert.Contains("Scriban.Template.Parse", content);
-                Assert.DoesNotContain("Template.Toolkit", content);
+                Assert.Contains("Scriban." + TemplateRootToken + ".Parse", content);
+                Assert.DoesNotContain(TemplateNamespaceSample, content);
             }
             finally
             {
@@ -283,7 +201,7 @@ namespace Template.Toolkit.ScaffoldTests
             }
         }
 
-        /// <summary>Template.sln 连同引用它的文本一起改成新项目名。</summary>
+        /// <summary>解决方案文件连同引用它的文本一起改成新项目名。</summary>
         [Fact]
         public void CreateRenamesSolutionFileToProjectName()
         {
@@ -291,14 +209,14 @@ namespace Template.Toolkit.ScaffoldTests
             var targetDirectory = CreateTargetDirectory();
             try
             {
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
 
                 Assert.True(File.Exists(Path.Combine(result.TargetPath, "Solutions", ProjectName + ".sln")));
-                Assert.False(File.Exists(Path.Combine(result.TargetPath, "Solutions", "Template.sln")));
+                Assert.False(File.Exists(Path.Combine(result.TargetPath, "Solutions", TemplateSolutionName)));
 
                 var content = File.ReadAllText(Path.Combine(result.TargetPath, "命名空间样本.cs"));
                 Assert.Contains(ProjectName + ".sln", content);
-                Assert.DoesNotContain("Template.sln", content);
+                Assert.DoesNotContain(TemplateSolutionName, content);
             }
             finally
             {
@@ -315,7 +233,7 @@ namespace Template.Toolkit.ScaffoldTests
             var targetDirectory = CreateTargetDirectory();
             try
             {
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
 
                 var hostPath = Path.Combine(result.TargetPath, "Tools", "Gates", "Config", "gate-config.host.json");
                 var content = File.ReadAllText(hostPath);
@@ -340,7 +258,7 @@ namespace Template.Toolkit.ScaffoldTests
             var targetDirectory = CreateTargetDirectory();
             try
             {
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
 
                 var hostPath = Path.Combine(result.TargetPath, "Tools", "Gates", "Config", "gate-config.host.json");
                 var content = File.ReadAllText(hostPath);
@@ -362,13 +280,13 @@ namespace Template.Toolkit.ScaffoldTests
             var targetDirectory = CreateTargetDirectory();
             try
             {
-                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
 
                 var content = File.ReadAllText(Path.Combine(result.TargetPath, "Pipelines", "Jenkinsfile.秒级门禁"));
 
                 Assert.Contains("dotnet test Solutions/" + ProjectName + ".sln", content);
                 Assert.Contains(ProjectName + ".Toolkit.Editor.CompileCheckEntry.Run", content);
-                Assert.DoesNotContain("Template.sln", content);
+                Assert.DoesNotContain(TemplateSolutionName, content);
             }
             finally
             {
@@ -377,14 +295,36 @@ namespace Template.Toolkit.ScaffoldTests
             }
         }
 
-        private static ProjectCreationResult RunGenerator(string templateRoot, string targetDirectory, string projectName, string packagePrefix)
+        /// <summary>框架包的目录名与包名原样带进新项目，不跟着项目名改。</summary>
+        [Fact]
+        public void CreateKeepsFrameworkPackagePrefixUnchanged()
+        {
+            var templateRoot = CreateTemplateTree();
+            var targetDirectory = CreateTargetDirectory();
+            try
+            {
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
+
+                Assert.True(Directory.Exists(Path.Combine(result.TargetPath, FrameworkPrefix + "demo")));
+
+                var content = File.ReadAllText(Path.Combine(result.TargetPath, FrameworkPrefix + "demo", "info.json"));
+                Assert.Contains(FrameworkPrefix + "demo", content);
+                Assert.DoesNotContain(ProjectName, content);
+            }
+            finally
+            {
+                Directory.Delete(templateRoot, true);
+                Directory.Delete(targetDirectory, true);
+            }
+        }
+
+        private static ProjectCreationResult RunGenerator(string templateRoot, string targetDirectory, string projectName)
         {
             return ProjectGenerator.Create(new ProjectCreationOptions
             {
                 TemplateRoot = templateRoot,
                 TargetDirectory = targetDirectory,
-                ProjectName = projectName,
-                PackagePrefix = packagePrefix
+                ProjectName = projectName
             });
         }
 
@@ -393,12 +333,12 @@ namespace Template.Toolkit.ScaffoldTests
             var root = Path.Combine(Path.GetTempPath(), "ScaffoldTemplate_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(root);
 
-            File.WriteAllText(Path.Combine(root, "README.md"), "前缀 " + TemplatePrefix + " 的说明");
+            File.WriteAllText(Path.Combine(root, "README.md"), "框架包前缀 " + FrameworkPrefix + " 的说明");
             File.WriteAllText(Path.Combine(root, "CLAUDE.md"), "# 原有路标内容\n");
 
-            var demoDirectory = Path.Combine(root, "com.gametemplateforagent.demo");
+            var demoDirectory = Path.Combine(root, FrameworkPrefix + "demo");
             Directory.CreateDirectory(demoDirectory);
-            File.WriteAllText(Path.Combine(demoDirectory, "info.json"), "{ \"name\": \"com.gametemplateforagent.demo\" }");
+            File.WriteAllText(Path.Combine(demoDirectory, "info.json"), "{ \"name\": \"" + FrameworkPrefix + "demo\" }");
 
             var binDirectory = Path.Combine(demoDirectory, "bin");
             Directory.CreateDirectory(binDirectory);
@@ -415,24 +355,26 @@ namespace Template.Toolkit.ScaffoldTests
             var scaffoldTemplatesDirectory = Path.Combine(root, "Tools", "Scaffold", "Templates");
             Directory.CreateDirectory(scaffoldTemplatesDirectory);
             File.WriteAllText(Path.Combine(scaffoldTemplatesDirectory, "新项目说明.md"),
-                "## 本项目由通用 Unity 模板生成\n\n- 项目名：{{项目名}}\n- UPM 包前缀：{{包前缀}}\n");
+                "## 本项目由通用 Unity 模板生成\n\n- 项目名：{{项目名}}\n");
 
             var pipelinesDirectory = Path.Combine(root, "Pipelines");
             Directory.CreateDirectory(pipelinesDirectory);
             File.WriteAllText(Path.Combine(pipelinesDirectory, "Jenkinsfile.秒级门禁"),
-                "bat 'dotnet test Solutions/Template.sln --nologo'\n"
-                + "bat 'unity-cmd.ps1 -ExecuteMethod Template.Toolkit.Editor.CompileCheckEntry.Run'\n");
+                "bat 'dotnet test Solutions/" + TemplateSolutionName + " --nologo'\n"
+                + "bat 'unity-cmd.ps1 -ExecuteMethod " + TemplateNamespaceSample + ".Editor.CompileCheckEntry.Run'\n");
 
             File.WriteAllText(
                 Path.Combine(root, "命名空间样本.cs"),
-                "using Scriban;\nnamespace Template.Toolkit.Demo\n{\n"
-                + "    // 解决方案是 Template.sln\n"
-                + "    public static class Sample { public static void Run() { Scriban.Template.Parse(\"x\"); } }\n"
+                "using Scriban;\nnamespace " + TemplateNamespaceSample + ".Demo\n{\n"
+                + "    // 解决方案是 " + TemplateSolutionName + "\n"
+                + "    public static class Sample { public static void Run() { Scriban."
+                + TemplateRootToken + ".Parse(\"x\"); } }\n"
                 + "}\n");
 
             var solutionsDirectory = Path.Combine(root, "Solutions");
             Directory.CreateDirectory(solutionsDirectory);
-            File.WriteAllText(Path.Combine(solutionsDirectory, "Template.sln"), "Project \"Template.Toolkit\"\n");
+            File.WriteAllText(Path.Combine(solutionsDirectory, TemplateSolutionName),
+                "Project \"" + TemplateNamespaceSample + "\"\n");
 
             File.WriteAllText(
                 Path.Combine(gatesConfigDirectory, "gate-config.host.json"),

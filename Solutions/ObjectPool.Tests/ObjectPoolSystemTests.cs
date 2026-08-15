@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using GameTemplateForAgent.ObjectPool;
+using HSGFrame.ObjectPool;
 using Xunit;
 
-namespace GameTemplateForAgent.ObjectPool.Tests
+namespace HSGFrame.ObjectPool.Tests
 {
     /// <summary>对象池系统与对象桶的取还、计数与容量测试。</summary>
     public class ObjectPoolSystemTests

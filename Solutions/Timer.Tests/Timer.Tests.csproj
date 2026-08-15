@@ -14,6 +14,6 @@
 
   <ItemGroup>
     <Compile Include="*.cs" />
-    <Compile Include="../../Packages/com.gametemplateforagent.timer/Runtime/**/*.cs" LinkBase="Timer" />
+    <Compile Include="../../Packages/com.hsgframe.timer/Runtime/**/*.cs" LinkBase="Timer" />
   </ItemGroup>
 </Project>

@@ -1,9 +1,9 @@
 using System;
 using System.Linq;
-using GameTemplateForAgent.Input;
+using HSGFrame.Input;
 using Xunit;
 
-namespace GameTemplateForAgent.Input.Tests
+namespace HSGFrame.Input.Tests
 {
     /// <summary>输入绑定表的查询、反查、改键与冲突检测测试。</summary>
     public class InputBindingTableTests

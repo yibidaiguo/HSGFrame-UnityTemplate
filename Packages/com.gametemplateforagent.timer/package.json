@@ -1,8 +1,0 @@
-{
-  "name": "com.gametemplateforagent.timer",
-  "version": "0.1.0",
-  "displayName": "计时器",
-  "description": "纯 C# 计时器：一次性、间隔重复与秒表三类任务，时间源可注入。",
-  "unity": "6000.3",
-  "author": { "name": "HSGhost" }
-}

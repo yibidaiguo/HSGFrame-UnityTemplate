@@ -1,0 +1,7 @@
+{
+  "name": "HSGFrame.GraphAdapter",
+  "rootNamespace": "HSGFrame.GraphAdapter",
+  "references": ["NodeEditor.Runtime", "Dialogue.Runtime"],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}

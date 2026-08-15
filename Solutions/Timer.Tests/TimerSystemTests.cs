@@ -1,7 +1,7 @@
-using GameTemplateForAgent.Timer;
+using HSGFrame.Timer;
 using Xunit;
 
-namespace GameTemplateForAgent.Timer.Tests
+namespace HSGFrame.Timer.Tests
 {
     /// <summary>计时器系统的到点触发、重复、暂停与取消测试。</summary>
     public class TimerSystemTests

@@ -1,0 +1,7 @@
+{
+  "name": "HSGFrame.Localization",
+  "rootNamespace": "HSGFrame.Localization",
+  "references": [],
+  "includePlatforms": [],
+  "noEngineReferences": true
+}

@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../../Packages/com.gametemplateforagent.uiframework/Runtime/PanelLayer.cs" LinkBase="UiFramework" />
-    <Compile Include="../../Packages/com.gametemplateforagent.uiframework/Runtime/PanelStack.cs" LinkBase="UiFramework" />
+    <Compile Include="../../Packages/com.hsgframe.uiframework/Runtime/PanelLayer.cs" LinkBase="UiFramework" />
+    <Compile Include="../../Packages/com.hsgframe.uiframework/Runtime/PanelStack.cs" LinkBase="UiFramework" />
   </ItemGroup>
 </Project>

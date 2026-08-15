@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using GameTemplateForAgent.Audio;
+using HSGFrame.Audio;
 using Xunit;
 
-namespace GameTemplateForAgent.Audio.Tests
+namespace HSGFrame.Audio.Tests
 {
     /// <summary>混音状态的音量钳制、最终音量计算与变化事件测试。</summary>
     public class AudioMixerStateTests

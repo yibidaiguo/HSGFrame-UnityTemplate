@@ -11,8 +11,5 @@ namespace Template.Toolkit.Scaffold
 
         /// <summary>新项目名，同时也是模板树复制过去之后的目录名。</summary>
         public string ProjectName { get; set; }
-
-        /// <summary>新的 UPM 包前缀，形如 com.example.（结尾带点）。</summary>
-        public string PackagePrefix { get; set; }
     }
 }

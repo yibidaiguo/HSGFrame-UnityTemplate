@@ -14,6 +14,6 @@
 
   <ItemGroup>
     <Compile Include="*.cs" />
-    <Compile Include="../../Packages/com.gametemplateforagent.objectpool/Runtime/**/*.cs" LinkBase="ObjectPool" />
+    <Compile Include="../../Packages/com.hsgframe.objectpool/Runtime/**/*.cs" LinkBase="ObjectPool" />
   </ItemGroup>
 </Project>

@@ -5,7 +5,7 @@ using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
-using GameTemplateForAgent.Hotfix;
+using HSGFrame.Hotfix;
 using Template.Toolkit.CommandFramework;
 
 namespace Template.Toolkit.CommandHost.Commands

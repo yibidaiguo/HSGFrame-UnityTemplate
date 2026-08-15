@@ -10,6 +10,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="../../Packages/com.gametemplateforagent.hotfix/Runtime/**/*.cs" LinkBase="Hotfix" />
+    <Compile Include="../../Packages/com.hsgframe.hotfix/Runtime/**/*.cs" LinkBase="Hotfix" />
   </ItemGroup>
 </Project>

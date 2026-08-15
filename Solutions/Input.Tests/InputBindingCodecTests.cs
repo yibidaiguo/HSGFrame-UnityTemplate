@@ -1,8 +1,8 @@
 using System;
-using GameTemplateForAgent.Input;
+using HSGFrame.Input;
 using Xunit;
 
-namespace GameTemplateForAgent.Input.Tests
+namespace HSGFrame.Input.Tests
 {
     /// <summary>输入绑定 JSON 编解码的往返与错误路径测试。</summary>
     public class InputBindingCodecTests

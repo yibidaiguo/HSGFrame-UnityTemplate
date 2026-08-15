@@ -1,0 +1,16 @@
+{
+  "name": "HSGFrame.UiFramework.Unity",
+  "rootNamespace": "HSGFrame.UiFramework",
+  "references": [
+    "HSGFrame.UiFramework"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

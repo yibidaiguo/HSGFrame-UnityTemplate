@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../../Packages/com.gametemplateforagent.graphadapter/Runtime/**/*.cs" LinkBase="GraphAdapter" />
+    <Compile Include="../../Packages/com.hsgframe.graphadapter/Runtime/**/*.cs" LinkBase="GraphAdapter" />
   </ItemGroup>
 
   <ItemGroup>

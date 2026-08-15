@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using GameTemplateForAgent.Save;
+using HSGFrame.Save;
 using Xunit;
 
-namespace GameTemplateForAgent.Save.Tests
+namespace HSGFrame.Save.Tests
 {
     /// <summary>存档 JSON 往返与版本迁移链的测试。</summary>
     public class SaveMigrationTests

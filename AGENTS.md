@@ -34,7 +34,7 @@ dotnet test Solutions/Template.sln
 ## 本项目由通用 Unity 模板生成
 
 - 项目名：RebuiltRPG
-- UPM 包前缀：com.gametemplateforagent.
+- UPM 包前缀：com.hsgframe.
 - 命名空间：`Template.*`。这是**模板自己的身份**，不是待办事项——
   `project.create` 生成新项目时会按新项目名整体替换掉它（连同 `Template.sln` 与
   `Template.Hotfix.Analyzer.dll` 这类带命名空间的文件名）。
