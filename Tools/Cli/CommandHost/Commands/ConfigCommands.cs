@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Template.Toolkit.CodeGen;
 using Template.Toolkit.CommandFramework;
 using Template.Toolkit.ConfigBridge;
 
@@ -40,7 +42,24 @@ namespace Template.Toolkit.CommandHost.Commands
         public string ConfigRoot { get; set; }
     }
 
-    /// <summary>配置表桥接命令：sync / apply / validate / query 四个流程的 CLI 入口。</summary>
+    /// <summary>配置表生成命令的参数。</summary>
+    public sealed class ConfigGenerateArguments
+    {
+        /// <summary>模板根目录（即包含 Config / Tools / Solutions 的目录）。</summary>
+        [Summary("模板根目录（即包含 Config / Tools / Solutions 的目录）")]
+        public string TemplateRoot { get; set; }
+
+        /// <summary>要生成的表名。</summary>
+        [Summary("要生成的表名")]
+        public string TableName { get; set; }
+
+        /// <summary>管线实现名：Scriban 或 Luban，默认 Scriban。</summary>
+        [Summary("管线实现名：Scriban 或 Luban，默认 Scriban")]
+        [DefaultValue("Scriban")]
+        public string PipelineName { get; set; }
+    }
+
+    /// <summary>配置表桥接命令：sync / apply / validate / query / generate 五个流程的 CLI 入口。</summary>
     public static class ConfigCommands
     {
         /// <summary>
@@ -155,6 +174,61 @@ namespace Template.Toolkit.CommandHost.Commands
                 "位置：PrimaryKey。" +
                 "先跑 config.sync 确认镜像是最新的，或换一个存在的主键。" +
                 $"参考：{mirrorPath}。行数：{mirror.Rows.Count}");
+        }
+
+        /// <summary>
+        /// 按选定的管线生成访问代码与运行时数据。
+        /// </summary>
+        /// <param name="arguments">生成参数。</param>
+        [EditorCommand("config.generate")]
+        [Summary("按选定的管线生成访问代码与运行时数据")]
+        public static CommandResult Generate(ConfigGenerateArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.TemplateRoot))
+            {
+                return CommandResult.Failure("参数 TemplateRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.TableName))
+            {
+                return CommandResult.Failure("参数 TableName 为必填项");
+            }
+
+            // [DefaultValue] 只让命令框架把参数判成选填，不会把默认值填进参数对象，这里自己兜底。
+            var pipelineName = string.IsNullOrWhiteSpace(arguments.PipelineName) ? "Scriban" : arguments.PipelineName;
+
+            ITablePipeline pipeline;
+            if (string.Equals(pipelineName, "Luban", StringComparison.OrdinalIgnoreCase))
+            {
+                pipeline = new LubanTablePipeline(arguments.TemplateRoot);
+            }
+            else if (string.Equals(pipelineName, "Scriban", StringComparison.OrdinalIgnoreCase))
+            {
+                pipeline = new ScribanTablePipeline(arguments.TemplateRoot);
+            }
+            else
+            {
+                return CommandResult.Failure(
+                    $"位置：参数 PipelineName；原因：不认识的管线名 {pipelineName}；" +
+                    "修复：传 Scriban 或 Luban；参考：config.generate 命令说明。");
+            }
+
+            try
+            {
+                var codePaths = pipeline.GenerateAccessCode(arguments.TableName);
+                var dataPaths = pipeline.ExportRuntimeData(arguments.TableName);
+
+                var lines = new List<string>();
+                lines.AddRange(codePaths);
+                lines.AddRange(dataPaths);
+                return CommandResult.Success(
+                    $"管线 {pipeline.PipelineName} 已为表「{arguments.TableName}」生成访问代码与运行时数据",
+                    lines);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"生成表「{arguments.TableName}」失败：{exception.Message}");
+            }
         }
 
         private static CommandResult Run(ConfigArguments arguments, Func<ConfigSyncService, ConfigOperationResult> operation)

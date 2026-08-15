@@ -35,6 +35,9 @@ namespace Template.Toolkit.CommandHost.Commands
             "Library", "HybridCLRData", "UserSettings", "_sample_gen", "_tmp.PlaceholderCheck",
         };
 
+        // 按需取的第三方工具目录靠这个脚本名认出来。
+        private const string ToolFetchScriptName = "取工具.ps1";
+
         /// <summary>把来源树单向同步到模板仓库，默认只列计划。</summary>
         /// <param name="arguments">同步参数。</param>
         [EditorCommand("template.sync")]
@@ -118,8 +121,28 @@ namespace Template.Toolkit.CommandHost.Commands
         private static bool ContainsSkippedSegment(string path, string root)
         {
             var relative = path.Substring(root.Length).Replace('\\', '/');
-            return relative.Split('/', StringSplitOptions.RemoveEmptyEntries)
-                .Any(segment => SkippedSegments.Contains(segment, StringComparer.OrdinalIgnoreCase));
+            if (relative.Split('/', StringSplitOptions.RemoveEmptyEntries)
+                .Any(segment => SkippedSegments.Contains(segment, StringComparer.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+
+            return IsFetchedToolPayload(path);
+        }
+
+        // 同目录下有取工具脚本时，除脚本与说明之外的内容都是取回来的第三方产物，跳过。
+        // 按「有没有取工具脚本」判断而不是把工具名写死，将来再加第三方工具时这条自然生效。
+        private static bool IsFetchedToolPayload(string path)
+        {
+            var directory = Path.GetDirectoryName(path);
+            if (directory == null || !File.Exists(Path.Combine(directory, ToolFetchScriptName)))
+            {
+                return false;
+            }
+
+            var fileName = Path.GetFileName(path);
+            return !string.Equals(fileName, ToolFetchScriptName, StringComparison.Ordinal)
+                && !string.Equals(fileName, "来源说明.md", StringComparison.Ordinal);
         }
 
         // 按内容哈希比而不是按时间戳：复制过一次之后时间戳必然不同，用时间戳会让每次同步都是全量。

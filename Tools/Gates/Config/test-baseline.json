@@ -8,6 +8,7 @@
     "Solutions/AssetPipeline.Tests/AssetValidatorTests.cs": "7f0fb4c5effe3da5354fb37dd48326805a0fa6211a165d2c1cdeb5c6fa30cec6",
     "Solutions/Audio.Tests/AudioMixerStateTests.cs": "c732c59757480451b0373b2ca425b5d941080259b4da6fa5513b4ac17f3824fa",
     "Solutions/CodeGen.Tests/CodeGeneratorTests.cs": "6937ed8f36dc7c6e183fd46ef97af94572f3a75a88c9f90b2bacda6b18e6acc3",
+    "Solutions/CodeGen.Tests/LubanTablePipelineTests.cs": "85559a2171b06a02a10aced2fe750d11ee8943c6effe0537afa21c1dd01888e5",
     "Solutions/CodeGen.Tests/MultiTableGenerationTests.cs": "e3bcc86ca13734ad4ae7533a6662811d0ba93726c9d9c2fd24109e814ee78b94",
     "Solutions/CodeGen.Tests/ScribanTablePipelineTests.cs": "2b6fbd7afe304e6285a9afb286aa72930b6eb1f4bd9faaf429f28267aa3ea60f",
     "Solutions/ConfigBridge.Tests/CompositePrimaryKeyTests.cs": "7f566f22f2c60b3b42ae621a79d0fc30b535046abe72fc1ba5878d1db560c1df",
