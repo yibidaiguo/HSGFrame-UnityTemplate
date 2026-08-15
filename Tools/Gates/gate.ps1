@@ -103,9 +103,14 @@ try {
 
 $editorOwnedPrefixes = @()
 $gateConfigPath = Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json'
-if (Test-Path $gateConfigPath) {
-    $gateConfig = Get-Content -Raw -Path $gateConfigPath | ConvertFrom-Json
-    if ($gateConfig.editorOwnedPathPrefixes) { $editorOwnedPrefixes = @($gateConfig.editorOwnedPathPrefixes) }
+# 宿主专属的两项（白名单前缀、编辑器自有目录）住在 gate-config.host.json 里，
+# 那个文件不参与模板同步。同名项以宿主那份为准，宿主没写才回落到通用配置。
+$hostGateConfigPath = Join-Path $templateRoot 'Tools/Gates/Config/gate-config.host.json'
+foreach ($candidatePath in @($gateConfigPath, $hostGateConfigPath)) {
+    if (Test-Path $candidatePath) {
+        $candidateConfig = Get-Content -Raw -Path $candidatePath | ConvertFrom-Json
+        if ($candidateConfig.editorOwnedPathPrefixes) { $editorOwnedPrefixes = @($candidateConfig.editorOwnedPathPrefixes) }
+    }
 }
 
 foreach ($statusLine in $statusLines) {

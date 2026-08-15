@@ -40,6 +40,14 @@ namespace Template.Toolkit.Editor
 
             Directory.CreateDirectory(outputRoot);
 
+            // Windows 侧有一个「生成 Visual Studio 解决方案」的开关，它开着的时候 BuildPlayer 产出的是
+            // 一份待编译的 C++ 工程而不是可执行文件——构建报告仍然是 Succeeded，很容易被当成出包成功。
+            // 这个入口的产物必须是能直接跑的包，所以在这里显式关掉它。
+            if (buildTarget == BuildTarget.StandaloneWindows64 || buildTarget == BuildTarget.StandaloneWindows)
+            {
+                EditorUserBuildSettings.SetPlatformSettings("Standalone", "CreateSolution", "false");
+            }
+
             var options = new BuildPlayerOptions
             {
                 scenes = EditorBuildSettings.scenes.Where(scene => scene.enabled).Select(scene => scene.path).ToArray(),
@@ -56,7 +64,17 @@ namespace Template.Toolkit.Editor
                 throw new Exception($"出包失败：{report.summary.result}，错误 {report.summary.totalErrors} 条");
             }
 
-            Debug.Log($"出包成功：{options.locationPathName}");
+            // 报告说成功还不够：产物在不在磁盘上要自己看一眼。
+            // 「构建成功但没有可执行文件」是真发生过的一种失败（见上面 CreateSolution 那一段）。
+            if (!File.Exists(options.locationPathName))
+            {
+                throw new Exception(
+                    $"位置：{options.locationPathName}；原因：构建报告为成功，但产物文件不存在；" +
+                    "修复：确认 Windows 的「生成 Visual Studio 解决方案」开关处于关闭状态后重跑；" +
+                    "参考：EditorUserBuildSettings.SetPlatformSettings(\"Standalone\", \"CreateSolution\", …)");
+            }
+
+            Debug.Log($"出包成功：{options.locationPathName}（{new FileInfo(options.locationPathName).Length} 字节）");
         }
 
         private static string ReadArgument(string argumentName)

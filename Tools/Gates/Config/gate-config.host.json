@@ -1,0 +1,25 @@
+{
+  "_说明": "宿主专属配置，只在这一个仓库成立。template.sync 跳过这个文件，同名项覆盖 gate-config.json 里的值。",
+  "changedPathWhitelist": [
+    "Tools/",
+    "Solutions/",
+    "Packages/",
+    "UnityProject/",
+    "Pipelines/",
+    "Config/",
+    "Levels/",
+    "Graphs/",
+    "UI/",
+    "Index/",
+    "Memory/",
+    "CLAUDE.md",
+    "开始使用.md",
+    "迁移清单.md",
+    "reasonix.toml",
+    ".gitignore",
+    ".gitattributes",
+    ".editorconfig",
+    "Directory.Build.props"
+  ],
+  "editorOwnedPathPrefixes": []
+}

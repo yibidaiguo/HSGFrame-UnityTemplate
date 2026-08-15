@@ -33,10 +33,22 @@ namespace Template.Toolkit.CommandHost.Commands
         {
             ".git", "bin", "obj", "Logs", "Build", "Bundles", "Temp",
             "Library", "HybridCLRData", "UserSettings", "_sample_gen", "_tmp.PlaceholderCheck",
+
+            // 出包前现拷进 StreamingAssets 的热更程序集与 AOT 补充元数据：
+            // 是构建产物，去向侧自己跑一次随包命令就有，同步过去只会让模板里躺着一份过期的。
+            "HotfixShip",
         };
 
         // 按需取的第三方工具目录靠这个脚本名认出来。
         private const string ToolFetchScriptName = "取工具.ps1";
+
+        // 这些文件每个仓库各有一份自己的内容，同步过去只会把来源仓库的情况按到去向仓库头上：
+        // gate-config.host.json 里是白名单前缀与编辑器自有目录（模板根本不该知道宿主的目录叫什么），
+        // test-baseline.json 里是本仓库自己的用例数（两棵树的测试集本来就不一样）。
+        private static readonly string[] HostOwnedFileNames =
+        {
+            "gate-config.host.json", "test-baseline.json",
+        };
 
         /// <summary>把来源树单向同步到模板仓库，默认只列计划。</summary>
         /// <param name="arguments">同步参数。</param>
@@ -123,6 +135,11 @@ namespace Template.Toolkit.CommandHost.Commands
             var relative = path.Substring(root.Length).Replace('\\', '/');
             if (relative.Split('/', StringSplitOptions.RemoveEmptyEntries)
                 .Any(segment => SkippedSegments.Contains(segment, StringComparer.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+
+            if (HostOwnedFileNames.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase))
             {
                 return true;
             }

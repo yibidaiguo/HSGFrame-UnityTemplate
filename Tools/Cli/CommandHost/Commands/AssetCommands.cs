@@ -327,4 +327,61 @@ namespace Template.Toolkit.CommandHost.Commands
             return directories.ToArray();
         }
     }
+
+    /// <summary>依赖方向校验命令的参数。</summary>
+    public sealed class AssetDependenciesArguments
+    {
+        /// <summary>Assets 根目录。</summary>
+        [Summary("Assets 根目录")]
+        public string AssetsRootDirectory { get; set; }
+
+        /// <summary>依赖方向规则文件路径，缺省时用模板自带的那份。</summary>
+        [Summary("依赖方向规则文件路径，缺省时用 Tools/AssetPipeline/Config/依赖方向规则.json")]
+        [DefaultValue("Tools/AssetPipeline/Config/依赖方向规则.json")]
+        public string RulesPath { get; set; }
+    }
+
+    /// <summary>依赖方向校验命令：按目录层级判「谁不许引用谁」，引用完整性之外的那一类问题。</summary>
+    public static class AssetDependenciesCommand
+    {
+        /// <summary>按规则检查 Assets 根下的资产引用方向。</summary>
+        /// <param name="arguments">校验参数。</param>
+        [EditorCommand("asset.dependencies")]
+        [Summary("按目录前缀规则检查资产引用方向，报出「谁不许引用谁」的违规")]
+        public static CommandResult Execute(AssetDependenciesArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.AssetsRootDirectory)
+                || !Directory.Exists(arguments.AssetsRootDirectory))
+            {
+                return CommandResult.Failure(
+                    $"位置：{arguments.AssetsRootDirectory}；原因：Assets 根目录不存在；" +
+                    "修复：把 AssetsRootDirectory 指向 Unity 工程的 Assets 目录；" +
+                    "参考：UnityProject/Assets");
+            }
+
+            // [DefaultValue] 只让框架把参数判成选填，并不会把默认值填进参数对象，所以这里自己兜底。
+            var rulesPath = string.IsNullOrWhiteSpace(arguments.RulesPath)
+                ? Path.Combine("Tools", "AssetPipeline", "Config", "依赖方向规则.json")
+                : arguments.RulesPath;
+
+            if (!File.Exists(rulesPath))
+            {
+                return CommandResult.Failure(
+                    $"位置：{rulesPath}；原因：依赖方向规则文件不存在；" +
+                    "修复：把 RulesPath 指向规则文件，或在模板里补一份；" +
+                    "参考：Tools/AssetPipeline/Config/依赖方向规则.json");
+            }
+
+            var rules = AssetDependencyRuleSet.LoadFromFile(rulesPath);
+            var violations = AssetDependencyDirectionChecker.Check(arguments.AssetsRootDirectory, rules);
+
+            var lines = violations.Select(violation => violation.ToDisplayText()).ToList();
+            if (violations.Count > 0)
+            {
+                return CommandResult.Failure($"依赖方向校验发现违规 {violations.Count} 条（规则 {rules.Count} 条）", lines);
+            }
+
+            return CommandResult.Success($"依赖方向校验通过：规则 {rules.Count} 条，违规 0 条", lines);
+        }
+    }
 }

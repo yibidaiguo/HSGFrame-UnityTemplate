@@ -41,3 +41,7 @@ Solutions/_tmp.PlaceholderCheck/
 Tools/Luban/*
 !Tools/Luban/取工具.ps1
 !Tools/Luban/来源说明.md
+
+# 出包前现拷的热更程序集与 AOT 补充元数据（HotfixShipStaging 产出），是构建产物不是源码。
+UnityProject/Assets/StreamingAssets/HotfixShip/
+UnityProject/Assets/StreamingAssets/HotfixShip.meta

@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<linker>
+  <assembly fullname="System.Text.Encodings.Web">
+    <type fullname="System.Text.Encodings.Web.JavaScriptEncoder" preserve="all" />
+  </assembly>
+  <assembly fullname="System.Text.Json">
+    <type fullname="System.Runtime.CompilerServices.IsExternalInit" preserve="all" />
+    <type fullname="System.Text.Json.JsonEncodedText" preserve="all" />
+    <type fullname="System.Text.Json.JsonSerializer" preserve="all" />
+    <type fullname="System.Text.Json.JsonSerializerOptions" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.JsonConverter" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.JsonConverterFactory" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.JsonConverter`1" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.JsonIgnoreCondition" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.JsonNumberHandling" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.JsonSerializableAttribute" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.JsonSerializerContext" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.JsonSourceGenerationOptionsAttribute" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.Metadata.IJsonTypeInfoResolver" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.Metadata.JsonCollectionInfoValues`1" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.Metadata.JsonMetadataServices" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.Metadata.JsonObjectInfoValues`1" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.Metadata.JsonParameterInfoValues" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.Metadata.JsonPropertyInfo" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.Metadata.JsonPropertyInfoValues`1" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.Metadata.JsonTypeInfo" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1" preserve="all" />
+    <type fullname="System.Text.Json.Utf8JsonWriter" preserve="all" />
+  </assembly>
+  <assembly fullname="netstandard">
+    <type fullname="System.Action`2" preserve="all" />
+    <type fullname="System.Array" preserve="all" />
+    <type fullname="System.Attribute" preserve="all" />
+    <type fullname="System.AttributeTargets" preserve="all" />
+    <type fullname="System.AttributeUsageAttribute" preserve="all" />
+    <type fullname="System.Byte" preserve="all" />
+    <type fullname="System.CodeDom.Compiler.GeneratedCodeAttribute" preserve="all" />
+    <type fullname="System.Collections.Generic.ICollection`1" preserve="all" />
+    <type fullname="System.Collections.Generic.IEnumerable`1" preserve="all" />
+    <type fullname="System.Collections.Generic.IList`1" preserve="all" />
+    <type fullname="System.Collections.Generic.List`1" preserve="all" />
+    <type fullname="System.ComponentModel.EditorBrowsableAttribute" preserve="all" />
+    <type fullname="System.ComponentModel.EditorBrowsableState" preserve="all" />
+    <type fullname="System.Diagnostics.DebuggableAttribute" preserve="all" />
+    <type fullname="System.Diagnostics.DebuggableAttribute/DebuggingModes" preserve="all" />
+    <type fullname="System.Exception" preserve="all" />
+    <type fullname="System.Func`1" preserve="all" />
+    <type fullname="System.Func`2" preserve="all" />
+    <type fullname="System.Int32" preserve="all" />
+    <type fullname="System.InvalidOperationException" preserve="all" />
+    <type fullname="System.Nullable`1" preserve="all" />
+    <type fullname="System.Object" preserve="all" />
+    <type fullname="System.Reflection.Assembly" preserve="all" />
+    <type fullname="System.Reflection.AssemblyName" preserve="all" />
+    <type fullname="System.Reflection.BindingFlags" preserve="all" />
+    <type fullname="System.Reflection.FieldInfo" preserve="all" />
+    <type fullname="System.Reflection.MemberInfo" preserve="all" />
+    <type fullname="System.Reflection.MethodBase" preserve="all" />
+    <type fullname="System.Reflection.MethodInfo" preserve="all" />
+    <type fullname="System.Runtime.CompilerServices.CompilationRelaxationsAttribute" preserve="all" />
+    <type fullname="System.Runtime.CompilerServices.CompilerGeneratedAttribute" preserve="all" />
+    <type fullname="System.Runtime.CompilerServices.RuntimeCompatibilityAttribute" preserve="all" />
+    <type fullname="System.Runtime.CompilerServices.RuntimeHelpers" preserve="all" />
+    <type fullname="System.RuntimeFieldHandle" preserve="all" />
+    <type fullname="System.RuntimeTypeHandle" preserve="all" />
+    <type fullname="System.String" preserve="all" />
+    <type fullname="System.Type" preserve="all" />
+    <type fullname="System.ValueType" preserve="all" />
+  </assembly>
+</linker>

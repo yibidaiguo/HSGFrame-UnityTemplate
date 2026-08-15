@@ -187,9 +187,19 @@ namespace Template.Toolkit.Scaffold
         }
 
         // 把 changedPathWhitelist 第一项从 Template/ 换成 <ProjectName>/，让门禁认新项目根。
+        // 白名单是宿主专属配置，正常住在 gate-config.host.json 里；老布局把它写在 gate-config.json 里，
+        // 所以两个文件都试一遍，哪个有这一项就改哪个。
         private static void RewriteGateWhitelist(string targetRoot, string projectName)
         {
-            var configPath = Path.Combine(targetRoot, "Tools", "Gates", "Config", "gate-config.json");
+            var configDirectory = Path.Combine(targetRoot, "Tools", "Gates", "Config");
+            foreach (var fileName in new[] { "gate-config.host.json", "gate-config.json" })
+            {
+                RewriteGateWhitelistInFile(Path.Combine(configDirectory, fileName), projectName);
+            }
+        }
+
+        private static void RewriteGateWhitelistInFile(string configPath, string projectName)
+        {
             if (!File.Exists(configPath))
             {
                 return;

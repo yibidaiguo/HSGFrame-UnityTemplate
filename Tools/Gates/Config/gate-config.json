@@ -36,32 +36,12 @@
     "Doc/正式化日志.md",
     "Doc/正式化清单.md"
   ],
-  "changedPathWhitelist": [
-    "Tools/",
-    "Solutions/",
-    "Packages/",
-    "UnityProject/",
-    "Pipelines/",
-    "Config/",
-    "Levels/",
-    "Graphs/",
-    "UI/",
-    "Index/",
-    "Memory/",
-    "CLAUDE.md",
-    "开始使用.md",
-    "迁移清单.md",
-    "reasonix.toml",
-    ".gitignore",
-    ".gitattributes",
-    ".editorconfig",
-    "Directory.Build.props"
-  ],
   "testFileGlobs": [
     "Solutions/*.Tests/*.cs"
   ],
   "sourceScanSkipSegments": [
     "HybridCLRData",
+    "HybridCLRGenerate",
     "PackageCache",
     "Build",
     "Logs"
@@ -76,6 +56,5 @@
     "Solutions/Gates.Tests/",
     "Solutions/Toolkit.Tests/"
   ],
-  "playerBuildEntryMethod": "Template.Toolkit.Editor.PlayerBuildCommandLine.BuildWindows",
-  "editorOwnedPathPrefixes": []
+  "playerBuildEntryMethod": "Template.Toolkit.Editor.PlayerBuildCommandLine.BuildWindows"
 }

@@ -13,7 +13,10 @@ param(
     [int]$TimeoutMinutes = 40,
     [string]$ProjectPath,
     [string]$UnityExecutable = 'D:/Unity/Editor/6000.3.11f1/Unity.exe',
-    [ValidateSet('EditMode', 'PlayMode')][string]$RunTests
+    [ValidateSet('EditMode', 'PlayMode')][string]$RunTests,
+    # 透传给被调方法自己解析的参数，例如 -PassThroughArguments '-packageVersion','1.0.1'。
+    # Unity 认不认无所谓，它会原样留在 Environment.GetCommandLineArgs() 里。
+    [string[]]$PassThroughArguments = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -73,6 +76,10 @@ else {
 
 if ($ArgumentsFile) {
     $unityArguments += @('-argumentsFile', (Resolve-Path $ArgumentsFile).Path)
+}
+
+if ($PassThroughArguments.Count -gt 0) {
+    $unityArguments += $PassThroughArguments
 }
 
 Write-Host "[unity-cmd] 任务=$taskName 超时=${TimeoutMinutes}分钟 日志=$logPath"

@@ -188,6 +188,97 @@ namespace Template.Toolkit.AssetPipeline
             return new AssetReferenceReport(unreferenced, danglingReferences);
         }
 
+        /// <summary>扫描引用边：键是引用方资产相对路径，值是被它引用的资产相对路径列表。</summary>
+        /// <param name="assetsRootDirectory">Assets 根目录。</param>
+        /// <param name="scannedExtensions">要当作引用方读取的文本资产扩展名，为空时用默认集合。</param>
+        public static IReadOnlyDictionary<string, IReadOnlyList<string>> ScanReferenceEdges(
+            string assetsRootDirectory,
+            IReadOnlyList<string> scannedExtensions = null)
+        {
+            var assetsRoot = Path.GetFullPath(assetsRootDirectory);
+            if (!Directory.Exists(assetsRoot))
+            {
+                return new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+            }
+
+            // 先扫全部 .meta，建「guid → 资产相对路径」表。
+            var guidToAssetPath = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var metaPath in Directory.EnumerateFiles(assetsRoot, "*.meta", SearchOption.AllDirectories))
+            {
+                var assetRelativePath = ToRelativePath(assetsRoot, metaPath);
+                assetRelativePath = assetRelativePath.Substring(0, assetRelativePath.Length - ".meta".Length);
+
+                var guid = ReadMetaGuid(metaPath);
+                if (guid != null)
+                {
+                    guidToAssetPath[guid] = assetRelativePath;
+                }
+            }
+
+            var extensionSet = BuildExtensionSet(scannedExtensions);
+            var edges = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+
+            // 再扫引用方文本资产，读出它引用的全部 guid；能认领到相对路径的才成为一条边。
+            foreach (var assetPath in Directory.EnumerateFiles(assetsRoot, "*", SearchOption.AllDirectories))
+            {
+                var extension = Path.GetExtension(assetPath);
+                if (!extensionSet.Contains(extension))
+                {
+                    continue;
+                }
+
+                var relativePath = ToRelativePath(assetsRoot, assetPath);
+
+                IReadOnlyList<string> referenced;
+                try
+                {
+                    referenced = ReadReferencedGuids(assetPath);
+                }
+                catch (IOException)
+                {
+                    // 文件被占用读不动时跳过它，别让整趟扫描失败。
+                    continue;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    continue;
+                }
+
+                foreach (var guid in referenced)
+                {
+                    // 查不到相对路径的 guid 是悬空引用，由 Scan 负责报，这里直接跳过。
+                    if (!guidToAssetPath.TryGetValue(guid, out var referencedPath))
+                    {
+                        continue;
+                    }
+
+                    // 自己引用自己的边没有方向可言，不构成依赖。
+                    if (string.Equals(referencedPath, relativePath, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (!edges.TryGetValue(relativePath, out var referencedSet))
+                    {
+                        referencedSet = new HashSet<string>(StringComparer.Ordinal);
+                        edges.Add(relativePath, referencedSet);
+                    }
+
+                    referencedSet.Add(referencedPath);
+                }
+            }
+
+            var sortedEdges = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+            foreach (var pair in edges)
+            {
+                var pathList = pair.Value.ToList();
+                pathList.Sort(string.CompareOrdinal);
+                sortedEdges.Add(pair.Key, pathList);
+            }
+
+            return sortedEdges;
+        }
+
         private static string ReadMetaGuid(string metaPath)
         {
             try

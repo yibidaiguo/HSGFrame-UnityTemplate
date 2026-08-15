@@ -1,0 +1,17 @@
+{
+  "name": "Presentation.BuildVerification",
+  "rootNamespace": "Template.Presentation.BuildVerification",
+  "references": [
+    "HybridCLR.Runtime",
+    "YooAsset"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

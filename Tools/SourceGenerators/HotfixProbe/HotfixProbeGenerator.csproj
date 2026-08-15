@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Roslyn 分析器/源生成器必须是 netstandard2.0，编译器进程加载不了别的目标框架。 -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Template.Hotfix.Analyzer</AssemblyName>
+    <RootNamespace>Template.Hotfix.Analyzer</RootNamespace>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 版本必须不高于 Unity 自带的 Roslyn（6000.3.11f1 是 4.3.1），
+         高了编译器加载不了这个生成器，症状是「没有报错但产物里什么都没有」。 -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.1" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>
