@@ -30,7 +30,10 @@ namespace GameTemplateForAgent.Hotfix
 
             foreach (var package in manifest.Packages)
             {
-                var url = $"{trimmedBaseUrl}/{manifest.VersionText}/{package.FileName}";
+                // 版本号与文件名要各自转义再拼进 URL：中文包名不转义时服务端收到的是
+                // 原始字节，取不到包。服务端那一侧本来就 UnescapeDataString 过，两边才对得上。
+                var url = $"{trimmedBaseUrl}/{Uri.EscapeDataString(manifest.VersionText)}"
+                    + $"/{Uri.EscapeDataString(package.FileName)}";
 
                 byte[] content;
                 try

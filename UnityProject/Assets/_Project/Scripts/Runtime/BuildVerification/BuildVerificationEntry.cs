@@ -107,6 +107,10 @@ namespace Template.Presentation.BuildVerification
         {
             reportLines.Add($"引擎 {Application.unityVersion}，平台 {Application.platform}，脚本后端 {ScriptingBackendName()}");
 
+            // 存档这一条不依赖热更资产，放在热更那几步之前——下面任何一个提前 return
+            // 都不该把它一起吞掉。
+            reportLines.Add("存档 · 运行时序列化与迁移链 —— " + SaveVerification.ProbeRoundTrip());
+
             var shipDirectory = Path.Combine(Application.streamingAssetsPath, ShipDirectoryName);
             if (!Directory.Exists(shipDirectory))
             {

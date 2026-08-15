@@ -13,6 +13,7 @@
     "HSGFrame.Resource",
     "HSGFrame.WorldSpaceUI",
     "Presentation.Framework",
+    "Presentation.BuildVerification",
     "Presentation.WorldSpaceUI",
     "Presentation.Level",
     "Logic.Data",

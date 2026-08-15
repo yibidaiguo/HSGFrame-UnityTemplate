@@ -44,7 +44,7 @@ namespace Template.Toolkit.CommandHost
 
         private static int ListCommands()
         {
-            var commands = CommandRegistry.ScanAssemblies(typeof(Program).Assembly);
+            var commands = ScanAllCommands();
             foreach (var command in commands)
             {
                 Console.WriteLine($"{command.CommandName}\t{command.Description}");
@@ -126,10 +126,7 @@ namespace Template.Toolkit.CommandHost
                 return 2;
             }
 
-            var arguments = JsonSerializer.Deserialize(
-                json,
-                descriptor.ArgumentType,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var arguments = CommandArgumentBinder.Bind(descriptor, json);
 
             CommandExecutionContext.ProgressRootDirectory = ReadOption(args, "--progress-root") ?? Environment.CurrentDirectory;
             CommandExecutionContext.ArgumentsJson = json;
@@ -160,8 +157,15 @@ namespace Template.Toolkit.CommandHost
 
         private static CommandDescriptor FindCommand(string commandName)
         {
-            var commands = CommandRegistry.ScanAssemblies(typeof(Program).Assembly);
+            var commands = ScanAllCommands();
             return commands.FirstOrDefault(command => command.CommandName == commandName);
+        }
+
+        // 扫宿主自己的输出目录，而不是只扫宿主这一个程序集：
+        // 工具库把 dll 放在宿主旁边就自带命令，不必为此改 CommandHost.csproj。
+        private static IReadOnlyList<CommandDescriptor> ScanAllCommands()
+        {
+            return CommandRegistry.ScanDirectory(AppContext.BaseDirectory);
         }
 
         private static string ReadOption(string[] args, string optionName)

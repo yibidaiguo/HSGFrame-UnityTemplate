@@ -3,7 +3,8 @@
   "rootNamespace": "Template.Presentation.BuildVerification",
   "references": [
     "HybridCLR.Runtime",
-    "YooAsset"
+    "YooAsset",
+    "GameTemplateForAgent.Save"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

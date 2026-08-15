@@ -20,18 +20,21 @@
 | `Tools/Deps/` | 依赖快照（`Unity.Mathematics.dll`，取自 Unity 6000.3.11f1） |
 | `UnityProject/` | Unity 工程本体，`Assets/_Project/Scripts/Logic/` 下按 Contracts / Data / State / Service 分层 |
 | `Doc/` | 改造方案等文档（在仓库根目录，不在模板内） |
+| `规范/` | 结构规范三份（总纲/代码/资源），动目录结构、加模块、放资产前先读；宿主的现状差距与迁移账本在仓库根 `Doc/规范/` |
 
 ## 常用命令
 
 ```bash
-dotnet build Template/Solutions/Template.sln
-dotnet test Template/Solutions/Template.sln
+dotnet build Solutions/Template.sln
+dotnet test Solutions/Template.sln
 ```
 
 ## 本项目由通用 Unity 模板生成
 
 - 项目名：RebuiltRPG
 - UPM 包前缀：com.gametemplateforagent.
-- 命名空间沿用模板的 `Template.*`，需要改名时做一次全局替换（模板首轮刻意没做这一步）
+- 命名空间：`Template.*`。这是**模板自己的身份**，不是待办事项——
+  `project.create` 生成新项目时会按新项目名整体替换掉它（连同 `Template.sln` 与
+  `Template.Hotfix.Analyzer.dll` 这类带命名空间的文件名）。
 
 跑门禁：`./RebuiltRPG/Tools/Gates/gate.ps1`

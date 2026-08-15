@@ -67,6 +67,13 @@ namespace Template.Toolkit.CommandHost.Commands
         [DefaultValue("Doc")]
         public string DocumentDirectory { get; set; }
 
+        /// <summary>模板根目录，留空时只扫仓库根下的文档目录。</summary>
+        // 模板自带的 CLAUDE.md / 开始使用.md / 迁移清单.md 不在 Doc/ 下，
+        // 不把模板根一并扫进来，这几份文档永远逃过文档长度门禁。
+        [Summary("模板根目录，留空时只扫仓库根下的文档目录")]
+        [DefaultValue("")]
+        public string TemplateRoot { get; set; }
+
         /// <summary>门禁配置文件路径，默认取仓库内的 gate-config.json。</summary>
         [Summary("门禁配置文件路径，默认取仓库内的 gate-config.json")]
         [DefaultValue("Tools/Gates/Config/gate-config.json")]
@@ -102,10 +109,10 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure("参数 RootDirectory 为必填项");
             }
 
-            // RootDirectory 是扫描根（可以是 Template 这类子目录），拼配置路径要用进程工作目录，
-            // 否则会拼出 Template/Template/Tools/... 这种走不通的路径。
+            // 锚点用扫描根：解析器会先看「锚点 + 相对路径」在不在，不在才逐级上溯，
+            // 所以扫描根既可以是模板目录本身，也可以是它的子目录。
             var configuration = GateConfiguration.LoadFromFile(
-                GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, Environment.CurrentDirectory));
+                GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, arguments.RootDirectory));
 
             var findings = NamingChecker.Check(
                 NamingChecker.EnumerateSourceFiles(arguments.RootDirectory, configuration.SourceScanSkipSegments),
@@ -145,7 +152,7 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             var configuration = GateConfiguration.LoadFromFile(
-                GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, Environment.CurrentDirectory));
+                GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, arguments.RootDirectory));
 
             var findings = GenericNameChecker.Check(
                 NamingChecker.EnumerateSourceFiles(arguments.RootDirectory, configuration.SourceScanSkipSegments),
@@ -231,11 +238,18 @@ namespace Template.Toolkit.CommandHost.Commands
                 : arguments.DocumentDirectory;
             var fullDirectory = Path.Combine(arguments.RepositoryRoot, documentDirectory);
 
-            var documentPaths = Directory.Exists(fullDirectory)
-                ? Directory.EnumerateFiles(fullDirectory, "*.md", SearchOption.AllDirectories)
-                : Enumerable.Empty<string>();
+            var documentPaths = new List<string>();
+            GateCommandSupport.CollectMarkdownFiles(fullDirectory, configuration, documentPaths);
 
-            var findings = DocumentLengthChecker.Check(arguments.RepositoryRoot, documentPaths, configuration);
+            if (!string.IsNullOrWhiteSpace(arguments.TemplateRoot))
+            {
+                GateCommandSupport.CollectMarkdownFiles(arguments.TemplateRoot, configuration, documentPaths);
+            }
+
+            var findings = DocumentLengthChecker.Check(
+                arguments.RepositoryRoot,
+                documentPaths.Distinct(StringComparer.OrdinalIgnoreCase),
+                configuration);
             return GateCommandSupport.ToResult("文档长度门禁", findings);
         }
     }
@@ -257,7 +271,7 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             var configuration = GateConfiguration.LoadFromFile(
-                GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, Environment.CurrentDirectory));
+                GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, arguments.AssetsRootDirectory));
 
             var findings = MetaIntegrityChecker.Check(arguments.AssetsRootDirectory, configuration);
 
@@ -270,14 +284,93 @@ namespace Template.Toolkit.CommandHost.Commands
     {
         private const string DefaultConfigurationRelativePath = "Tools/Gates/Config/gate-config.json";
 
-        internal static string ResolveConfigurationPath(string configuredPath, string repositoryRoot)
+        // 模板根里躺着 Unity 的 Library、包缓存、构建产物，里面的 *.md 成千上万且不归本仓库管。
+        // 跳过段与命名门禁用的是同一套：一处配置管两处扫描，免得两边慢慢分叉。
+        private static readonly string[] DocumentScanSkipSegments =
         {
-            if (!string.IsNullOrWhiteSpace(configuredPath))
+            "bin", "obj", ".git", "Library", "Temp", "Logs", "Build", "Bundles",
+            "PackageCache", "HybridCLRData", "HybridCLRGenerate", "node_modules"
+        };
+
+        internal static void CollectMarkdownFiles(string rootDirectory, GateConfiguration configuration, List<string> results)
+        {
+            if (string.IsNullOrWhiteSpace(rootDirectory) || !Directory.Exists(rootDirectory))
             {
-                return configuredPath;
+                return;
             }
 
-            return Path.Combine(repositoryRoot, DefaultConfigurationRelativePath);
+            var skipSegments = DocumentScanSkipSegments
+                .Concat(configuration.SourceScanSkipSegments ?? Array.Empty<string>())
+                .ToArray();
+
+            var rootFullPath = Path.GetFullPath(rootDirectory);
+            foreach (var filePath in Directory.EnumerateFiles(rootDirectory, "*.md", SearchOption.AllDirectories))
+            {
+                // 段匹配只看扫描根内部的相对路径：跳过名单针对的是仓库内的生成物目录
+                // （Library、bin、obj……），拿绝对路径整串去匹配会把系统临时目录的
+                // Temp 段误认成生成物目录，测试用临时目录搭树时全部文件都被跳过。
+                var relative = Path.GetRelativePath(rootFullPath, Path.GetFullPath(filePath)).Replace('\\', '/');
+                var skipped = relative.Split('/').Any(segment =>
+                    skipSegments.Contains(segment, StringComparer.OrdinalIgnoreCase));
+                if (!skipped)
+                {
+                    results.Add(filePath);
+                }
+            }
+        }
+
+        // 命令框架现在会把 [DefaultValue] 声明的相对路径填进参数对象，所以这里拿到的
+        // ConfigurationPath 多半已经是一条相对路径而不是 null。相对路径先按调用点给的锚点拼，
+        // 拼不到就沿目录树逐级往上找：从仓库根直接调 gate.meta 时锚点是
+        // <模板根>/UnityProject/Assets，往上两级正好是模板根。两步都落空才退回
+        // 「锚点 + 相对路径」，让报错消息里那条路径还看得出调用方想找的是什么。
+        internal static string ResolveConfigurationPath(string configuredPath, string anchorDirectory)
+        {
+            var relativePath = string.IsNullOrWhiteSpace(configuredPath)
+                ? DefaultConfigurationRelativePath
+                : configuredPath;
+
+            if (Path.IsPathRooted(relativePath))
+            {
+                return relativePath;
+            }
+
+            var anchor = string.IsNullOrWhiteSpace(anchorDirectory)
+                ? Environment.CurrentDirectory
+                : anchorDirectory;
+
+            var combined = Path.GetFullPath(Path.Combine(anchor, relativePath));
+            if (File.Exists(combined))
+            {
+                return combined;
+            }
+
+            return SearchUpward(anchor, relativePath)
+                ?? SearchUpward(Environment.CurrentDirectory, relativePath)
+                ?? combined;
+        }
+
+        // 从起点目录逐级往上找相对路径指的那个文件，找到就返回绝对路径，找不到返回 null。
+        private static string SearchUpward(string startDirectory, string relativePath)
+        {
+            if (string.IsNullOrWhiteSpace(startDirectory) || !Directory.Exists(startDirectory))
+            {
+                return null;
+            }
+
+            var current = new DirectoryInfo(Path.GetFullPath(startDirectory));
+            while (current != null)
+            {
+                var candidate = Path.Combine(current.FullName, relativePath);
+                if (File.Exists(candidate))
+                {
+                    return Path.GetFullPath(candidate);
+                }
+
+                current = current.Parent;
+            }
+
+            return null;
         }
 
         internal static string ResolveBaselinePath(string configurationPath)

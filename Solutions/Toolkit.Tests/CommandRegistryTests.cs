@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Linq;
 using Template.Toolkit.CommandFramework;
 using Template.Toolkit.CommandHost.Commands;
@@ -55,6 +57,34 @@ namespace Template.Toolkit.Tests
 
             Assert.False(result.IsSuccess);
             Assert.Contains("必填", result.Message);
+        }
+
+        [Fact]
+        public void ScanDirectoryFindsCommandsFromHostOutputDirectory()
+        {
+            // 宿主现在扫自己的输出目录而不是只扫宿主程序集：输出目录里躺着
+            // 第三方与无关 dll，能加载的那部分全要数进来，所以只多不少。
+            var directoryCommands = CommandRegistry.ScanDirectory(AppContext.BaseDirectory);
+            var assemblyCommands = CommandRegistry.ScanAssemblies(typeof(Template.Toolkit.CommandHost.Program).Assembly);
+
+            Assert.True(
+                directoryCommands.Count >= assemblyCommands.Count,
+                "扫输出目录没找到宿主自带的命令");
+            Assert.Contains("gate.doc", directoryCommands.Select(command => command.CommandName).ToList());
+        }
+
+        [Fact]
+        public void ScanDirectoryReturnsEmptyForMissingDirectory()
+        {
+            // 不存在的目录返回空列表而不是抛异常：目录扫描是增量手段，
+            // 输出目录偶发不存在时命令层不该因此起不来。
+            var missingDirectory = Path.Combine(
+                Path.GetTempPath(),
+                "不存在的目录_" + Guid.NewGuid().ToString("N"));
+
+            var commands = CommandRegistry.ScanDirectory(missingDirectory);
+
+            Assert.Empty(commands);
         }
     }
 }

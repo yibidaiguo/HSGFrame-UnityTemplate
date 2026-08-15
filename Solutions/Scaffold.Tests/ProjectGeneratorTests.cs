@@ -30,7 +30,7 @@ namespace Template.Toolkit.ScaffoldTests
                 var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
 
                 Assert.True(result.IsSuccess, result.Message);
-                Assert.Equal(5, result.CreatedFileCount);
+                Assert.Equal(9, result.CreatedFileCount);
             }
             finally
             {
@@ -259,6 +259,124 @@ namespace Template.Toolkit.ScaffoldTests
             }
         }
 
+        /// <summary>根命名空间 Template. 换成新项目名，Scriban 的 Template.Parse 不被误伤。</summary>
+        [Fact]
+        public void CreateReplacesRootNamespaceButKeepsScribanTemplateApi()
+        {
+            var templateRoot = CreateTemplateTree();
+            var targetDirectory = CreateTargetDirectory();
+            try
+            {
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+
+                Assert.True(result.IsSuccess, result.Message);
+                var content = File.ReadAllText(Path.Combine(result.TargetPath, "命名空间样本.cs"));
+
+                Assert.Contains("namespace " + ProjectName + ".Toolkit.Demo", content);
+                Assert.Contains("Scriban.Template.Parse", content);
+                Assert.DoesNotContain("Template.Toolkit", content);
+            }
+            finally
+            {
+                Directory.Delete(templateRoot, true);
+                Directory.Delete(targetDirectory, true);
+            }
+        }
+
+        /// <summary>Template.sln 连同引用它的文本一起改成新项目名。</summary>
+        [Fact]
+        public void CreateRenamesSolutionFileToProjectName()
+        {
+            var templateRoot = CreateTemplateTree();
+            var targetDirectory = CreateTargetDirectory();
+            try
+            {
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+
+                Assert.True(File.Exists(Path.Combine(result.TargetPath, "Solutions", ProjectName + ".sln")));
+                Assert.False(File.Exists(Path.Combine(result.TargetPath, "Solutions", "Template.sln")));
+
+                var content = File.ReadAllText(Path.Combine(result.TargetPath, "命名空间样本.cs"));
+                Assert.Contains(ProjectName + ".sln", content);
+                Assert.DoesNotContain("Template.sln", content);
+            }
+            finally
+            {
+                Directory.Delete(templateRoot, true);
+                Directory.Delete(targetDirectory, true);
+            }
+        }
+
+        /// <summary>新项目的宿主门禁配置整份重写：白名单换成项目名，另外两项清空。</summary>
+        [Fact]
+        public void CreateWritesCleanHostGateConfiguration()
+        {
+            var templateRoot = CreateTemplateTree();
+            var targetDirectory = CreateTargetDirectory();
+            try
+            {
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+
+                var hostPath = Path.Combine(result.TargetPath, "Tools", "Gates", "Config", "gate-config.host.json");
+                var content = File.ReadAllText(hostPath);
+
+                Assert.Contains("\"" + ProjectName + "/\"", content);
+                Assert.Contains("\"editorOwnedPathPrefixes\": []", content);
+                Assert.Contains("\"genericNameBlacklist\": []", content);
+                Assert.DoesNotContain("RPG_Unity", content);
+            }
+            finally
+            {
+                Directory.Delete(templateRoot, true);
+                Directory.Delete(targetDirectory, true);
+            }
+        }
+
+        /// <summary>新项目自己的名字不在自己的通用性黑名单里，否则第八道门禁必红。</summary>
+        [Fact]
+        public void CreateDoesNotPutProjectNameIntoItsOwnBlacklist()
+        {
+            var templateRoot = CreateTemplateTree();
+            var targetDirectory = CreateTargetDirectory();
+            try
+            {
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+
+                var hostPath = Path.Combine(result.TargetPath, "Tools", "Gates", "Config", "gate-config.host.json");
+                var content = File.ReadAllText(hostPath);
+
+                Assert.DoesNotContain(ProjectName + "\"", content.Substring(content.IndexOf("genericNameBlacklist", StringComparison.Ordinal)));
+            }
+            finally
+            {
+                Directory.Delete(templateRoot, true);
+                Directory.Delete(targetDirectory, true);
+            }
+        }
+
+        /// <summary>扩展名认不出来的 Jenkinsfile 也按文本改写，里面的解决方案名跟着换。</summary>
+        [Fact]
+        public void CreateRewritesJenkinsfileWithoutRecognizableExtension()
+        {
+            var templateRoot = CreateTemplateTree();
+            var targetDirectory = CreateTargetDirectory();
+            try
+            {
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName, NewPrefix);
+
+                var content = File.ReadAllText(Path.Combine(result.TargetPath, "Pipelines", "Jenkinsfile.秒级门禁"));
+
+                Assert.Contains("dotnet test Solutions/" + ProjectName + ".sln", content);
+                Assert.Contains(ProjectName + ".Toolkit.Editor.CompileCheckEntry.Run", content);
+                Assert.DoesNotContain("Template.sln", content);
+            }
+            finally
+            {
+                Directory.Delete(templateRoot, true);
+                Directory.Delete(targetDirectory, true);
+            }
+        }
+
         private static ProjectCreationResult RunGenerator(string templateRoot, string targetDirectory, string projectName, string packagePrefix)
         {
             return ProjectGenerator.Create(new ProjectCreationOptions
@@ -298,6 +416,29 @@ namespace Template.Toolkit.ScaffoldTests
             Directory.CreateDirectory(scaffoldTemplatesDirectory);
             File.WriteAllText(Path.Combine(scaffoldTemplatesDirectory, "新项目说明.md"),
                 "## 本项目由通用 Unity 模板生成\n\n- 项目名：{{项目名}}\n- UPM 包前缀：{{包前缀}}\n");
+
+            var pipelinesDirectory = Path.Combine(root, "Pipelines");
+            Directory.CreateDirectory(pipelinesDirectory);
+            File.WriteAllText(Path.Combine(pipelinesDirectory, "Jenkinsfile.秒级门禁"),
+                "bat 'dotnet test Solutions/Template.sln --nologo'\n"
+                + "bat 'unity-cmd.ps1 -ExecuteMethod Template.Toolkit.Editor.CompileCheckEntry.Run'\n");
+
+            File.WriteAllText(
+                Path.Combine(root, "命名空间样本.cs"),
+                "using Scriban;\nnamespace Template.Toolkit.Demo\n{\n"
+                + "    // 解决方案是 Template.sln\n"
+                + "    public static class Sample { public static void Run() { Scriban.Template.Parse(\"x\"); } }\n"
+                + "}\n");
+
+            var solutionsDirectory = Path.Combine(root, "Solutions");
+            Directory.CreateDirectory(solutionsDirectory);
+            File.WriteAllText(Path.Combine(solutionsDirectory, "Template.sln"), "Project \"Template.Toolkit\"\n");
+
+            File.WriteAllText(
+                Path.Combine(gatesConfigDirectory, "gate-config.host.json"),
+                "{\n  \"changedPathWhitelist\": [ \"RebuiltRPG/\" ],\n"
+                + "  \"editorOwnedPathPrefixes\": [ \"RPG_Unity/\" ],\n"
+                + "  \"genericNameBlacklist\": [ \"RPG\", \"RebuiltRPG\" ]\n}\n");
 
             return root;
         }

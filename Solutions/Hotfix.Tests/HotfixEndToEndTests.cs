@@ -59,6 +59,43 @@ namespace GameTemplateForAgent.Hotfix.Tests
             }
         }
 
+        /// <summary>中文包名要按 URL 转义再拼进地址，否则服务端按转义解回来的路径对不上。</summary>
+        [Fact]
+        public void Download_ChineseFileName_EscapesUrlSegments()
+        {
+            var localRoot = CreateTempRoot();
+            try
+            {
+                var version = "1.2.0";
+                var content = Encoding.UTF8.GetBytes("中文包内容");
+                var manifest = new HotfixManifest(version, new List<HotfixPackageEntry>
+                {
+                    new HotfixPackageEntry("甲", "热更包_甲.dll", ComputeSha256Hex(content), content.Length),
+                });
+
+                var requestedUrls = new List<string>();
+                var downloader = new HotfixDownloader(
+                    url =>
+                    {
+                        requestedUrls.Add(url);
+                        return content;
+                    },
+                    new FileSystemHotfixStorage(localRoot));
+
+                var report = downloader.Download("http://127.0.0.1:9/", manifest);
+
+                Assert.True(report.IsSuccess, report.Message);
+                Assert.Single(requestedUrls);
+                Assert.DoesNotContain("热更包", requestedUrls[0]);
+                Assert.Contains("%E7%83%AD%E6%9B%B4%E5%8C%85", requestedUrls[0]);
+                Assert.EndsWith(".dll", requestedUrls[0]);
+            }
+            finally
+            {
+                Directory.Delete(localRoot, recursive: true);
+            }
+        }
+
         [Fact]
         public void Download_LocalHashesMatchManifest()
         {

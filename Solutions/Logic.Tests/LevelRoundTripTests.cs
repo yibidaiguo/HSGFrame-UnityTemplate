@@ -66,6 +66,41 @@ namespace Template.Logic.Tests
             Assert.Equal("友方", roundTripped.Placements[1].Parameters["阵营"]);
         }
 
+        /// <summary>负角度读入时归一化到 [0,360)：源里写 -90，拿到的是 270。</summary>
+        [Fact]
+        public void NegativeRotationAngleIsNormalizedIntoZeroToThreeSixty()
+        {
+            var placement = new LogicEntityPlacement { RotationAngle = -90.0f };
+
+            Assert.Equal(270.0, placement.RotationAngle, 3);
+        }
+
+        /// <summary>超过一圈的角度读入时绕回来：源里写 450，拿到的是 90。</summary>
+        [Fact]
+        public void RotationAngleAboveOneTurnWrapsAround()
+        {
+            var placement = new LogicEntityPlacement { RotationAngle = 450.0f };
+
+            Assert.Equal(90.0, placement.RotationAngle, 3);
+        }
+
+        /// <summary>
+        /// 归一化让「构建成场景再导出」成为不动点：源 JSON 里的 -90 读进来就是 270，
+        /// 而 Unity 的 localEulerAngles 也只会吐 270，两边这才对得上。
+        /// </summary>
+        [Fact]
+        public void OutOfRangeRotationAngleSurvivesJsonRoundTripAsNormalizedValue()
+        {
+            var chunkJson = "{\"区块名\":\"区块_村口\",\"实体清单\":[{\"编号\":\"守卫\"," +
+                "\"类别\":\"NPC\",\"朝向角度\":-90.0,\"参数\":{}}]}";
+
+            var first = LevelSerializer.ChunkFromJson(chunkJson);
+            Assert.Equal(270.0, first.Placements[0].RotationAngle, 3);
+
+            var second = LevelSerializer.ChunkFromJson(LevelSerializer.ToJson(first));
+            Assert.Equal(270.0, second.Placements[0].RotationAngle, 3);
+        }
+
         [Fact]
         public void SerializerEmitsChineseKeysUnescaped()
         {

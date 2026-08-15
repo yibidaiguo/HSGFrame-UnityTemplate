@@ -36,6 +36,12 @@
       "source": "local",
       "dependencies": {}
     },
+    "com.gametemplateforagent.hotfix": {
+      "version": "file:../../Packages/com.gametemplateforagent.hotfix",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
     "com.gametemplateforagent.input": {
       "version": "file:../../Packages/com.gametemplateforagent.input",
       "depth": 0,
@@ -50,6 +56,12 @@
     },
     "com.gametemplateforagent.objectpool": {
       "version": "file:../../Packages/com.gametemplateforagent.objectpool",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.gametemplateforagent.save": {
+      "version": "file:../../Packages/com.gametemplateforagent.save",
       "depth": 0,
       "source": "local",
       "dependencies": {}
@@ -73,7 +85,7 @@
       "depth": 0,
       "source": "local",
       "dependencies": {
-        "com.graphtest.nodeeditor": "0.1.5",
+        "com.graphtest.nodeeditor": "0.1.6",
         "com.unity.modules.audio": "1.0.0",
         "com.unity.modules.imgui": "1.0.0"
       }

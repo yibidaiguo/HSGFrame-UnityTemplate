@@ -43,7 +43,8 @@ namespace Template.Toolkit.Gates
         /// <summary>测试源文件的 glob 模式。</summary>
         public IReadOnlyList<string> TestFileGlobs { get; set; }
 
-        /// <summary>宿主项目专属名字黑名单：出现在标识符、菜单路径、路径字面量里就报。</summary>
+        /// <summary>宿主项目专属名字黑名单：出现在标识符、菜单路径、路径字面量里就报。
+        /// **宿主专属**，落在 gate-config.host.json 里。</summary>
         public IReadOnlyList<string> GenericNameBlacklist { get; set; }
 
         /// <summary>通用性检查的整文件豁免：按仓库相对路径前缀豁免的文件。</summary>
@@ -84,6 +85,11 @@ namespace Template.Toolkit.Gates
             if (hostConfiguration.EditorOwnedPathPrefixes != null)
             {
                 configuration.EditorOwnedPathPrefixes = hostConfiguration.EditorOwnedPathPrefixes;
+            }
+
+            if (hostConfiguration.GenericNameBlacklist != null)
+            {
+                configuration.GenericNameBlacklist = hostConfiguration.GenericNameBlacklist;
             }
 
             return configuration;

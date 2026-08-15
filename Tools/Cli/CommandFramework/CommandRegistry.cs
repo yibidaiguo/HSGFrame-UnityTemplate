@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.Encodings.Web;
@@ -24,7 +25,7 @@ namespace Template.Toolkit.CommandFramework
 
             foreach (var assembly in assemblies)
             {
-                foreach (var type in assembly.GetTypes())
+                foreach (var type in SafeGetTypes(assembly))
                 {
                     foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static))
                     {
@@ -53,6 +54,57 @@ namespace Template.Toolkit.CommandFramework
             return descriptors
                 .OrderBy(descriptor => descriptor.CommandName)
                 .ToList();
+        }
+
+        /// <summary>
+        /// 扫描一个目录下全部 <c>*.dll</c> 里的命令，返回按命令名升序排序的描述列表。
+        /// 宿主用它扫自己的输出目录：工具库只要把 dll 放在宿主旁边就会被发现，
+        /// 不必为了让某个库自带命令而去改宿主的工程文件。
+        /// </summary>
+        /// <param name="directoryPath">要扫描的目录。</param>
+        public static IReadOnlyList<CommandDescriptor> ScanDirectory(string directoryPath)
+        {
+            if (string.IsNullOrWhiteSpace(directoryPath) || !Directory.Exists(directoryPath))
+            {
+                return Array.Empty<CommandDescriptor>();
+            }
+
+            var assemblies = new List<Assembly>();
+
+            // 按文件名排序遍历，扫描顺序才不随文件系统的枚举顺序变——
+            // 顺序一变，「命令名重复」那条报错里列出的名字顺序也跟着变，日志就对不上。
+            foreach (var filePath in Directory.GetFiles(directoryPath, "*.dll").OrderBy(path => path, StringComparer.Ordinal))
+            {
+                var assembly = TryLoad(filePath);
+                if (assembly != null)
+                {
+                    assemblies.Add(assembly);
+                }
+            }
+
+            return ScanAssemblies(assemblies.ToArray());
+        }
+
+        // 输出目录里躺着一堆与命令无关的 dll（第三方库、原生互操作壳、资源程序集）。
+        // 加载不了的一律跳过：为了一个本来就不带命令的 dll 让整条命令层起不来，代价不对等。
+        private static Assembly TryLoad(string filePath)
+        {
+            try
+            {
+                return Assembly.LoadFrom(filePath);
+            }
+            catch (BadImageFormatException)
+            {
+                return null;
+            }
+            catch (FileLoadException)
+            {
+                return null;
+            }
+            catch (IOException)
+            {
+                return null;
+            }
         }
 
         /// <summary>
@@ -122,6 +174,20 @@ namespace Template.Toolkit.CommandFramework
                 property.PropertyType.Name,
                 isRequired: !hasDefaultValue,
                 description: summary?.Description ?? string.Empty);
+        }
+
+        // 依赖缺失时 GetTypes() 会抛，但异常里的 Types 数组仍然带着能加载的那部分。
+        // 命令类型通常正是能加载的那部分，所以取残片继续，而不是整个程序集放弃。
+        private static IEnumerable<Type> SafeGetTypes(Assembly assembly)
+        {
+            try
+            {
+                return assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException exception)
+            {
+                return exception.Types.Where(type => type != null);
+            }
         }
     }
 }

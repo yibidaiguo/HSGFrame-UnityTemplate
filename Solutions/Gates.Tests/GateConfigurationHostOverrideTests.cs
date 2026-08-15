@@ -96,6 +96,28 @@ namespace Template.Toolkit.Gates.Tests
             }
         }
 
+        /// <summary>宿主配置里的 genericNameBlacklist 覆盖通用配置里的同名项。</summary>
+        [Fact]
+        public void HostConfigurationOverridesGenericNameBlacklist()
+        {
+            var directory = NewTempDirectory();
+            try
+            {
+                var configPath = WriteConfiguration(directory, "gate-config.json",
+                    "{\"genericNameBlacklist\": [\"Generic\"]}");
+                WriteConfiguration(directory, GateConfiguration.HostConfigurationFileName,
+                    "{\"genericNameBlacklist\": [\"HostOnly\"]}");
+
+                var configuration = GateConfiguration.LoadFromFile(configPath);
+
+                Assert.Equal(new[] { "HostOnly" }, configuration.GenericNameBlacklist);
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
         private static string WriteConfiguration(string directory, string fileName, string json)
         {
             var path = Path.Combine(directory, fileName);

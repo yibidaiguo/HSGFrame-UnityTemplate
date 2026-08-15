@@ -135,17 +135,14 @@ namespace Template.Toolkit.Mcp
                 return Error(id, -32602, $"未知工具：{toolName}");
             }
 
-            object arguments = null;
-            if (hasParams && paramsElement.TryGetProperty("arguments", out var argumentsElement)
-                && argumentsElement.ValueKind == JsonValueKind.Object)
-            {
-                arguments = JsonSerializer.Deserialize(
-                    argumentsElement.GetRawText(),
-                    descriptor.ArgumentType,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            }
-
-            arguments ??= Activator.CreateInstance(descriptor.ArgumentType);
+            // 走绑定器而不是裸反序列化：MCP 这条路也要吃到 [DefaultValue] 填的值，
+            // 否则同一条命令从命令行调和从 MCP 调会拿到两套不同的参数。
+            var argumentsJson = hasParams
+                && paramsElement.TryGetProperty("arguments", out var argumentsElement)
+                && argumentsElement.ValueKind == JsonValueKind.Object
+                ? argumentsElement.GetRawText()
+                : "{}";
+            var arguments = CommandArgumentBinder.Bind(descriptor, argumentsJson);
 
             CommandResult commandResult;
             try

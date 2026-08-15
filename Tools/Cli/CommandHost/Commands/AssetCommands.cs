@@ -384,4 +384,63 @@ namespace Template.Toolkit.CommandHost.Commands
             return CommandResult.Success($"依赖方向校验通过：规则 {rules.Count} 条，违规 0 条", lines);
         }
     }
+
+    /// <summary>打包分组校验命令的参数。</summary>
+    public sealed class AssetBundleGroupsArguments
+    {
+        /// <summary>Assets 根目录。</summary>
+        [Summary("Assets 根目录")]
+        public string AssetsRootDirectory { get; set; }
+
+        /// <summary>打包分组规则文件路径，缺省时用模板自带的那份。</summary>
+        [Summary("打包分组规则文件路径，缺省时用 Tools/AssetPipeline/Config/打包分组规则.json")]
+        [DefaultValue("Tools/AssetPipeline/Config/打包分组规则.json")]
+        public string RulesPath { get; set; }
+    }
+
+    /// <summary>打包分组校验命令：按目录分组判「谁该和谁打进同一个包」。</summary>
+    public static class AssetBundleGroupsCommand
+    {
+        /// <summary>按规则检查 Assets 根下的资产分组，报出共享资产未落共享组与未分组资产。</summary>
+        /// <param name="arguments">校验参数。</param>
+        [EditorCommand("asset.bundlegroups")]
+        [Summary("按打包分组规则检查资产分组，报出共享资产未落共享组与未分组资产")]
+        public static CommandResult Execute(AssetBundleGroupsArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.AssetsRootDirectory)
+                || !Directory.Exists(arguments.AssetsRootDirectory))
+            {
+                return CommandResult.Failure(
+                    $"位置：{arguments.AssetsRootDirectory}；原因：Assets 根目录不存在；" +
+                    "修复：把 AssetsRootDirectory 指向 Unity 工程的 Assets 目录；" +
+                    "参考：UnityProject/Assets");
+            }
+
+            // 框架会把 [DefaultValue] 的值填进参数对象（CommandArgumentBinder.ApplyDefaults），
+            // 这句兜底只兜「显式传了空串」的情况。
+            var rulesPath = string.IsNullOrWhiteSpace(arguments.RulesPath)
+                ? Path.Combine("Tools", "AssetPipeline", "Config", "打包分组规则.json")
+                : arguments.RulesPath;
+
+            if (!File.Exists(rulesPath))
+            {
+                return CommandResult.Failure(
+                    $"位置：{rulesPath}；原因：打包分组规则文件不存在；" +
+                    "修复：把 RulesPath 指向规则文件，或在模板里补一份；" +
+                    "参考：Tools/AssetPipeline/Config/打包分组规则.json");
+            }
+
+            var ruleSet = AssetBundleGroupRuleSet.LoadFromFile(rulesPath);
+            var violations = AssetBundleGroupChecker.Check(arguments.AssetsRootDirectory, ruleSet);
+
+            var lines = violations.Select(violation => violation.ToDisplayText()).ToList();
+            var groupCount = ruleSet.Groups?.Count ?? 0;
+            if (violations.Count > 0)
+            {
+                return CommandResult.Failure($"打包分组校验发现违规 {violations.Count} 条（分组 {groupCount} 个）", lines);
+            }
+
+            return CommandResult.Success($"打包分组校验通过：分组 {groupCount} 个，违规 0 条", lines);
+        }
+    }
 }

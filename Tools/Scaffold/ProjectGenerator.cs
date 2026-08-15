@@ -18,7 +18,7 @@ namespace Template.Toolkit.Scaffold
         // 复制过去既让生成变慢几十倍，又会给新项目一份可能过期的环境——环境该由新项目自己装。
         private static readonly string[] SkipSegments =
         {
-            "bin", "obj", "Logs", "Build", ".git", "Library", "Temp", "MemoryCaptures", "HybridCLRData"
+            "bin", "obj", "Logs", "Build", ".git", "Library", "Temp", "MemoryCaptures", "HybridCLRData", "Bundles"
         };
 
         // 凡是可能写着包名或模板标识名的文本格式都要列进来。
@@ -26,8 +26,14 @@ namespace Template.Toolkit.Scaffold
         private static readonly string[] TextExtensions =
         {
             ".json", ".asmdef", ".md", ".csproj", ".cs", ".ps1",
-            ".scriban", ".toml", ".sln", ".uss", ".uxml", ".txt"
+            ".scriban", ".toml", ".sln", ".uss", ".uxml", ".txt",
+            ".prefab", ".unity", ".asset", ".xml", ".props", ".targets"
         };
+
+        // 扩展名认不出来的文本文件按文件名前缀认。Jenkinsfile.秒级门禁 这类文件的「扩展名」
+        // 是中文流水线名，按扩展名匹配永远认不出来，于是里面的解决方案名与入口方法全名
+        // 会原样留在新项目里——上一轮就是这么漏掉四条流水线定义的。
+        private static readonly string[] TextFileNamePrefixes = { "Jenkinsfile" };
 
         private static readonly byte[] Utf8Bom = { 0xEF, 0xBB, 0xBF };
 
@@ -37,12 +43,22 @@ namespace Template.Toolkit.Scaffold
         // 文档标题会一直顶着模板的名字——菜单叫「RPG模板工具」那类问题就是这么来的。
         private const string TemplateIdentifierName = "GameTemplateForAgent";
 
+        // 模板解决方案文件名。它是 Template. 开头但后面接小写，命名空间正则刻意不匹配它，
+        // 单独一条规则改名，免得把 Scriban 的 Template.Parse 之类一起误伤。
+        private const string TemplateSolutionFileName = "Template.sln";
+
+        // 判据：Template 前面不能紧挨标识符字符或点（挡掉 Scriban.Template.Parse），
+        // 后面必须是点加一个大写字母（挡掉 Template.sln、Templates 目录）。
+        private static readonly Regex TemplateNamespacePattern = new Regex(
+            @"(?<![A-Za-z0-9_.])Template\.(?=[A-Z])",
+            RegexOptions.Compiled);
+
         // 模板说明文件缺失时退回这份内置文案，保证 CLAUDE.md 追加永不静默丢功能。
         private const string FallbackTemplateNotice = @"## 本项目由通用 Unity 模板生成
 
 - 项目名：{{项目名}}
 - UPM 包前缀：{{包前缀}}
-- 命名空间沿用模板的 `Template.*`，需要改名时做一次全局替换（模板首轮刻意没做这一步）
+- 命名空间：`{{项目名}}.*`（生成时已由 project.create 从模板的 `Template.*` 整体替换）
 
 跑门禁：`./{{项目名}}/Tools/Gates/gate.ps1`
 ";
@@ -93,6 +109,7 @@ namespace Template.Toolkit.Scaffold
             CopyTree(options.TemplateRoot, targetPath, options.PackagePrefix, options.ProjectName, sourceIdentifierName, ref copiedFileCount);
 
             RewriteGateWhitelist(targetPath, options.ProjectName);
+            WriteHostGateConfiguration(targetPath, options.ProjectName);
             AppendTemplateNotice(targetPath, options.TemplateRoot, options.ProjectName, options.PackagePrefix);
             RebuildTestBaseline(targetPath);
 
@@ -145,8 +162,15 @@ namespace Template.Toolkit.Scaffold
                 return packagePrefix + directoryName.Substring(TemplateDirectoryPrefix.Length);
             }
 
-            // asmdef 这类文件名里也带模板标识名（GameTemplateForAgent.Save.asmdef）。
-            return directoryName.Replace(TemplateIdentifierName, projectName, StringComparison.Ordinal);
+            // 解决方案文件名单独一条：Template.sln → <项目名>.sln。
+            if (string.Equals(directoryName, TemplateSolutionFileName, StringComparison.Ordinal))
+            {
+                return projectName + ".sln";
+            }
+
+            // 文件名里也带根命名空间（Template.Hotfix.Analyzer.dll 与它的 .meta）。
+            var renamed = TemplateNamespacePattern.Replace(directoryName, projectName + ".");
+            return renamed.Replace(TemplateIdentifierName, projectName, StringComparison.Ordinal);
         }
 
         private static void RewriteTextFile(string sourcePath, string targetPath, string packagePrefix, string projectName, string sourceIdentifierName)
@@ -160,6 +184,10 @@ namespace Template.Toolkit.Scaffold
             text = text
                 .Replace(TemplateDirectoryPrefix, packagePrefix, StringComparison.Ordinal)
                 .Replace(TemplateIdentifierName, projectName, StringComparison.Ordinal);
+
+            // 解决方案文件名要先换：它是 Template. 开头但后面小写，命名空间正则不管它。
+            text = text.Replace(TemplateSolutionFileName, projectName + ".sln", StringComparison.Ordinal);
+            text = TemplateNamespacePattern.Replace(text, projectName + ".");
 
             // 源模板目录名与项目名相同时跳过，免得把刚换好的名字又替一遍。
             if (!string.IsNullOrEmpty(sourceIdentifierName)
@@ -223,6 +251,32 @@ namespace Template.Toolkit.Scaffold
             }
 
             WriteUtf8(configPath, text, hasBom);
+        }
+
+        // 宿主专属门禁配置整份重写，而不是在复制过来的那份上打补丁。
+        // 三项都必须归零或改写：changedPathWhitelist 是来源仓库的目录前缀；
+        // editorOwnedPathPrefixes 装着来源仓库那个常驻编辑器工程的名字；
+        // genericNameBlacklist 装着来源仓库自己的名字——它会被上面的标识名替换改写成
+        // 新项目名，于是新项目的每一个标识符都会被通用性门禁判成违规，整道门禁必红。
+        private static void WriteHostGateConfiguration(string targetRoot, string projectName)
+        {
+            var configDirectory = Path.Combine(targetRoot, "Tools", "Gates", "Config");
+            if (!Directory.Exists(configDirectory))
+            {
+                return;
+            }
+
+            var content = "{\n"
+                + "  \"_说明\": \"宿主专属配置，只在这一个仓库成立。template.sync 跳过这个文件，同名项覆盖 gate-config.json 里的值。\",\n"
+                + "  \"changedPathWhitelist\": [\n"
+                + "    \"" + projectName + "/\",\n"
+                + "    \"Doc/\"\n"
+                + "  ],\n"
+                + "  \"editorOwnedPathPrefixes\": [],\n"
+                + "  \"genericNameBlacklist\": []\n"
+                + "}\n";
+
+            WriteUtf8(Path.Combine(configDirectory, "gate-config.host.json"), content, hasBom: false);
         }
 
         private static void AppendTemplateNotice(string targetRoot, string templateRoot, string projectName, string packagePrefix)
@@ -292,7 +346,13 @@ namespace Template.Toolkit.Scaffold
         private static bool IsTextFile(string path)
         {
             var extension = Path.GetExtension(path);
-            return TextExtensions.Any(entry => string.Equals(entry, extension, StringComparison.OrdinalIgnoreCase));
+            if (TextExtensions.Any(entry => string.Equals(entry, extension, StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+
+            var fileName = Path.GetFileName(path);
+            return TextFileNamePrefixes.Any(prefix => fileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
         }
 
         private static bool ShouldSkipSegment(string name)
