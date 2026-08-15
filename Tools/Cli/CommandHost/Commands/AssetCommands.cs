@@ -443,4 +443,63 @@ namespace Template.Toolkit.CommandHost.Commands
             return CommandResult.Success($"打包分组校验通过：分组 {groupCount} 个，违规 0 条", lines);
         }
     }
+
+    /// <summary>导入规则覆盖校验命令的参数。</summary>
+    public sealed class AssetRuleCoverageArguments
+    {
+        /// <summary>Assets 根目录。</summary>
+        [Summary("Assets 根目录")]
+        public string AssetsRootDirectory { get; set; }
+
+        /// <summary>覆盖范围配置路径，缺省时用模板自带的那份。</summary>
+        [Summary("覆盖范围配置路径，缺省时用 Tools/AssetPipeline/Config/规则覆盖范围.json")]
+        [DefaultValue("Tools/AssetPipeline/Config/规则覆盖范围.json")]
+        public string SettingsPath { get; set; }
+    }
+
+    /// <summary>导入规则覆盖校验命令：放了资产的目录必须能解析到一份导入规则。</summary>
+    public static class AssetRuleCoverageCommand
+    {
+        /// <summary>检查扫描根下每个放了资产的目录是否被导入规则覆盖。</summary>
+        /// <param name="arguments">校验参数。</param>
+        [EditorCommand("asset.rulecoverage")]
+        [Summary("检查放了资产的目录是否都被导入规则覆盖")]
+        public static CommandResult Execute(AssetRuleCoverageArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.AssetsRootDirectory)
+                || !Directory.Exists(arguments.AssetsRootDirectory))
+            {
+                return CommandResult.Failure(
+                    $"位置：{arguments.AssetsRootDirectory}；原因：Assets 根目录不存在；" +
+                    "修复：把 AssetsRootDirectory 指向 Unity 工程的 Assets 目录；" +
+                    "参考：UnityProject/Assets");
+            }
+
+            // 框架会把 [DefaultValue] 的值填进参数对象（CommandArgumentBinder.ApplyDefaults），
+            // 这句兜底只兜「显式传了空串」的情况。
+            var settingsPath = string.IsNullOrWhiteSpace(arguments.SettingsPath)
+                ? Path.Combine("Tools", "AssetPipeline", "Config", "规则覆盖范围.json")
+                : arguments.SettingsPath;
+
+            if (!File.Exists(settingsPath))
+            {
+                return CommandResult.Failure(
+                    $"位置：{settingsPath}；原因：规则覆盖范围配置不存在；" +
+                    "修复：把 SettingsPath 指向配置文件，或在模板里补一份；" +
+                    "参考：Tools/AssetPipeline/Config/规则覆盖范围.json");
+            }
+
+            var settings = AssetRuleCoverageSettings.LoadFromFile(settingsPath);
+            var violations = AssetRuleCoverageChecker.Check(arguments.AssetsRootDirectory, settings);
+
+            var lines = violations.Select(violation => violation.ToDisplayText()).ToList();
+            var scanRootCount = settings.ScanRoots?.Count ?? 0;
+            if (violations.Count > 0)
+            {
+                return CommandResult.Failure($"导入规则覆盖校验发现违规 {violations.Count} 条（扫描根 {scanRootCount} 个）", lines);
+            }
+
+            return CommandResult.Success($"导入规则覆盖校验通过：扫描根 {scanRootCount} 个，违规 0 条", lines);
+        }
+    }
 }

@@ -24,7 +24,16 @@
     "temp",
     "new"
   ],
-  "directoryNamePattern": "^[A-Za-z_][A-Za-z0-9_.]*$",
+  "directoryNamePattern": "^[A-Za-z][A-Za-z0-9_.]*$",
+  "_underscoreExemptNames说明": "前三个是长期白名单（机器管理区，见 规范/结构规范-总纲.md 第三节第 1 条）；其余是迁移期的过渡名，迁一块删一条，名单燃尽即 R1 完工。",
+  "underscoreExemptNames": [
+    "_Inbox",
+    "_Generated",
+    "_Scratch",
+    "_Project",
+    "_tmp.PlaceholderCheck",
+    "_sample_gen"
+  ],
   "documentLineLimit": 200,
   "documentExemptions": [
     "Doc/挂机任务书.md",

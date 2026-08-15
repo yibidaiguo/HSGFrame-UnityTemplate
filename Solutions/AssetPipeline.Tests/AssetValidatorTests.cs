@@ -84,6 +84,44 @@ namespace Template.Toolkit.AssetPipelineTests
         }
 
         [Fact]
+        public void AssetFileNameStartingWithUnderscoreIsReported()
+        {
+            var directory = CreateTemporaryDirectory();
+            try
+            {
+                File.WriteAllText(Path.Combine(directory, "_临时贴图.png"), string.Empty);
+                File.WriteAllText(Path.Combine(directory, "_临时贴图.png.meta"), string.Empty);
+
+                var findings = AssetValidator.Validate(directory, NewRule(new[] { ".png" }), Array.Empty<string>());
+
+                Assert.Contains(findings, finding => finding.Reason == "资产文件名以下划线开头");
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
+        [Fact]
+        public void AssetFileNameStartingWithLetterIsNotReported()
+        {
+            var directory = CreateTemporaryDirectory();
+            try
+            {
+                File.WriteAllText(Path.Combine(directory, "T_背包格子.png"), string.Empty);
+                File.WriteAllText(Path.Combine(directory, "T_背包格子.png.meta"), string.Empty);
+
+                var findings = AssetValidator.Validate(directory, NewRule(new[] { ".png" }), Array.Empty<string>());
+
+                Assert.DoesNotContain(findings, finding => finding.Reason == "资产文件名以下划线开头");
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
+        [Fact]
         public void LoadForDirectoryFindsRuleInAncestorDirectory()
         {
             var directory = CreateTemporaryDirectory();

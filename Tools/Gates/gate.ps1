@@ -1,5 +1,5 @@
 ﻿<#
-  门禁总编排：按由快到慢的顺序跑完四道检查，任何一道红就地停下。
+  门禁总编排：按由快到慢的顺序跑完九道检查，任何一道红就地停下。
 
   用法：
     .\gate.ps1 [-RepositoryRoot <仓库根目录>]
@@ -174,11 +174,22 @@ if ($idempotencyFailed) {
     $failedGateNames += '生成物幂等'
 }
 
+# Agent 入口镜像对账（R9）：CLAUDE.md 是源，AGENTS.md 等是镜像。
+# 改了源却没重跑同步脚本，各家模型看到的入口就分叉了——这一道把分叉钉在提交前。
+Write-GateHeader 'Agent 入口镜像'
+$agentSyncScript = Join-Path $templateRoot 'Tools/AgentSync/agent-sync.ps1'
+if (Test-Path $agentSyncScript) {
+    & $agentSyncScript -Verify | Out-Host
+    if ($LASTEXITCODE -ne 0) { $failedGateNames += 'Agent 入口镜像' }
+} else {
+    Write-Host "[gate] 知会：$agentSyncScript 不在，跳过 Agent 入口镜像对账"
+}
+
 Write-Host ''
 if ($failedGateNames.Count -gt 0) {
     Write-Host "[gate] FAIL —— 未通过：$($failedGateNames -join '、')"
     exit 1
 }
 
-Write-Host '[gate] PASS —— 八道门禁全绿'
+Write-Host '[gate] PASS —— 九道门禁全绿'
 exit 0

@@ -81,6 +81,72 @@ namespace Sample
             }, SampleMissingSummary);
         }
 
+        [Fact]
+        public void DirectoryStartingWithUnderscoreIsReportedWhenNotExempt()
+        {
+            RunInTempDirectory(_ =>
+            {
+                Directory.CreateDirectory("_Legacy");
+                File.WriteAllText(Path.Combine("_Legacy", "Sample.cs"), SampleWellNamed);
+
+                var findings = NamingChecker.Check(new[] { Path.Combine("_Legacy", "Sample.cs") }, CreateConfiguration());
+
+                Assert.Contains(findings, finding => finding.Reason.Contains("以下划线开头"));
+            }, SampleWellNamed);
+        }
+
+        [Fact]
+        public void DirectoryStartingWithUnderscoreIsAllowedWhenExempt()
+        {
+            RunInTempDirectory(_ =>
+            {
+                Directory.CreateDirectory("_Legacy");
+                File.WriteAllText(Path.Combine("_Legacy", "Sample.cs"), SampleWellNamed);
+
+                var configuration = CreateConfiguration();
+                configuration.UnderscoreExemptNames = new List<string> { "_Legacy" };
+                var findings = NamingChecker.Check(new[] { Path.Combine("_Legacy", "Sample.cs") }, configuration);
+
+                // 断言「这个目录名一条都没被报出来」，而不是只筛「以下划线开头」那句话：
+                // 豁免逻辑一旦失效，目录会落到下面的正则那一支、报成「不符合命名规范」，
+                // 只筛那一句的话这条测试照样绿——盲区正好盖住它要防的失败。
+                Assert.DoesNotContain(findings, finding => finding.Reason.Contains("_Legacy"));
+            }, SampleWellNamed);
+        }
+
+        [Fact]
+        public void DirectoryExemptionIsCaseInsensitive()
+        {
+            RunInTempDirectory(_ =>
+            {
+                Directory.CreateDirectory("_Inbox");
+                File.WriteAllText(Path.Combine("_Inbox", "Sample.cs"), SampleWellNamed);
+
+                var configuration = CreateConfiguration();
+                configuration.UnderscoreExemptNames = new List<string> { "_inbox" };
+                var findings = NamingChecker.Check(new[] { Path.Combine("_Inbox", "Sample.cs") }, configuration);
+
+                // 断言「这个目录名一条都没被报出来」，而不是只筛「以下划线开头」那句话：
+                // 豁免逻辑一旦失效，目录会落到下面的正则那一支、报成「不符合命名规范」，
+                // 只筛那一句的话这条测试照样绿——盲区正好盖住它要防的失败。
+                Assert.DoesNotContain(findings, finding => finding.Reason.Contains("_Inbox"));
+            }, SampleWellNamed);
+        }
+
+        [Fact]
+        public void LetterLeadingDirectoryIsUnaffected()
+        {
+            RunInTempDirectory(_ =>
+            {
+                Directory.CreateDirectory("Modules");
+                File.WriteAllText(Path.Combine("Modules", "Sample.cs"), SampleWellNamed);
+
+                var findings = NamingChecker.Check(new[] { Path.Combine("Modules", "Sample.cs") }, CreateConfiguration());
+
+                Assert.DoesNotContain(findings, finding => finding.Reason.Contains("以下划线开头"));
+            }, SampleWellNamed);
+        }
+
         private static void RunInTempDirectory(Action<string> assert, string fileContent)
         {
             var directory = Path.Combine(Path.GetTempPath(), "gates_naming_" + Guid.NewGuid().ToString("N"));
@@ -106,11 +172,12 @@ namespace Sample
             {
                 AbbreviationBlacklist = new List<string> { "Mgr", "Cfg", "Svc", "Btn", "Idx", "Tmp", "Utils", "Ctx", "Param", "Attr", "Conf" },
                 DirectoryNameBlacklist = new List<string> { "misc", "common", "utils", "helper", "stuff", "temp", "new" },
-                DirectoryNamePattern = "^[A-Za-z_][A-Za-z0-9_.]*$",
+                DirectoryNamePattern = "^[A-Za-z][A-Za-z0-9_.]*$",
                 DocumentLineLimit = 200,
                 DocumentExemptions = new List<string>(),
                 ChangedPathWhitelist = new List<string>(),
-                TestFileGlobs = new List<string>()
+                TestFileGlobs = new List<string>(),
+                UnderscoreExemptNames = new List<string>()
             };
         }
     }

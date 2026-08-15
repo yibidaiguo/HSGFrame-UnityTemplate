@@ -92,6 +92,17 @@ namespace Template.Toolkit.AssetPipeline
                 var location = NormalizePath(fullPath);
                 var extension = Path.GetExtension(fileName).ToLowerInvariant();
 
+                // 资产文件名以下划线开头，与目录同一条规矩：下划线留给机器管理区。
+                // 这一层不读门禁配置（资产管线不依赖门禁），豁免名单在这里写死成那三个机器区名字，
+                // 因为文件名层面本来就不该有迁移期的过渡名。
+                if (fileName.StartsWith("_", StringComparison.Ordinal))
+                {
+                    findings.Add(new AssetFinding(
+                        location,
+                        "资产文件名以下划线开头",
+                        "改成前缀加 PascalCase 主干的正式名，例如 T_背包格子.png"));
+                }
+
                 if (!ContainsExtension(rule.AllowedExtensions, extension))
                 {
                     findings.Add(new AssetFinding(

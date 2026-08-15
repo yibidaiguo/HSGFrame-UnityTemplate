@@ -22,6 +22,13 @@ namespace Template.Toolkit.Gates
         /// <summary>目录名的合法命名正则。</summary>
         public string DirectoryNamePattern { get; set; }
 
+        /// <summary>
+        /// 允许以下划线开头的目录名与资产文件名。
+        /// 下划线的语义是「此处内容不是人手维护的正式品」，所以放行的是机器管理区；
+        /// 迁移期的过渡名字也先挂在这里，迁一块删一条，名单燃尽即规矩完全落地。
+        /// </summary>
+        public IReadOnlyList<string> UnderscoreExemptNames { get; set; }
+
         /// <summary>单文档行数上限。</summary>
         public int DocumentLineLimit { get; set; }
 

@@ -264,6 +264,24 @@ namespace Template.Toolkit.Gates
                     continue;
                 }
 
+                // 以下划线开头的名字先过豁免名单：放行的是机器管理区（_Inbox / _Generated /
+                // _Scratch）与迁移期还没改完的过渡名。名单之外的名字交给下面的正则判，
+                // 而正则已经收紧成「必须字母开头」。
+                if (segment.StartsWith("_", StringComparison.Ordinal))
+                {
+                    if (IsUnderscoreExempt(segment, configuration))
+                    {
+                        continue;
+                    }
+
+                    findings.Add(new GateFinding(
+                        filePath,
+                        $"目录名「{segment}」以下划线开头，而它不在下划线豁免名单里",
+                        "改成字母开头的名字；确实是机器管理区就加进 gate-config.json 的 underscoreExemptNames",
+                        "Tools/Gates/Config/gate-config.json"));
+                    continue;
+                }
+
                 if (!string.IsNullOrEmpty(pattern) && !Regex.IsMatch(segment, pattern))
                 {
                     findings.Add(new GateFinding(
@@ -275,6 +293,15 @@ namespace Template.Toolkit.Gates
             }
 
             return findings;
+        }
+
+        /// <summary>判断一个以下划线开头的名字是否在豁免名单里（逐字匹配，忽略大小写）。</summary>
+        /// <param name="name">目录名或文件名。</param>
+        /// <param name="configuration">门禁配置。</param>
+        public static bool IsUnderscoreExempt(string name, GateConfiguration configuration)
+        {
+            var exemptions = configuration?.UnderscoreExemptNames ?? Array.Empty<string>();
+            return exemptions.Contains(name, StringComparer.OrdinalIgnoreCase);
         }
 
         private static string StripNonCode(string line, ref bool inBlockComment, ref bool inVerbatimString)

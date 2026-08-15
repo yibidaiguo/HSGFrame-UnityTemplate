@@ -1,0 +1,12 @@
+{
+  "_说明": "R5 之一：放了资产的目录必须能解析到一份导入规则（自己有，或继承最近祖先的），解析不到即违规。豁免目录是「上线时的现状」，阶段 B 建好目标目录树并铺上规则之后逐条删，删空即本条完工。当前两条豁免的去向：_Project/Art/Prefab 整夹在阶段 B 迁去 ResourceArt/（届时整条删）；_Project/Scenes 在阶段 B 分成 Scenes/Boot 与 Scenes/World 各配一份规则（届时整条删）。",
+  "扫描根": [
+    "_Inbox",
+    "_Project/Art",
+    "_Project/Scenes"
+  ],
+  "豁免目录": [
+    "_Project/Art/Prefab",
+    "_Project/Scenes"
+  ]
+}
