@@ -13,6 +13,8 @@
     "Index/",
     "Memory/",
     "CLAUDE.md",
+    "AGENTS.md",
+    "规范/",
     "开始使用.md",
     "迁移清单.md",
     "reasonix.toml",
@@ -21,5 +23,11 @@
     ".editorconfig",
     "Directory.Build.props"
   ],
-  "editorOwnedPathPrefixes": []
+  "editorOwnedPathPrefixes": [],
+  "genericNameBlacklist": [
+    "RPG",
+    "RebuiltRPG",
+    "RebuiltRpg",
+    "MyGame"
+  ]
 }

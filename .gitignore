@@ -45,3 +45,8 @@ Tools/Luban/*
 # 出包前现拷的热更程序集与 AOT 补充元数据（HotfixShipStaging 产出），是构建产物不是源码。
 UnityProject/Assets/StreamingAssets/HotfixShip/
 UnityProject/Assets/StreamingAssets/HotfixShip.meta
+
+# 模型试验区：AI 本地测试的临时文件全放这，永不上传；只放行说明文件让规则随仓库走。
+# 模板自己就是仓库根时这条直接生效；模板是别人的子目录时，试验区在那个仓库的根上，各自忽略各自的。
+_Scratch/*
+!_Scratch/说明.md
