@@ -45,12 +45,14 @@
   ],
   "_residentBudgetBytes说明": "R6：加载分组为「常驻」的目录字节总预算。现状还没有任何分组标成常驻，所以这条暂时查不到东西；先按 32 MiB 立着，第一个常驻分组进来那天它就开始起作用。设成 0 或负数即关掉这条检查。",
   "residentBudgetBytes": 33554432,
+  "_sourceScanSkipSegments说明": "_Scratch 这条是模板自己就是仓库根时的必需项：那时试验区落在扫描根以内，不跳过的话一段半成品代码就能让命名/通用性/文档长度三道门禁红，而试验区按定义豁免的正是这些。",
   "sourceScanSkipSegments": [
     "HybridCLRData",
     "HybridCLRGenerate",
     "PackageCache",
     "Build",
-    "Logs"
+    "Logs",
+    "_Scratch"
   ],
   "genericNameExemptPaths": [
     "Solutions/Gates.Tests/",
