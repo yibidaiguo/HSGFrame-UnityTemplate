@@ -4,10 +4,10 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
-namespace Template.Toolkit.Hotfix
+namespace Template.Toolkit.FileServer
 {
-    /// <summary>本地热更文件服务器：把一个目录挂在 http 上供读取，供本机跑通更新链路。</summary>
-    public sealed class HotfixFileServer : IDisposable
+    /// <summary>本地目录文件服务器：把一个目录挂在 http 上供只读取用，供本机跑通需要真 http 的链路。</summary>
+    public sealed class LocalDirectoryFileServer : IDisposable
     {
         private readonly string _rootDirectory;
         private readonly int _requestedPort;
@@ -16,7 +16,7 @@ namespace Template.Toolkit.Hotfix
         private int _port;
 
         /// <summary>在指定端口挂一个目录。端口传 0 时由系统挑一个空闲端口。</summary>
-        public HotfixFileServer(string rootDirectory, int port)
+        public LocalDirectoryFileServer(string rootDirectory, int port)
         {
             _rootDirectory = Path.GetFullPath(rootDirectory);
             _requestedPort = port;
@@ -43,7 +43,7 @@ namespace Template.Toolkit.Hotfix
             _workerThread = new Thread(ProcessRequests)
             {
                 IsBackground = true,
-                Name = "HotfixFileServer",
+                Name = "LocalDirectoryFileServer",
             };
             _workerThread.Start();
         }

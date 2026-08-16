@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using HSGFrame.Hotfix;
-using Template.Toolkit.Hotfix;
+using Template.Toolkit.FileServer;
 using Xunit;
 
 namespace HSGFrame.Hotfix.Tests
@@ -35,7 +35,7 @@ namespace HSGFrame.Hotfix.Tests
                     new HotfixPackageEntry("b", "b.dll", ComputeSha256Hex(packageB), packageB.Length),
                 });
 
-                using var server = new HotfixFileServer(serverRoot, 0);
+                using var server = new LocalDirectoryFileServer(serverRoot, 0);
                 server.Start();
                 using var httpClient = new HttpClient();
 
@@ -112,7 +112,7 @@ namespace HSGFrame.Hotfix.Tests
                     new HotfixPackageEntry("a", "a.dll", ComputeSha256Hex(content), content.Length),
                 });
 
-                using var server = new HotfixFileServer(serverRoot, 0);
+                using var server = new LocalDirectoryFileServer(serverRoot, 0);
                 server.Start();
                 using var httpClient = new HttpClient();
 
@@ -150,7 +150,7 @@ namespace HSGFrame.Hotfix.Tests
                     new HotfixPackageEntry("a", "a.dll", "deadbeef", content.Length),
                 });
 
-                using var server = new HotfixFileServer(serverRoot, 0);
+                using var server = new LocalDirectoryFileServer(serverRoot, 0);
                 server.Start();
                 using var httpClient = new HttpClient();
 
@@ -182,7 +182,7 @@ namespace HSGFrame.Hotfix.Tests
             try
             {
                 WriteServerPackage(serverRoot, "1.0.0", "present.dll", Encoding.UTF8.GetBytes("present"));
-                using var server = new HotfixFileServer(serverRoot, 0);
+                using var server = new LocalDirectoryFileServer(serverRoot, 0);
                 server.Start();
                 using var httpClient = new HttpClient();
 
@@ -209,7 +209,7 @@ namespace HSGFrame.Hotfix.Tests
             try
             {
                 WriteServerPackage(serverRoot, "1.0.0", "normal.dll", Encoding.UTF8.GetBytes("normal"));
-                using var server = new HotfixFileServer(serverRoot, 0);
+                using var server = new LocalDirectoryFileServer(serverRoot, 0);
                 server.Start();
                 var port = new Uri(server.BaseUrl).Port;
 
@@ -250,7 +250,7 @@ namespace HSGFrame.Hotfix.Tests
                     new HotfixPackageEntry("dll", "dll.bytes", ComputeSha256Hex(newContent), newContent.Length),
                 });
 
-                using var server = new HotfixFileServer(serverRoot, 0);
+                using var server = new LocalDirectoryFileServer(serverRoot, 0);
                 server.Start();
                 using var httpClient = new HttpClient();
 

@@ -48,7 +48,7 @@
     "Solutions/GraphAdapter.Tests/GraphExecutorTests.cs": "34c4e113a17baf0269afa3eb5c163a244c85a79008b12d1ded4fae8fd210d549",
     "Solutions/GraphAdapter.Tests/NodeEditorParityTests.cs": "ac17b461a209e8a6dd02fd90792c6a732aea032328bd1fdf8dfcd3cd8ddc40a7",
     "Solutions/Hotfix.Tests/FileSystemHotfixStorageTests.cs": "1422f30a74184bfb1e8ef28e79d5b27d513ebb11428a48136f19026953ff88ba",
-    "Solutions/Hotfix.Tests/HotfixEndToEndTests.cs": "0e96bbd166c66313fa44ee70790fa9ae68e5807f24fae05c26a8172fdadf865a",
+    "Solutions/Hotfix.Tests/HotfixEndToEndTests.cs": "369598db5813fd7caab0224a9baeb07089b5da9edb237aba36c6fe59882d91bf",
     "Solutions/Hotfix.Tests/HotfixLauncherTests.cs": "fc87602fc292ea356f6d2ea1cf9800a160a21b82009fba161e0d0703022413a7",
     "Solutions/Hotfix.Tests/HotfixManifestCodecTests.cs": "3af399d7d156ea7711148e97d92b2c032c8d7eded4097479a38c833a7b2481a2",
     "Solutions/Hotfix.Tests/HotfixVersionTests.cs": "560decf496135312105e76bce500d8584a787aa5367a3bf17d4f0c708df93181",

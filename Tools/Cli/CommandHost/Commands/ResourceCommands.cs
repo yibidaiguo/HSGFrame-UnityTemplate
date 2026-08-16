@@ -4,7 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using Template.Toolkit.CommandFramework;
-using Template.Toolkit.Hotfix;
+using Template.Toolkit.FileServer;
 
 namespace Template.Toolkit.CommandHost.Commands
 {
@@ -69,7 +69,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 File.Delete(reportPath);
             }
 
-            using var server = new HotfixFileServer(arguments.BundlesDirectory, 0);
+            using var server = new LocalDirectoryFileServer(arguments.BundlesDirectory, 0);
             server.Start();
 
             var playerArguments =

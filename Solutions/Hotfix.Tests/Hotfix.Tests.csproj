@@ -13,5 +13,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../../Tools/Hotfix/Hotfix.csproj" />
+    <ProjectReference Include="../../Tools/FileServer/FileServer.csproj" />
   </ItemGroup>
 </Project>
