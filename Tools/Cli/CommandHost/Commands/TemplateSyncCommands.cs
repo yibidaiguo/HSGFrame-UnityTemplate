@@ -62,7 +62,7 @@ namespace Template.Toolkit.CommandHost.Commands
             if (string.IsNullOrWhiteSpace(arguments.SourceRoot) || !Directory.Exists(arguments.SourceRoot))
             {
                 return CommandResult.Failure(ComposeError(
-                    arguments.SourceRoot, "同步来源目录不存在", "把 SourceRoot 指向本轮改动落地的那棵树", "RebuiltRPG"));
+                    arguments.SourceRoot, "同步来源目录不存在", "把 SourceRoot 指向本轮改动落地的那棵树", "规范/结构规范-总纲.md"));
             }
 
             if (string.IsNullOrWhiteSpace(arguments.TargetRoot) || !Directory.Exists(arguments.TargetRoot))

@@ -114,7 +114,7 @@ namespace Template.Toolkit.Scaffold
             }
 
             var copiedFileCount = 0;
-            // 源模板自己的目录名（本仓库里是 RebuiltRPG）也要换掉：它是「上一个宿主」的名字，
+            // 源模板自己的目录名也要换掉：它是「上一个宿主」的名字，
             // 留在配置与文档里就成了新项目身上的一处旧身份。
             var sourceIdentifierName = new DirectoryInfo(Path.GetFullPath(options.TemplateRoot)).Name;
             CopyTree(options.TemplateRoot, targetPath, options.ProjectName, sourceIdentifierName, ref copiedFileCount);
