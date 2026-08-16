@@ -1,5 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="{{ definition.panel_identifier_name }}" class="panel-root">
-{{ for element in definition.elements }}        <ui:{{ element.element_type }} name="{{ element.identifier_name }}" />
-{{ end }}    </ui:VisualElement>
+    <ui:VisualElement{{ definition.root_attribute_markup }}>
+{{~ for line in definition.markup_lines ~}}
+{{ line }}
+{{~ end ~}}
+    </ui:VisualElement>
 </ui:UXML>

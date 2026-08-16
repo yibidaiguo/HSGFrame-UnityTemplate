@@ -41,6 +41,7 @@ namespace Template.View.Generated
         }
 
         /// <summary>按标识名从视觉树上取出全部元素，供面板打开时调用一次。</summary>
+        /// <remarks>元素树可以嵌套，这里摊平成一维——<c>Q</c> 按标识名跨层级查，与嵌套深度无关。</remarks>
         public void BindElements(VisualElement root)
         {
             HealthBar = root.Q<ProgressBar>("HealthBar");

@@ -1,3 +1,6 @@
+/* 本文件由 ui.scaffold 生成并整份覆盖，别在这里写样式。
+   具体样式写进主题样式表（Assets/Game/Settings/Ui/默认主题.tss），
+   本文件只负责让定义里声明过的样式类都有一条存在的规则。 */
 .panel-root {
     flex-grow: 1;
     background-color: var(--颜色-背景);

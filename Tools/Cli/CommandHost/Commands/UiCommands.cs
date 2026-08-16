@@ -52,6 +52,14 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var templateRoot = string.IsNullOrWhiteSpace(arguments.TemplateRoot) ? "Template" : arguments.TemplateRoot;
 
+            // 先校验定义再生成：重名标识名之类的毛病，生成出来是编译错误、报在生成物上，
+            // 作者顺着报错找不回定义文件。在这里拦，位置就是能改的那一处。
+            var definitionProblems = definition.Validate();
+            if (definitionProblems.Count > 0)
+            {
+                return CommandResult.Failure($"面板定义有问题，共 {definitionProblems.Count} 条", definitionProblems);
+            }
+
             if (arguments.VerifyOnly)
             {
                 var problems = PanelScaffolder.Verify(templateRoot, definition, arguments.OutputDirectory);
