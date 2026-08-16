@@ -1,9 +1,8 @@
-using NUnit.Framework;
-using Template.Logic.Data.Level;
-using Template.Logic.Service;
-using Template.Logic.State;
+﻿using NUnit.Framework;
+using Template.Level.Data;
+using Template.Combat;
 
-namespace Template.Logic.Tests.EditMode
+namespace Template.Tests.EditMode
 {
     /// <summary>Unity 侧的 EditMode 冒烟测试：确认零依赖 Logic 层在编辑器里同样可用。</summary>
     public class LogicLayerEditModeTests

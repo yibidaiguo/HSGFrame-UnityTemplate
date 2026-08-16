@@ -1,6 +1,6 @@
 using System.Collections;
 using NUnit.Framework;
-using Template.Presentation.BuildVerification;
+using Template.Boot;
 using UnityEngine.TestTools;
 
 namespace Template.Tests.PlayMode

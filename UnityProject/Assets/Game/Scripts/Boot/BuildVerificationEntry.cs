@@ -6,7 +6,7 @@ using System.Text;
 using HybridCLR;
 using UnityEngine;
 
-namespace Template.Presentation.BuildVerification
+namespace Template.Boot
 {
     /// <summary>
     /// 出包验收入口：只有命令行带 <c>-buildVerification</c> 时才跑。

@@ -1,4 +1,4 @@
-namespace Template.Logic.Data
+namespace Template.Combat
 {
     /// <summary>单位的静态配置数据。</summary>
     public class UnitTemplate

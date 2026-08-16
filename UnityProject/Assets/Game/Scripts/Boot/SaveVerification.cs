@@ -5,7 +5,7 @@ using System.Text;
 using HSGFrame.Save;
 using UnityEngine;
 
-namespace Template.Presentation.BuildVerification
+namespace Template.Boot
 {
     /// <summary>
     /// 存档在 Unity 运行时的序列化验收：真写盘、真读回、真跑迁移链。

@@ -47,6 +47,13 @@ namespace Template.Toolkit.Gates
         /// <summary>源码扫描要跳过的目录名，用来排除第三方与生成物（如 HybridCLRData）。</summary>
         public IReadOnlyList<string> SourceScanSkipSegments { get; set; }
 
+        /// <summary>
+        /// 豁免模块边界检查的路径前缀，相对 <c>Assets/Game/Scripts</c>、用正斜杠。
+        /// 这里只挂**欠账**：还没拆干净的越界引用先记在这，拆一处删一条，名单燃尽即边界完全立住。
+        /// 工具链那类天然在范围之外的东西不走这里，它写在检查器里。
+        /// </summary>
+        public IReadOnlyList<string> ModuleBoundaryExemptPaths { get; set; }
+
         /// <summary>测试源文件的 glob 模式。</summary>
         public IReadOnlyList<string> TestFileGlobs { get; set; }
 

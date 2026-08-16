@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using HSGFrame.MonoDriver;
 using UnityEngine;
 
-namespace Template.Presentation.Framework
+namespace Template.View
 {
     /// <summary>把引擎的帧回调转给纯 C# 的 MonoDriverRegistry。框架那一层不认识 Unity，驱动它的是这个壳。</summary>
     [DisallowMultipleComponent]

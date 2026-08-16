@@ -93,6 +93,56 @@ namespace Template.Toolkit.CommandHost.Commands
         public string ConfigurationPath { get; set; }
     }
 
+    /// <summary>模块边界门禁命令的参数。</summary>
+    public sealed class GateModuleBoundaryArguments
+    {
+        /// <summary>业务代码根目录，即 Assets/Game/Scripts。</summary>
+        [Summary("业务代码根目录，即 UnityProject/Assets/Game/Scripts")]
+        public string ScriptsRootDirectory { get; set; }
+
+        /// <summary>门禁配置文件路径，默认取模板内的 gate-config.json。</summary>
+        [Summary("门禁配置文件路径，默认取模板内的 gate-config.json")]
+        [DefaultValue("Tools/Gates/Config/gate-config.json")]
+        public string ConfigurationPath { get; set; }
+    }
+
+    /// <summary>模块边界门禁命令：模块的公开面只有 Contracts 与 Events，其余都是私有。</summary>
+    public static class GateModuleBoundaryCommand
+    {
+        /// <summary>
+        /// 跑模块边界检查，返回结构化发现列表。
+        /// </summary>
+        /// <param name="arguments">模块边界门禁参数。</param>
+        [EditorCommand("gate.moduleboundary")]
+        [Summary("模块边界门禁：模块之外只准引它的 Contracts 与 Events")]
+        public static CommandResult Execute(GateModuleBoundaryArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.ScriptsRootDirectory))
+            {
+                return CommandResult.Failure("参数 ScriptsRootDirectory 为必填项");
+            }
+
+            if (!Directory.Exists(arguments.ScriptsRootDirectory))
+            {
+                return CommandResult.Failure(
+                    $"位置：{arguments.ScriptsRootDirectory}；原因：业务代码根目录不存在；" +
+                    "修复：把 ScriptsRootDirectory 指向 Assets/Game/Scripts；" +
+                    "参考：UnityProject/Assets/Game/Scripts");
+            }
+
+            var configuration = GateConfiguration.LoadFromFile(
+                GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, arguments.ScriptsRootDirectory));
+
+            var moduleNames = ModuleBoundaryChecker.ReadModuleNames(arguments.ScriptsRootDirectory);
+            var findings = ModuleBoundaryChecker.Check(arguments.ScriptsRootDirectory, configuration);
+
+            // 模块数报出来是有用的：Modules/ 空掉或者路径传错时这条检查会「全绿」，
+            // 只有这个数能把「真没违规」和「根本没扫到东西」分开。
+            return GateCommandSupport.ToResult(
+                $"模块边界门禁（模块 {moduleNames.Count} 个：{string.Join("、", moduleNames)}）", findings);
+        }
+    }
+
     /// <summary>命名与注释规范门禁命令：缩写、公开类型中文摘要、目录命名。</summary>
     public static class GateNamingCommand
     {

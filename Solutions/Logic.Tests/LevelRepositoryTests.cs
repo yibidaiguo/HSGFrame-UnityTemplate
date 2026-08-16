@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Template.Logic.Data.Level;
+using Template.Level.Data;
 using Xunit;
 
-namespace Template.Logic.Tests
+namespace Template.Tests
 {
     /// <summary>关卡仓库测试：按需加载、内存复用、按块卸载与四要素失败消息。</summary>
     public class LevelRepositoryTests

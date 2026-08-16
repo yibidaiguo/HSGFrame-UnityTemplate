@@ -2,7 +2,7 @@ using HSGFrame.WorldSpaceUI;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Template.Presentation.WorldSpaceUI
+namespace Template.View
 {
     /// <summary>世界空间名牌：一块贴在 3D 世界里的 UGUI 画布，显示与否、放多大由纯 C# 的策略算，这里只负责照结论摆。</summary>
     [DisallowMultipleComponent]

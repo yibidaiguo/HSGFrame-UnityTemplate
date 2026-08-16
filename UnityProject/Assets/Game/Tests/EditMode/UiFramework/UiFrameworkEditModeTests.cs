@@ -3,7 +3,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine.UIElements;
 
-namespace Template.Presentation.UI.Tests.EditMode
+namespace Template.Tests.UiFramework.EditMode
 {
     /// <summary>UI 框架在 Unity 编辑器内的联调测试：面板分层、打开关闭生命周期与主题加载。</summary>
     public class UiFrameworkEditModeTests

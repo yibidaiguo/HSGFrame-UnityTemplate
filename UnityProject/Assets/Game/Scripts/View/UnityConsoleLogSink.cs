@@ -1,7 +1,7 @@
 using HSGFrame.Logging;
 using UnityEngine;
 
-namespace Template.Presentation.Framework
+namespace Template.View
 {
     /// <summary>把 HSGFrame 的日志转到 Unity 控制台的落点。等级映射成 Unity 的三档。</summary>
     public sealed class UnityConsoleLogSink : ILogSink

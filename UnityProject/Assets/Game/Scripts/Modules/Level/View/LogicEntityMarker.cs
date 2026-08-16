@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Template.Presentation.Level
+namespace Template.Level.View
 {
     /// <summary>逻辑实体标记：把关卡 JSON 里 Transform 装不下的信息挂在场景物体上。</summary>
     [DisallowMultipleComponent]

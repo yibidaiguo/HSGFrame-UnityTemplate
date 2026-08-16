@@ -1,6 +1,6 @@
 using System;
 
-namespace Template.Presentation.Level
+namespace Template.Level.View
 {
     /// <summary>实体自由参数的一条键值，做成可序列化的类是为了让参数在 Inspector 里看得见。</summary>
     [Serializable]

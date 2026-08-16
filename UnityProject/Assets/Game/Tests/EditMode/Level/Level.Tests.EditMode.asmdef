@@ -1,6 +1,6 @@
 {
   "name": "Level.Tests.EditMode",
-  "rootNamespace": "Template.Presentation.Level.Tests.EditMode",
+  "rootNamespace": "Template.Level.Tests.EditMode",
   "references": [
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner",

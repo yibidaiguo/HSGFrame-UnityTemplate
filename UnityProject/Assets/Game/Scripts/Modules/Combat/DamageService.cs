@@ -1,6 +1,4 @@
-using Template.Logic.State;
-
-namespace Template.Logic.Service
+namespace Template.Combat
 {
     /// <summary>伤害结算服务。</summary>
     public static class DamageService

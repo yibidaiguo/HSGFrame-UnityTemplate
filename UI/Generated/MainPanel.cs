@@ -4,7 +4,7 @@
 using HSGFrame.UiFramework;
 using UnityEngine.UIElements;
 
-namespace Template.Presentation.UI.Generated
+namespace Template.View.Generated
 {
     /// <summary>面板「主界面」的骨架，业务逻辑写在另一个 partial 文件里。</summary>
     public partial class MainPanel

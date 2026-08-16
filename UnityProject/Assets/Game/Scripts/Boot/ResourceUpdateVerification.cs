@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using YooAsset;
 
-namespace Template.Presentation.BuildVerification
+namespace Template.Boot
 {
     /// <summary>把所有远端文件都指到同一个基地址下的最简实现，本机验收用。</summary>
     public sealed class FlatRemoteService : IRemoteService

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Template.Logic.Data.Level
+namespace Template.Level.Data
 {
     /// <summary>纯 C# 三分量结构，表示逻辑实体的位置，与 Unity.Mathematics 保持无关，以便在服务器侧运行。</summary>
     public readonly struct LevelVector3

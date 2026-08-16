@@ -3,7 +3,7 @@
 // </auto-generated>
 using System.Collections.Generic;
 
-namespace Template.Logic.Data.Generated
+namespace Template.Shared.Data.Generated
 {
     /// <summary>配置表「怪物」的一行。</summary>
     public sealed class MonsterRow

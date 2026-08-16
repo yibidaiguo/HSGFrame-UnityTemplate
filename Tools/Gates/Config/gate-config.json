@@ -45,6 +45,8 @@
   "testFileGlobs": [
     "Solutions/*.Tests/*.cs"
   ],
+  "_moduleBoundaryExemptPaths说明": "R2 的欠账清单：还没拆干净的越界引用先挂在这（相对 Assets/Game/Scripts、正斜杠），拆一处删一条，名单燃尽即模块边界完全立住。上线时是空的——阶段 C 迁完之后本来就没有越界引用。工具链（Scripts/Toolkit/）是永久的范围之外，写在检查器里，不占这里的位置。",
+  "moduleBoundaryExemptPaths": [],
   "sourceScanSkipSegments": [
     "HybridCLRData",
     "HybridCLRGenerate",

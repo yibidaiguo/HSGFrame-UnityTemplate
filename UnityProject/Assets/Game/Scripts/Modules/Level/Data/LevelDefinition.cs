@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace Template.Logic.Data.Level
+namespace Template.Level.Data
 {
     /// <summary>关卡元信息：关卡名、环境名与区块清单。</summary>
     public class LevelDefinition

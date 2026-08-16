@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
-using Template.Logic.Data.Level;
+using Template.Level.Data;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;

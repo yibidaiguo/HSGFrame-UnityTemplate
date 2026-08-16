@@ -3,7 +3,7 @@ using HSGFrame.Scene;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Template.Presentation.Framework
+namespace Template.View
 {
     /// <summary>场景加载壳：用引擎的异步加载驱动纯 C# 的加载队列，进度归一化与排队规则都在队列那一侧。</summary>
     public static class SceneLoadDriver

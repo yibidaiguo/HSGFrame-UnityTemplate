@@ -1,6 +1,6 @@
 using System;
 
-namespace Template.Logic.Data.Level
+namespace Template.Level.Data
 {
     /// <summary>关卡数据读取或解析失败时抛出，消息按四要素书写。</summary>
     public sealed class LevelDataException : Exception

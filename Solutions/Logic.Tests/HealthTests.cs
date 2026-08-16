@@ -1,9 +1,8 @@
-using Template.Logic.Service;
-using Template.Logic.State;
+﻿using Template.Combat;
 using Unity.Mathematics;
 using Xunit;
 
-namespace Template.Logic.Tests
+namespace Template.Tests
 {
     /// <summary>血量结算与 Unity.Mathematics 可用性的占位测试。</summary>
     public class HealthTests

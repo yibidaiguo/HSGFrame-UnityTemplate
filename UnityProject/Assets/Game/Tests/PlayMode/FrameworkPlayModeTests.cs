@@ -3,7 +3,7 @@ using HSGFrame.Audio;
 using HSGFrame.Event;
 using HSGFrame.Logging;
 using NUnit.Framework;
-using Template.Presentation.Framework;
+using Template.View;
 using UnityEngine;
 using UnityEngine.TestTools;
 

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
-namespace Template.Logic.Data.Level
+namespace Template.Level.Data
 {
     /// <summary>关卡仓库：关卡元信息与区块分开按需读盘，读过的留在内存里复用，可按块卸载。</summary>
     public sealed class LevelRepository

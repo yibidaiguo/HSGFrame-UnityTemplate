@@ -1,7 +1,7 @@
 using System;
 using System.IO;
-using Template.Logic.Data.Level;
-using Template.Presentation.Level;
+using Template.Level.Data;
+using Template.Level.View;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;

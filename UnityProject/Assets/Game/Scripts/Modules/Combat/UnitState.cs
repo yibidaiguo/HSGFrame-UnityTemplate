@@ -1,6 +1,6 @@
 using Unity.Mathematics;
 
-namespace Template.Logic.State
+namespace Template.Combat
 {
     /// <summary>单位的运行时状态。</summary>
     public class UnitState

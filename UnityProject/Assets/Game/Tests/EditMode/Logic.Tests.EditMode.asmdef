@@ -1,6 +1,6 @@
 {
   "name": "Logic.Tests.EditMode",
-  "rootNamespace": "Template.Logic.Tests.EditMode",
+  "rootNamespace": "Template.Tests.EditMode",
   "references": [
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner",

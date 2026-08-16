@@ -1,6 +1,6 @@
 {
   "name": "UiFramework.Tests.EditMode",
-  "rootNamespace": "Template.Presentation.UI.Tests.EditMode",
+  "rootNamespace": "Template.Tests.UiFramework.EditMode",
   "references": [
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner",

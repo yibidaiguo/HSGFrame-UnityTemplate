@@ -304,7 +304,14 @@ namespace Template.Toolkit.Gates
             return exemptions.Contains(name, StringComparer.OrdinalIgnoreCase);
         }
 
-        private static string StripNonCode(string line, ref bool inBlockComment, ref bool inVerbatimString)
+        /// <summary>
+        /// 把一行源码里的注释、字符串字面量与逐字字符串抹成空格，只留下真正是代码的部分。
+        /// 逐行调用，跨行状态由两个 ref 参数带着走。模块边界检查器也用它，别再写第二份。
+        /// </summary>
+        /// <param name="line">要处理的一行源码。</param>
+        /// <param name="inBlockComment">进入本行时是否处在块注释里，返回时更新为出本行时的状态。</param>
+        /// <param name="inVerbatimString">进入本行时是否处在逐字字符串里，返回时更新为出本行时的状态。</param>
+        public static string StripNonCode(string line, ref bool inBlockComment, ref bool inVerbatimString)
         {
             var builder = new StringBuilder(line.Length);
             var index = 0;

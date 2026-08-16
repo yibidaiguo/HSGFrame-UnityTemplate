@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Template.Logic.Data.Level
+namespace Template.Level.Data
 {
     /// <summary>关卡结构校验：检查区块清单一致性、实体编号唯一性与必填字段。</summary>
     public static class LevelValidator

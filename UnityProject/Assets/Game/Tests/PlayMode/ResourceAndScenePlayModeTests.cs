@@ -2,7 +2,7 @@ using System.Collections;
 using HSGFrame.Resource;
 using HSGFrame.Scene;
 using NUnit.Framework;
-using Template.Presentation.Framework;
+using Template.View;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;

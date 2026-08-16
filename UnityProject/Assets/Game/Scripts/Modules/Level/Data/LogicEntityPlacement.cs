@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace Template.Logic.Data.Level
+namespace Template.Level.Data
 {
     /// <summary>单个逻辑实体的摆放：编号、类别、位置、朝向角度与自由参数。</summary>
     public class LogicEntityPlacement

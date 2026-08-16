@@ -1,4 +1,4 @@
-namespace Template.Logic.Contracts
+namespace Template.Shared.Contracts
 {
     /// <summary>逻辑层的日志输出点，由 Adapter.Unity 层实现。</summary>
     public interface ILogSink

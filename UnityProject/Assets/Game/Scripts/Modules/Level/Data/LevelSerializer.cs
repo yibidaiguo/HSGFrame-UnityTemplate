@@ -1,7 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
-namespace Template.Logic.Data.Level
+namespace Template.Level.Data
 {
     /// <summary>关卡 JSON 与内存模型的双向转换。</summary>
     public static class LevelSerializer

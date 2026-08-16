@@ -1,7 +1,7 @@
 using HSGFrame.Audio;
 using UnityEngine;
 
-namespace Template.Presentation.Framework
+namespace Template.View
 {
     /// <summary>音频播放壳：把纯 C# 的混音状态套到真实的 AudioSource 上。音量怎么算是框架层的事，这里只负责照它算出来的值设置引擎。</summary>
     [DisallowMultipleComponent]

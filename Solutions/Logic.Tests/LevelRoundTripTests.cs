@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Template.Logic.Data.Level;
+using Template.Level.Data;
 using Xunit;
 
-namespace Template.Logic.Tests
+namespace Template.Tests
 {
     /// <summary>关卡 JSON 与内存模型的往返及校验测试。</summary>
     public class LevelRoundTripTests

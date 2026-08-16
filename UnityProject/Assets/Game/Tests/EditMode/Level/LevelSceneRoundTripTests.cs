@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
-using Template.Logic.Data.Level;
-using Template.Presentation.Level;
+using Template.Level.Data;
+using Template.Level.View;
 using Template.Toolkit.Editor;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Template.Presentation.Level.Tests.EditMode
+namespace Template.Level.Tests.EditMode
 {
     /// <summary>关卡场景构建与导出的往返测试：构建、分块启停、导出回 JSON、规范化文本比对。</summary>
     public class LevelSceneRoundTripTests
