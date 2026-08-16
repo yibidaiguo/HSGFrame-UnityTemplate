@@ -32,16 +32,8 @@
     "_Scratch"
   ],
   "documentLineLimit": 200,
-  "documentExemptions": [
-    "Doc/挂机任务书.md",
-    "Doc/挂机日志.md",
-    "Doc/改造方案.md",
-    "Doc/JKFrameDoc/",
-    "Doc/系统文档/",
-    "Doc/正式化任务书.md",
-    "Doc/正式化日志.md",
-    "Doc/正式化清单.md"
-  ],
+  "_documentExemptions说明": "留空是目标态：豁免哪份文档按定义是宿主自己的事，写在通用配置里等于让模板记住宿主有哪些文档（G5）。宿主要豁免自己的长文档，往 gate-config.host.json 里写同名项覆盖这份。",
+  "documentExemptions": [],
   "testFileGlobs": [
     "Solutions/*.Tests/*.cs"
   ],

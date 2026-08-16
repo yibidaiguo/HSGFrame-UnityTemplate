@@ -36,7 +36,7 @@
     "Solutions/Gates.Tests/FileWhitelistCheckerBoundaryTests.cs": "f221a6c07f019020ebc21d85b27b985a29e7c0a3ead22ea9faec86d1d4db7a89",
     "Solutions/Gates.Tests/FileWhitelistCheckerTests.cs": "809bf46acab367bc5895c8fea1c78a625197bd3feefa2232cf3e19e70a248393",
     "Solutions/Gates.Tests/GateConfigurationBoundaryTests.cs": "60cd20618a7edf343c0930216a0556adf0e925d39338a0895130b09ed433e904",
-    "Solutions/Gates.Tests/GateConfigurationHostOverrideTests.cs": "ce22fba11cb8b8b60a412e2ec3089fd455b026e0c086063e06a561ac271caa24",
+    "Solutions/Gates.Tests/GateConfigurationHostOverrideTests.cs": "1e0bb989d05e41f837287c49f55623bc73fdefee216513c8d6945e9b0e53874c",
     "Solutions/Gates.Tests/GenericNameCheckerTests.cs": "cdc34218d1cbb21da975912be16be292476f5914070aec81db3b0a437797c395",
     "Solutions/Gates.Tests/MetaIntegrityCheckerTests.cs": "b86f2e0fc05c7eb8f60ee98b251ecbed11b641f2fc0d7ef21edd7b3fac2e72f8",
     "Solutions/Gates.Tests/ModuleBoundaryCheckerTests.cs": "8502b7966b1bed596a99585897767202d3c87dfac44303baddff3519b7849303",

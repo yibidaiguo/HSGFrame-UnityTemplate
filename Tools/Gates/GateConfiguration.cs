@@ -32,7 +32,11 @@ namespace Template.Toolkit.Gates
         /// <summary>单文档行数上限。</summary>
         public int DocumentLineLimit { get; set; }
 
-        /// <summary>豁免长度检查的文档路径（正斜杠、仓库相对）。</summary>
+        /// <summary>
+        /// 豁免长度检查的文档路径（正斜杠、仓库相对）。
+        /// **宿主专属**，落在 gate-config.host.json 里——豁免哪份文档按定义就是宿主自己的事，
+        /// 写进通用配置等于让模板记住宿主有哪些文档。
+        /// </summary>
         public IReadOnlyList<string> DocumentExemptions { get; set; }
 
         /// <summary>改动文件路径白名单前缀。**宿主专属**，落在 gate-config.host.json 里。</summary>
@@ -115,6 +119,11 @@ namespace Template.Toolkit.Gates
             if (hostConfiguration.GenericNameBlacklist != null)
             {
                 configuration.GenericNameBlacklist = hostConfiguration.GenericNameBlacklist;
+            }
+
+            if (hostConfiguration.DocumentExemptions != null)
+            {
+                configuration.DocumentExemptions = hostConfiguration.DocumentExemptions;
             }
 
             return configuration;

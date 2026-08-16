@@ -118,6 +118,28 @@ namespace Template.Toolkit.Gates.Tests
             }
         }
 
+        /// <summary>宿主配置里的 documentExemptions 覆盖通用配置里的同名项。</summary>
+        [Fact]
+        public void HostConfigurationOverridesDocumentExemptions()
+        {
+            var directory = NewTempDirectory();
+            try
+            {
+                var configPath = WriteConfiguration(directory, "gate-config.json",
+                    "{\"documentExemptions\": []}");
+                WriteConfiguration(directory, GateConfiguration.HostConfigurationFileName,
+                    "{\"documentExemptions\": [\"Doc/宿主自己的长文档.md\"]}");
+
+                var configuration = GateConfiguration.LoadFromFile(configPath);
+
+                Assert.Equal(new[] { "Doc/宿主自己的长文档.md" }, configuration.DocumentExemptions);
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
         private static string WriteConfiguration(string directory, string fileName, string json)
         {
             var path = Path.Combine(directory, fileName);
