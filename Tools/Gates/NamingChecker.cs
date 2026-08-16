@@ -350,6 +350,68 @@ namespace Template.Toolkit.Gates
                     continue;
                 }
 
+                // 逐字插值字符串（$@"..." / @$"..."）走既有的逐字分支：它能跨行，
+                // 而下面那段单行插值的括号配对逻辑跨不了行。
+                if (index + 2 < line.Length
+                    && ((line[index] == '$' && line[index + 1] == '@') || (line[index] == '@' && line[index + 1] == '$'))
+                    && line[index + 2] == '"')
+                {
+                    builder.Append("   ");
+                    index += 3;
+                    inVerbatimString = true;
+                    continue;
+                }
+
+                // 单行插值字符串（$"..."）：整段抹掉，包括 {} 洞里的内容。
+                // 不这么做的话，扫描器会把开头那个引号当成普通字符串的开始、在洞里第一个引号处
+                // 就以为字符串结束了，于是 $"...{flag ? "甲" : "乙"}..." 里的「甲」「乙」被当成标识符报出来。
+                // 洞里的东西一律不查是有意的：洞里出现的是标识符的**使用**，而命名是**声明**的属性，
+                // 每一处使用都有一个声明在扫描范围内，查使用只会重复报同一件事。
+                if (index + 1 < line.Length && line[index] == '$' && line[index + 1] == '"')
+                {
+                    builder.Append("  ");
+                    index += 2;
+                    var braceDepth = 0;
+
+                    while (index < line.Length)
+                    {
+                        var current = line[index];
+
+                        // 转义序列整对跳过：$"…参考：\"动作\"…" 里那对 \" 不是字符串的结束，
+                        // 不跳的话扫描器会提前出串，把后面的中文当成标识符报出来。
+                        if (current == '\\' && index + 1 < line.Length)
+                        {
+                            builder.Append("  ");
+                            index += 2;
+                            continue;
+                        }
+
+                        if (current == '{' || current == '}')
+                        {
+                            // {{ 与 }} 是转义的花括号，不进出洞。
+                            if (index + 1 < line.Length && line[index + 1] == current)
+                            {
+                                builder.Append("  ");
+                                index += 2;
+                                continue;
+                            }
+
+                            braceDepth += current == '{' ? 1 : -1;
+                        }
+                        else if (current == '"' && braceDepth <= 0)
+                        {
+                            builder.Append(' ');
+                            index++;
+                            break;
+                        }
+
+                        builder.Append(' ');
+                        index++;
+                    }
+
+                    continue;
+                }
+
                 if (inBlockComment)
                 {
                     if (index + 1 < line.Length && line[index] == '*' && line[index + 1] == '/')

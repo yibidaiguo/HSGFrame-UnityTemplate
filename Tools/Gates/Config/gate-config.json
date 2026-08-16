@@ -12,8 +12,11 @@
     "Attr",
     "Conf"
   ],
+  "_abbreviationExemptIdentifiers说明": "第三方 API 的成员名与类型名由对方定，调用点绕不开写出它们。逐字匹配，不按词段——免得一条豁免顺带把我们自己代码里同词段的标识符也放过去。",
   "abbreviationExemptIdentifiers": [
-    "paramName"
+    "paramName",
+    "ParamOverride",
+    "parameterOverrides"
   ],
   "directoryNameBlacklist": [
     "misc",
