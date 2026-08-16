@@ -145,6 +145,22 @@ namespace Template.Toolkit.Scaffold.Tests
                 document.RootElement.GetProperty("sourceScanSkipSegments").EnumerateArray().Select(element => element.GetString()));
         }
 
+        /// <summary>被删目录里的文档不该把整条命令带崩：清单是删目录之前列的，那之后它已经不在了。</summary>
+        [Fact]
+        public void DocumentInsideARemovedDirectoryDoesNotBreakTheRun()
+        {
+            var root = CreateTree();
+            WriteText(
+                root,
+                "Tools/SourceGenerators/HotfixProbe/来源说明.md",
+                string.Join("\n", "抬头", BeginMarker, "这一段随目录一起走", EndMarker, string.Empty));
+
+            var result = FeatureRemover.Remove(root, "hotfix");
+
+            Assert.True(result.IsSuccess, result.Message);
+            Assert.False(Directory.Exists(Path.Combine(root, "Tools", "SourceGenerators")));
+        }
+
         /// <summary>标记之间的内容连同标记行一起没了，标记之外的一字不动。</summary>
         [Fact]
         public void MarkedDocumentSectionsAreRemoved()

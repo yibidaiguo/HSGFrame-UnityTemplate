@@ -327,6 +327,12 @@ namespace Template.Toolkit.Scaffold
 
             foreach (var documentPath in documentPaths)
             {
+                // 清单是删目录之前列的（预检必须先于任何删除），那之后这份文档可能已经随目录一起走了。
+                if (!File.Exists(documentPath))
+                {
+                    continue;
+                }
+
                 var lines = ReadLines(documentPath, out var hasBom);
                 var kept = new List<string>();
                 var removedSections = 0;
