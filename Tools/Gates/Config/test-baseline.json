@@ -72,6 +72,7 @@
     "Solutions/Resource.Tests/AssetOwnerScopeTests.cs": "cf98c1f099a423974d4cc07c54d65a937f28551ceb11e587043385dc3bedd6e3",
     "Solutions/Resource.Tests/AssetReferenceLedgerTests.cs": "55267f6f1284aac1ae854b3f4c50dfb92c0ce7d243aec0db49e22547fade1008",
     "Solutions/Save.Tests/SaveMigrationTests.cs": "8933658d077dd6afe69438beeccc666ef74016ddb8d97c5f890f440d43ac1c7b",
+    "Solutions/Scaffold.Tests/FeatureRemoverTests.cs": "e3c6c7017f6492638ad85624974fbc2abe63be541e2eab0466e68a1bbd738029",
     "Solutions/Scaffold.Tests/ProjectGeneratorTests.cs": "e010869615307e5a72f65bf676553ab24d35443cab057d3ce3b0f62c5dccc08e",
     "Solutions/Scene.Tests/SceneLoadQueueTests.cs": "590d212be8bbd0cadccd55f53778ef3c018e2bb0eb3ad50b6b9871759e48fac8",
     "Solutions/Timer.Tests/TimerSystemBoundaryTests.cs": "f83b3a6bde38f2f8cd04f9c758da36cb227a8a02d408acc01f48e71a22c9d14d",
