@@ -169,6 +169,12 @@ if ((Invoke-GateCommand -CommandName 'codegen.run' -CommandArguments @{ Template
 }
 
 $uiDefinitionsDirectory = Join-Path $templateRoot 'UI/Definitions'
+
+# 产物落在 Game.View 的源码树里，不是仓库根的 UI/Generated：落在仓库根时 Unity 编译不到、
+# Logic.Core 又因为零 UnityEngine 铁律链接不了，于是「UI 单一事实源」这条管线是断的——
+# 幂等门禁照样绿，因为它只比对生成器输出与磁盘文件，不管有没有人编译。
+# `_Generated` 在下划线白名单里，归 Game.View 合规（《结构规范-代码》第三节）。
+$uiGeneratedDirectory = Join-Path $templateRoot 'UnityProject/Assets/Game/Scripts/View/_Generated'
 $uiDefinitions = @()
 if (Test-Path $uiDefinitionsDirectory) {
     $uiDefinitions = @(Get-ChildItem $uiDefinitionsDirectory -Filter '*.uidef.json')
@@ -181,7 +187,7 @@ if ($uiDefinitions.Count -eq 0) {
     foreach ($definition in $uiDefinitions) {
         if ((Invoke-GateCommand -CommandName 'ui.scaffold' -CommandArguments @{
                 DefinitionPath = $definition.FullName
-                OutputDirectory = (Join-Path $templateRoot 'UI/Generated')
+                OutputDirectory = $uiGeneratedDirectory
                 TemplateRoot = $templateRoot
                 VerifyOnly = $true
             }) -ne 0) {

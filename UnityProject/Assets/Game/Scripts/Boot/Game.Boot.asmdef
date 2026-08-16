@@ -3,7 +3,9 @@
   "rootNamespace": "Template",
   "references": [
     "YooAsset",
-    "HSGFrame.Save"
+    "HSGFrame.Save",
+    "HSGFrame.Logging",
+    "HSGFrame.MonoDriver"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

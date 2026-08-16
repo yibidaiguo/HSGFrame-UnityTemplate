@@ -5,7 +5,13 @@
     "YooAsset",
     "YooAsset.Editor",
     "Game.Logic",
-    "Game.View"
+    "Game.View",
+    "Game.Boot",
+    "HSGFrame.UiFramework",
+    "HSGFrame.Logging",
+    "HSGFrame.Input",
+    "HSGFrame.UiFramework.Unity",
+    "Unity.InputSystem"
   ],
   "includePlatforms": [
     "Editor"

@@ -14,6 +14,20 @@ namespace Template.Toolkit.UiScaffold
         [JsonPropertyName("面板标识名")]
         public string PanelIdentifierName { get; set; }
 
+        // 层名直接写进生成的 C#（PanelLayer.<层名>），所以取值必须是 HSGFrame.UiFramework.PanelLayer
+        // 上真有的成员名：Hud / Normal / Dialog / Tip / Loading。写错了会在 Unity 编译那一级报出来。
+        /// <summary>面板所在的层名，缺省是 Normal。</summary>
+        [JsonPropertyName("面板层")]
+        public string PanelLayer
+        {
+            // 空白一律归成 Normal：字段缺失、写成 null、写成空串三种情形在生成物里表现完全一样
+            //（都会渲染出 `PanelLayer.` 这种编不过的残句），在这里一次性收口比在模板里判省事。
+            get => string.IsNullOrWhiteSpace(_panelLayer) ? "Normal" : _panelLayer;
+            set => _panelLayer = value;
+        }
+
+        private string _panelLayer;
+
         /// <summary>面板包含的元素清单。</summary>
         [JsonPropertyName("元素清单")]
         public List<UiElementSource> Elements { get; set; } = new List<UiElementSource>();

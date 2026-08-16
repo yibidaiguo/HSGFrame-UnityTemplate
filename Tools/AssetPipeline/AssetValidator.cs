@@ -154,9 +154,18 @@ namespace Template.Toolkit.AssetPipeline
                 }
             }
 
+            // 子目录也各有一份 .meta，而目录不在 assetNames 里（上面只枚举了文件）。
+            // 不把它们算进来，任何一个子目录的 .meta 都会被报成孤儿——
+            // 模板此前没有一个资产目录带子目录，这条才一直没被踩出来。
+            var directoryNames = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var subdirectoryPath in Directory.EnumerateDirectories(directoryPath))
+            {
+                directoryNames.Add(Path.GetFileName(subdirectoryPath));
+            }
+
             foreach (var metaName in metaNames)
             {
-                if (!assetNames.Contains(metaName))
+                if (!assetNames.Contains(metaName) && !directoryNames.Contains(metaName))
                 {
                     var metaPath = Path.Combine(directoryPath, metaName + ".meta");
                     findings.Add(new AssetFinding(

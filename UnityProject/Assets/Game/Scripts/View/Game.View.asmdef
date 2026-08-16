@@ -10,7 +10,13 @@
     "HSGFrame.Audio",
     "HSGFrame.Localization",
     "HSGFrame.WorldSpaceUI",
-    "UnityEngine.UI"
+    "UnityEngine.UI",
+    "HSGFrame.UiFramework",
+    "YooAsset",
+    "Unity.Mathematics",
+    "HSGFrame.Input",
+    "HSGFrame.UiFramework.Unity",
+    "Unity.InputSystem"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

@@ -1,11 +1,18 @@
 using System.Collections.Generic;
+using Template.Level.Contracts;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Template.Level.View
 {
     /// <summary>逻辑实体标记：把关卡 JSON 里 Transform 装不下的信息挂在场景物体上。</summary>
+    /// <remarks>
+    /// 同时是 <see cref="ILevelEntityView"/> 的落地实现——模块外拿到的是接口，
+    /// 本类型自身仍在模块私有面里（R2）。位置不另存一份，直接读 Transform，
+    /// 免得「组件上记的位置」与「物体真在哪」两份数据各走各的。
+    /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class LogicEntityMarker : MonoBehaviour
+    public sealed class LogicEntityMarker : MonoBehaviour, ILevelEntityView
     {
         [SerializeField] [Tooltip("实体编号，与关卡 JSON 里的编号一致")]
         private string _entityId;
@@ -35,6 +42,45 @@ namespace Template.Level.View
         {
             get => _parameters;
             set => _parameters = value;
+        }
+
+        /// <summary>实体在世界里的位置，直接取自 Transform。</summary>
+        public float3 Position
+        {
+            get
+            {
+                var position = transform.position;
+                return new float3(position.x, position.y, position.z);
+            }
+        }
+
+        /// <summary>实体的自由参数，只读字典。</summary>
+        IReadOnlyDictionary<string, string> ILevelEntityView.Parameters => ToParameterDictionary();
+
+        /// <summary>按键取一个自由参数，取不到返回 false。</summary>
+        /// <param name="parameterKey">参数键。</param>
+        /// <param name="parameterValue">取到的参数值，取不到时为 null。</param>
+        public bool TryGetParameter(string parameterKey, out string parameterValue)
+        {
+            parameterValue = null;
+            if (string.IsNullOrEmpty(parameterKey) || _parameters == null)
+            {
+                return false;
+            }
+
+            // 顺着清单扫而不是先建字典：参数条数是个位数，建一次字典比扫一遍还贵，
+            // 而这个方法在装配关卡时每个实体都要调好几次。重复键取最后一条，与 ToParameterDictionary 一致。
+            var found = false;
+            foreach (var entry in _parameters)
+            {
+                if (string.Equals(entry.Key, parameterKey, System.StringComparison.Ordinal))
+                {
+                    parameterValue = entry.Value;
+                    found = true;
+                }
+            }
+
+            return found;
         }
 
         /// <summary>把参数清单读成字典，重复键以最后一条为准。</summary>

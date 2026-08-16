@@ -21,6 +21,7 @@
     "com.hsgframe.worldspaceui": "file:../../Packages/com.hsgframe.worldspaceui",
     "com.tuyoogame.yooasset": "https://github.com/tuyoogame/YooAsset.git?path=Assets/YooAsset#3.0.5",
     "com.unity.ide.rider": "3.0.40",
+    "com.unity.inputsystem": "1.19.0",
     "com.unity.mathematics": "1.3.3",
     "com.unity.modules.jsonserialize": "1.0.0",
     "com.unity.modules.uielements": "1.0.0",
