@@ -30,6 +30,16 @@ if ($repoRoot -ne $templateRoot) { $scopeDirectories += $repoRoot }
 $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $driftCount = 0
 
+# 比对前把行尾统一成 LF：.gitattributes 里 .md 走 text=auto，索引存 LF、Windows 检出成 CRLF。
+# 按原文比的话，任何一次全新克隆都会让镜像「漂移」——而两份文件的内容其实一模一样。
+# 行尾不是内容，不该进比对。（与 TestBaselineLock 同一类根因。）
+function ConvertTo-NormalizedText {
+    param([string]$Text)
+
+    if ($null -eq $Text) { return $null }
+    return $Text.Replace("`r`n", "`n").Replace("`r", "`n").TrimStart([char]0xFEFF)
+}
+
 foreach ($scopeDirectory in $scopeDirectories) {
     $sourcePath = Join-Path $scopeDirectory 'CLAUDE.md'
     if (-not (Test-Path $sourcePath)) {
@@ -44,7 +54,7 @@ foreach ($scopeDirectory in $scopeDirectories) {
         $mirrorPath = Join-Path $scopeDirectory $mirrorName
         $actualContent = if (Test-Path $mirrorPath) { [System.IO.File]::ReadAllText($mirrorPath) } else { $null }
 
-        if ($actualContent -eq $expectedContent) {
+        if ((ConvertTo-NormalizedText $actualContent) -eq (ConvertTo-NormalizedText $expectedContent)) {
             Write-Host "[agent-sync] 一致：$mirrorPath"
             continue
         }
