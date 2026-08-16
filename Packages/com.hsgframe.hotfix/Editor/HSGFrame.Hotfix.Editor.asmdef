@@ -1,0 +1,11 @@
+{
+  "name": "HSGFrame.Hotfix.Editor",
+  "rootNamespace": "HSGFrame.Hotfix.Editor",
+  "references": [
+    "HybridCLR.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "noEngineReferences": false
+}

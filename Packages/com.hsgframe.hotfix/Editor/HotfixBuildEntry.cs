@@ -5,7 +5,7 @@ using HybridCLR.Editor.Commands;
 using UnityEditor;
 using UnityEngine;
 
-namespace Template.Toolkit.Editor
+namespace HSGFrame.Hotfix.Editor
 {
     /// <summary>热更程序集的编译入口：调 HybridCLR 编译当前构建目标，再把热更那几个 dll 单独挑出来放到打包目录。</summary>
     public static class HotfixBuildEntry
@@ -67,7 +67,7 @@ namespace Template.Toolkit.Editor
         // 打包目录取模板根下的 Build/HotfixPackages，与 pack-hotfix.ps1 的默认值保持一致。
         private static string DefaultOutputDirectory()
         {
-            var templateRoot = TemplateRootLocator.Find();
+            var templateRoot = HotfixOutputRootLocator.Find();
             if (string.IsNullOrEmpty(templateRoot))
             {
                 throw new DirectoryNotFoundException(

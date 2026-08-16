@@ -6,7 +6,7 @@ using HybridCLR.Editor;
 using UnityEditor;
 using UnityEngine;
 
-namespace Template.Toolkit.Editor
+namespace HSGFrame.Hotfix.Editor
 {
     /// <summary>
     /// 把热更程序集与 AOT 补充元数据拷进 <c>StreamingAssets/HotfixShip/</c>，让它们随包发出去。

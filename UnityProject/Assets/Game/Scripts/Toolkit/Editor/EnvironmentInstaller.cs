@@ -6,11 +6,12 @@ using UnityEngine;
 
 namespace Template.Toolkit.Editor
 {
-    /// <summary>一键部署开发环境：装 HybridCLR 的本地 il2cpp 数据，并核对 YooAsset 是否就位。</summary>
+    /// <summary>一键部署开发环境：核对常驻依赖是否真的解析进来了。</summary>
     /// <remarks>
-    /// UPM 包（HybridCLR / YooAsset）在 manifest.json 里写死，clone 后 Unity 打开工程时自己会拉，
-    /// 真正需要「安装」的只有 HybridCLR 的本地 il2cpp 数据（几百 MB，从 il2cpp_plus 仓库克隆）。
-    /// 所以这个类做的事就一件：把那一步自动化，并给出人能读懂的结论。
+    /// UPM 包在 manifest.json 里写死，clone 后 Unity 打开工程时自己会拉，所以常驻这边没有要「装」的东西，
+    /// 只需确认它们真的到位——manifest 写了却因为网络没拉到时，人往往以为环境是好的。
+    /// 可选功能自带的安装步骤跟着各自的包走：例如热更的本地 il2cpp 数据在
+    /// 菜单「工具链/热更/安装 HybridCLR 本地数据」，摘掉那个包时这一步一并消失。
     /// </remarks>
     public static class EnvironmentInstaller
     {
@@ -49,15 +50,6 @@ namespace Template.Toolkit.Editor
 
             try
             {
-                InstallHybridClr(report);
-            }
-            catch (Exception exception)
-            {
-                report.Fail($"HybridCLR 安装抛出 {exception.GetType().Name}：{exception.Message}");
-            }
-
-            try
-            {
                 CheckYooAsset(report);
             }
             catch (Exception exception)
@@ -66,36 +58,6 @@ namespace Template.Toolkit.Editor
             }
 
             return report;
-        }
-
-        private static void InstallHybridClr(EnvironmentInstallReport report)
-        {
-            var controller = new HybridCLR.Editor.Installer.InstallerController();
-
-            if (controller.GetCompatibleType() != HybridCLR.Editor.Installer.InstallerController.CompatibleType.Compatible)
-            {
-                report.Fail($"HybridCLR 判定当前编辑器版本 {Application.unityVersion} 不兼容，装不了");
-                return;
-            }
-
-            if (controller.HasInstalledHybridCLR())
-            {
-                report.Note($"HybridCLR 已装过，跳过（本地 il2cpp 版本 {controller.Il2cppPlusLocalVersion}）");
-                return;
-            }
-
-            // 这一步会从 il2cpp_plus 仓库克隆对应分支，几百 MB，首次跑几分钟很正常。
-            report.Note($"HybridCLR 开始安装，拉取分支 {controller.Il2cppPlusLocalVersion}（首次会下几百 MB）");
-            controller.InstallDefaultHybridCLR();
-
-            if (controller.HasInstalledHybridCLR())
-            {
-                report.Note("HybridCLR 安装完成");
-            }
-            else
-            {
-                report.Fail("HybridCLR 安装跑完了，但本地 il2cpp 目录仍然不存在，需要人看日志");
-            }
         }
 
         private static void CheckYooAsset(EnvironmentInstallReport report)

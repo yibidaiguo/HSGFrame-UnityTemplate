@@ -55,7 +55,7 @@ elseif (-not (Test-Path $UnityExecutable)) {
 }
 else {
     & (Join-Path $PSScriptRoot '../Cli/unity-cmd.ps1') `
-        -ExecuteMethod 'Template.Toolkit.Editor.HotfixBuildEntry.CompileFromCommandLine' `
+        -ExecuteMethod 'HSGFrame.Hotfix.Editor.HotfixBuildEntry.CompileFromCommandLine' `
         -TimeoutMinutes 20 | Out-Host
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[pack-hotfix] 热更程序集编译失败（退出码 $LASTEXITCODE）"
