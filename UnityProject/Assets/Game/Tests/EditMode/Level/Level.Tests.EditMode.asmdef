@@ -6,11 +6,18 @@
     "UnityEditor.TestRunner",
     "Game.Logic",
     "Game.View",
-    "Toolkit.Editor"
+    "Toolkit.Editor",
+    "Unity.Mathematics"
   ],
-  "includePlatforms": ["Editor"],
-  "precompiledReferences": ["nunit.framework.dll"],
-  "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
   "overrideReferences": true,
   "autoReferenced": false
 }

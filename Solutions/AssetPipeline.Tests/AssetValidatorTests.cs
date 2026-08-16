@@ -64,6 +64,28 @@ namespace Template.Toolkit.AssetPipelineTests
             }
         }
 
+        // 子目录的 .meta 不是孤儿：目录在 Unity 里也是资产，一样有 .meta。
+        // 漏掉这条时，任何一个带子目录的资产目录都会被报成孤儿 .meta——
+        // 而资产树按「类型 → 功能 → 模块」分层，带子目录才是常态。
+        [Fact]
+        public void ValidateTreatsSubdirectoryMetaAsCovered()
+        {
+            var directory = CreateTemporaryDirectory();
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(directory, "Level"));
+                File.WriteAllText(Path.Combine(directory, "Level.meta"), string.Empty);
+
+                var findings = AssetValidator.Validate(directory, NewRule(new[] { ".png" }), Array.Empty<string>());
+
+                Assert.DoesNotContain(findings, finding => finding.Reason.Contains("孤儿"));
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
         [Fact]
         public void ValidateSkipsOrphanReportWhenReferenceSetIsEmpty()
         {

@@ -135,6 +135,68 @@ namespace HSGFrame.Input.Tests
             Assert.Single(tracker.PressedActions);
         }
 
+        [Fact]
+        public void TickActionsFirstFrameReportsPressed()
+        {
+            var tracker = new InputActionTracker();
+
+            tracker.TickActions(new[] { "前进" });
+
+            Assert.Equal(InputActionPhase.Pressed, tracker.GetPhase("前进"));
+        }
+
+        [Fact]
+        public void TickActionsHoldingAcrossFramesReportsHeld()
+        {
+            var tracker = new InputActionTracker();
+
+            tracker.TickActions(new[] { "前进" });
+            tracker.TickActions(new[] { "前进" });
+
+            Assert.Equal(InputActionPhase.Held, tracker.GetPhase("前进"));
+        }
+
+        [Fact]
+        public void TickActionsReleaseFrameReportsReleased()
+        {
+            var tracker = new InputActionTracker();
+
+            tracker.TickActions(new[] { "前进" });
+            tracker.TickActions(Array.Empty<string>());
+
+            Assert.Equal(InputActionPhase.Released, tracker.GetPhase("前进"));
+        }
+
+        [Fact]
+        public void TickActionsReleasedOnlyLastsOneFrameThenReturnsToIdle()
+        {
+            var tracker = new InputActionTracker();
+
+            tracker.TickActions(new[] { "前进" });
+            tracker.TickActions(Array.Empty<string>());
+            tracker.TickActions(Array.Empty<string>());
+
+            Assert.Equal(InputActionPhase.Idle, tracker.GetPhase("前进"));
+        }
+
+        [Fact]
+        public void TickActionsWithNullDoesNotThrow()
+        {
+            var tracker = new InputActionTracker();
+
+            tracker.TickActions(null);
+
+            Assert.Equal(InputActionPhase.Idle, tracker.GetPhase("前进"));
+        }
+
+        [Fact]
+        public void TickOnParameterlessTrackerThrowsInvalidOperation()
+        {
+            var tracker = new InputActionTracker();
+
+            Assert.Throws<InvalidOperationException>(() => tracker.Tick(new[] { "Space" }));
+        }
+
         private static InputBindingTable CreateTable()
         {
             return new InputBindingTable(new[]
