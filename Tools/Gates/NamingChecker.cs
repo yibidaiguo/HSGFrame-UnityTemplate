@@ -172,7 +172,7 @@ namespace Template.Toolkit.Gates
                         $"{filePath}:{lineNumber}",
                         $"标识符「{token}」含中文",
                         "标识符换成英文完整单词，中文写进注释或 [JsonPropertyName] 一类的数据键",
-                        "UnityProject/Assets/_Project/Scripts/Logic/Data/Level/LogicEntityPlacement.cs"));
+                        "UnityProject/Assets/Game/Scripts/Logic/Data/Level/LogicEntityPlacement.cs"));
                 }
             }
 

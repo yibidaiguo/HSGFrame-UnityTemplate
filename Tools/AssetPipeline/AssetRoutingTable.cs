@@ -14,7 +14,7 @@ namespace Template.Toolkit.AssetPipeline
         [JsonPropertyName("扩展名")]
         public IReadOnlyList<string> Extensions { get; set; } = Array.Empty<string>();
 
-        /// <summary>目标目录，相对 Assets 根书写，例如 "_Project/Art/Texture"。</summary>
+        /// <summary>目标目录，相对 Assets 根书写，例如 "Game/Art/Texture"。</summary>
         [JsonPropertyName("目标目录")]
         public string TargetDirectory { get; set; }
     }

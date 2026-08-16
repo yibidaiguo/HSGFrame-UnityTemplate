@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="../../UnityProject/Assets/_Project/Scripts/Logic/**/*.cs" LinkBase="Logic" />
+    <Compile Include="../../UnityProject/Assets/Game/Scripts/Logic/**/*.cs" LinkBase="Logic" />
     <Compile Include="../UnityShim/**/*.cs" LinkBase="UnityShim" />
   </ItemGroup>
 

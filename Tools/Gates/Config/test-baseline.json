@@ -1,8 +1,9 @@
 {
   "files": {
-    "Solutions/AssetPipeline.Tests/AssetBundleGroupCheckerTests.cs": "da6e83981e35ef5f3271d84153dc9511aa311d1fa245cbfcc92afc08b919b453",
+    "Solutions/AssetPipeline.Tests/AssetBundleGroupCheckerTests.cs": "0116c4321c45906a32e30882891bcfd4c7f04995cf3e9ddf39a243456cd0ecdc",
     "Solutions/AssetPipeline.Tests/AssetDependencyDirectionCheckerTests.cs": "53fa63fb072a57cfb3d28ab3dc8cae0c58e022fc0a895ac124e188960b2c52b4",
-    "Solutions/AssetPipeline.Tests/AssetInboxArchiverTests.cs": "227acfe150909af4e9edd788f5473e33550a0e7c9d6a5375fed19d1acd3897f4",
+    "Solutions/AssetPipeline.Tests/AssetInboxArchiverTests.cs": "a61030fa6288c875d0f9df14b90d5219b19ba8c2d0ad19097b11dcada57870e7",
+    "Solutions/AssetPipeline.Tests/AssetLoadGroupCheckerTests.cs": "ee355bafb87c461b5e7c4bcbb987e9fc545882f084b98a600bbdfa5b11fa4732",
     "Solutions/AssetPipeline.Tests/AssetNameNormalizerTests.cs": "62af472f2db1703271e470a0d6c9053184b279c1e61e58fbca159a64da9e869e",
     "Solutions/AssetPipeline.Tests/AssetNormalizeIdempotencyTests.cs": "29465ad4514ecacbe81518bf4723665f11aea975291e12d850cfd2ac0e91e8ab",
     "Solutions/AssetPipeline.Tests/AssetReferenceScannerScopeTests.cs": "c5df953d1ab93d8d75637465f7cb3f57a87ab7c5f7c9861b35383fc16af973c5",
@@ -78,7 +79,7 @@
     "Solutions/Toolkit.Tests/GateDocumentScanTests.cs": "86f4b72315ea69f6ba5619d52ba6a8baf20ac75097b7ed929bf58122fc11b68c",
     "Solutions/Toolkit.Tests/HotfixCommandsTests.cs": "a6370c6e4ce608b1d93fc368faa6daae4bcd09b0c36f79279fb15aed5a0af797",
     "Solutions/Toolkit.Tests/ResourceVerifyCommandTests.cs": "fc6d2532ee12aa29986851eb1948d37588b3dfb746b3dab2f57e8be27e6674c8",
-    "Solutions/Toolkit.Tests/SceneCommandsTests.cs": "56ba20212ef3485249b587c31ec15c98c461e6d9e52547bdf1c5e2c4e6b188c9",
+    "Solutions/Toolkit.Tests/SceneCommandsTests.cs": "2bf37c35bec14d4778f10027ac1444b3613e69910956ef0bf765d8f60db55cdf",
     "Solutions/UiFramework.Tests/PanelScaffolderTests.cs": "852db1501d2218bf085f22e5647a2f2ed702acd98e008adcb3f8c2cdd393379b",
     "Solutions/UiFramework.Tests/PanelStackBoundaryTests.cs": "030d68f58e10496d960faed8056f8f1545f074c7339b731ad24b18482d7daf9a",
     "Solutions/UiFramework.Tests/PanelStackTests.cs": "4200f0cc7bd05ee2abab1ef67801226c10cbc073b78536f906fdc2ff008581eb",

@@ -21,6 +21,10 @@ namespace Template.Toolkit.AssetPipeline
         /// <summary>为 true 时是共享组：被多个分组引用的资产就该放在这里。</summary>
         [JsonPropertyName("是共享组")]
         public bool IsShared { get; set; }
+
+        /// <summary>加载分组，取值「常驻」「按需」「随场景」三选一；只有动态收集根下的分组写它，其余留空。</summary>
+        [JsonPropertyName("加载分组")]
+        public string LoadGroup { get; set; }
     }
 
     /// <summary>「打包分组规则.json」的整份内容。</summary>
@@ -75,7 +79,7 @@ namespace Template.Toolkit.AssetPipeline
                 return null;
             }
 
-            // 最长前缀优先：_Project/Art/Shared/ 与 _Project/Art/ 同时存在时，
+            // 最长前缀优先：Game/Art/Shared/ 与 Game/Art/ 同时存在时，
             // 共享目录里的资产必须归共享组。按声明顺序匹配会让嵌套的共享目录被外层
             // 业务组吃掉，整条共享检查就失效了，所以这里比的是前缀长度而不是声明顺序。
             AssetBundleGroupDefinition bestMatch = null;

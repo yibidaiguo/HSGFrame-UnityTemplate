@@ -59,6 +59,14 @@ namespace Template.Toolkit.AssetPipeline
             var violationsByAsset = new Dictionary<string, AssetBundleGroupViolation>(StringComparer.Ordinal);
             foreach (var pair in groupNamesByReferenced)
             {
+                // 脚本不是包内容：MonoScript 引用由程序集解析，AssetBundle 里根本不会各复制一份。
+                // 不排掉的话，一个挂在多个分组的预制体上的脚本会被报成「共享资产未落共享组」，
+                // 而它的正解并不是把脚本挪进共享资产目录。
+                if (pair.Key.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 if (pair.Value.Count < 2)
                 {
                     continue;

@@ -15,21 +15,21 @@ namespace Template.Toolkit.AssetPipeline.Tests
             try
             {
                 const string sharedImageGuid = "c00000000000000000000000000000a1";
-                WriteAsset(assetsRoot, "_Project/Art/A/PA.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
-                WriteMeta(assetsRoot, "_Project/Art/A/PA.prefab", "c0000000000000000000000000000001");
-                WriteAsset(assetsRoot, "_Project/Art/B/PB.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
-                WriteMeta(assetsRoot, "_Project/Art/B/PB.prefab", "c0000000000000000000000000000002");
-                WriteAsset(assetsRoot, "_Project/Art/Texture/共用图.png", "内容无所谓");
-                WriteMeta(assetsRoot, "_Project/Art/Texture/共用图.png", sharedImageGuid);
+                WriteAsset(assetsRoot, "Game/Art/A/PA.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
+                WriteMeta(assetsRoot, "Game/Art/A/PA.prefab", "c0000000000000000000000000000001");
+                WriteAsset(assetsRoot, "Game/Art/B/PB.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
+                WriteMeta(assetsRoot, "Game/Art/B/PB.prefab", "c0000000000000000000000000000002");
+                WriteAsset(assetsRoot, "Game/Art/Texture/共用图.png", "内容无所谓");
+                WriteMeta(assetsRoot, "Game/Art/Texture/共用图.png", sharedImageGuid);
 
                 var ruleSet = BuildRuleSet(
-                    ("美术-A", "_Project/Art/A/", false),
-                    ("美术-B", "_Project/Art/B/", false),
-                    ("美术-贴图", "_Project/Art/Texture/", false));
+                    ("美术-A", "Game/Art/A/", false),
+                    ("美术-B", "Game/Art/B/", false),
+                    ("美术-贴图", "Game/Art/Texture/", false));
                 var violations = AssetBundleGroupChecker.Check(assetsRoot, ruleSet);
 
                 var violation = Assert.Single(violations);
-                Assert.Equal("_Project/Art/Texture/共用图.png", violation.AssetPath);
+                Assert.Equal("Game/Art/Texture/共用图.png", violation.AssetPath);
                 Assert.Contains("被 2 个打包分组引用", violation.ToDisplayText());
             }
             finally
@@ -45,17 +45,17 @@ namespace Template.Toolkit.AssetPipeline.Tests
             try
             {
                 const string sharedImageGuid = "c00000000000000000000000000000b1";
-                WriteAsset(assetsRoot, "_Project/Art/A/PA.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
-                WriteMeta(assetsRoot, "_Project/Art/A/PA.prefab", "c0000000000000000000000000000001");
-                WriteAsset(assetsRoot, "_Project/Art/B/PB.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
-                WriteMeta(assetsRoot, "_Project/Art/B/PB.prefab", "c0000000000000000000000000000002");
-                WriteAsset(assetsRoot, "_Project/Art/Shared/共用图.png", "内容无所谓");
-                WriteMeta(assetsRoot, "_Project/Art/Shared/共用图.png", sharedImageGuid);
+                WriteAsset(assetsRoot, "Game/Art/A/PA.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
+                WriteMeta(assetsRoot, "Game/Art/A/PA.prefab", "c0000000000000000000000000000001");
+                WriteAsset(assetsRoot, "Game/Art/B/PB.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
+                WriteMeta(assetsRoot, "Game/Art/B/PB.prefab", "c0000000000000000000000000000002");
+                WriteAsset(assetsRoot, "Game/Art/Shared/共用图.png", "内容无所谓");
+                WriteMeta(assetsRoot, "Game/Art/Shared/共用图.png", sharedImageGuid);
 
                 var ruleSet = BuildRuleSet(
-                    ("美术-A", "_Project/Art/A/", false),
-                    ("美术-B", "_Project/Art/B/", false),
-                    ("美术-共享", "_Project/Art/Shared/", true));
+                    ("美术-A", "Game/Art/A/", false),
+                    ("美术-B", "Game/Art/B/", false),
+                    ("美术-共享", "Game/Art/Shared/", true));
                 var violations = AssetBundleGroupChecker.Check(assetsRoot, ruleSet);
 
                 Assert.Empty(violations);
@@ -73,14 +73,14 @@ namespace Template.Toolkit.AssetPipeline.Tests
             try
             {
                 const string sharedImageGuid = "c00000000000000000000000000000c1";
-                WriteAsset(assetsRoot, "_Project/Art/A/PA.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
-                WriteMeta(assetsRoot, "_Project/Art/A/PA.prefab", "c0000000000000000000000000000001");
-                WriteAsset(assetsRoot, "_Project/Art/Texture/共用图.png", "内容无所谓");
-                WriteMeta(assetsRoot, "_Project/Art/Texture/共用图.png", sharedImageGuid);
+                WriteAsset(assetsRoot, "Game/Art/A/PA.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
+                WriteMeta(assetsRoot, "Game/Art/A/PA.prefab", "c0000000000000000000000000000001");
+                WriteAsset(assetsRoot, "Game/Art/Texture/共用图.png", "内容无所谓");
+                WriteMeta(assetsRoot, "Game/Art/Texture/共用图.png", sharedImageGuid);
 
                 var ruleSet = BuildRuleSet(
-                    ("美术-A", "_Project/Art/A/", false),
-                    ("美术-贴图", "_Project/Art/Texture/", false));
+                    ("美术-A", "Game/Art/A/", false),
+                    ("美术-贴图", "Game/Art/Texture/", false));
                 var violations = AssetBundleGroupChecker.Check(assetsRoot, ruleSet);
 
                 Assert.Empty(violations);
@@ -98,12 +98,12 @@ namespace Template.Toolkit.AssetPipeline.Tests
             try
             {
                 const string orphanImageGuid = "c00000000000000000000000000000d1";
-                WriteAsset(assetsRoot, "_Project/Art/A/PA.prefab", $"  m_Script: {{fileID: 11, guid: {orphanImageGuid}, type: 3}}");
-                WriteMeta(assetsRoot, "_Project/Art/A/PA.prefab", "c0000000000000000000000000000001");
+                WriteAsset(assetsRoot, "Game/Art/A/PA.prefab", $"  m_Script: {{fileID: 11, guid: {orphanImageGuid}, type: 3}}");
+                WriteMeta(assetsRoot, "Game/Art/A/PA.prefab", "c0000000000000000000000000000001");
                 WriteAsset(assetsRoot, "Orphan/孤儿.png", "内容无所谓");
                 WriteMeta(assetsRoot, "Orphan/孤儿.png", orphanImageGuid);
 
-                var ruleSet = BuildRuleSet(("美术-A", "_Project/Art/A/", false));
+                var ruleSet = BuildRuleSet(("美术-A", "Game/Art/A/", false));
                 ruleSet.ReportUngroupedAssets = true;
                 var violations = AssetBundleGroupChecker.Check(assetsRoot, ruleSet);
 
@@ -124,12 +124,12 @@ namespace Template.Toolkit.AssetPipeline.Tests
             try
             {
                 const string orphanImageGuid = "c00000000000000000000000000000e1";
-                WriteAsset(assetsRoot, "_Project/Art/A/PA.prefab", $"  m_Script: {{fileID: 11, guid: {orphanImageGuid}, type: 3}}");
-                WriteMeta(assetsRoot, "_Project/Art/A/PA.prefab", "c0000000000000000000000000000001");
+                WriteAsset(assetsRoot, "Game/Art/A/PA.prefab", $"  m_Script: {{fileID: 11, guid: {orphanImageGuid}, type: 3}}");
+                WriteMeta(assetsRoot, "Game/Art/A/PA.prefab", "c0000000000000000000000000000001");
                 WriteAsset(assetsRoot, "Orphan/孤儿.png", "内容无所谓");
                 WriteMeta(assetsRoot, "Orphan/孤儿.png", orphanImageGuid);
 
-                var ruleSet = BuildRuleSet(("美术-A", "_Project/Art/A/", false));
+                var ruleSet = BuildRuleSet(("美术-A", "Game/Art/A/", false));
                 var violations = AssetBundleGroupChecker.Check(assetsRoot, ruleSet);
 
                 Assert.Empty(violations);
@@ -147,23 +147,55 @@ namespace Template.Toolkit.AssetPipeline.Tests
             try
             {
                 const string sharedImageGuid = "c00000000000000000000000000000f1";
-                WriteAsset(assetsRoot, "_Project/Art/A/PA.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
-                WriteMeta(assetsRoot, "_Project/Art/A/PA.prefab", "c0000000000000000000000000000001");
-                WriteAsset(assetsRoot, "_Project/Art/B/PB.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
-                WriteMeta(assetsRoot, "_Project/Art/B/PB.prefab", "c0000000000000000000000000000002");
-                WriteAsset(assetsRoot, "_Project/Art/Shared/共用图.png", "内容无所谓");
-                WriteMeta(assetsRoot, "_Project/Art/Shared/共用图.png", sharedImageGuid);
+                WriteAsset(assetsRoot, "Game/Art/A/PA.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
+                WriteMeta(assetsRoot, "Game/Art/A/PA.prefab", "c0000000000000000000000000000001");
+                WriteAsset(assetsRoot, "Game/Art/B/PB.prefab", $"  m_Script: {{fileID: 11, guid: {sharedImageGuid}, type: 3}}");
+                WriteMeta(assetsRoot, "Game/Art/B/PB.prefab", "c0000000000000000000000000000002");
+                WriteAsset(assetsRoot, "Game/Art/Shared/共用图.png", "内容无所谓");
+                WriteMeta(assetsRoot, "Game/Art/Shared/共用图.png", sharedImageGuid);
 
-                // 外层组 _Project/Art/ 先声明：按声明顺序匹配会让共享目录被外层业务组吃掉，
-                // 必须取最长前缀 _Project/Art/Shared/（共享组）才能不报。
+                // 外层组 Game/Art/ 先声明：按声明顺序匹配会让共享目录被外层业务组吃掉，
+                // 必须取最长前缀 Game/Art/Shared/（共享组）才能不报。
                 var ruleSet = BuildRuleSet(
-                    ("美术-A", "_Project/Art/A/", false),
-                    ("美术-B", "_Project/Art/B/", false),
-                    ("美术-全部", "_Project/Art/", false),
-                    ("美术-共享", "_Project/Art/Shared/", true));
+                    ("美术-A", "Game/Art/A/", false),
+                    ("美术-B", "Game/Art/B/", false),
+                    ("美术-全部", "Game/Art/", false),
+                    ("美术-共享", "Game/Art/Shared/", true));
                 var violations = AssetBundleGroupChecker.Check(assetsRoot, ruleSet);
 
                 Assert.Empty(violations);
+            }
+            finally
+            {
+                Directory.Delete(assetsRoot, true);
+            }
+        }
+
+        /// <summary>
+        /// 脚本被两个分组的预制体同时引用时不该报共享违规：MonoScript 由程序集解析，
+        /// AssetBundle 里不会各复制一份，报出来只会把人引向「把脚本挪进共享资产目录」这个错解。
+        /// </summary>
+        [Fact]
+        public void ScriptReferencedByTwoGroupsIsNotReportedAsShared()
+        {
+            const string sharedScriptGuid = "c0000000000000000000000000000009";
+            var assetsRoot = CreateTempDirectory();
+            try
+            {
+                WriteAsset(assetsRoot, "Game/Art/A/PA.prefab", $"  m_Script: {{fileID: 11, guid: {sharedScriptGuid}, type: 3}}");
+                WriteMeta(assetsRoot, "Game/Art/A/PA.prefab", "c0000000000000000000000000000001");
+                WriteAsset(assetsRoot, "Game/Art/B/PB.prefab", $"  m_Script: {{fileID: 11, guid: {sharedScriptGuid}, type: 3}}");
+                WriteMeta(assetsRoot, "Game/Art/B/PB.prefab", "c0000000000000000000000000000002");
+                WriteAsset(assetsRoot, "Game/Scripts/共用脚本.cs", "public class 共用脚本 { }");
+                WriteMeta(assetsRoot, "Game/Scripts/共用脚本.cs", sharedScriptGuid);
+
+                var ruleSet = BuildRuleSet(
+                    ("美术-A", "Game/Art/A/", false),
+                    ("美术-B", "Game/Art/B/", false));
+
+                var violations = AssetBundleGroupChecker.Check(assetsRoot, ruleSet);
+
+                Assert.DoesNotContain(violations, violation => violation.AssetPath == "Game/Scripts/共用脚本.cs");
             }
             finally
             {

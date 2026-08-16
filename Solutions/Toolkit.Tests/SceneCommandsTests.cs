@@ -112,7 +112,7 @@ namespace Template.Toolkit.Tests
         {
             var result = SceneExportCommand.Execute(new SceneExportArguments
             {
-                ScenePath = "Assets/_Project/Scenes/村庄.unity",
+                ScenePath = "Assets/Game/Scenes/World/村庄.unity",
                 OutputDirectory = null,
             });
 
@@ -128,7 +128,7 @@ namespace Template.Toolkit.Tests
                 var result = SceneExportCommand.Execute(new SceneExportArguments
                 {
                     TemplateRoot = templateRoot,
-                    ScenePath = "Assets/_Project/Scenes/不存在.unity",
+                    ScenePath = "Assets/Game/Scenes/World/不存在.unity",
                     OutputDirectory = "Levels/村庄",
                 });
 
@@ -147,12 +147,12 @@ namespace Template.Toolkit.Tests
             var templateRoot = CreateTempDirectory();
             try
             {
-                CreateSceneFile(templateRoot, "Assets/_Project/Scenes/测试.unity");
+                CreateSceneFile(templateRoot, "Assets/Game/Scenes/World/测试.unity");
 
                 var result = SceneExportCommand.Execute(new SceneExportArguments
                 {
                     TemplateRoot = templateRoot,
-                    ScenePath = "Assets/_Project/Scenes/测试.unity",
+                    ScenePath = "Assets/Game/Scenes/World/测试.unity",
                     OutputDirectory = "Levels/村庄",
                     TimeoutMinutes = 0,
                 });

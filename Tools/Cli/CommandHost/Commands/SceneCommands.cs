@@ -21,10 +21,10 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("关卡名，对应 Levels 下的同名目录")]
         public string LevelName { get; set; }
 
-        /// <summary>场景输出路径，相对 UnityProject 写，留空时按关卡名放进 Assets/_Project/Scenes。</summary>
+        /// <summary>场景输出路径，相对 UnityProject 写，留空时按关卡名放进 Assets/Game/Scenes/World。</summary>
         // 带 [DefaultValue] 才会被命令框架判成选填：IsRequired 就是「没有 DefaultValue」。
         // 少了这一行，这个说好可以留空的参数会变成必填，命令一次都跑不起来。
-        [Summary("场景输出路径，相对 UnityProject 写，留空时按关卡名放进 Assets/_Project/Scenes")]
+        [Summary("场景输出路径，相对 UnityProject 写，留空时按关卡名放进 Assets/Game/Scenes/World")]
         [DefaultValue("")]
         public string ScenePath { get; set; }
 
@@ -125,7 +125,7 @@ namespace Template.Toolkit.CommandHost.Commands
                     "参数 ScenePath",
                     "场景路径为空",
                     "在参数里填一个 UnityProject 下的场景路径",
-                    "Assets/_Project/Scenes/村庄.unity"));
+                    "Assets/Game/Scenes/World/村庄.unity"));
             }
 
             if (string.IsNullOrWhiteSpace(arguments.OutputDirectory))
@@ -145,7 +145,7 @@ namespace Template.Toolkit.CommandHost.Commands
                     scenePath,
                     "场景文件不存在",
                     "确认场景路径相对 UnityProject 存在",
-                    "Assets/_Project/Scenes/村庄.unity"));
+                    "Assets/Game/Scenes/World/村庄.unity"));
             }
 
             var timeoutProblem = SceneCommandSupport.CheckTimeout(arguments.TimeoutMinutes);

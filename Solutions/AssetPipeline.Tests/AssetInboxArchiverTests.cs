@@ -11,9 +11,9 @@ namespace Template.Toolkit.AssetPipelineTests
     {
         private const string RoutingJson =
             "{\"说明\":\"测试\",\"路由\":[" +
-            "{\"扩展名\":[\".png\",\".tga\"],\"目标目录\":\"_Project/Art/Texture\"}," +
-            "{\"扩展名\":[\".wav\"],\"目标目录\":\"_Project/Art/Audio\"}," +
-            "{\"扩展名\":[\".fbx\"],\"目标目录\":\"_Project/Art/Model\"}" +
+            "{\"扩展名\":[\".png\",\".tga\"],\"目标目录\":\"Game/Art/Texture\"}," +
+            "{\"扩展名\":[\".wav\"],\"目标目录\":\"Game/Art/Audio\"}," +
+            "{\"扩展名\":[\".fbx\"],\"目标目录\":\"Game/Art/Model\"}" +
             "]}";
 
         [Fact]
@@ -21,9 +21,9 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
-            fixture.WriteRule("_Project/Art/Audio", "A_", new[] { ".wav" });
-            fixture.WriteRule("_Project/Art/Model", "M_", new[] { ".fbx" });
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
+            fixture.WriteRule("Game/Art/Audio", "A_", new[] { ".wav" });
+            fixture.WriteRule("Game/Art/Model", "M_", new[] { ".fbx" });
             fixture.WriteAsset("a.png");
             fixture.WriteAsset("b.wav");
             fixture.WriteAsset("c.fbx");
@@ -31,9 +31,9 @@ namespace Template.Toolkit.AssetPipelineTests
             var plans = AssetInboxArchiver.Plan(fixture.Inbox, fixture.Assets, fixture.LoadRouting());
 
             Assert.Equal(3, plans.Count);
-            Assert.Equal(TargetDirectory(fixture, "_Project/Art/Texture"), plans[0].TargetDirectory);
-            Assert.Equal(TargetDirectory(fixture, "_Project/Art/Audio"), plans[1].TargetDirectory);
-            Assert.Equal(TargetDirectory(fixture, "_Project/Art/Model"), plans[2].TargetDirectory);
+            Assert.Equal(TargetDirectory(fixture, "Game/Art/Texture"), plans[0].TargetDirectory);
+            Assert.Equal(TargetDirectory(fixture, "Game/Art/Audio"), plans[1].TargetDirectory);
+            Assert.Equal(TargetDirectory(fixture, "Game/Art/Model"), plans[2].TargetDirectory);
         }
 
         [Fact]
@@ -41,7 +41,7 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
             fixture.WriteAsset("readme.txt");
 
             var plans = AssetInboxArchiver.Plan(fixture.Inbox, fixture.Assets, fixture.LoadRouting());
@@ -54,7 +54,7 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
             fixture.WriteAsset("hero.png");
             File.WriteAllText(Path.Combine(fixture.Inbox, "导入规则.json"), "{}");
 
@@ -69,7 +69,7 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
             fixture.WriteAssetWithMeta("hero.png");
 
             var plans = AssetInboxArchiver.Plan(fixture.Inbox, fixture.Assets, fixture.LoadRouting());
@@ -83,8 +83,8 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
-            fixture.WriteRule("_Project/Art/Audio", "A_", new[] { ".wav" });
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
+            fixture.WriteRule("Game/Art/Audio", "A_", new[] { ".wav" });
             fixture.WriteAsset("rock.png");
             fixture.WriteAsset("music.wav");
 
@@ -99,7 +99,7 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
             fixture.WriteAsset("hero idle 01.png");
             fixture.WriteAsset("rock-cliff-albedo.tga");
             fixture.WriteAsset("ui__button___normal.png");
@@ -117,7 +117,7 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
             fixture.WriteAsset("logo.PNG");
 
             var plans = AssetInboxArchiver.Plan(fixture.Inbox, fixture.Assets, fixture.LoadRouting());
@@ -130,7 +130,7 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
             fixture.WriteAsset("村庄 地面 贴图.png");
 
             var plans = AssetInboxArchiver.Plan(fixture.Inbox, fixture.Assets, fixture.LoadRouting());
@@ -143,7 +143,7 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
             fixture.WriteAsset("a b.png");
             fixture.WriteAsset("a_b.png");
 
@@ -160,8 +160,8 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
-            File.WriteAllText(Path.Combine(TargetDirectory(fixture, "_Project/Art/Texture"), "T_Hero.png"), string.Empty);
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
+            File.WriteAllText(Path.Combine(TargetDirectory(fixture, "Game/Art/Texture"), "T_Hero.png"), string.Empty);
             fixture.WriteAsset("hero.png");
 
             var plans = AssetInboxArchiver.Plan(fixture.Inbox, fixture.Assets, fixture.LoadRouting());
@@ -174,7 +174,7 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
             fixture.WriteAsset("hero.png");
 
             var plans = AssetInboxArchiver.Plan(fixture.Inbox, fixture.Assets, fixture.LoadRouting());
@@ -190,7 +190,7 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
             fixture.WriteAssetWithMeta("hero.png");
 
             var plans = AssetInboxArchiver.Plan(fixture.Inbox, fixture.Assets, fixture.LoadRouting());
@@ -205,7 +205,7 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            Directory.CreateDirectory(TargetDirectory(fixture, "_Project/Art/Texture"));
+            Directory.CreateDirectory(TargetDirectory(fixture, "Game/Art/Texture"));
             fixture.WriteAsset("hero.png");
 
             var exception = Assert.Throws<AssetRoutingException>(() =>
@@ -223,7 +223,7 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
             fixture.WriteAsset("z.png");
             fixture.WriteAsset("a.png");
             fixture.WriteAsset("m.png");
@@ -242,7 +242,7 @@ namespace Template.Toolkit.AssetPipelineTests
         {
             using var fixture = new Fixture();
             fixture.WriteRoutingTable();
-            fixture.WriteRule("_Project/Art/Texture", "T_", new[] { ".png", ".tga" });
+            fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
 
             var plans = AssetInboxArchiver.Plan(fixture.Inbox, fixture.Assets, fixture.LoadRouting());
 
