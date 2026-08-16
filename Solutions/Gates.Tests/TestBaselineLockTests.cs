@@ -54,6 +54,52 @@ namespace Template.Toolkit.Gates.Tests
             }
         }
 
+        [Fact]
+        public void LineEndingChangeAloneReportsNoFindings()
+        {
+            var root = CreateTempDirectory();
+            try
+            {
+                var testFile = CreateTestFile(root);
+                var configuration = CreateConfiguration();
+                var baselinePath = Path.Combine(root, "test-baseline.json");
+
+                TestBaselineLock.WriteBaseline(root, configuration, baselinePath);
+                File.WriteAllText(testFile, "// v1\r\n");
+
+                var findings = TestBaselineLock.Check(root, configuration, baselinePath);
+
+                Assert.Empty(findings);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public void ByteOrderMarkAloneReportsNoFindings()
+        {
+            var root = CreateTempDirectory();
+            try
+            {
+                var testFile = CreateTestFile(root);
+                var configuration = CreateConfiguration();
+                var baselinePath = Path.Combine(root, "test-baseline.json");
+
+                TestBaselineLock.WriteBaseline(root, configuration, baselinePath);
+                File.WriteAllText(testFile, "// v1\n", new System.Text.UTF8Encoding(true));
+
+                var findings = TestBaselineLock.Check(root, configuration, baselinePath);
+
+                Assert.Empty(findings);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
         private static string CreateTestFile(string root)
         {
             var directory = Path.Combine(root, "Template", "Solutions", "Sample.Tests");

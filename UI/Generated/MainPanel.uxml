@@ -1,7 +1,0 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="MainPanel" class="panel-root">
-        <ui:ProgressBar name="HealthBar" />
-        <ui:Label name="CoinText" />
-        <ui:Button name="InventoryButton" />
-    </ui:VisualElement>
-</ui:UXML>

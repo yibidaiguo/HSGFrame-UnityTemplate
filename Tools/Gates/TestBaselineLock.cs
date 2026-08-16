@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -162,13 +162,34 @@ namespace Template.Toolkit.Gates
             return relative.Replace('\\', '/');
         }
 
+        /// <summary>
+        /// 计算测试文件的内容哈希。
+        /// </summary>
+        /// <remarks>
+        /// 哈希前先把行尾统一成 LF 并去掉 BOM：`.gitattributes` 里 `.cs` 走 `text=auto`，
+        /// 索引里存 LF、Windows 检出成 CRLF，直接哈希原始字节会让基线跟着检出方式变——
+        /// 换台机器克隆、或者跑一次 `git add --renormalize`，基线就恒红，
+        /// 而恒红的门禁等于没有门禁。行尾不是测试内容，不该进哈希。
+        /// </remarks>
+        /// <param name="filePath">测试源文件路径。</param>
         private static string ComputeSha256(string filePath)
         {
-            using (var stream = File.OpenRead(filePath))
+            var normalized = NormalizeContent(File.ReadAllText(filePath));
             using (var sha256 = SHA256.Create())
             {
-                return Convert.ToHexString(sha256.ComputeHash(stream)).ToLowerInvariant();
+                var hash = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(normalized));
+                return Convert.ToHexString(hash).ToLowerInvariant();
             }
+        }
+
+        /// <summary>
+        /// 行尾统一成 LF，并去掉开头的 BOM。
+        /// </summary>
+        /// <param name="text">文件文本。</param>
+        private static string NormalizeContent(string text)
+        {
+            var body = text.TrimStart('\uFEFF');
+            return body.Replace("\r\n", "\n").Replace("\r", "\n");
         }
     }
 }
