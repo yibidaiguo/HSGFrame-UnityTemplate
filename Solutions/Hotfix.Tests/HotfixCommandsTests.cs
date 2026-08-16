@@ -2,10 +2,10 @@ using System;
 using System.IO;
 using System.Linq;
 using Template.Toolkit.CommandFramework;
-using Template.Toolkit.CommandHost.Commands;
+using Template.Toolkit.Hotfix.Commands;
 using Xunit;
 
-namespace Template.Toolkit.Tests
+namespace HSGFrame.Hotfix.Tests
 {
     /// <summary>热更四条命令的参数与前置检查测试。</summary>
     public class HotfixCommandsTests

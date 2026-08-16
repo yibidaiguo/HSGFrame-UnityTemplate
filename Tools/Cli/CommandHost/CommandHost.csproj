@@ -18,7 +18,10 @@
     <ProjectReference Include="../../AssetPipeline/AssetPipeline.csproj" />
     <ProjectReference Include="../../Scaffold/ProjectScaffold.csproj" />
     <ProjectReference Include="../../CodeGen/CodeGen.csproj" />
-    <ProjectReference Include="../../Hotfix/Hotfix.csproj" />
+    <!-- 热更是可选功能：整个 Tools/Hotfix/ 被摘掉时这条引用自动失效，
+         hotfix.* 四条命令随之从 toolkit-cmd list 里消失，命令层不用改一行。 -->
+    <ProjectReference Include="../../Hotfix/Hotfix.csproj"
+                      Condition="Exists('$(MSBuildThisFileDirectory)../../Hotfix/Hotfix.csproj')" />
     <ProjectReference Include="../../FileServer/FileServer.csproj" />
     <ProjectReference Include="../../Dashboard/Dashboard.csproj" />
   </ItemGroup>

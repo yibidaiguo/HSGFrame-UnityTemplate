@@ -8,7 +8,7 @@ using System.Text;
 using HSGFrame.Hotfix;
 using Template.Toolkit.CommandFramework;
 
-namespace Template.Toolkit.CommandHost.Commands
+namespace Template.Toolkit.Hotfix.Commands
 {
     /// <summary>热更清单生成命令的参数。</summary>
     public sealed class HotfixManifestArguments

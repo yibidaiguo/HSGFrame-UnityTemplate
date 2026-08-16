@@ -12,4 +12,8 @@
   <ItemGroup>
     <Compile Include="../../Packages/com.hsgframe.hotfix/Runtime/**/*.cs" LinkBase="Hotfix" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Cli/CommandFramework/CommandFramework.csproj" />
+  </ItemGroup>
 </Project>
