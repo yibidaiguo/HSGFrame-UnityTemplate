@@ -1,18 +1,44 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <linker>
+  <assembly fullname="HSGFrame.Audio">
+    <type fullname="HSGFrame.Audio.AudioChannel" preserve="all" />
+    <type fullname="HSGFrame.Audio.AudioMixerState" preserve="all" />
+  </assembly>
+  <assembly fullname="HSGFrame.Logging">
+    <type fullname="HSGFrame.Logging.ILogSink" preserve="all" />
+    <type fullname="HSGFrame.Logging.LogEntry" preserve="all" />
+    <type fullname="HSGFrame.Logging.LogFormatOptions" preserve="all" />
+    <type fullname="HSGFrame.Logging.LogLevel" preserve="all" />
+  </assembly>
+  <assembly fullname="HSGFrame.MonoDriver">
+    <type fullname="HSGFrame.MonoDriver.MonoDriverRegistry" preserve="all" />
+  </assembly>
+  <assembly fullname="HSGFrame.Scene">
+    <type fullname="HSGFrame.Scene.SceneLoadMode" preserve="all" />
+    <type fullname="HSGFrame.Scene.SceneLoadQueue" preserve="all" />
+    <type fullname="HSGFrame.Scene.SceneLoadRequest" preserve="all" />
+  </assembly>
+  <assembly fullname="HSGFrame.WorldSpaceUI">
+    <type fullname="HSGFrame.WorldSpaceUI.WorldAnchorPolicy" preserve="all" />
+    <type fullname="HSGFrame.WorldSpaceUI.WorldAnchorPresentation" preserve="all" />
+    <type fullname="HSGFrame.WorldSpaceUI.WorldPoint" preserve="all" />
+  </assembly>
   <assembly fullname="System.Text.Encodings.Web">
     <type fullname="System.Text.Encodings.Web.JavaScriptEncoder" preserve="all" />
   </assembly>
   <assembly fullname="System.Text.Json">
     <type fullname="System.Runtime.CompilerServices.IsExternalInit" preserve="all" />
     <type fullname="System.Text.Json.JsonEncodedText" preserve="all" />
+    <type fullname="System.Text.Json.JsonException" preserve="all" />
     <type fullname="System.Text.Json.JsonSerializer" preserve="all" />
     <type fullname="System.Text.Json.JsonSerializerOptions" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.JsonConstructorAttribute" preserve="all" />
     <type fullname="System.Text.Json.Serialization.JsonConverter" preserve="all" />
     <type fullname="System.Text.Json.Serialization.JsonConverterFactory" preserve="all" />
     <type fullname="System.Text.Json.Serialization.JsonConverter`1" preserve="all" />
     <type fullname="System.Text.Json.Serialization.JsonIgnoreCondition" preserve="all" />
     <type fullname="System.Text.Json.Serialization.JsonNumberHandling" preserve="all" />
+    <type fullname="System.Text.Json.Serialization.JsonPropertyNameAttribute" preserve="all" />
     <type fullname="System.Text.Json.Serialization.JsonSerializableAttribute" preserve="all" />
     <type fullname="System.Text.Json.Serialization.JsonSerializerContext" preserve="all" />
     <type fullname="System.Text.Json.Serialization.JsonSourceGenerationOptionsAttribute" preserve="all" />
@@ -27,7 +53,49 @@
     <type fullname="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1" preserve="all" />
     <type fullname="System.Text.Json.Utf8JsonWriter" preserve="all" />
   </assembly>
+  <assembly fullname="Unity.Mathematics">
+    <type fullname="Unity.Mathematics.float3" preserve="all" />
+  </assembly>
+  <assembly fullname="UnityEngine.AudioModule">
+    <type fullname="UnityEngine.AudioClip" preserve="all" />
+    <type fullname="UnityEngine.AudioSource" preserve="all" />
+  </assembly>
+  <assembly fullname="UnityEngine.CoreModule">
+    <type fullname="UnityEngine.Application" preserve="all" />
+    <type fullname="UnityEngine.AsyncOperation" preserve="all" />
+    <type fullname="UnityEngine.Behaviour" preserve="all" />
+    <type fullname="UnityEngine.Color" preserve="all" />
+    <type fullname="UnityEngine.Component" preserve="all" />
+    <type fullname="UnityEngine.DisallowMultipleComponent" preserve="all" />
+    <type fullname="UnityEngine.GameObject" preserve="all" />
+    <type fullname="UnityEngine.MonoBehaviour" preserve="all" />
+    <type fullname="UnityEngine.Object" preserve="all" />
+    <type fullname="UnityEngine.Quaternion" preserve="all" />
+    <type fullname="UnityEngine.RectTransform" preserve="all" />
+    <type fullname="UnityEngine.Resources" preserve="all" />
+    <type fullname="UnityEngine.SceneManagement.LoadSceneMode" preserve="all" />
+    <type fullname="UnityEngine.SceneManagement.SceneManager" preserve="all" />
+    <type fullname="UnityEngine.SerializeField" preserve="all" />
+    <type fullname="UnityEngine.Time" preserve="all" />
+    <type fullname="UnityEngine.TooltipAttribute" preserve="all" />
+    <type fullname="UnityEngine.Transform" preserve="all" />
+    <type fullname="UnityEngine.Vector2" preserve="all" />
+    <type fullname="UnityEngine.Vector3" preserve="all" />
+  </assembly>
+  <assembly fullname="UnityEngine.TextRenderingModule">
+    <type fullname="UnityEngine.Font" preserve="all" />
+    <type fullname="UnityEngine.TextAnchor" preserve="all" />
+  </assembly>
+  <assembly fullname="UnityEngine.UI">
+    <type fullname="UnityEngine.UI.Graphic" preserve="all" />
+    <type fullname="UnityEngine.UI.Text" preserve="all" />
+  </assembly>
+  <assembly fullname="UnityEngine.UIModule">
+    <type fullname="UnityEngine.Canvas" preserve="all" />
+    <type fullname="UnityEngine.RenderMode" preserve="all" />
+  </assembly>
   <assembly fullname="netstandard">
+    <type fullname="System.Action`1" preserve="all" />
     <type fullname="System.Action`2" preserve="all" />
     <type fullname="System.Array" preserve="all" />
     <type fullname="System.Attribute" preserve="all" />
@@ -35,19 +103,36 @@
     <type fullname="System.AttributeUsageAttribute" preserve="all" />
     <type fullname="System.Byte" preserve="all" />
     <type fullname="System.CodeDom.Compiler.GeneratedCodeAttribute" preserve="all" />
+    <type fullname="System.Collections.Generic.Dictionary`2" preserve="all" />
+    <type fullname="System.Collections.Generic.Dictionary`2/ValueCollection" preserve="all" />
+    <type fullname="System.Collections.Generic.HashSet`1" preserve="all" />
     <type fullname="System.Collections.Generic.ICollection`1" preserve="all" />
+    <type fullname="System.Collections.Generic.IDictionary`2" preserve="all" />
     <type fullname="System.Collections.Generic.IEnumerable`1" preserve="all" />
+    <type fullname="System.Collections.Generic.IEnumerator`1" preserve="all" />
     <type fullname="System.Collections.Generic.IList`1" preserve="all" />
+    <type fullname="System.Collections.Generic.IReadOnlyCollection`1" preserve="all" />
+    <type fullname="System.Collections.Generic.IReadOnlyDictionary`2" preserve="all" />
+    <type fullname="System.Collections.Generic.IReadOnlyList`1" preserve="all" />
+    <type fullname="System.Collections.Generic.KeyValuePair`2" preserve="all" />
     <type fullname="System.Collections.Generic.List`1" preserve="all" />
+    <type fullname="System.Collections.Generic.List`1/Enumerator" preserve="all" />
+    <type fullname="System.Collections.IEnumerator" preserve="all" />
     <type fullname="System.ComponentModel.EditorBrowsableAttribute" preserve="all" />
     <type fullname="System.ComponentModel.EditorBrowsableState" preserve="all" />
     <type fullname="System.Diagnostics.DebuggableAttribute" preserve="all" />
     <type fullname="System.Diagnostics.DebuggableAttribute/DebuggingModes" preserve="all" />
+    <type fullname="System.Diagnostics.DebuggerHiddenAttribute" preserve="all" />
     <type fullname="System.Exception" preserve="all" />
     <type fullname="System.Func`1" preserve="all" />
     <type fullname="System.Func`2" preserve="all" />
+    <type fullname="System.IDisposable" preserve="all" />
+    <type fullname="System.IO.Directory" preserve="all" />
+    <type fullname="System.IO.File" preserve="all" />
+    <type fullname="System.IO.Path" preserve="all" />
     <type fullname="System.Int32" preserve="all" />
     <type fullname="System.InvalidOperationException" preserve="all" />
+    <type fullname="System.NotSupportedException" preserve="all" />
     <type fullname="System.Nullable`1" preserve="all" />
     <type fullname="System.Object" preserve="all" />
     <type fullname="System.Reflection.Assembly" preserve="all" />
@@ -59,10 +144,13 @@
     <type fullname="System.Reflection.MethodInfo" preserve="all" />
     <type fullname="System.Runtime.CompilerServices.CompilationRelaxationsAttribute" preserve="all" />
     <type fullname="System.Runtime.CompilerServices.CompilerGeneratedAttribute" preserve="all" />
+    <type fullname="System.Runtime.CompilerServices.IsReadOnlyAttribute" preserve="all" />
+    <type fullname="System.Runtime.CompilerServices.IteratorStateMachineAttribute" preserve="all" />
     <type fullname="System.Runtime.CompilerServices.RuntimeCompatibilityAttribute" preserve="all" />
     <type fullname="System.Runtime.CompilerServices.RuntimeHelpers" preserve="all" />
     <type fullname="System.RuntimeFieldHandle" preserve="all" />
     <type fullname="System.RuntimeTypeHandle" preserve="all" />
+    <type fullname="System.Single" preserve="all" />
     <type fullname="System.String" preserve="all" />
     <type fullname="System.Type" preserve="all" />
     <type fullname="System.ValueType" preserve="all" />

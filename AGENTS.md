@@ -20,7 +20,7 @@
 | `Solutions/UnityShim/` | Unity 序列化特性的空实现 Shim，仅供纯 .NET 侧编译 |
 | `Tools/Cli/` | 命令层：`CommandFramework`（特性标记 + 反射扫描 + schema 推导）、`CommandHost`（命令宿主）、`unity-cmd.ps1`（Unity batchmode 入口，带超时必杀）、`toolkit-cmd.ps1`（纯 dotnet 快路径） |
 | `Tools/Deps/` | 依赖快照（`Unity.Mathematics.dll`，取自 Unity 6000.3.11f1） |
-| `UnityProject/` | Unity 工程本体，`Assets/Game/Scripts/Logic/` 下按 Contracts / Data / State / Service 分层 |
+| `UnityProject/` | Unity 工程本体，`Assets/Game/Scripts/` 下按模块优先摆：`Boot/`（AOT 启动）、`Modules/<模块>/`、`Shared/`、`View/`、`Toolkit/Editor/`，四个程序集见《规范/结构规范-代码》第三节 |
 | `Doc/` | 改造方案等文档（在仓库根目录，不在模板内） |
 | `规范/` | 结构规范三份（总纲/代码/资源），动目录结构、加模块、放资产前先读；宿主的现状差距与迁移账本在仓库根 `Doc/规范/` |
 

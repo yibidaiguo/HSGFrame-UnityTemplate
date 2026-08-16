@@ -30,12 +30,6 @@ UnityProject/HybridCLRData/
 # 命令层断点文件与一次性参数文件的落脚处，不进仓库。
 Temp/
 
-# 执行后端跑任务时留下的一次性工程，本轮保持不删（删除属不可逆动作），留给人处置：
-# Tools/_sample_gen/ 是阶段 4 生成样例 xlsx 的一次性工程，
-# Solutions/_tmp.PlaceholderCheck/ 是某次占位检查的残留。
-Tools/_sample_gen/
-Solutions/_tmp.PlaceholderCheck/
-
 # Luban 命令行工具（约 6 MB，197 个文件）：由 Tools/Luban/取工具.ps1 现取，不进仓库。
 # 与 HybridCLR 同一手法——第三方工具链按需装，仓库里只留取它的办法与版本号。
 Tools/Luban/*

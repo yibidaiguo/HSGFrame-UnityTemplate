@@ -4,8 +4,8 @@
   "references": [
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner",
-    "Logic.Data",
-    "Presentation.Level",
+    "Game.Logic",
+    "Game.View",
     "Toolkit.Editor"
   ],
   "includePlatforms": ["Editor"],

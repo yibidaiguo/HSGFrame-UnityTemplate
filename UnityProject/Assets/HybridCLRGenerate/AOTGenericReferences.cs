@@ -5,7 +5,9 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 	// {{ AOT assemblies
 	public static readonly IReadOnlyList<string> PatchedAOTAssemblyList = new List<string>
 	{
+		"System.Core.dll",
 		"System.Text.Json.dll",
+		"UnityEngine.CoreModule.dll",
 		"mscorlib.dll",
 	};
 	// }}
@@ -15,6 +17,7 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 
 	// {{ AOT generic types
 	// System.Action<System.Collections.Generic.KeyValuePair<object,object>>
+	// System.Action<int>
 	// System.Action<object,int>
 	// System.Action<object,object>
 	// System.Action<object>
@@ -47,29 +50,44 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 	// System.Collections.Generic.Comparer<System.Text.Json.JsonReaderState>
 	// System.Collections.Generic.Comparer<long>
 	// System.Collections.Generic.Comparer<object>
+	// System.Collections.Generic.Dictionary.Enumerator<int,object>
 	// System.Collections.Generic.Dictionary.Enumerator<object,object>
+	// System.Collections.Generic.Dictionary.KeyCollection.Enumerator<int,object>
 	// System.Collections.Generic.Dictionary.KeyCollection.Enumerator<object,object>
+	// System.Collections.Generic.Dictionary.KeyCollection<int,object>
 	// System.Collections.Generic.Dictionary.KeyCollection<object,object>
+	// System.Collections.Generic.Dictionary.ValueCollection.Enumerator<int,object>
 	// System.Collections.Generic.Dictionary.ValueCollection.Enumerator<object,object>
+	// System.Collections.Generic.Dictionary.ValueCollection<int,object>
 	// System.Collections.Generic.Dictionary.ValueCollection<object,object>
+	// System.Collections.Generic.Dictionary<int,object>
 	// System.Collections.Generic.Dictionary<object,object>
 	// System.Collections.Generic.EqualityComparer<System.Text.Json.JsonReaderState>
 	// System.Collections.Generic.EqualityComparer<int>
 	// System.Collections.Generic.EqualityComparer<long>
 	// System.Collections.Generic.EqualityComparer<object>
+	// System.Collections.Generic.HashSet.Enumerator<object>
+	// System.Collections.Generic.HashSet<object>
+	// System.Collections.Generic.HashSetEqualityComparer<object>
+	// System.Collections.Generic.ICollection<System.Collections.Generic.KeyValuePair<int,object>>
 	// System.Collections.Generic.ICollection<System.Collections.Generic.KeyValuePair<object,object>>
 	// System.Collections.Generic.ICollection<object>
 	// System.Collections.Generic.IComparer<System.Collections.Generic.KeyValuePair<object,object>>
 	// System.Collections.Generic.IComparer<object>
 	// System.Collections.Generic.IDictionary<object,System.Text.Json.JsonElement>
 	// System.Collections.Generic.IDictionary<object,object>
+	// System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<int,object>>
 	// System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<object,object>>
 	// System.Collections.Generic.IEnumerable<object>
+	// System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<int,object>>
 	// System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<object,object>>
 	// System.Collections.Generic.IEnumerator<object>
+	// System.Collections.Generic.IEqualityComparer<int>
 	// System.Collections.Generic.IEqualityComparer<object>
 	// System.Collections.Generic.IList<System.Collections.Generic.KeyValuePair<object,object>>
 	// System.Collections.Generic.IList<object>
+	// System.Collections.Generic.IReadOnlyDictionary<object,object>
+	// System.Collections.Generic.KeyValuePair<int,object>
 	// System.Collections.Generic.KeyValuePair<object,object>
 	// System.Collections.Generic.List.Enumerator<System.Collections.Generic.KeyValuePair<object,object>>
 	// System.Collections.Generic.List.Enumerator<object>
@@ -163,6 +181,8 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 	// System.Threading.Tasks.Sources.IValueTaskSource<object>
 	// System.Threading.Tasks.Task<int>
 	// System.Threading.Tasks.Task<object>
+	// System.Threading.Tasks.TaskFactory<int>
+	// System.Threading.Tasks.TaskFactory<object>
 	// System.Threading.Tasks.ValueTask.ValueTaskSourceAsTask.<>c<int>
 	// System.Threading.Tasks.ValueTask.ValueTaskSourceAsTask.<>c<object>
 	// System.Threading.Tasks.ValueTask.ValueTaskSourceAsTask<int>
@@ -175,6 +195,7 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 
 	public void RefMethods()
 	{
+		// object System.Text.Json.JsonSerializer.Deserialize<object>(string,System.Text.Json.JsonSerializerOptions)
 		// object System.Text.Json.JsonSerializer.Deserialize<object>(string,System.Text.Json.Serialization.Metadata.JsonTypeInfo<object>)
 		// System.Text.Json.Serialization.Metadata.JsonTypeInfo<object> System.Text.Json.JsonSerializer.GetTypeInfo<object>(System.Text.Json.JsonSerializerOptions)
 		// object System.Text.Json.JsonSerializer.ReadFromSpan<object>(System.ReadOnlySpan<System.Char>,System.Text.Json.Serialization.Metadata.JsonTypeInfo<object>)
@@ -195,5 +216,7 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 		// System.Text.Json.Serialization.Metadata.JsonTypeInfo<int> System.Text.Json.Serialization.Metadata.JsonMetadataServices.CreateValueInfo<int>(System.Text.Json.JsonSerializerOptions,System.Text.Json.Serialization.JsonConverter)
 		// System.Text.Json.Serialization.Metadata.JsonTypeInfo<object> System.Text.Json.Serialization.Metadata.JsonMetadataServices.CreateValueInfo<object>(System.Text.Json.JsonSerializerOptions,System.Text.Json.Serialization.JsonConverter)
 		// System.Text.Json.Serialization.JsonConverter<object> System.Text.Json.Serialization.Metadata.JsonMetadataServices.GetConverter<object>(System.Text.Json.Serialization.Metadata.JsonObjectInfoValues<object>)
+		// object UnityEngine.GameObject.AddComponent<object>()
+		// object UnityEngine.Resources.GetBuiltinResource<object>(string)
 	}
 }

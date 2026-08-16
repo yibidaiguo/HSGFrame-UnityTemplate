@@ -32,7 +32,10 @@ namespace Template.Toolkit.CommandHost.Commands
         private static readonly string[] SkippedSegments =
         {
             ".git", "bin", "obj", "Logs", "Build", "Bundles", "Temp",
-            "Library", "HybridCLRData", "UserSettings", "_sample_gen", "_tmp.PlaceholderCheck",
+            "Library", "HybridCLRData", "UserSettings",
+
+            // 模型试验区：各仓库自己的草稿地，同步过去等于把一边的半成品塞进另一边。
+            "_Scratch",
 
             // 出包前现拷进 StreamingAssets 的热更程序集与 AOT 补充元数据：
             // 是构建产物，去向侧自己跑一次随包命令就有，同步过去只会让模板里躺着一份过期的。

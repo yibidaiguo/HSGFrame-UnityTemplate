@@ -25,13 +25,26 @@ MonoBehaviour:
     AutoCollectShaders: 1
     IgnoreRuleName: NormalIgnoreRule
     Groups:
-    - GroupName: "\u7F8E\u672F\u8D44\u4EA7"
-      GroupDesc: "Art \u76EE\u5F55\u4E0B\u7684\u8D34\u56FE\u3001\u97F3\u9891\u4E0E\u9884\u5236\u4F53"
+    - GroupName: "\u8D44\u6E90-\u5173\u5361\u5B9E\u4F53"
+      GroupDesc: "\u5173\u5361\u5B9E\u4F53\u9884\u5236\u4F53\uFF0C\u6309\u9700\u52A0\u8F7D"
       AssetTags: 
       ActiveRuleName: EnableGroup
       Collectors:
-      - CollectPath: Assets/Game/Art
-        CollectorGUID: 95d60a0a403382e40b177203e46637bc
+      - CollectPath: Assets/Game/ResourceArt/Level
+        CollectorGUID: 15cfc1cd510e7f640b2ccb316e4feec9
+        CollectorType: 0
+        AddressRuleName: AddressByFileName
+        PackRuleName: PackDirectory
+        FilterRuleName: CollectAssetsExceptPipelineConfig
+        AssetTags: 
+        UserData: 
+    - GroupName: "\u573A\u666F-\u4E16\u754C"
+      GroupDesc: "\u70ED\u66F4\u73A9\u6CD5\u573A\u666F\uFF0C\u968F\u573A\u666F\u52A0\u8F7D"
+      AssetTags: 
+      ActiveRuleName: EnableGroup
+      Collectors:
+      - CollectPath: Assets/Game/Scenes/World
+        CollectorGUID: da6a4f3ffe4241738905bd016b904804
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackDirectory

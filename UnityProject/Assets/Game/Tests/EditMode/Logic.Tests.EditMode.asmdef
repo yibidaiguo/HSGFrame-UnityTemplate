@@ -4,9 +4,7 @@
   "references": [
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner",
-    "Logic.Data",
-    "Logic.State",
-    "Logic.Service",
+    "Game.Logic",
     "Unity.Mathematics"
   ],
   "includePlatforms": ["Editor"],

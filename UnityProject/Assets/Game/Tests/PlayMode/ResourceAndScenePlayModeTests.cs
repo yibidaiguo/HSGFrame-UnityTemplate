@@ -57,11 +57,11 @@ namespace Template.Tests.PlayMode
             Assert.AreEqual(EOperationStatus.Succeeded, manifestOperation.Status,
                 $"加载包裹清单失败：{manifestOperation.Error}");
 
-            var handle = package.LoadAssetAsync<Object>("T_HeroIdle_01");
+            var handle = package.LoadAssetAsync<Object>("P_Npc");
             yield return handle;
             Assert.AreEqual(EOperationStatus.Succeeded, handle.Status, $"资源加载失败：{handle.Error}");
             Assert.IsNotNull(handle.AssetObject, "加载出来的资源对象是空的");
-            Assert.AreEqual("T_HeroIdle_01", handle.AssetObject.name, "加载到的资源名对不上");
+            Assert.AreEqual("P_Npc", handle.AssetObject.name, "加载到的资源名对不上");
 
             handle.Release();
         }
@@ -71,7 +71,7 @@ namespace Template.Tests.PlayMode
         public IEnumerator ReferenceLedgerTracksRealLoadAndUnload()
         {
             var ledger = new AssetReferenceLedger();
-            const string assetKey = "T_HeroIdle_01";
+            const string assetKey = "P_Npc";
 
             ledger.Acquire(assetKey);
             ledger.Acquire(assetKey);

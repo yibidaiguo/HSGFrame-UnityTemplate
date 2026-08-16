@@ -1,0 +1,15 @@
+{
+  "name": "Toolkit.Editor",
+  "rootNamespace": "Template.Toolkit.Editor",
+  "references": [
+    "HybridCLR.Editor",
+    "YooAsset",
+    "YooAsset.Editor",
+    "Game.Logic",
+    "Game.View"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "noEngineReferences": false
+}

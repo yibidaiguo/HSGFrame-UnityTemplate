@@ -9,7 +9,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="../../UnityProject/Assets/Game/Scripts/Logic/**/*.cs" LinkBase="Logic" />
+    <!-- 链接范围就是 Game.Logic 的定义（《结构规范-代码》第三节）：Modules/ 与 Shared/ 两棵树，
+         挖掉被 asmref 归并进 Game.View / Game.Editor 的 View/ 与 Editor/ 夹。两处必须一致（R3 对账）。 -->
+    <Compile Include="../../UnityProject/Assets/Game/Scripts/Modules/**/*.cs"
+             Exclude="../../UnityProject/Assets/Game/Scripts/Modules/**/View/**/*.cs;../../UnityProject/Assets/Game/Scripts/Modules/**/Editor/**/*.cs"
+             LinkBase="Modules" />
+    <Compile Include="../../UnityProject/Assets/Game/Scripts/Shared/**/*.cs"
+             Exclude="../../UnityProject/Assets/Game/Scripts/Shared/**/View/**/*.cs;../../UnityProject/Assets/Game/Scripts/Shared/**/Editor/**/*.cs"
+             LinkBase="Shared" />
     <Compile Include="../UnityShim/**/*.cs" LinkBase="UnityShim" />
   </ItemGroup>
 

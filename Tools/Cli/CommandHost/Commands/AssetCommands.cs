@@ -455,15 +455,20 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("打包分组规则文件路径，缺省时用 Tools/AssetPipeline/Config/打包分组规则.json")]
         [DefaultValue("Tools/AssetPipeline/Config/打包分组规则.json")]
         public string RulesPath { get; set; }
+
+        /// <summary>YooAsset 收集器配置路径，缺省时用工程里的那份。</summary>
+        [Summary("YooAsset 收集器配置路径，缺省时用 UnityProject/Assets/Game/Settings/Resource/BundleCollectorSetting.asset")]
+        [DefaultValue("UnityProject/Assets/Game/Settings/Resource/BundleCollectorSetting.asset")]
+        public string CollectorSettingPath { get; set; }
     }
 
-    /// <summary>加载分组校验命令：查动态分组的加载分组字段，以及预制体是否只住 ResourceArt 树。</summary>
+    /// <summary>加载分组校验命令：查动态分组的加载分组字段、预制体落点，以及收集器 group 与分组条目的对账。</summary>
     public static class AssetLoadGroupsCommand
     {
-        /// <summary>按规则检查加载分组字段与预制体落点。</summary>
+        /// <summary>按规则检查加载分组字段、预制体落点与收集器对账。</summary>
         /// <param name="arguments">校验参数。</param>
         [EditorCommand("asset.loadgroups")]
-        [Summary("检查动态分组的加载分组字段，并查预制体是否只住 ResourceArt 树")]
+        [Summary("检查动态分组的加载分组字段、预制体落点，以及收集器 group 与分组条目对账")]
         public static CommandResult Execute(AssetLoadGroupsArguments arguments)
         {
             if (string.IsNullOrWhiteSpace(arguments.AssetsRootDirectory)
@@ -487,8 +492,12 @@ namespace Template.Toolkit.CommandHost.Commands
                     "参考：Tools/AssetPipeline/Config/打包分组规则.json");
             }
 
+            var collectorSettingPath = string.IsNullOrWhiteSpace(arguments.CollectorSettingPath)
+                ? Path.Combine("UnityProject", "Assets", "Game", "Settings", "Resource", "BundleCollectorSetting.asset")
+                : arguments.CollectorSettingPath;
+
             var ruleSet = AssetBundleGroupRuleSet.LoadFromFile(rulesPath);
-            var violations = AssetLoadGroupChecker.Check(arguments.AssetsRootDirectory, ruleSet);
+            var violations = AssetLoadGroupChecker.Check(arguments.AssetsRootDirectory, ruleSet, collectorSettingPath);
 
             var lines = violations.Select(violation => violation.ToDisplayText()).ToList();
             var groupCount = ruleSet.Groups?.Count ?? 0;
