@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -566,6 +566,145 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             return CommandResult.Success($"导入规则覆盖校验通过：扫描根 {scanRootCount} 个，违规 0 条", lines);
+        }
+    }
+
+    /// <summary>重复资产校验命令的参数。</summary>
+    public sealed class AssetDuplicatesArguments
+    {
+        /// <summary>Assets 根目录。</summary>
+        [Summary("Assets 根目录")]
+        public string AssetsRootDirectory { get; set; }
+    }
+
+    /// <summary>重复资产校验命令：正式区里同内容的资产出现两份即违规。</summary>
+    public static class AssetDuplicatesCommand
+    {
+        /// <summary>按内容哈希找出正式区里的重复资产。</summary>
+        /// <param name="arguments">校验参数。</param>
+        [EditorCommand("asset.duplicates")]
+        [Summary("检查正式区里有没有同内容的资产被复制成了两份")]
+        public static CommandResult Execute(AssetDuplicatesArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.AssetsRootDirectory)
+                || !Directory.Exists(arguments.AssetsRootDirectory))
+            {
+                return CommandResult.Failure(
+                    $"位置：{arguments.AssetsRootDirectory}；原因：Assets 根目录不存在；" +
+                    "修复：把 AssetsRootDirectory 指向 Unity 工程的 Assets 目录；" +
+                    "参考：UnityProject/Assets");
+            }
+
+            var violations = AssetDuplicateChecker.Check(arguments.AssetsRootDirectory);
+            var lines = violations.Select(violation => violation.ToDisplayText()).ToList();
+            if (violations.Count > 0)
+            {
+                return CommandResult.Failure($"重复资产校验发现违规 {violations.Count} 条", lines);
+            }
+
+            return CommandResult.Success("重复资产校验通过：违规 0 条", lines);
+        }
+    }
+
+    /// <summary>图集对齐校验命令的参数。</summary>
+    public sealed class AssetAtlasArguments
+    {
+        /// <summary>Assets 根目录。</summary>
+        [Summary("Assets 根目录")]
+        public string AssetsRootDirectory { get; set; }
+    }
+
+    /// <summary>图集对齐校验命令：声明了「图集」的贴图目录，图集资产必须存在且真收录了它。</summary>
+    public static class AssetAtlasCommand
+    {
+        /// <summary>检查导入规则里的「图集」字段与实际图集资产是否对得上。</summary>
+        /// <param name="arguments">校验参数。</param>
+        [EditorCommand("asset.atlas")]
+        [Summary("检查声明了图集的贴图目录，对应图集是否存在并真收录了它")]
+        public static CommandResult Execute(AssetAtlasArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.AssetsRootDirectory)
+                || !Directory.Exists(arguments.AssetsRootDirectory))
+            {
+                return CommandResult.Failure(
+                    $"位置：{arguments.AssetsRootDirectory}；原因：Assets 根目录不存在；" +
+                    "修复：把 AssetsRootDirectory 指向 Unity 工程的 Assets 目录；" +
+                    "参考：UnityProject/Assets");
+            }
+
+            var violations = AssetAtlasChecker.Check(arguments.AssetsRootDirectory);
+            var lines = violations.Select(violation => violation.ToDisplayText()).ToList();
+            if (violations.Count > 0)
+            {
+                return CommandResult.Failure($"图集对齐校验发现违规 {violations.Count} 条", lines);
+            }
+
+            return CommandResult.Success("图集对齐校验通过：违规 0 条", lines);
+        }
+    }
+
+    /// <summary>常驻预算校验命令的参数。</summary>
+    public sealed class AssetResidentBudgetArguments
+    {
+        /// <summary>Assets 根目录。</summary>
+        [Summary("Assets 根目录")]
+        public string AssetsRootDirectory { get; set; }
+
+        /// <summary>打包分组规则文件路径，加载分组字段写在它的分组条目上。</summary>
+        [Summary("打包分组规则文件路径，缺省时用 Tools/AssetPipeline/Config/打包分组规则.json")]
+        [DefaultValue("Tools/AssetPipeline/Config/打包分组规则.json")]
+        public string RulesPath { get; set; }
+
+        /// <summary>门禁配置文件路径，预算值从它的 residentBudgetBytes 取。</summary>
+        [Summary("门禁配置文件路径，缺省时用 Tools/Gates/Config/gate-config.json")]
+        [DefaultValue("Tools/Gates/Config/gate-config.json")]
+        public string ConfigurationPath { get; set; }
+    }
+
+    /// <summary>常驻预算校验命令：加载分组为「常驻」的目录，字节总和不许超预算。</summary>
+    public static class AssetResidentBudgetCommand
+    {
+        /// <summary>按打包分组规则里的加载分组字段，算常驻分组的字节总和并与预算比。</summary>
+        /// <param name="arguments">校验参数。</param>
+        [EditorCommand("asset.residentbudget")]
+        [Summary("检查加载分组为常驻的目录字节总和有没有超预算")]
+        public static CommandResult Execute(AssetResidentBudgetArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.AssetsRootDirectory)
+                || !Directory.Exists(arguments.AssetsRootDirectory))
+            {
+                return CommandResult.Failure(
+                    $"位置：{arguments.AssetsRootDirectory}；原因：Assets 根目录不存在；" +
+                    "修复：把 AssetsRootDirectory 指向 Unity 工程的 Assets 目录；" +
+                    "参考：UnityProject/Assets");
+            }
+
+            var rulesPath = string.IsNullOrWhiteSpace(arguments.RulesPath)
+                ? Path.Combine("Tools", "AssetPipeline", "Config", "打包分组规则.json")
+                : arguments.RulesPath;
+
+            if (!File.Exists(rulesPath))
+            {
+                return CommandResult.Failure(
+                    $"位置：{rulesPath}；原因：打包分组规则文件不存在；" +
+                    "修复：把 RulesPath 指向规则文件，或在模板里补一份；" +
+                    "参考：Tools/AssetPipeline/Config/打包分组规则.json");
+            }
+
+            var configuration = Template.Toolkit.Gates.GateConfiguration.LoadFromFile(arguments.ConfigurationPath);
+            var ruleSet = AssetBundleGroupRuleSet.LoadFromFile(rulesPath);
+            var violations = AssetResidentBudgetChecker.Check(
+                arguments.AssetsRootDirectory, ruleSet, configuration.ResidentBudgetBytes);
+
+            var lines = violations.Select(violation => violation.ToDisplayText()).ToList();
+            if (violations.Count > 0)
+            {
+                return CommandResult.Failure(
+                    $"常驻预算校验发现违规 {violations.Count} 条（预算 {configuration.ResidentBudgetBytes} 字节）", lines);
+            }
+
+            return CommandResult.Success(
+                $"常驻预算校验通过：预算 {configuration.ResidentBudgetBytes} 字节，违规 0 条", lines);
         }
     }
 }

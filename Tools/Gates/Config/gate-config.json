@@ -47,6 +47,12 @@
   ],
   "_moduleBoundaryExemptPaths说明": "R2 的欠账清单：还没拆干净的越界引用先挂在这（相对 Assets/Game/Scripts、正斜杠），拆一处删一条，名单燃尽即模块边界完全立住。上线时是空的——阶段 C 迁完之后本来就没有越界引用。工具链（Scripts/Toolkit/）是永久的范围之外，写在检查器里，不占这里的位置。",
   "moduleBoundaryExemptPaths": [],
+  "_businessLogExemptPaths说明": "R7 的豁免（相对 Assets/Game/Scripts、正斜杠）。View/UnityConsoleLogSink.cs 这一条是**永久**的：它就是把 HSGFrame.Logging 转到 Unity 控制台的那个落点，不许它调 Debug 等于不许它存在。除它之外的条目都是欠账，改一处删一条。",
+  "businessLogExemptPaths": [
+    "View/UnityConsoleLogSink.cs"
+  ],
+  "_residentBudgetBytes说明": "R6：加载分组为「常驻」的目录字节总预算。现状还没有任何分组标成常驻，所以这条暂时查不到东西；先按 32 MiB 立着，第一个常驻分组进来那天它就开始起作用。设成 0 或负数即关掉这条检查。",
+  "residentBudgetBytes": 33554432,
   "sourceScanSkipSegments": [
     "HybridCLRData",
     "HybridCLRGenerate",

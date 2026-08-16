@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using Template.Toolkit.Scaffold;
 using Xunit;
@@ -310,6 +310,86 @@ namespace Template.Toolkit.ScaffoldTests
                 var content = File.ReadAllText(Path.Combine(result.TargetPath, FrameworkPrefix + "demo", "info.json"));
                 Assert.Contains(FrameworkPrefix + "demo", content);
                 Assert.DoesNotContain(ProjectName, content);
+            }
+            finally
+            {
+                Directory.Delete(templateRoot, true);
+                Directory.Delete(targetDirectory, true);
+            }
+        }
+
+        /// <summary>新项目自带试验区：_Scratch/说明.md 从模板里那份说明原样落地。</summary>
+        [Fact]
+        public void CreateWritesScratchAreaNotice()
+        {
+            var templateRoot = CreateTemplateTree();
+            var targetDirectory = CreateTargetDirectory();
+            try
+            {
+                const string noticeText = "# _Scratch · 模型试验区\n\n只进不出。\n";
+                File.WriteAllText(
+                    Path.Combine(templateRoot, "Tools", "Scaffold", "Templates",
+                        ProjectGenerator.ScratchNoticeTemplateName),
+                    noticeText);
+
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
+
+                Assert.True(result.IsSuccess, result.Message);
+                var noticePath = Path.Combine(
+                    result.TargetPath, ProjectGenerator.ScratchDirectoryName, "说明.md");
+                Assert.True(File.Exists(noticePath), "新项目里没有铺出试验区说明");
+                Assert.Equal(noticeText, File.ReadAllText(noticePath));
+            }
+            finally
+            {
+                Directory.Delete(templateRoot, true);
+                Directory.Delete(targetDirectory, true);
+            }
+        }
+
+        /// <summary>模板里没有那份说明时不建空的试验区目录——空夹留不住，建了也是噪音。</summary>
+        [Fact]
+        public void CreateSkipsScratchAreaWhenTemplateNoticeMissing()
+        {
+            var templateRoot = CreateTemplateTree();
+            var targetDirectory = CreateTargetDirectory();
+            try
+            {
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
+
+                Assert.True(result.IsSuccess, result.Message);
+                Assert.False(
+                    Directory.Exists(Path.Combine(result.TargetPath, ProjectGenerator.ScratchDirectoryName)),
+                    "模板里没有说明文件却还是建了试验区目录");
+            }
+            finally
+            {
+                Directory.Delete(templateRoot, true);
+                Directory.Delete(targetDirectory, true);
+            }
+        }
+
+        /// <summary>Agent 入口镜像在追加模板说明之后重出，内容与新的 CLAUDE.md 逐字对得上。</summary>
+        [Fact]
+        public void CreateRegeneratesAgentEntryMirror()
+        {
+            var templateRoot = CreateTemplateTree();
+            var targetDirectory = CreateTargetDirectory();
+            try
+            {
+                var agentSyncDirectory = Path.Combine(templateRoot, "Tools", "AgentSync");
+                Directory.CreateDirectory(agentSyncDirectory);
+                File.WriteAllText(Path.Combine(agentSyncDirectory, "agent-sync.ps1"),
+                    "param([switch]$Verify)\n$mirrorNames = @('AGENTS.md')\n"
+                    + "$mirrorHeader = \"<!-- 镜像文件 -->\"\n");
+                File.WriteAllText(Path.Combine(templateRoot, "AGENTS.md"), "过期的镜像内容\n");
+
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
+
+                Assert.True(result.IsSuccess, result.Message);
+                var claudeText = File.ReadAllText(Path.Combine(result.TargetPath, "CLAUDE.md"));
+                var mirrorText = File.ReadAllText(Path.Combine(result.TargetPath, "AGENTS.md"));
+                Assert.Equal("<!-- 镜像文件 -->\n\n" + claudeText, mirrorText);
             }
             finally
             {

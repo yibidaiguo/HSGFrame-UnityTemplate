@@ -143,6 +143,97 @@ namespace Template.Toolkit.CommandHost.Commands
         }
     }
 
+    /// <summary>业务层裸日志门禁命令的参数。</summary>
+    public sealed class GateBusinessLogArguments
+    {
+        /// <summary>业务代码根目录，即 Assets/Game/Scripts。</summary>
+        [Summary("业务代码根目录，即 UnityProject/Assets/Game/Scripts")]
+        public string ScriptsRootDirectory { get; set; }
+
+        /// <summary>门禁配置文件路径，默认取模板内的 gate-config.json。</summary>
+        [Summary("门禁配置文件路径，默认取模板内的 gate-config.json")]
+        [DefaultValue("Tools/Gates/Config/gate-config.json")]
+        public string ConfigurationPath { get; set; }
+    }
+
+    /// <summary>业务层裸日志门禁命令：Modules / Shared / View 里不许写 UnityEngine.Debug.Log。</summary>
+    public static class GateBusinessLogCommand
+    {
+        /// <summary>
+        /// 跑业务层裸日志检查，返回结构化发现列表。
+        /// </summary>
+        /// <param name="arguments">裸日志门禁参数。</param>
+        [EditorCommand("gate.businesslog")]
+        [Summary("业务层裸日志门禁：日志要走 HSGFrame.Logging，不写裸 Debug.Log")]
+        public static CommandResult Execute(GateBusinessLogArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.ScriptsRootDirectory)
+                || !Directory.Exists(arguments.ScriptsRootDirectory))
+            {
+                return CommandResult.Failure(
+                    $"位置：{arguments.ScriptsRootDirectory}；原因：业务代码根目录不存在；" +
+                    "修复：把 ScriptsRootDirectory 指向 Assets/Game/Scripts；" +
+                    "参考：UnityProject/Assets/Game/Scripts");
+            }
+
+            var configuration = GateConfiguration.LoadFromFile(
+                GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, arguments.ScriptsRootDirectory));
+
+            var findings = BusinessLogCallChecker.Check(
+                arguments.ScriptsRootDirectory, configuration.BusinessLogExemptPaths);
+
+            return GateCommandSupport.ToResult("业务层裸日志门禁", findings);
+        }
+    }
+
+    /// <summary>装配对账门禁命令的参数。</summary>
+    public sealed class GateAssemblyLinkArguments
+    {
+        /// <summary>Logic.Core.csproj 的路径。</summary>
+        [Summary("Logic.Core.csproj 的路径")]
+        [DefaultValue("Solutions/Logic.Core/Logic.Core.csproj")]
+        public string ProjectFilePath { get; set; }
+
+        /// <summary>业务代码根目录，即 Assets/Game/Scripts。</summary>
+        [Summary("业务代码根目录，即 UnityProject/Assets/Game/Scripts")]
+        public string ScriptsRootDirectory { get; set; }
+    }
+
+    /// <summary>装配对账门禁命令：Logic.Core.csproj 的链接范围就是 Game.Logic 的定义，两处必须一致。</summary>
+    public static class GateAssemblyLinkCommand
+    {
+        /// <summary>
+        /// 跑装配对账检查，返回结构化发现列表。
+        /// </summary>
+        /// <param name="arguments">装配对账门禁参数。</param>
+        [EditorCommand("gate.assemblylink")]
+        [Summary("装配对账门禁：Logic.Core.csproj 链接范围与 Game.Logic 覆盖一致")]
+        public static CommandResult Execute(GateAssemblyLinkArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.ScriptsRootDirectory)
+                || !Directory.Exists(arguments.ScriptsRootDirectory))
+            {
+                return CommandResult.Failure(
+                    $"位置：{arguments.ScriptsRootDirectory}；原因：业务代码根目录不存在；" +
+                    "修复：把 ScriptsRootDirectory 指向 Assets/Game/Scripts；" +
+                    "参考：UnityProject/Assets/Game/Scripts");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.ProjectFilePath) || !File.Exists(arguments.ProjectFilePath))
+            {
+                return CommandResult.Failure(
+                    $"位置：{arguments.ProjectFilePath}；原因：工程文件不存在；" +
+                    "修复：把 ProjectFilePath 指向 Logic.Core.csproj；" +
+                    "参考：Solutions/Logic.Core/Logic.Core.csproj");
+            }
+
+            var findings = AssemblyLinkScopeChecker.Check(
+                arguments.ProjectFilePath, arguments.ScriptsRootDirectory);
+
+            return GateCommandSupport.ToResult("装配对账门禁", findings);
+        }
+    }
+
     /// <summary>命名与注释规范门禁命令：缩写、公开类型中文摘要、目录命名。</summary>
     public static class GateNamingCommand
     {

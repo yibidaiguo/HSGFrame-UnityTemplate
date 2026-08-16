@@ -35,6 +35,20 @@ namespace Template.Toolkit.Scaffold
 
         private static readonly byte[] Utf8Bom = { 0xEF, 0xBB, 0xBF };
 
+        /// <summary>试验区目录名，与 .gitignore 里那条忽略规则、下划线豁免白名单三处一致。</summary>
+        public const string ScratchDirectoryName = "_Scratch";
+
+        /// <summary>试验区说明的模板文件名，住在 Tools/Scaffold/Templates/ 下。</summary>
+        public const string ScratchNoticeTemplateName = "试验区说明.md";
+
+        private static readonly Regex MirrorNamesPattern = new Regex(
+            @"\$mirrorNames\s*=\s*@\(([^)]*)\)", RegexOptions.Compiled);
+
+        private static readonly Regex MirrorHeaderPattern = new Regex(
+            "\\$mirrorHeader\\s*=\\s*\"([^\"]*)\"", RegexOptions.Compiled);
+
+        private static readonly Regex QuotedNamePattern = new Regex(@"'([^']+)'", RegexOptions.Compiled);
+
         /// <summary>
         /// 模板自身的根命名空间。生成新项目时按项目名整体替换掉它。
         /// 公开出来是给测试用的：测试要拿它当「被测的模板身份」，写死字面量的话，
@@ -108,6 +122,11 @@ namespace Template.Toolkit.Scaffold
             RewriteGateWhitelist(targetPath, options.ProjectName);
             WriteHostGateConfiguration(targetPath, options.ProjectName);
             AppendTemplateNotice(targetPath, options.TemplateRoot, options.ProjectName);
+
+            // 入口镜像必须在追加模板说明**之后**再同步：那一步刚改过 CLAUDE.md，
+            // 而 AGENTS.md 是照着复制过来的旧内容，不重出一次新项目第一次跑门禁就红在第十道。
+            SyncAgentEntryMirrors(targetPath);
+            WriteScratchArea(targetPath);
             RebuildTestBaseline(targetPath);
 
             return ProjectCreationResult.Success(targetPath, copiedFileCount, $"已生成新项目到 {targetPath}");
@@ -190,6 +209,48 @@ namespace Template.Toolkit.Scaffold
 
         // 生成时改写了测试文件的内容（命名空间跟着项目名换），模板那份基线的哈希就对不上了。
         // 不在这里重建，新项目第一次跑门禁必然红——而阶段 14 的验收正是「新项目里门禁全绿」。
+        // 替新项目先跑一次 Agent 入口镜像同步（R9 那一道查的东西）。
+        // 镜像清单与表头都从新项目自己那份 agent-sync.ps1 里读回来——脚本才是单一事实源，
+        // 在这里再抄一份清单，将来往脚本加一个模型入口就会两边分叉。
+        private static void SyncAgentEntryMirrors(string targetRoot)
+        {
+            var scriptPath = Path.Combine(targetRoot, "Tools", "AgentSync", "agent-sync.ps1");
+            var sourcePath = Path.Combine(targetRoot, "CLAUDE.md");
+            if (!File.Exists(scriptPath) || !File.Exists(sourcePath))
+            {
+                return;
+            }
+
+            var script = ReadUtf8Text(scriptPath);
+            var namesMatch = MirrorNamesPattern.Match(script);
+            var headerMatch = MirrorHeaderPattern.Match(script);
+            if (!namesMatch.Success || !headerMatch.Success)
+            {
+                return;
+            }
+
+            var expectedContent = headerMatch.Groups[1].Value + "\n\n" + ReadUtf8Text(sourcePath);
+            foreach (Match nameMatch in QuotedNamePattern.Matches(namesMatch.Groups[1].Value))
+            {
+                WriteUtf8(Path.Combine(targetRoot, nameMatch.Groups[1].Value), expectedContent, hasBom: false);
+            }
+        }
+
+        // 铺试验区：目录本身与那份说明。忽略规则已经在随树复制过来的 .gitignore 里，
+        // 这里只补说明文件——没有说明的空目录 git 根本留不住，规矩也就随着丢了。
+        private static void WriteScratchArea(string targetRoot)
+        {
+            var noticePath = Path.Combine(targetRoot, "Tools", "Scaffold", "Templates", ScratchNoticeTemplateName);
+            if (!File.Exists(noticePath))
+            {
+                return;
+            }
+
+            var scratchDirectory = Path.Combine(targetRoot, ScratchDirectoryName);
+            Directory.CreateDirectory(scratchDirectory);
+            WriteUtf8(Path.Combine(scratchDirectory, "说明.md"), ReadUtf8Text(noticePath), hasBom: false);
+        }
+
         private static void RebuildTestBaseline(string targetRoot)
         {
             var configurationPath = Path.Combine(targetRoot, "Tools", "Gates", "Config", "gate-config.json");

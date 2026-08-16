@@ -54,6 +54,17 @@ namespace Template.Toolkit.Gates
         /// </summary>
         public IReadOnlyList<string> ModuleBoundaryExemptPaths { get; set; }
 
+        /// <summary>
+        /// 豁免业务层裸日志检查的路径前缀，相对 <c>Assets/Game/Scripts</c>、用正斜杠。
+        /// 里面**永久**该有一条：日志落点自己（`View/UnityConsoleLogSink.cs`）——
+        /// 它就是那个把 <c>HSGFrame.Logging</c> 转到 Unity 控制台的适配器，不许它调 Debug 等于不许它存在。
+        /// 除此之外的条目都是欠账，改一处删一条。
+        /// </summary>
+        public IReadOnlyList<string> BusinessLogExemptPaths { get; set; }
+
+        /// <summary>加载分组为「常驻」的目录字节总预算；≤0 表示不查（R6）。</summary>
+        public long ResidentBudgetBytes { get; set; }
+
         /// <summary>测试源文件的 glob 模式。</summary>
         public IReadOnlyList<string> TestFileGlobs { get; set; }
 

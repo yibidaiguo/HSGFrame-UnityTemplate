@@ -36,6 +36,10 @@ namespace Template.Toolkit.AssetPipeline
         [JsonPropertyName("最大文件字节")]
         public long MaximumFileBytes { get; set; }
 
+        /// <summary>这个目录的贴图进哪张图集，例如「SA_Inventory」；只给 UI 贴图目录写，其余留空。</summary>
+        [JsonPropertyName("图集")]
+        public string Atlas { get; set; }
+
         /// <summary>从「导入规则.json」读回一条导入规则。</summary>
         /// <param name="path">规则文件路径。</param>
         public static AssetImportRule LoadFromFile(string path)
