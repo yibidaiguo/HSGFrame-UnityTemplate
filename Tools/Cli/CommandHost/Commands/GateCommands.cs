@@ -234,6 +234,43 @@ namespace Template.Toolkit.CommandHost.Commands
         }
     }
 
+    /// <summary>可选功能引用范围门禁命令的参数。</summary>
+    public sealed class GateFeatureScopeArguments
+    {
+        /// <summary>模板根目录，扫描全部 asmdef 的起点。</summary>
+        [Summary("模板根目录，扫描全部 asmdef 的起点")]
+        public string TemplateRoot { get; set; }
+
+        /// <summary>门禁配置文件路径，默认取仓库内的 gate-config.json。</summary>
+        [Summary("门禁配置文件路径，默认取仓库内的 gate-config.json")]
+        [DefaultValue("Tools/Gates/Config/gate-config.json")]
+        public string ConfigurationPath { get; set; }
+    }
+
+    /// <summary>可选功能引用范围门禁命令：常驻程序集不得引用可选功能包内的程序集。</summary>
+    public static class GateFeatureScopeCommand
+    {
+        /// <summary>
+        /// 跑可选功能引用范围检查，返回结构化发现列表。
+        /// </summary>
+        /// <param name="arguments">可选功能引用范围门禁参数。</param>
+        [EditorCommand("gate.featurescope")]
+        [Summary("可选功能引用范围：常驻程序集不得引用可选功能包内的程序集")]
+        public static CommandResult Execute(GateFeatureScopeArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.TemplateRoot))
+            {
+                return CommandResult.Failure("参数 TemplateRoot 为必填项");
+            }
+
+            var configurationPath = GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, arguments.TemplateRoot);
+            var configuration = GateConfiguration.LoadFromFile(configurationPath);
+            var findings = OptionalFeatureScopeChecker.Check(arguments.TemplateRoot, configuration);
+
+            return GateCommandSupport.ToResult("可选功能引用范围", findings);
+        }
+    }
+
     /// <summary>命名与注释规范门禁命令：缩写、公开类型中文摘要、目录命名。</summary>
     public static class GateNamingCommand
     {

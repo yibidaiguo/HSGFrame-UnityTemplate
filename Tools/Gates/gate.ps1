@@ -1,5 +1,5 @@
 ﻿<#
-  门禁总编排：按由快到慢的顺序跑完十二道检查，任何一道红就地停下。
+  门禁总编排：按由快到慢的顺序跑完十三道检查，任何一道红就地停下。
 
   用法：
     .\gate.ps1 [-RepositoryRoot <仓库根目录>]
@@ -85,6 +85,11 @@ if ((Invoke-GateCommand -CommandName 'gate.businesslog' -CommandArguments @{ Scr
 Write-GateHeader '装配对账'
 if ((Invoke-GateCommand -CommandName 'gate.assemblylink' -CommandArguments @{ ProjectFilePath = (Join-Path $templateRoot 'Solutions/Logic.Core/Logic.Core.csproj'); ScriptsRootDirectory = (Join-Path $templateRoot 'UnityProject/Assets/Game/Scripts') }) -ne 0) {
     $failedGateNames += '装配对账'
+}
+
+Write-GateHeader '可选功能引用范围'
+if ((Invoke-GateCommand -CommandName 'gate.featurescope' -CommandArguments @{ TemplateRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
+    $failedGateNames += '可选功能引用范围'
 }
 
 Write-GateHeader '通用性检查'
@@ -206,5 +211,5 @@ if ($failedGateNames.Count -gt 0) {
     exit 1
 }
 
-Write-Host '[gate] PASS —— 十二道门禁全绿'
+Write-Host '[gate] PASS —— 十三道门禁全绿'
 exit 0

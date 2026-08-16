@@ -79,6 +79,12 @@ namespace Template.Toolkit.Gates
         /// <summary>通用性检查的整文件豁免：按仓库相对路径前缀豁免的文件。</summary>
         public IReadOnlyList<string> GenericNameExemptPaths { get; set; }
 
+        /// <summary>
+        /// 可选功能的引用范围规则。声明为可选功能的那批程序集，只有该功能包目录内的 asmdef 才许引用——
+        /// 包外冒出一处引用，这个功能就摘不干净了，而这种耦合不盯着就会自己长回来。
+        /// </summary>
+        public IReadOnlyList<OptionalFeatureScope> OptionalFeatureScopes { get; set; }
+
         /// <summary>宿主专属配置的文件名，与 gate-config.json 同目录。</summary>
         public const string HostConfigurationFileName = "gate-config.host.json";
 

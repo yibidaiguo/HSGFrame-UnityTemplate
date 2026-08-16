@@ -58,5 +58,13 @@
     "Solutions/Gates.Tests/",
     "Solutions/Toolkit.Tests/"
   ],
+  "_optionalFeatureScopes说明": "可选功能的引用范围：列在这里的程序集前缀只有对应包目录内的 asmdef 才许引用。热更这条是它存在的原因——把 HybridCLR 与热更程序集关进 com.hsgframe.hotfix 之后，没有这道门禁，半年内一定会有人图省事又从常驻代码里引一次，那时「删热更 = 删一个包目录」就不成立了。",
+  "optionalFeatureScopes": [
+    {
+      "featureName": "hotfix",
+      "packageDirectory": "Packages/com.hsgframe.hotfix",
+      "referencePrefixes": [ "HSGFrame.Hotfix", "HybridCLR" ]
+    }
+  ],
   "playerBuildEntryMethod": "Template.Toolkit.Editor.PlayerBuildCommandLine.BuildWindows"
 }
