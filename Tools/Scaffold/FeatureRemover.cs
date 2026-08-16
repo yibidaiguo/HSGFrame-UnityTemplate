@@ -88,6 +88,14 @@ namespace Template.Toolkit.Scaffold
                 Directory.Delete(fullPath, recursive: true);
                 changed.Add($"删除目录：{relativePath}");
 
+                // Assets/ 下的目录各自带一个同名 .meta，留着它 Unity 下次打开会报孤儿元文件。
+                var directoryMetaPath = fullPath + ".meta";
+                if (File.Exists(directoryMetaPath))
+                {
+                    File.Delete(directoryMetaPath);
+                    changed.Add($"删除文件：{relativePath}.meta");
+                }
+
                 // 父目录因此空掉时一并收走：Tools/SourceGenerators/ 这类只为一个功能存在的中间层，
                 // 留一个空壳在树里只会让人以为还有别的东西。
                 var parent = Path.GetDirectoryName(fullPath);

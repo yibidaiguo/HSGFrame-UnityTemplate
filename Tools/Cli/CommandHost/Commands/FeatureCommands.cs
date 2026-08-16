@@ -24,6 +24,11 @@ namespace Template.Toolkit.CommandHost.Commands
         private const string RebuildNotice =
             "知会：命令宿主的 bin/ 里还留着上一轮编出来的可选工程 dll，重新 dotnet build 之后它带的命令才会从 list 里消失";
 
+        // 不在仓库里的本地大件不归这条命令删——悄悄清掉别人机器上几百 MB 的东西太过分了。
+        private const string LocalLeftoverNotice =
+            "知会：热更留在本地的 UnityProject/HybridCLRData/（约 800 MB 的 il2cpp 数据，gitignore 掉、不在仓库里）没有动，" +
+            "确认不再需要可以自己删；门禁配置里对应的扫描跳过项因此也保留着";
+
         /// <summary>
         /// 摘掉一个可选功能：删包与工程、摘 manifest 与解决方案条目、清门禁配置、摘文档标记段。
         /// </summary>
@@ -38,7 +43,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure(result.Message);
             }
 
-            var lines = new List<string>(result.ChangedPaths) { RebuildNotice };
+            var lines = new List<string>(result.ChangedPaths) { RebuildNotice, LocalLeftoverNotice };
             return CommandResult.Success(result.Message, lines);
         }
     }

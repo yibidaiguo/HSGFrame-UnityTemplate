@@ -47,12 +47,18 @@ namespace Template.Toolkit.Scaffold
                         "Tools/Hotfix",
                         "Tools/SourceGenerators/HotfixProbe",
                         "Solutions/Hotfix.Tests",
+                        "UnityProject/Assets/HybridCLRGenerate",
                     },
                     Files = new[] { "UnityProject/ProjectSettings/HybridCLRSettings.asset" },
                     UnityPackageKeys = new[] { "com.hsgframe.hotfix", "com.code-philosophy.hybridclr" },
                     SolutionProjectNames = new[] { "Hotfix", "Hotfix.Tests", "HotfixProbeGenerator" },
                     TestBaselinePathPrefixes = new[] { "Solutions/Hotfix.Tests/" },
-                    SourceScanSkipSegments = new[] { "HybridCLRData", "HybridCLRGenerate" },
+
+                    // 只摘 HybridCLRGenerate，HybridCLRData 那条**刻意留着**：
+                    // 前者是进仓库的生成物，跟着上面的目录一起删掉了；后者是 800 MB 的本地 il2cpp 数据，
+                    // gitignore 掉、不在仓库里，这条命令不该悄悄删掉别人机器上的它。
+                    // 它还躺在盘上而跳过项被摘掉的话，命名门禁会去扫那 800 MB 第三方源码，当场红一片——真踩过。
+                    SourceScanSkipSegments = new[] { "HybridCLRGenerate" },
                     DocumentMarkerName = "hotfix",
                 },
             };

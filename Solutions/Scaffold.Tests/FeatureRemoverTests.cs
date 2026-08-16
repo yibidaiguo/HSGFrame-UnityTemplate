@@ -30,6 +30,18 @@ namespace Template.Toolkit.Scaffold.Tests
             Assert.False(File.Exists(Path.Combine(root, "UnityProject", "ProjectSettings", "HybridCLRSettings.asset.meta")));
         }
 
+        /// <summary>进仓库的生成物目录连同它的目录 .meta 一起删；本地那 800 MB 不归这条命令管。</summary>
+        [Fact]
+        public void TrackedGeneratedDirectoryIsDeletedWithItsFolderMeta()
+        {
+            var root = CreateTree();
+
+            FeatureRemover.Remove(root, "hotfix");
+
+            Assert.False(Directory.Exists(Path.Combine(root, "UnityProject", "Assets", "HybridCLRGenerate")));
+            Assert.False(File.Exists(Path.Combine(root, "UnityProject", "Assets", "HybridCLRGenerate.meta")));
+        }
+
         /// <summary>只为这个功能存在的中间目录空掉之后一并收走。</summary>
         [Fact]
         public void EmptyParentDirectoryIsAlsoRemoved()
@@ -121,14 +133,15 @@ namespace Template.Toolkit.Scaffold.Tests
             FeatureRemover.Remove(root, "hotfix");
 
             var text = File.ReadAllText(Path.Combine(root, "Tools", "Gates", "Config", "gate-config.json"));
-            Assert.DoesNotContain("HybridCLRData", text);
             Assert.DoesNotContain("HybridCLRGenerate", text);
+            // HybridCLRData 那条刻意留着：本地那 800 MB 不归这条命令删，跳过项摘了门禁就会去扫它。
+            Assert.Contains("HybridCLRData", text);
             Assert.DoesNotContain("featureName", text);
             Assert.Contains("_optionalFeatureScopes说明", text);
             Assert.Contains("PackageCache", text);
             using var document = JsonDocument.Parse(text);
             Assert.Equal(
-                new[] { "PackageCache" },
+                new[] { "HybridCLRData", "PackageCache" },
                 document.RootElement.GetProperty("sourceScanSkipSegments").EnumerateArray().Select(element => element.GetString()));
         }
 
@@ -203,6 +216,8 @@ namespace Template.Toolkit.Scaffold.Tests
             WriteText(root, "Tools/Hotfix/Hotfix.csproj", "<Project />");
             WriteText(root, "Tools/SourceGenerators/HotfixProbe/HotfixProbeGenerator.csproj", "<Project />");
             WriteText(root, "Solutions/Hotfix.Tests/Hotfix.Tests.csproj", "<Project />");
+            WriteText(root, "UnityProject/Assets/HybridCLRGenerate/AOTGenericReferences.cs", "public class AOTGenericReferences {}");
+            WriteText(root, "UnityProject/Assets/HybridCLRGenerate.meta", "folderAsset: yes");
             WriteText(root, "UnityProject/ProjectSettings/HybridCLRSettings.asset", "enable: 1");
             WriteText(root, "UnityProject/ProjectSettings/HybridCLRSettings.asset.meta", "fileFormatVersion: 2");
 
