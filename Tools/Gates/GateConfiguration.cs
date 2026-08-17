@@ -53,8 +53,12 @@ namespace Template.Toolkit.Gates
 
         /// <summary>
         /// 豁免模块边界检查的路径前缀，相对 <c>Assets/Game/Scripts</c>、用正斜杠。
-        /// 这里只挂**欠账**：还没拆干净的越界引用先记在这，拆一处删一条，名单燃尽即边界完全立住。
+        /// 这里挂两种东西：**欠账**（还没拆干净的越界引用，拆一处删一条），
+        /// 以及**结构性例外**——最典型的是装配根：它按定义要构造并接线每一个模块的服务，
+        /// 而 R2 没有「装配根」这个概念，所以它永远拆不干净，条目也永远不会燃尽。
+        /// 两种都写在这里时，请在 host 配置里逐条注明是哪一种，否则下一个人会去拆那条拆不动的。
         /// 工具链那类天然在范围之外的东西不走这里，它写在检查器里。
+        /// **宿主专属**，落在 gate-config.host.json 里——挂在哪几个路径上是宿主的工程结构决定的。
         /// </summary>
         public IReadOnlyList<string> ModuleBoundaryExemptPaths { get; set; }
 
@@ -130,6 +134,15 @@ namespace Template.Toolkit.Gates
             if (hostConfiguration.DocumentExemptions != null)
             {
                 configuration.DocumentExemptions = hostConfiguration.DocumentExemptions;
+            }
+
+            // R2 的豁免清单也归宿主：越界引用挂在哪几个路径上，是宿主自己的工程结构决定的。
+            // 锁在通用配置里的后果是宿主只能改模板文件——每次合并都平白起冲突，
+            // 而且模板会因此记住宿主有哪些目录（G5）。装配根这类**结构性**的例外尤其如此：
+            // 它按定义要碰每个模块的服务，而 R2 没有「装配根」这个概念。
+            if (hostConfiguration.ModuleBoundaryExemptPaths != null)
+            {
+                configuration.ModuleBoundaryExemptPaths = hostConfiguration.ModuleBoundaryExemptPaths;
             }
 
             return configuration;
