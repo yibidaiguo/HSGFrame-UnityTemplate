@@ -5,6 +5,7 @@ using NUnit.Framework;
 
 namespace Template.Tests.GraphAuthoring.EditMode
 {
+    /// <summary>在真 Unity 里锁定兼容投影与正式资产创作门面的边界。</summary>
     public class GraphAuthoringBoundaryTests
     {
         [Test]

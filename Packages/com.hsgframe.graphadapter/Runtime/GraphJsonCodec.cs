@@ -10,10 +10,7 @@ namespace HSGFrame.GraphAdapter
     /// 新的人工和 AI 创作代码应在 Editor 程序集中直接使用
     /// NodeEditor.EditorUI.GraphAuthoringAssetAccess，让 NodeGraphAsset/BlackboardAsset 保持唯一事实源。
     /// </remarks>
-    [Obsolete(
-        "GraphJsonCodec is a lossy compatibility projection, not an authoring API. " +
-        "Use NodeEditor.EditorUI.GraphAuthoringAssetAccess with NodeGraphAsset/BlackboardAsset as the sole source.",
-        false)]
+    [Obsolete("GraphJsonCodec is a lossy compatibility projection, not an authoring API. Use NodeEditor.EditorUI.GraphAuthoringAssetAccess with NodeGraphAsset/BlackboardAsset as the sole source.", false)]
     public static class GraphJsonCodec
     {
         // Encoder 用 UnsafeRelaxedJsonEscaping 让中文键与中文值原样输出，不转义成 \uXXXX。
