@@ -4,6 +4,8 @@ using System.IO;
 using HSGFrame.GraphAdapter;
 using Xunit;
 
+#pragma warning disable CS0618 // 本文件刻意回归测试已废弃的兼容 JSON 入口。
+
 namespace HSGFrame.GraphAdapter.Tests
 {
     /// <summary>图 JSON 往返与最小执行器的测试。</summary>
@@ -126,3 +128,5 @@ namespace HSGFrame.GraphAdapter.Tests
         }
     }
 }
+
+#pragma warning restore CS0618

@@ -5,6 +5,8 @@ using System.Linq;
 using HSGFrame.GraphAdapter;
 using Xunit;
 
+#pragma warning disable CS0618 // 本文件刻意用旧 JSON 夹具做迁移期执行器对拍。
+
 namespace HSGFrame.GraphAdapter.Tests
 {
     /// <summary>真执行器与自带最小执行器的对拍，以及翻译层与真执行器自身的边界测试。</summary>
@@ -236,3 +238,5 @@ namespace HSGFrame.GraphAdapter.Tests
         }
     }
 }
+
+#pragma warning restore CS0618

@@ -1,0 +1,15 @@
+{
+  "name": "GraphAuthoringBoundary.Tests.EditMode",
+  "rootNamespace": "Template.Tests.GraphAuthoring.EditMode",
+  "references": [
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner",
+    "HSGFrame.GraphAdapter",
+    "NodeEditor.Editor"
+  ],
+  "includePlatforms": ["Editor"],
+  "precompiledReferences": ["nunit.framework.dll"],
+  "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+  "overrideReferences": true,
+  "autoReferenced": false
+}
