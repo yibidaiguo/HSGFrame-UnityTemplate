@@ -16,7 +16,10 @@
   "abbreviationExemptIdentifiers": [
     "paramName",
     "ParamOverride",
-    "parameterOverrides"
+    "parameterOverrides",
+    "ParamResolver",
+    "ParamDef",
+    "GraphAuthoringParam"
   ],
   "directoryNameBlacklist": [
     "misc",
