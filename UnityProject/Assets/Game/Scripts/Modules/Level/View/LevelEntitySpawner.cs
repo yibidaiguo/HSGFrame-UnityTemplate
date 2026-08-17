@@ -77,6 +77,22 @@ namespace Template.Level.View
                 FindObjectsInactive.Include,
                 FindObjectsSortMode.None);
 
+            // 没有标记就没有要装配的东西——启动场景就是这种情况。提前返回，
+            // 免得为一个本来就没活干的场景去问资源系统要包裹。
+            if (markers.Length == 0)
+            {
+                yield break;
+            }
+
+            // YooAssets 没初始化时 TryGetPackage 直接抛，不是返回 false。本组件挂在 sceneLoaded 上，
+            // 而 sceneLoaded 对启动场景自己也会触发一次——那一刻启动装配还没跑到初始化资源系统那步，
+            // 于是每次进 Play 都先吐一个红异常。判一下 IsInitialized，把它降成一条能看懂的错误。
+            if (!YooAssets.IsInitialized)
+            {
+                Logger.Error($"位置：LevelEntitySpawner；原因：资源系统还没初始化，装配不了 {markers.Length} 个关卡实体；修复：确认关卡场景是在启动装配跑完之后才加载的；参考：Assets/Game/Scripts/Boot/GameBootstrap.cs");
+                yield break;
+            }
+
             var package = YooAssets.TryGetPackage(_packageName, out var existing)
                 ? existing
                 : null;
