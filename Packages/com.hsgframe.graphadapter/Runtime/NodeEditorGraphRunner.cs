@@ -6,7 +6,7 @@ using NodeEditor;
 
 namespace HSGFrame.GraphAdapter
 {
-    /// <summary>用 NodeGraph 的控制流执行器跑一张图，产出与自带最小执行器同形状的结果。</summary>
+    /// <summary>用 NodeGraph 运行时执行旧兼容投影，供迁移期对拍。</summary>
     public static class NodeEditorGraphRunner
     {
         /// <summary>执行一张图，返回与 GraphExecutor.Run 同形状的结果。</summary>

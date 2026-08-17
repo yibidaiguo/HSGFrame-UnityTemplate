@@ -1,10 +1,19 @@
+using System;
 using System.IO;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace HSGFrame.GraphAdapter
 {
-    /// <summary>图文档 JSON 的读写：序列化、反序列化与文件往返。</summary>
+    /// <summary>旧运行时兼容投影的 JSON 编解码，不得用于创作节点图。</summary>
+    /// <remarks>
+    /// 新的人工和 AI 创作代码应在 Editor 程序集中直接使用
+    /// NodeEditor.EditorUI.GraphAuthoringAssetAccess，让 NodeGraphAsset/BlackboardAsset 保持唯一事实源。
+    /// </remarks>
+    [Obsolete(
+        "GraphJsonCodec is a lossy compatibility projection, not an authoring API. " +
+        "Use NodeEditor.EditorUI.GraphAuthoringAssetAccess with NodeGraphAsset/BlackboardAsset as the sole source.",
+        false)]
     public static class GraphJsonCodec
     {
         // Encoder 用 UnsafeRelaxedJsonEscaping 让中文键与中文值原样输出，不转义成 \uXXXX。

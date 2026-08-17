@@ -4,7 +4,7 @@ using NodeEditor;
 
 namespace HSGFrame.GraphAdapter
 {
-    /// <summary>把模板的图镜像翻译成 NodeGraph 运行时要的图、节点定义表与黑板声明。</summary>
+    /// <summary>把旧兼容投影翻译成 NodeGraph 运行时输入；不参与资产创作或写回。</summary>
     public static class NodeEditorGraphTranslator
     {
         /// <summary>设置变量节点的类型名。</summary>
@@ -30,7 +30,7 @@ namespace HSGFrame.GraphAdapter
         /// <summary>节点类型名到上游节点种类的映射：设置变量→Action、分支→Condition、结束→End。</summary>
         public static IReadOnlyDictionary<string, string> NodeKindByNodeType => _nodeKindByNodeType;
 
-        /// <summary>把一份镜像文档翻译成上游的图、定义表与黑板声明，翻译不了的地方抛 GraphTranslationException。</summary>
+        /// <summary>把一份旧兼容投影翻译成上游运行时输入，翻译不了的地方抛 GraphTranslationException。</summary>
         public static NodeEditorGraphBundle Translate(GraphDocument document)
         {
             var graph = new GraphData

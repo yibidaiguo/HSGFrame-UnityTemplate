@@ -3,11 +3,11 @@ using System.Text.Json.Serialization;
 
 namespace HSGFrame.GraphAdapter
 {
-    /// <summary>一张节点图的镜像文档，英文键与对方执行器的公开形状对齐。</summary>
+    /// <summary>旧运行时与测试使用的有损兼容投影，不是节点图创作模型。</summary>
     /// <remarks>
-    /// 键名一半英文一半中文是刻意的：graphId / module / instances / entryInstanceIds 这些英文键
-    /// 是与对方 Runtime 对齐的跨仓库接口，而中文键（节点类型名、参数名、端口名）是本项目的数据内容。
-    /// 将来换成真执行器时，本镜像格式不用改。
+    /// 此类型无法表达完整 Unit、黑板层级、编辑器布局、稳定 authoringKey 与修订向量。
+    /// 人工和 AI 创作都必须通过 NodeEditor.EditorUI.GraphAuthoringAssetAccess 读写
+    /// NodeGraphAsset/BlackboardAsset；本类型只保留给旧样例与执行器对拍。
     /// </remarks>
     public sealed class GraphDocument
     {

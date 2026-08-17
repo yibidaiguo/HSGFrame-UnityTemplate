@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace HSGFrame.GraphAdapter
 {
-    /// <summary>最小图执行器：按节点类型逐节点推进，产出可断言的结果。</summary>
+    /// <summary>旧兼容投影的最小执行器：用于回归测试，不是资产创作入口。</summary>
     public static class GraphExecutor
     {
         /// <summary>执行一张图，从入口节点开始逐节点推进直到结束或失败。</summary>

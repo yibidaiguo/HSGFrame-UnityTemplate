@@ -1,8 +1,12 @@
 {
   "name": "com.hsgframe.graphadapter",
-  "version": "0.1.0",
-  "displayName": "节点图适配层",
-  "description": "自带最小执行器的节点图 JSON 镜像适配层，图 JSON 读入可执行、结果可断言。",
+  "version": "0.1.1",
+  "displayName": "节点图兼容适配层",
+  "description": "旧节点图 JSON 的运行时兼容投影与执行对拍；NodeGraphAsset/BlackboardAsset 才是唯一创作源。",
   "unity": "6000.3",
+  "dependencies": {
+    "com.graphtest.dialogue": "0.1.8",
+    "com.graphtest.nodeeditor": "0.1.8"
+  },
   "author": { "name": "HSGhost" }
 }

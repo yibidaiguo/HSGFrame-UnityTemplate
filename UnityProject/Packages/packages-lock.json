@@ -25,22 +25,24 @@
       "hash": "4ce7dd3cc54e37e2ed6dc59cb5a047f3dccb3f50"
     },
     "com.graphtest.dialogue": {
-      "version": "https://github.com/yibidaiguo/NodeGraph.git?path=/Packages/com.graphtest.dialogue#v0.1.6",
+      "version": "https://github.com/yibidaiguo/NodeGraph.git?path=/Packages/com.graphtest.dialogue#v0.1.8",
       "depth": 0,
       "source": "git",
       "dependencies": {
-        "com.graphtest.nodeeditor": "0.1.6",
+        "com.graphtest.nodeeditor": "0.1.8",
         "com.unity.modules.audio": "1.0.0",
         "com.unity.modules.imgui": "1.0.0"
       },
-      "hash": "487458eb5cc2914a7645c8bbcaa2259fca20aba2"
+      "hash": "9c956248592abfa364d299aa3d6c5c9978f0847e"
     },
     "com.graphtest.nodeeditor": {
-      "version": "https://github.com/yibidaiguo/NodeGraph.git?path=/Packages/com.graphtest.nodeeditor#v0.1.6",
+      "version": "https://github.com/yibidaiguo/NodeGraph.git?path=/Packages/com.graphtest.nodeeditor#v0.1.8",
       "depth": 0,
       "source": "git",
-      "dependencies": {},
-      "hash": "487458eb5cc2914a7645c8bbcaa2259fca20aba2"
+      "dependencies": {
+        "com.unity.nuget.newtonsoft-json": "3.0.2"
+      },
+      "hash": "9c956248592abfa364d299aa3d6c5c9978f0847e"
     },
     "com.hsgframe.audio": {
       "version": "file:../../Packages/com.hsgframe.audio",
@@ -58,7 +60,10 @@
       "version": "file:../../Packages/com.hsgframe.graphadapter",
       "depth": 0,
       "source": "local",
-      "dependencies": {}
+      "dependencies": {
+        "com.graphtest.dialogue": "0.1.8",
+        "com.graphtest.nodeeditor": "0.1.8"
+      }
     },
     "com.hsgframe.hotfix": {
       "version": "file:../../Packages/com.hsgframe.hotfix",
