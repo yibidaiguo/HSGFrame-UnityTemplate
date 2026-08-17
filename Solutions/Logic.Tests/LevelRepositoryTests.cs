@@ -227,9 +227,12 @@ namespace Template.Tests
             }
         }
 
+        // 夹具住测试工程自己，不指仓库根的 Levels/村庄。那里是**活内容**：
+        // 宿主项目按自己的游戏改关卡是本分事，而这些断言把示例的摆放数量与实体编号钉死了——
+        // 宿主一改内容，模板自带的测试就红，红得跟他的改动毫无关系，还只能靠改模板文件收场。
         private static string VillageDirectory()
         {
-            return Path.Combine(FindTemplateRoot(), "Levels", "村庄");
+            return Path.Combine(FindTemplateRoot(), "Solutions", "Logic.Tests", "TestData", "村庄");
         }
 
         private static string CreateTempDirectory()
