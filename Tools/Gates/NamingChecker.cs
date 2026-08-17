@@ -84,19 +84,17 @@ namespace Template.Toolkit.Gates
         {
             var findings = new List<GateFinding>();
             var lines = File.ReadAllLines(filePath);
-            var inBlockComment = false;
-            var inVerbatimString = false;
+            var codeLines = StripNonCode(lines);
 
             for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++)
             {
                 var lineNumber = lineIndex + 1;
-                var line = lines[lineIndex];
+                var code = codeLines[lineIndex];
 
-                var code = StripNonCode(line, ref inBlockComment, ref inVerbatimString);
                 findings.AddRange(CheckAbbreviations(filePath, lineNumber, code, configuration));
                 findings.AddRange(CheckChineseIdentifiers(filePath, lineNumber, code));
 
-                if (PublicTypePattern.IsMatch(code) && !HasChineseSummary(lines, lineIndex))
+                if (PublicTypePattern.IsMatch(code) && !HasChineseSummary(lines, codeLines, lineIndex))
                 {
                     findings.Add(new GateFinding(
                         $"{filePath}:{lineNumber}",
@@ -199,15 +197,28 @@ namespace Template.Toolkit.Gates
             }
         }
 
-        private static bool HasChineseSummary(string[] lines, int declarationIndex)
+        private static bool HasChineseSummary(string[] lines, string[] codeLines, int declarationIndex)
         {
             var index = declarationIndex - 1;
 
-            // 声明行之上可能隔着空行与特性行（[AttributeUsage] 之类），摘要在它们再上面。
-            while (index >= 0
-                && (string.IsNullOrWhiteSpace(lines[index]) || lines[index].TrimStart().StartsWith("[", StringComparison.Ordinal)))
+            // 声明行之上可能隔着空行与特性块（[AttributeUsage] 之类），摘要在它们再上面。
+            // 特性能写成多行，末行长这样：`        false)]`——它不以 [ 开头，所以不能逐行看开头，
+            // 得按方括号配对整块往回跳，否则回扫停在末行上，摘要明明在也会被报成缺失。
+            while (index >= 0)
             {
-                index--;
+                if (string.IsNullOrWhiteSpace(lines[index]))
+                {
+                    index--;
+                    continue;
+                }
+
+                var attributeStartIndex = FindAttributeBlockStart(codeLines, index);
+                if (attributeStartIndex < 0)
+                {
+                    break;
+                }
+
+                index = attributeStartIndex - 1;
             }
 
             if (index < 0 || !lines[index].TrimStart().StartsWith("///", StringComparison.Ordinal))
@@ -227,6 +238,70 @@ namespace Template.Toolkit.Gates
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// 若 <paramref name="endIndex"/> 行是一个独立成行的特性块的末行，返回该块起始行下标，否则返回 -1。
+        /// </summary>
+        /// <remarks>
+        /// 输入是 StripNonCode 之后的代码行，所以字符串字面量里的方括号已经被抹成空格，
+        /// 不会把配对计数带偏——`[Obsolete("参见 Foo[0]")]` 这种写法照样算得准。
+        /// </remarks>
+        /// <param name="codeLines">StripNonCode 之后的整份源码行。</param>
+        /// <param name="endIndex">要判定的行下标。</param>
+        private static int FindAttributeBlockStart(string[] codeLines, int endIndex)
+        {
+            // 特性块必须以 ']' 收尾。不先卡这一下的话，注释行（整行被抹成空格）会让
+            // 下面的扫描一路穿到更上面去，把某个无关的 ']' 认成本块的末尾。
+            if (!codeLines[endIndex].TrimEnd().EndsWith("]", StringComparison.Ordinal))
+            {
+                return -1;
+            }
+
+            var depth = 0;
+            for (var index = endIndex; index >= 0; index--)
+            {
+                var line = codeLines[index];
+                for (var column = line.Length - 1; column >= 0; column--)
+                {
+                    var current = line[column];
+                    if (current == ']')
+                    {
+                        depth++;
+                        continue;
+                    }
+
+                    if (current != '[')
+                    {
+                        continue;
+                    }
+
+                    depth--;
+                    if (depth > 0)
+                    {
+                        continue;
+                    }
+
+                    // 配平的那个 '[' 之前只许有空白，否则这是索引器或数组下标，不是特性。
+                    return line.Substring(0, column).Trim().Length == 0 ? index : -1;
+                }
+            }
+
+            return -1;
+        }
+
+        private static string[] StripNonCode(string[] lines)
+        {
+            var codeLines = new string[lines.Length];
+            var inBlockComment = false;
+            var inVerbatimString = false;
+
+            for (var index = 0; index < lines.Length; index++)
+            {
+                codeLines[index] = StripNonCode(lines[index], ref inBlockComment, ref inVerbatimString);
+            }
+
+            return codeLines;
         }
 
         private static IReadOnlyList<GateFinding> CheckDirectoryNames(string filePath, GateConfiguration configuration)
