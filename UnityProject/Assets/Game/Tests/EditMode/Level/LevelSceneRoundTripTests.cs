@@ -28,7 +28,10 @@ namespace Template.Level.Tests.EditMode
             _templateRoot = TemplateRootLocator.Find();
             Assert.IsNotNull(_templateRoot, "找不到模板根：未定位到 Tools/Gates/Config/gate-config.json，关卡往返测试无法继续");
 
-            _sourceLevelDirectory = Path.Combine(_templateRoot, "Levels", LevelName);
+            // 夹具住测试工程自己（与纯 dotnet 侧的 LevelRepositoryTests 同一份），不指仓库根的
+            // Levels/村庄。那里是**活内容**：宿主按自己的游戏改关卡是本分事，而下面的断言把
+            // 示例的实体数量与编号钉死了——宿主一换内容这些测试就红，红得跟他的改动毫无关系。
+            _sourceLevelDirectory = Path.Combine(_templateRoot, "Solutions", "Logic.Tests", "TestData", LevelName);
             LevelSceneBuilder.Build(_sourceLevelDirectory, ScenePath);
 
             var sourceLevel = new LevelRepository(_sourceLevelDirectory).LoadLevel();
