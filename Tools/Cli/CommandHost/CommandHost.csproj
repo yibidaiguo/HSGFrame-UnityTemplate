@@ -24,5 +24,6 @@
                       Condition="Exists('$(MSBuildThisFileDirectory)../../Hotfix/Hotfix.csproj')" />
     <ProjectReference Include="../../FileServer/FileServer.csproj" />
     <ProjectReference Include="../../Dashboard/Dashboard.csproj" />
+    <ProjectReference Include="../../CreationPipeline/CreationPipeline.csproj" />
   </ItemGroup>
 </Project>
