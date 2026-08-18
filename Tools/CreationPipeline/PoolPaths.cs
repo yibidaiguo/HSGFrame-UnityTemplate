@@ -70,5 +70,12 @@ namespace Template.Toolkit.CreationPipeline
         {
             return Path.Combine(poolRoot, "Schema", "项目", $"{entityName}.扩展.json");
         }
+
+        /// <summary>已确认待执行的任务队列文件：队列.json。</summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static string QueueFile(string poolRoot)
+        {
+            return Path.Combine(poolRoot, "队列.json");
+        }
     }
 }

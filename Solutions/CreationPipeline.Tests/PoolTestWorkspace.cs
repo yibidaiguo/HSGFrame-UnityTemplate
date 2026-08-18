@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace Template.Toolkit.CreationPipeline.Tests
@@ -23,6 +25,18 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
         /// <summary>本工作区池子的根目录，用完由 Dispose 递归删除。</summary>
         public string Root { get; }
+
+        /// <summary>收件箱目录：Inbox。构造时不预建，由写入方法按需创建。</summary>
+        public string InboxDirectory
+        {
+            get { return PoolPaths.InboxDirectory(Root); }
+        }
+
+        /// <summary>仓库根目录：测试里与池根同一目录，让 _Tasks/_Generated 落在工作区里，Dispose 一并删除。</summary>
+        public string RepositoryRoot
+        {
+            get { return Root; }
+        }
 
         /// <summary>
         /// 把基线 schema JSON 写到 Schema/基线/&lt;实体&gt;.schema.json。
@@ -52,6 +66,32 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void WriteRequirement(string fileName, string json)
         {
             WriteFile(Path.Combine(PoolPaths.RequirementsDirectory(Root), fileName), json);
+        }
+
+        /// <summary>
+        /// 把一段 JSON 文本写入 Inbox 目录的指定文件；目录不存在时先创建。
+        /// </summary>
+        /// <param name="fileName">信封文件名，如「feishu-recABC123-3.json」。</param>
+        /// <param name="json">信封 JSON 内容。</param>
+        public void WriteInbox(string fileName, string json)
+        {
+            var directory = PoolPaths.InboxDirectory(Root);
+            Directory.CreateDirectory(directory);
+            WriteFile(Path.Combine(directory, fileName), json);
+        }
+
+        /// <summary>读取 Requirements 目录下指定文件的全文。</summary>
+        /// <param name="fileName">文件名，如「REQ-0001.json」。</param>
+        public string ReadRequirement(string fileName)
+        {
+            return File.ReadAllText(Path.Combine(PoolPaths.RequirementsDirectory(Root), fileName));
+        }
+
+        /// <summary>Requirements 目录下是否存在指定文件。</summary>
+        /// <param name="fileName">文件名，如「REQ-0001.json」。</param>
+        public bool RequirementExists(string fileName)
+        {
+            return File.Exists(Path.Combine(PoolPaths.RequirementsDirectory(Root), fileName));
         }
 
         /// <summary>
@@ -90,6 +130,92 @@ namespace Template.Toolkit.CreationPipeline.Tests
               }
             }
             """;
+        }
+
+        /// <summary>
+        /// 把成员目录 JSON 写到 &lt;Root&gt;/组织/成员.json，目录不存在先创建。
+        /// </summary>
+        /// <param name="json">成员目录的 JSON 文本。</param>
+        public void WriteMemberDirectory(string json)
+        {
+            var directory = PoolPaths.OrganizationDirectory(Root);
+            Directory.CreateDirectory(directory);
+            WriteFile(Path.Combine(directory, "成员.json"), json);
+        }
+
+        /// <summary>
+        /// 把卡片路由 JSON 写到 &lt;Root&gt;/组织/卡片路由.json，目录不存在先创建。
+        /// </summary>
+        /// <param name="json">卡片路由的 JSON 文本。</param>
+        public void WriteCardRoute(string json)
+        {
+            var directory = PoolPaths.OrganizationDirectory(Root);
+            Directory.CreateDirectory(directory);
+            WriteFile(Path.Combine(directory, "卡片路由.json"), json);
+        }
+
+        /// <summary>
+        /// 把专项 JSON 写到 &lt;Root&gt;/专项/&lt;fileName&gt;，目录不存在先创建。
+        /// </summary>
+        /// <param name="fileName">专项文件名，如「EP-0001.json」。</param>
+        /// <param name="json">专项 JSON 文本。</param>
+        public void WriteEpic(string fileName, string json)
+        {
+            var directory = PoolPaths.EpicsDirectory(Root);
+            Directory.CreateDirectory(directory);
+            WriteFile(Path.Combine(directory, fileName), json);
+        }
+
+        /// <summary>
+        /// 列 &lt;Root&gt;/_Generated/出站/ 下的全部文件全路径；目录不存在返回空列表，结果按序数序排序。
+        /// </summary>
+        public IReadOnlyList<string> ListOutboundFiles()
+        {
+            var directory = PipelinePaths.OutboundDirectory(Root);
+            if (!Directory.Exists(directory))
+            {
+                return Array.Empty<string>();
+            }
+
+            var files = Directory.GetFiles(directory).ToList();
+            files.Sort(StringComparer.Ordinal);
+            return files;
+        }
+
+        /// <summary>
+        /// 把任务状态 JSON 写到 &lt;Root&gt;/_Tasks/&lt;需求id&gt;/状态.json，目录不存在先创建。
+        /// </summary>
+        /// <param name="requirementIdentifier">需求 id，如「REQ-0042」。</param>
+        /// <param name="json">任务状态 JSON 文本。</param>
+        public void WriteTaskState(string requirementIdentifier, string json)
+        {
+            var directory = PipelinePaths.TaskDirectory(Root, requirementIdentifier);
+            Directory.CreateDirectory(directory);
+            WriteFile(PipelinePaths.TaskStateFile(Root, requirementIdentifier), json);
+        }
+
+        /// <summary>
+        /// 把引擎配置 JSON 写到 &lt;Root&gt;/Config/创作管线/引擎.json，目录不存在先创建。
+        /// </summary>
+        /// <param name="json">引擎配置 JSON 文本。</param>
+        public void WriteEngineSettings(string json)
+        {
+            var directory = Path.GetDirectoryName(EngineSettings.SettingsFile(Root));
+            Directory.CreateDirectory(directory);
+            WriteFile(EngineSettings.SettingsFile(Root), json);
+        }
+
+        /// <summary>&lt;Root&gt;/队列.json 是否存在。</summary>
+        public bool QueueFileExists()
+        {
+            return File.Exists(PoolPaths.QueueFile(Root));
+        }
+
+        /// <summary>读取 &lt;Root&gt;/队列.json 全文；文件不存在返回空串。</summary>
+        public string ReadQueueFile()
+        {
+            var path = PoolPaths.QueueFile(Root);
+            return File.Exists(path) ? File.ReadAllText(path) : "";
         }
 
         /// <summary>
