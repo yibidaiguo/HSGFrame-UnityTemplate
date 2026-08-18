@@ -12,6 +12,11 @@
     "UI/",
     "Index/",
     "Memory/",
+    "Doc/",
+    "Pools/",
+    "Bridges/",
+    "_Tasks/",
+    "_Generated/",
     "CLAUDE.md",
     "AGENTS.md",
     "规范/",
@@ -23,6 +28,10 @@
     "Directory.Build.props"
   ],
   "editorOwnedPathPrefixes": [],
+  "_documentExemptions说明": "创作管线总纲是「拆完七份子文档之后剩下的总纲」，它的价值就在于一口气读完整条链路；再按 200 行切一刀只会把总纲切碎。子文档一律不豁免，仍按 200 行管。",
+  "documentExemptions": [
+    "Doc/策划美术工作流接入方案.md"
+  ],
   "genericNameBlacklist": [
     "RPG",
     "RebuiltRPG",
