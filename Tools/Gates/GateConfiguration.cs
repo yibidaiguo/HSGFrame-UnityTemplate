@@ -89,6 +89,18 @@ namespace Template.Toolkit.Gates
         /// </summary>
         public IReadOnlyList<OptionalFeatureScope> OptionalFeatureScopes { get; set; }
 
+        /// <summary>
+        /// 下游边界门禁的豁免：引擎代码里确实要出现 driver 名的地方（面板下游页渲染代码之类）。
+        /// 仓库相对路径，以 / 结尾按目录前缀豁免，否则按整串相等。
+        /// </summary>
+        public IReadOnlyList<string> BridgeBoundaryExemptions { get; set; }
+
+        /// <summary>
+        /// 协作/过程数据的目录名。它们出现在 Unity 资产树里即违规——产品层零协作感知。
+        /// _Generated 刻意不在里面，那是 UI 代码生成的合法落点。
+        /// </summary>
+        public IReadOnlyList<string> CollaborationDirectoryNames { get; set; }
+
         /// <summary>宿主专属配置的文件名，与 gate-config.json 同目录。</summary>
         public const string HostConfigurationFileName = "gate-config.host.json";
 

@@ -1,5 +1,5 @@
 ﻿<#
-  门禁总编排：按由快到慢的顺序跑完十三道检查，任何一道红就地停下。
+  门禁总编排：按由快到慢的顺序跑完全部检查，任何一道红就地停下。
 
   用法：
     .\gate.ps1 [-RepositoryRoot <仓库根目录>]
@@ -160,6 +160,33 @@ if ((Invoke-GateCommand -CommandName 'gate.doc' -CommandArguments @{ RepositoryR
     $failedGateNames += '文档长度'
 }
 
+# 创作管线门禁：池子校验、扩展合法性、供给对账、下游边界、层边界五道。
+# 前两道管池子数据本身，供给对账管产物与数据的一致性，下游/层边界管引擎与产品层的耦合纪律。
+Write-GateHeader '池子校验'
+if ((Invoke-GateCommand -CommandName 'pool.validate' -CommandArguments @{ PoolRoot = (Join-Path $templateRoot 'Pools') }) -ne 0) {
+    $failedGateNames += '池子校验'
+}
+
+Write-GateHeader '扩展合法性'
+if ((Invoke-GateCommand -CommandName 'schema.check' -CommandArguments @{ PoolRoot = (Join-Path $templateRoot 'Pools'); EntityName = '需求' }) -ne 0) {
+    $failedGateNames += '扩展合法性'
+}
+
+Write-GateHeader '供给对账'
+if ((Invoke-GateCommand -CommandName 'gate.provision' -CommandArguments @{ RepositoryRoot = $templateRoot; PoolRoot = (Join-Path $templateRoot 'Pools') }) -ne 0) {
+    $failedGateNames += '供给对账'
+}
+
+Write-GateHeader '下游边界'
+if ((Invoke-GateCommand -CommandName 'gate.bridgeboundary' -CommandArguments @{ RepositoryRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
+    $failedGateNames += '下游边界'
+}
+
+Write-GateHeader '层边界'
+if ((Invoke-GateCommand -CommandName 'gate.layerboundary' -CommandArguments @{ RepositoryRoot = $templateRoot; UnityAssetsDirectory = (Join-Path $templateRoot 'UnityProject/Assets'); ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
+    $failedGateNames += '层边界'
+}
+
 # 生成物幂等：仓库里已生成的产物必须与当前 schema / 定义一致，谁手改了产物这里就会红。
 Write-GateHeader '生成物幂等'
 $idempotencyFailed = $false
@@ -217,5 +244,5 @@ if ($failedGateNames.Count -gt 0) {
     exit 1
 }
 
-Write-Host '[gate] PASS —— 十三道门禁全绿'
+Write-Host '[gate] PASS —— 全部门禁全绿'
 exit 0

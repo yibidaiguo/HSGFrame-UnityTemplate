@@ -43,7 +43,7 @@ namespace Template.Toolkit.CommandHost.Commands
         {
             if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
             {
-                return CommandResult.Failure("必须指定 --driver，例如 --driver feishu");
+                return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
             }
 
             string repositoryRoot;
