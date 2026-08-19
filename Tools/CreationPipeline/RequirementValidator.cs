@@ -31,8 +31,8 @@ namespace Template.Toolkit.CreationPipeline
             {
                 findings.Add(new PoolFinding(
                     filePath,
-                    $"JSON 语法错误：{exception.Message}",
-                    "修复 JSON 语法后重新校验",
+                    ValidationMessageCatalog.Format("需求.JSON语法", exception.Message),
+                    ValidationMessageCatalog.FormatFix("需求.JSON语法"),
                     ReferencePath));
                 return findings;
             }
@@ -81,8 +81,8 @@ namespace Template.Toolkit.CreationPipeline
             {
                 findings.Add(new PoolFinding(
                     filePath,
-                    "缺少字段「id」",
-                    "补上 id 字段",
+                    ValidationMessageCatalog.Format("需求.id缺失"),
+                    ValidationMessageCatalog.FormatFix("需求.id缺失"),
                     ReferencePath));
                 return;
             }
@@ -93,8 +93,8 @@ namespace Template.Toolkit.CreationPipeline
             {
                 findings.Add(new PoolFinding(
                     filePath,
-                    $"字段「id」的值「{id}」不匹配 id 模式「{schema.IdentifierPattern}」",
-                    "把 id 改成匹配 id 模式的格式",
+                    ValidationMessageCatalog.Format("需求.id模式", id, schema.IdentifierPattern),
+                    ValidationMessageCatalog.FormatFix("需求.id模式"),
                     ReferencePath));
             }
 
@@ -102,8 +102,8 @@ namespace Template.Toolkit.CreationPipeline
             {
                 findings.Add(new PoolFinding(
                     filePath,
-                    $"字段「id」的值「{id}」与文件名「{fileName}」不一致",
-                    "让文件名的 id 与字段 id 保持一致",
+                    ValidationMessageCatalog.Format("需求.id与文件名", id, fileName),
+                    ValidationMessageCatalog.FormatFix("需求.id与文件名"),
                     ReferencePath));
             }
         }
@@ -122,8 +122,8 @@ namespace Template.Toolkit.CreationPipeline
                 {
                     findings.Add(new PoolFinding(
                         filePath,
-                        $"必填字段「{field.Name}」缺失或为 null",
-                        "补上该字段并给一个非 null 的值",
+                        ValidationMessageCatalog.Format("需求.必填缺失", field.Name),
+                        ValidationMessageCatalog.FormatFix("需求.必填缺失"),
                         ReferencePath));
                     continue;
                 }
@@ -134,8 +134,8 @@ namespace Template.Toolkit.CreationPipeline
                 {
                     findings.Add(new PoolFinding(
                         filePath,
-                        $"必填字段「{field.Name}」是空字符串",
-                        "填上实际内容",
+                        ValidationMessageCatalog.Format("需求.必填空串", field.Name),
+                        ValidationMessageCatalog.FormatFix("需求.必填空串"),
                         ReferencePath));
                 }
             }
@@ -160,8 +160,8 @@ namespace Template.Toolkit.CreationPipeline
                 {
                     findings.Add(new PoolFinding(
                         filePath,
-                        $"字段「{field.Name}」的值不在枚举「{string.Join("、", field.EnumValues)}」里",
-                        "改成合法的枚举值",
+                        ValidationMessageCatalog.Format("需求.枚举越界", field.Name, string.Join("、", field.EnumValues)),
+                        ValidationMessageCatalog.FormatFix("需求.枚举越界"),
                         ReferencePath));
                 }
             }
@@ -185,8 +185,8 @@ namespace Template.Toolkit.CreationPipeline
                 {
                     findings.Add(new PoolFinding(
                         filePath,
-                        $"字段「{field.Name}」的值不是数组",
-                        "把该字段的值改成 JSON 数组",
+                        ValidationMessageCatalog.Format("需求.非数组", field.Name),
+                        ValidationMessageCatalog.FormatFix("需求.非数组"),
                         ReferencePath));
                     continue;
                 }
@@ -196,8 +196,8 @@ namespace Template.Toolkit.CreationPipeline
                 {
                     findings.Add(new PoolFinding(
                         filePath,
-                        $"字段「{field.Name}」的数组条数 {count} 少于最少条数 {field.MinimumCount}",
-                        "补足数组条数",
+                        ValidationMessageCatalog.Format("需求.数组过短", field.Name, count, field.MinimumCount),
+                        ValidationMessageCatalog.FormatFix("需求.数组过短"),
                         ReferencePath));
                 }
             }
@@ -216,8 +216,8 @@ namespace Template.Toolkit.CreationPipeline
                 {
                     findings.Add(new PoolFinding(
                         filePath,
-                        $"字段「{field.Name}」的值不是对象",
-                        "把该字段的值改成 JSON 对象",
+                        ValidationMessageCatalog.Format("需求.非对象", field.Name),
+                        ValidationMessageCatalog.FormatFix("需求.非对象"),
                         ReferencePath));
                     continue;
                 }
@@ -228,8 +228,8 @@ namespace Template.Toolkit.CreationPipeline
                 {
                     findings.Add(new PoolFinding(
                         filePath,
-                        $"字段「{field.Name}」的值不是 true/false",
-                        "把该字段的值改成 true 或 false",
+                        ValidationMessageCatalog.Format("需求.非布尔", field.Name),
+                        ValidationMessageCatalog.FormatFix("需求.非布尔"),
                         ReferencePath));
                 }
             }
@@ -253,8 +253,8 @@ namespace Template.Toolkit.CreationPipeline
                 {
                     findings.Add(new PoolFinding(
                         filePath,
-                        $"类型「{typeValue}」的必填字段「{fieldName}」缺失或为空",
-                        "补上该类型要求的字段",
+                        ValidationMessageCatalog.Format("需求.分类型必填", typeValue, fieldName),
+                        ValidationMessageCatalog.FormatFix("需求.分类型必填"),
                         ReferencePath));
                 }
             }
@@ -285,8 +285,8 @@ namespace Template.Toolkit.CreationPipeline
                 {
                     findings.Add(new PoolFinding(
                         filePath,
-                        $"字段「{property.Name}」未在合并 schema 中声明",
-                        "删掉该字段，或在项目扩展 schema 里声明它",
+                        ValidationMessageCatalog.Format("需求.未声明字段", property.Name),
+                        ValidationMessageCatalog.FormatFix("需求.未声明字段"),
                         ReferencePath));
                 }
             }

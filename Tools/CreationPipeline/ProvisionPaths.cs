@@ -1,0 +1,74 @@
+using System.IO;
+
+namespace Template.Toolkit.CreationPipeline
+{
+    /// <summary>
+    /// 供给产物在仓库根之下的路径拼装：建表描述、专项表、校验错误文案、指纹与助手配置包，
+    /// 全部落在 _Generated/Bridges/&lt;driver&gt; 之下，以仓库根目录为起点。纯路径拼接，不碰磁盘。
+    /// </summary>
+    public static class ProvisionPaths
+    {
+        /// <summary>某 driver 的供给产物目录：_Generated/Bridges/&lt;driver&gt;。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        public static string GeneratedBridgeDirectory(string repositoryRoot, string driverName)
+        {
+            return Path.Combine(repositoryRoot, "_Generated", "Bridges", driverName);
+        }
+
+        /// <summary>建表描述文件：_Generated/Bridges/&lt;driver&gt;/建表描述.json。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        public static string TableDescriptionFile(string repositoryRoot, string driverName)
+        {
+            return Path.Combine(GeneratedBridgeDirectory(repositoryRoot, driverName), "建表描述.json");
+        }
+
+        /// <summary>专项表文件：_Generated/Bridges/&lt;driver&gt;/专项表.json。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        public static string EpicTableFile(string repositoryRoot, string driverName)
+        {
+            return Path.Combine(GeneratedBridgeDirectory(repositoryRoot, driverName), "专项表.json");
+        }
+
+        /// <summary>校验错误文案文件：_Generated/Bridges/&lt;driver&gt;/校验错误文案.json。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        public static string ValidationMessageFile(string repositoryRoot, string driverName)
+        {
+            return Path.Combine(GeneratedBridgeDirectory(repositoryRoot, driverName), "校验错误文案.json");
+        }
+
+        /// <summary>指纹文件：_Generated/Bridges/&lt;driver&gt;/指纹.json。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        public static string FingerprintFile(string repositoryRoot, string driverName)
+        {
+            return Path.Combine(GeneratedBridgeDirectory(repositoryRoot, driverName), "指纹.json");
+        }
+
+        /// <summary>助手配置包目录：_Generated/Bridges/&lt;driver&gt;/助手配置包。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        public static string AssistantPackageDirectory(string repositoryRoot, string driverName)
+        {
+            return Path.Combine(GeneratedBridgeDirectory(repositoryRoot, driverName), "助手配置包");
+        }
+
+        /// <summary>助手配置包的知识目录：_Generated/Bridges/&lt;driver&gt;/助手配置包/知识。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        public static string AssistantKnowledgeDirectory(string repositoryRoot, string driverName)
+        {
+            return Path.Combine(AssistantPackageDirectory(repositoryRoot, driverName), "知识");
+        }
+
+        /// <summary>助手知识素材目录：&lt;池根&gt;/知识。</summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static string KnowledgeDirectory(string poolRoot)
+        {
+            return Path.Combine(poolRoot, "知识");
+        }
+    }
+}

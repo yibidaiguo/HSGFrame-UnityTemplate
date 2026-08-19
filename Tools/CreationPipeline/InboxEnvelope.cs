@@ -39,7 +39,7 @@ namespace Template.Toolkit.CreationPipeline
             SourceFilePath = sourceFilePath;
         }
 
-        /// <summary>渠道名，如「feishu」。</summary>
+        /// <summary>渠道名，取自下游 driver 的名称。</summary>
         public string Channel { get; }
 
         /// <summary>下游记录 id。</summary>
