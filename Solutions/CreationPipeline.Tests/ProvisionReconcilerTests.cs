@@ -7,7 +7,11 @@ using Xunit;
 
 namespace Template.Toolkit.CreationPipeline.Tests
 {
-    /// <summary>供给对账测试：Bridges 缺失、指纹对上、哈希失配、自述损坏不中断。</summary>
+    /// <summary>
+    /// 供给对账测试：Bridges 缺失、指纹对上、哈希失配、自述损坏不中断。
+    /// setup 一律真跑一次 BridgeProvisioner——供给是最后才写指纹的，
+    /// 「有指纹却一份产物都没有」这种状态现实中不存在，拿它当前提测出来的绿是假绿。
+    /// </summary>
     public class ProvisionReconcilerTests
     {
         /// <summary>Bridges/ 不存在时返回空报告且不抛——新项目还没接 driver 是正常状态。</summary>
@@ -31,10 +35,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             workspace.WriteBaselineSchema("需求", PoolTestWorkspace.MinimalRequirementSchema());
             WriteDriverDescriptor(workspace.Root, "demo", true);
 
-            var schemaHash = ProvisionFingerprint.ComputeSchemaHash(PoolSchemaLoader.Load(workspace.Root, "需求"));
-            var digestHash = ProvisionFingerprint.ComputeDesignDigestHash(workspace.Root);
-            ProvisionFingerprint.Create("demo", ">=1.0 <2.0", schemaHash, digestHash)
-                .WriteTo(ProvisionPaths.FingerprintFile(workspace.Root, "demo"));
+            BridgeProvisioner.Run(workspace.Root, workspace.Root, "demo", false);
 
             var report = ProvisionReconciler.Reconcile(workspace.Root, workspace.Root);
 
@@ -50,6 +51,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
             using var workspace = new PoolTestWorkspace();
             workspace.WriteBaselineSchema("需求", PoolTestWorkspace.MinimalRequirementSchema());
             WriteDriverDescriptor(workspace.Root, "demo", true);
+
+            BridgeProvisioner.Run(workspace.Root, workspace.Root, "demo", false);
 
             var digestHash = ProvisionFingerprint.ComputeDesignDigestHash(workspace.Root);
             ProvisionFingerprint.Create("demo", ">=1.0 <2.0", "改坏了", digestHash)
@@ -70,11 +73,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
             workspace.WriteBaselineSchema("需求", PoolTestWorkspace.MinimalRequirementSchema());
             WriteDriverDescriptor(workspace.Root, "broken", false);
 
-            var schemaHash = ProvisionFingerprint.ComputeSchemaHash(PoolSchemaLoader.Load(workspace.Root, "需求"));
-            var digestHash = ProvisionFingerprint.ComputeDesignDigestHash(workspace.Root);
             WriteDriverDescriptor(workspace.Root, "good", true);
-            ProvisionFingerprint.Create("good", ">=1.0 <2.0", schemaHash, digestHash)
-                .WriteTo(ProvisionPaths.FingerprintFile(workspace.Root, "good"));
+            BridgeProvisioner.Run(workspace.Root, workspace.Root, "good", false);
 
             var report = ProvisionReconciler.Reconcile(workspace.Root, workspace.Root);
 

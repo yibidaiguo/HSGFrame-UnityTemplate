@@ -81,6 +81,9 @@ namespace Template.Toolkit.CreationPipeline
                 }
 
                 findings.AddRange(ProvisionFingerprint.Reconcile(fingerprintPath, schemaHash, designDigestHash));
+
+                // 顺带核对供给产物是否齐全：缺失或空文件与指纹失配同样算问题。
+                findings.AddRange(AssistantPackageInspector.Inspect(repositoryRoot, driverName).Findings);
             }
 
             return new ProvisionReconcileReport(driverNames, provisionedCount, findings);

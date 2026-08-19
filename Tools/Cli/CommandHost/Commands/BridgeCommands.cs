@@ -30,6 +30,19 @@ namespace Template.Toolkit.CommandHost.Commands
         public bool DryRun { get; set; }
     }
 
+    /// <summary>下游供给产物检查命令的参数。</summary>
+    public sealed class BridgePackageCheckArguments
+    {
+        /// <summary>要检查的下游 driver 名，对应 Bridges/&lt;名&gt;/ 目录。</summary>
+        [Summary("要检查的下游 driver 名，对应 Bridges/<名>/ 目录")]
+        public string Driver { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+    }
+
     /// <summary>下游供给命令：bridge.provision，一次产出建表描述、专项表、校验错误文案、助手配置包与指纹。</summary>
     public static class BridgeCommands
     {
@@ -91,6 +104,71 @@ namespace Template.Toolkit.CommandHost.Commands
 
             lines.Add($"共 {outcome.ProducedFiles.Count} 个产物");
             return CommandResult.Success($"共 {outcome.ProducedFiles.Count} 个产物", lines);
+        }
+
+        /// <summary>
+        /// 检查供给产物是否齐全并打印人工导入清单：逐份列出 10 份产物的存在性与字节数；
+        /// 有缺失或空文件时返回失败，全部齐全返回成功；尚未供给时返回成功并提示先跑供给。
+        /// </summary>
+        /// <param name="arguments">供给产物检查命令参数。</param>
+        [EditorCommand("bridge.package-check")]
+        [Summary("检查供给产物是否齐全，并打印人工导入清单")]
+        public static CommandResult PackageCheck(BridgePackageCheckArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            {
+                return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
+            }
+
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            var inspection = AssistantPackageInspector.Inspect(repositoryRoot, arguments.Driver);
+            var isNotProvisioned = !Directory.Exists(ProvisionPaths.GeneratedBridgeDirectory(repositoryRoot, arguments.Driver));
+
+            var lines = new List<string>();
+            lines.Add($"配置包检查：driver={inspection.DriverName}  缺失 {inspection.MissingCount} 份，空文件 {inspection.EmptyCount} 份");
+            if (isNotProvisioned)
+            {
+                lines.Add("（尚未供给，先跑 bridge.provision）");
+            }
+
+            foreach (var artifact in inspection.Artifacts)
+            {
+                if (artifact.Exists && artifact.ByteCount > 0)
+                {
+                    lines.Add($"[有] {artifact.RelativePath}（{artifact.ByteCount} 字节）→ {artifact.ImportHint}");
+                }
+                else if (artifact.Exists)
+                {
+                    lines.Add($"[空] {artifact.RelativePath}（0 字节）→ {artifact.ImportHint}");
+                }
+                else
+                {
+                    lines.Add($"[缺] {artifact.RelativePath} → {artifact.ImportHint}");
+                }
+            }
+
+            lines.Add("以上带「→」的说明就是人工导入清单；程序化导入未验证，见 Doc/创作管线批次日志/P1-批次6-Aily导入spike.md");
+
+            if (isNotProvisioned)
+            {
+                return CommandResult.Success("尚未供给，先跑 bridge.provision", lines);
+            }
+
+            if (inspection.MissingCount > 0 || inspection.EmptyCount > 0)
+            {
+                return CommandResult.Failure($"缺失 {inspection.MissingCount} 份，空文件 {inspection.EmptyCount} 份", lines);
+            }
+
+            return CommandResult.Success($"产物齐全，共 {inspection.Artifacts.Count} 份", lines);
         }
 
         /// <summary>取哈希的前 12 位；文本不足 12 位时原样返回。</summary>
