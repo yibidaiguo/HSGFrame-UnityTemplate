@@ -15,25 +15,56 @@ namespace Template.Toolkit.Dashboard
     {
         private readonly LogEventChannel _channel;
 
+        private readonly string _repositoryRoot;
+
+        private readonly string _poolRoot;
+
+        private readonly PanelCommandRunner _commandRunner;
+
         private readonly HttpListener _listener;
 
         private Thread _listenThread;
 
         private bool _started;
 
-        /// <summary>构造看板服务。</summary>
+        /// <summary>构造看板服务（不配置面板数据源与命令宿主：面板接口回 503，/cmd 回未配置宿主）。</summary>
         /// <param name="channel">日志事件通道。</param>
         /// <param name="port">监听端口；传 0 表示自动选一个空闲端口。</param>
         public DashboardServer(LogEventChannel channel, int port)
+            : this(channel, port, null, null, null)
+        {
+        }
+
+        /// <summary>构造看板服务。</summary>
+        /// <param name="channel">日志事件通道。</param>
+        /// <param name="port">监听端口；传 0 表示自动选一个空闲端口。</param>
+        /// <param name="repositoryRoot">仓库根目录；为 null 时五个面板接口回 503。</param>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="commandHostProjectPath">命令宿主工程的 .csproj 路径；空白时 /cmd 回未配置宿主。</param>
+        public DashboardServer(
+            LogEventChannel channel,
+            int port,
+            string repositoryRoot,
+            string poolRoot,
+            string commandHostProjectPath)
         {
             _channel = channel ?? throw new ArgumentNullException(nameof(channel));
             Port = port == 0 ? FindFreePort() : port;
+            _repositoryRoot = repositoryRoot;
+            _poolRoot = poolRoot;
+            _commandRunner = new PanelCommandRunner(commandHostProjectPath);
             _listener = new HttpListener();
             _listener.Prefixes.Add($"http://localhost:{Port}/");
         }
 
         /// <summary>实际监听端口。</summary>
         private static readonly JsonSerializerOptions RecentLineOptions = new JsonSerializerOptions
+        {
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+
+        /// <summary>面板接口的 JSON 序列化选项：以 Default 为基类，中文原样输出。</summary>
+        private static readonly JsonSerializerOptions PanelJsonOptions = new JsonSerializerOptions(JsonSerializerOptions.Default)
         {
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
@@ -134,6 +165,30 @@ namespace Template.Toolkit.Dashboard
                     case "/api/recent":
                         WriteRecent(response);
                         break;
+                    case "/panel":
+                        WritePanelHtml(response);
+                        break;
+                    case "/api/panel/overview":
+                        WritePanelPage(response, () => CreationPanelReader.ReadOverview(_repositoryRoot, _poolRoot));
+                        break;
+                    case "/api/panel/tasks":
+                        WritePanelPage(response, () => CreationPanelReader.ReadTasks(_repositoryRoot, _poolRoot));
+                        break;
+                    case "/api/panel/requirements":
+                        WritePanelPage(response, () => CreationPanelReader.ReadRequirements(_repositoryRoot, _poolRoot));
+                        break;
+                    case "/api/panel/gates":
+                        WritePanelPage(response, () => CreationPanelReader.ReadGateReport(_repositoryRoot));
+                        break;
+                    case "/api/panel/engine":
+                        WritePanelPage(response, () => CreationPanelReader.ReadEngine(_repositoryRoot, _poolRoot));
+                        break;
+                    case "/api/panel/task":
+                        WriteTaskDetail(request, response);
+                        break;
+                    case "/cmd":
+                        HandleCommand(request, response);
+                        break;
                     default:
                         WriteNotFound(response);
                         break;
@@ -144,6 +199,17 @@ namespace Template.Toolkit.Dashboard
                 Console.Error.WriteLine($"[看板] 处理请求异常：{exception.Message}");
                 TryClose(context.Response);
             }
+        }
+
+        /// <summary>写创作管线面板页面：五页装在一份自包含 HTML 里。</summary>
+        private void WritePanelHtml(HttpListenerResponse response)
+        {
+            var bytes = Encoding.UTF8.GetBytes(CreationPanelPage.Html);
+            response.StatusCode = (int)HttpStatusCode.OK;
+            response.ContentType = "text/html; charset=utf-8";
+            response.ContentLength64 = bytes.Length;
+            response.OutputStream.Write(bytes, 0, bytes.Length);
+            response.Close();
         }
 
         private void WriteHtml(HttpListenerResponse response)
@@ -161,6 +227,107 @@ namespace Template.Toolkit.Dashboard
             // 中文原样输出：日志是给人读的，转义成 \uXXXX 就失去了双读性。
             var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(_channel.RecentLines(50), RecentLineOptions));
             response.StatusCode = (int)HttpStatusCode.OK;
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = bytes.Length;
+            response.OutputStream.Write(bytes, 0, bytes.Length);
+            response.Close();
+        }
+
+        /// <summary>
+        /// 写一个面板页面：仓库根没配置时一律回 503 + 错误 JSON，配置了才读数据写 200。
+        /// 数据读取器自身保证不抛，这里不需要额外包异常。
+        /// </summary>
+        private void WritePanelPage(HttpListenerResponse response, Func<object> readPage)
+        {
+            if (_repositoryRoot == null)
+            {
+                WritePanelJson(response, new Dictionary<string, string> { ["错误"] = "面板未配置仓库根" }, HttpStatusCode.ServiceUnavailable);
+                return;
+            }
+
+            WritePanelJson(response, readPage(), HttpStatusCode.OK);
+        }
+
+        /// <summary>
+        /// 写单条任务的详情文本：/api/panel/task?id=REQ-0001。
+        /// 与 CLI 的 task.status 同源，面板与命令行看到的是同一份渲染。
+        /// </summary>
+        private void WriteTaskDetail(HttpListenerRequest request, HttpListenerResponse response)
+        {
+            if (_repositoryRoot == null)
+            {
+                WritePanelJson(response, new Dictionary<string, string> { ["错误"] = "面板未配置仓库根" }, HttpStatusCode.ServiceUnavailable);
+                return;
+            }
+
+            var identifier = request.QueryString["id"] ?? "";
+            var text = string.IsNullOrWhiteSpace(identifier)
+                ? "请带上 ?id=REQ-xxxx"
+                : CreationPanelReader.ReadTaskDetail(_repositoryRoot, _poolRoot, identifier);
+
+            var bytes = Encoding.UTF8.GetBytes(text);
+            response.StatusCode = (int)HttpStatusCode.OK;
+            response.ContentType = "text/plain; charset=utf-8";
+            response.ContentLength64 = bytes.Length;
+            response.OutputStream.Write(bytes, 0, bytes.Length);
+            response.Close();
+        }
+
+        /// <summary>
+        /// 处理 /cmd：只接受 POST，其它方法回 405；请求体是 JSON，取顶层「命令行」交给命令执行器，
+        /// 白名单拒绝回 403，通过回 200。
+        /// </summary>
+        private void HandleCommand(HttpListenerRequest request, HttpListenerResponse response)
+        {
+            if (!string.Equals(request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
+            {
+                var methodMessage = Encoding.UTF8.GetBytes("只接受 POST");
+                response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                response.ContentType = "text/plain; charset=utf-8";
+                response.ContentLength64 = methodMessage.Length;
+                response.OutputStream.Write(methodMessage, 0, methodMessage.Length);
+                response.Close();
+                return;
+            }
+
+            var commandLine = ReadCommandLine(request);
+            var outcome = _commandRunner.Run(commandLine);
+            WritePanelJson(response, outcome, outcome.IsAllowed ? HttpStatusCode.OK : HttpStatusCode.Forbidden);
+        }
+
+        /// <summary>从请求体里读顶层「命令行」字符串；请求体不是合法 JSON 时按空命令行处理。</summary>
+        private static string ReadCommandLine(HttpListenerRequest request)
+        {
+            try
+            {
+                using (var reader = new StreamReader(request.InputStream, Encoding.UTF8))
+                {
+                    var body = reader.ReadToEnd();
+                    using (var document = JsonDocument.Parse(body))
+                    {
+                        var root = document.RootElement;
+                        if (root.ValueKind == JsonValueKind.Object
+                            && root.TryGetProperty("命令行", out var commandElement)
+                            && commandElement.ValueKind == JsonValueKind.String)
+                        {
+                            return commandElement.GetString() ?? "";
+                        }
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is JsonException)
+            {
+                // 请求体读不了或不是合法 JSON 时按空命令行处理，白名单会以「命令行为空」拒绝。
+            }
+
+            return "";
+        }
+
+        /// <summary>把对象序列化成中文原样输出的 JSON 写回响应。</summary>
+        private static void WritePanelJson(HttpListenerResponse response, object payload, HttpStatusCode statusCode)
+        {
+            var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload, PanelJsonOptions));
+            response.StatusCode = (int)statusCode;
             response.ContentType = "application/json; charset=utf-8";
             response.ContentLength64 = bytes.Length;
             response.OutputStream.Write(bytes, 0, bytes.Length);

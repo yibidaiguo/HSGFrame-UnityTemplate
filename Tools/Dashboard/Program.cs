@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Text;
 
 namespace Template.Toolkit.Dashboard
@@ -6,19 +7,32 @@ namespace Template.Toolkit.Dashboard
     /// <summary>看板命令行入口：起 HTTP 服务，并把标准输入的每一行当作日志推送给浏览器。</summary>
     public static class Program
     {
-        /// <summary>解析端口参数、启动服务、逐行转发标准输入，直到标准输入关闭。</summary>
-        /// <param name="args">命令行参数，支持 --port &lt;端口&gt;。</param>
+        /// <summary>解析参数、启动服务、逐行转发标准输入，直到标准输入关闭。</summary>
+        /// <param name="args">命令行参数，支持 --port &lt;端口&gt; 与 --repository-root &lt;仓库根&gt;。</param>
         public static int Main(string[] args)
         {
             Console.OutputEncoding = Encoding.UTF8;
             Console.InputEncoding = Encoding.UTF8;
 
             var port = ReadPort(args);
+            var repositoryRoot = ReadOption(args, "--repository-root") ?? FindRepositoryRoot();
+            var poolRoot = repositoryRoot == null ? null : Path.Combine(repositoryRoot, "Pools");
+            var commandHostProjectPath = repositoryRoot == null
+                ? null
+                : Path.Combine(repositoryRoot, "Tools", "Cli", "CommandHost", "CommandHost.csproj");
+
             var channel = new LogEventChannel();
-            using (var server = new DashboardServer(channel, port))
+            using (var server = new DashboardServer(channel, port, repositoryRoot, poolRoot, commandHostProjectPath))
             {
                 server.Start();
                 Console.WriteLine($"看板已启动：http://localhost:{server.Port}/");
+                Console.WriteLine($"创作管线面板：http://localhost:{server.Port}/panel");
+                if (repositoryRoot == null)
+                {
+                    // 面板五页全靠现读仓库里的文件，找不到仓库根就只剩日志页能用——这件事必须说出来，
+                    // 不然用户看到的是五页齐刷刷的「取数据失败」，却不知道是没找到仓库根。
+                    Console.WriteLine("知会：没找到仓库根（当前目录往上找不到 .git），面板五页会返回未配置；可用 --repository-root 指定。");
+                }
 
                 string line;
                 while ((line = Console.ReadLine()) != null)
@@ -37,15 +51,39 @@ namespace Template.Toolkit.Dashboard
 
         private static int ReadPort(string[] args)
         {
+            var raw = ReadOption(args, "--port");
+            return raw != null && int.TryParse(raw, out var parsedPort) ? parsedPort : 0;
+        }
+
+        private static string ReadOption(string[] args, string optionName)
+        {
             for (var index = 0; index < args.Length - 1; index++)
             {
-                if (args[index] == "--port" && int.TryParse(args[index + 1], out var parsedPort))
+                if (args[index] == optionName)
                 {
-                    return parsedPort;
+                    return args[index + 1];
                 }
             }
 
-            return 0;
+            return null;
+        }
+
+        /// <summary>从当前目录逐级往上找 .git，找到就是仓库根；找不到返回 null。</summary>
+        private static string FindRepositoryRoot()
+        {
+            var directory = new DirectoryInfo(Directory.GetCurrentDirectory());
+            while (directory != null)
+            {
+                if (Directory.Exists(Path.Combine(directory.FullName, ".git"))
+                    || File.Exists(Path.Combine(directory.FullName, ".git")))
+                {
+                    return directory.FullName;
+                }
+
+                directory = directory.Parent;
+            }
+
+            return null;
         }
     }
 }
