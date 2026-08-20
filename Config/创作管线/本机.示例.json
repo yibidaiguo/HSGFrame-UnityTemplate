@@ -1,0 +1,33 @@
+{
+  "_说明": "把本文件另存为同目录的「本机.json」再填真值。本机.json 在 .gitignore 里，永不入库（决策 5）。",
+  "_警告": "面板只判键在不在、不读值（决策 78）。所以填不了的键请整条删掉，别留空串——留空串会让面板显示「已配」，那是假绿。",
+
+  "飞书应用密钥": "把飞书自建应用的 App Secret 填这里",
+  "模型生成密钥": "把 tripo 的 API Key 填这里",
+  "执行后端密钥": "把 LLM 的 API Key 填这里（任何 OpenAI 兼容服务都行）",
+
+  "下游配置": {
+    "feishu": {
+      "应用标识": "cli_xxxxxxxxxxxxxxxx",
+      "多维表格标识": "多维表格的 app_token，形如 bascnXXXXXXXXXXXX",
+      "超时秒": 60
+    },
+    "comfyui": {
+      "地址": "http://127.0.0.1:8188",
+      "超时秒": 300
+    },
+    "blender": {
+      "可执行文件": "D:/Tools/Blender/blender.exe",
+      "超时秒": 900
+    },
+    "tripo": {
+      "地址": "https://api.tripo3d.ai/v2/openapi",
+      "超时秒": 600
+    },
+    "oaicompat": {
+      "地址": "https://api.deepseek.com/v1",
+      "模型": "deepseek-chat",
+      "超时秒": 120
+    }
+  }
+}

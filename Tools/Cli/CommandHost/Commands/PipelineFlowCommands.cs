@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using Template.Toolkit.CommandFramework;
 using Template.Toolkit.CreationPipeline;
 
@@ -182,6 +183,35 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("上次取活时刻，ISO 8601；缺省按从未取过")]
         [DefaultValue("")]
         public string LastTickMoment { get; set; }
+    }
+
+    /// <summary>引擎守护命令 engine.daemon 的参数。</summary>
+    public sealed class EngineDaemonArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>最多跑几轮；0 表示无限。</summary>
+        [Summary("最多跑几轮；0 表示无限")]
+        [DefaultValue(1)]
+        public int MaxRounds { get; set; }
+
+        /// <summary>轮间延迟毫秒数。</summary>
+        [Summary("轮间延迟毫秒数")]
+        [DefaultValue(1000)]
+        public int RoundDelayMilliseconds { get; set; }
+
+        /// <summary>停止文件路径；非空且存在时守护在下一轮开头退出。</summary>
+        [Summary("停止文件路径；非空且存在时守护在下一轮开头退出")]
+        [DefaultValue("")]
+        public string StopFilePath { get; set; }
+
+        /// <summary>池子根目录，相对当前工作目录；留空取仓库根下的 Pools。</summary>
+        [Summary("池子根目录，相对当前工作目录；留空取仓库根下的 Pools")]
+        [DefaultValue("")]
+        public string PoolRoot { get; set; }
     }
 
     /// <summary>意见库追加命令 task.opinion 的参数。</summary>
@@ -1415,6 +1445,47 @@ namespace Template.Toolkit.CommandHost.Commands
         public static CommandResult Wake(EngineTickArguments arguments)
         {
             return RunEngineTick(arguments, true);
+        }
+
+        /// <summary>
+        /// 引擎守护：拿单实例锁后按模式循环跑取活判定并记账，跑满指定轮数或收到停止信号后退出。
+        /// 拿不到锁不算失败——那正是单实例该有的行为（决策 55 同源），照样返回 Success 并写清原因。
+        /// </summary>
+        /// <param name="arguments">引擎守护命令参数。</param>
+        [EditorCommand("engine.daemon")]
+        [Summary("引擎守护：循环跑取活判定并记账，跑满指定轮数退出")]
+        public static CommandResult Daemon(EngineDaemonArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"仓库根目录不存在：{repositoryRoot}");
+            }
+
+            var options = new DaemonRunOptions
+            {
+                MaxRounds = arguments.MaxRounds,
+                RoundDelayMilliseconds = arguments.RoundDelayMilliseconds,
+                StopFilePath = arguments.StopFilePath,
+                PoolRoot = arguments.PoolRoot
+            };
+
+            var summary = PollingDaemon.Run(repositoryRoot, options, () => DateTimeOffset.Now, Thread.Sleep);
+
+            var lines = new List<string>();
+            foreach (var record in summary.Records)
+            {
+                lines.Add($"轮次 {record.Round}　取活 {(record.ShouldTake ? "取" : "不取")}　原因 {record.Reason}");
+            }
+
+            return CommandResult.Success(
+                $"守护跑了 {summary.RoundsRun} 轮（取活 {summary.TakenCount} 次，消费唤醒 {summary.WakeConsumedCount} 次）；停止原因：{summary.StopReason}",
+                lines);
         }
 
         // engine.tick 与 engine.wake 共用：拿单实例锁 + 加载配置与队列 + 跑一轮取活判定。
