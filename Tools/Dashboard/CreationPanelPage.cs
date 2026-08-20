@@ -1,7 +1,8 @@
 namespace Template.Toolkit.Dashboard
 {
     /// <summary>
-    /// 创作管线面板页面：总览 / 任务 / 需求池 / 门禁 / 引擎 / 资产 / 设计池 / 供给对账八页装在一份自包含 HTML 里，
+    /// 创作管线面板页面：总览 / 任务 / 需求池 / 门禁 / 引擎 / 资产 / 设计池 / 供给对账 / 任务图 / 冲突 /
+    /// 晋升 / 审查 / 放行流水 / 规范 / 提案待批 十五页装在一份自包含 HTML 里，
     /// 零外部依赖、零 CDN。每页都是「拉一次 /api/panel/* 再渲染」，页面自己不存业务状态。
     /// </summary>
     public static class CreationPanelPage
@@ -84,7 +85,11 @@ var 页面表 = [
     { 键: '供给对账', 地址: '/api/panel/provision', 渲染: 渲染供给对账 },
     { 键: '任务图', 地址: '/api/panel/dag', 渲染: 渲染任务图 },
     { 键: '冲突', 地址: '/api/panel/conflicts', 渲染: 渲染冲突 },
-    { 键: '晋升', 地址: '/api/panel/promotions', 渲染: 渲染晋升 }
+    { 键: '晋升', 地址: '/api/panel/promotions', 渲染: 渲染晋升 },
+    { 键: '审查', 地址: '/api/panel/review', 渲染: 渲染审查 },
+    { 键: '放行流水', 地址: '/api/panel/releases', 渲染: 渲染放行流水 },
+    { 键: '规范', 地址: '/api/panel/specifications', 渲染: 渲染规范 },
+    { 键: '提案待批', 地址: '/api/panel/proposals', 渲染: 渲染提案待批 }
 ];
 var 当前页 = 0;
 var 内容区 = document.getElementById('内容');
@@ -244,7 +249,9 @@ function 渲染任务图(数据) {
         var 行 = 数据[i];
         var 在环上 = 行['深度'] === -1;
         var 深度格 = 在环上 ? '环' : 行['深度'];
-        文本 += ""<tr"" + (在环上 ? "" style='background:#3a1d1d;color:#f38ba8;'"" : "") + "">"" +
+        // 空串分支用 JS 单引号：这段 JS 住在 C# verbatim 字符串里，写两个双引号会吐出半个字面量，
+        // 整份脚本当场语法错、面板一页都不渲染。P4 批次二起就是这样，P7 批次二验收才发现。
+        文本 += ""<tr"" + (在环上 ? "" style='background:#3a1d1d;color:#f38ba8;'"" : '') + "">"" +
             ""<td>"" + 转义(深度格) + ""</td>"" +
             ""<td>"" + 转义(行['id']) + ""</td>"" +
             单元格(行['标题']) +
@@ -339,6 +346,224 @@ function 渲染晋升(数据) {
             return [行['问题类别'], 行['条数'], 行['可规则化性'], 行['晋升去向'],
                 (行['模块'] || []).join('、'), (行['原文举例'] || []).join('；')];
         });
+}
+
+function 渲染审查(数据) {
+    if (!数据 || 数据.length === 0) { return '<p class=""灰"">终审队列是空的</p>'; }
+    // 等得最久的 = 状态文件最后修改时间最早；把最早的那几行用任务图同款深红背景高亮。
+    var 最早 = null;
+    for (var i = 0; i < 数据.length; i++) {
+        var 时间 = 数据[i]['最后修改时间'];
+        if (!时间) { continue; }
+        if (最早 === null || 时间 < 最早) { 最早 = 时间; }
+    }
+    var 文本 = '<p class=""灰"">等待时长按状态文件最后修改时间算，不是进关卡时间。</p>';
+    文本 += '<table><tr><th>需求</th><th>标题</th><th>阶段·子状态</th><th>关卡</th><th>风险级</th><th>等待</th><th></th></tr>';
+    for (var j = 0; j < 数据.length; j++) {
+        var 行 = 数据[j];
+        var 高亮 = 最早 !== null && 行['最后修改时间'] === 最早;
+        var 阶段子状态 = (行['阶段'] || '') + (行['阶段'] && 行['子状态'] ? '·' : '') + (行['子状态'] || '');
+        文本 += '<tr' + (高亮 ? ' style=""background:#3a1d1d;color:#f38ba8;""' : '') + '>' +
+            单元格(行['需求id']) + 单元格(行['标题']) + 单元格(阶段子状态) +
+            单元格(行['关卡待审']) + 单元格(行['风险级']) + 单元格(行['等待']);
+        if (行['状态失败']) {
+            文本 += '<td class=""红"">' + 转义(行['状态失败原因']) + '</td>';
+        } else {
+            文本 += '<td></td>';
+        }
+        文本 += '</tr>';
+    }
+    return 文本 + '</table>';
+}
+
+function 渲染放行流水(数据) {
+    if (!数据['读成']) {
+        // 残缺的流水不能拿来下「零问题」的结论：整页只给原因，一个统计数字都不给。
+        return '<p class=""红"">放行流水没读成：' + 转义(数据['失败原因']) + '</p>';
+    }
+    var 文本 = '<div class=""卡片组"">' +
+        卡片(数据['总数'], '共') +
+        卡片(数据['未抽查数'], '未抽查') +
+        卡片(数据['问题数'], '发现问题', 数据['问题数'] > 0 ? '红' : '') +
+        '</div>';
+    文本 += '<table><tr><th>流水 id</th><th>需求</th><th>风险级</th><th>范围</th><th>放行时间</th>' +
+        '<th>抽查状态</th><th>合并提交</th><th>抽查结论</th><th>回滚提交</th><th>操作</th></tr>';
+    var 行列表 = 数据['行'];
+    for (var i = 0; i < 行列表.length; i++) {
+        var 行 = 行列表[i];
+        // 发现问题整行深红，未抽查整行灰——未抽查不是错，是还没查。
+        var 行样式 = 行['发现问题'] ? ' style=""background:#3a1d1d;color:#f38ba8;""'
+            : (!行['已抽查'] ? ' style=""color:#6c7086;""' : '');
+        var 禁用 = 行['已抽查'] ? ' disabled' : '';
+        var 按钮 = 行['已抽查']
+            ? '<button' + 禁用 + '>抽查</button>'
+            : '<button data-流水=""' + 转义(行['id']) + '"" onclick=""抽查(this)"">抽查</button>';
+        文本 += '<tr' + 行样式 + '>' +
+            单元格(行['id']) + 单元格(行['需求id']) + 单元格(行['风险级']) + 单元格(行['范围']) +
+            单元格(行['放行时间']) + 单元格(行['抽查状态']) + 单元格(行['合并提交']) +
+            单元格(行['抽查结论']) + 单元格(行['回滚提交']) +
+            '<td>' + 按钮 + '</td></tr>';
+    }
+    return 文本 + '</table>';
+}
+
+function 渲染规范(数据) {
+    var 层顺序 = ['基线', '项目', '业务'];
+    var 文本 = '';
+    for (var i = 0; i < 层顺序.length; i++) {
+        var 层 = 层顺序[i];
+        var 本层 = [];
+        for (var j = 0; j < 数据.length; j++) {
+            if (数据[j]['层'] === 层) { 本层.push(数据[j]); }
+        }
+        文本 += '<h2>' + 转义(层) + '</h2>';
+        if (本层.length === 0) {
+            文本 += '<p class=""灰"">这一层还没有规范文件</p>';
+            continue;
+        }
+        if (层 === '业务') {
+            // 业务层按模块名分小节，模块名序数序。
+            var 模块们 = [];
+            for (var k = 0; k < 本层.length; k++) {
+                var 模块名 = 本层[k]['模块'];
+                if (模块们.indexOf(模块名) < 0) { 模块们.push(模块名); }
+            }
+            模块们.sort();
+            for (var m = 0; m < 模块们.length; m++) {
+                文本 += 规范小节(模块们[m], 本层, 模块们[m]);
+            }
+        } else {
+            文本 += 规范小节(层, 本层, null);
+        }
+    }
+    return 文本;
+}
+
+function 规范小节(标题, 行列表, 模块名) {
+    var 文本 = '<h3>' + 转义(标题) + '</h3><table><tr><th>文件名</th><th>规则条数</th><th>字节数</th><th>相对路径</th><th></th></tr>';
+    for (var i = 0; i < 行列表.length; i++) {
+        var 行 = 行列表[i];
+        if (模块名 !== null && 行['模块'] !== 模块名) { continue; }
+        var 规则数 = 行['规则数'] === -1 ? '—' : 行['规则数'];
+        文本 += '<tr' + (!行['可读'] ? ' style=""color:#f38ba8;""' : '') + '>' +
+            单元格(行['文件名']) + 单元格(规则数) + 单元格(行['字节数']) + 单元格(行['相对路径']);
+        if (!行['可读']) {
+            文本 += '<td class=""红"">' + 转义(行['失败原因']) + '</td>';
+        } else {
+            文本 += '<td></td>';
+        }
+        文本 += '</tr>';
+    }
+    return 文本 + '</table>';
+}
+
+function 渲染提案待批(数据) {
+    if (!数据['读成']) {
+        return '<p class=""红"">晋升提案账本没读成：' + 转义(数据['失败原因']) + '</p>';
+    }
+    var 输入框 = document.getElementById('提案裁决人输入');
+    var 有裁决人 = 输入框 && 输入框.value.trim().length > 0;
+    var 禁用 = 有裁决人 ? '' : ' disabled';
+    var 文本 = '<div class=""卡片组"">' +
+        卡片(数据['总数'], '共') +
+        卡片(数据['待批数'], '待批') +
+        卡片(数据['未关闭数'], '未关闭') +
+        '</div>';
+    文本 += '<input id=""提案裁决人输入"" placeholder=""裁决人（批准 / 拒绝用）"" oninput=""刷新提案按钮()"">';
+    文本 += '<table><tr><th>提案 id</th><th>类别</th><th>同类条数</th><th>可规则化性</th><th>去向</th>' +
+        '<th>模块</th><th>状态</th><th>提出时间</th><th>裁决人</th><th>原文引用</th><th>操作</th></tr>';
+    var 行列表 = 数据['行'];
+    for (var i = 0; i < 行列表.length; i++) {
+        var 行 = 行列表[i];
+        // 待批标黄、已落地标绿、已拒绝标灰——待批是待办不是违规，不给红。
+        var 状态样式 = 行['状态'] === '待批' ? ' style=""color:#f9e2af;""'
+            : (行['状态'] === '已落地' ? ' class=""绿""'
+                : (行['状态'] === '已拒绝' ? ' class=""灰""' : ''));
+        文本 += '<tr>' +
+            单元格(行['id']) + 单元格(行['问题类别']) + 单元格(行['同类条数']) +
+            单元格(行['可规则化性']) + 单元格(行['晋升去向']) + 单元格(行['模块']) +
+            '<td' + 状态样式 + '>' + 转义(行['状态']) + '</td>' +
+            单元格(行['提出时间']) + 单元格(行['裁决人']) +
+            单元格((行['原文引用'] || []).join('；')) +
+            '<td>' + 提案按钮(行, 禁用) + '</td></tr>';
+    }
+    return 文本 + '</table>';
+}
+
+function 提案按钮(行, 禁用) {
+    if (行['状态'] === '待批') {
+        return '<button class=""提案裁决按钮"" data-提案=""' + 转义(行['id']) + '"" data-动作=""批准""' + 禁用 +
+            ' onclick=""裁决提案(this)"">批准</button> ' +
+            '<button class=""提案裁决按钮"" data-提案=""' + 转义(行['id']) + '"" data-动作=""拒绝""' + 禁用 +
+            ' onclick=""裁决提案(this)"">拒绝</button>';
+    }
+    if (行['状态'] === '已批准') {
+        // 落地不需要裁决人姓名，始终可用。
+        return '<button data-提案=""' + 转义(行['id']) + '"" onclick=""落地提案(this)"">落地</button>';
+    }
+    // 终态（已拒绝 / 已落地）不许覆盖，不给任何按钮。
+    return '<span class=""灰"">终态</span>';
+}
+
+function 刷新提案按钮() {
+    var 输入框 = document.getElementById('提案裁决人输入');
+    var 有裁决人 = 输入框 && 输入框.value.trim().length > 0;
+    var 按钮们 = document.getElementsByClassName('提案裁决按钮');
+    for (var i = 0; i < 按钮们.length; i++) { 按钮们[i].disabled = !有裁决人; }
+}
+
+function 裁决提案(按钮) {
+    var 提案id = 按钮.getAttribute('data-提案');
+    var 动作 = 按钮.getAttribute('data-动作');
+    var 输入框 = document.getElementById('提案裁决人输入');
+    var 裁决人 = 输入框 ? 输入框.value.trim() : '';
+    if (!裁决人) { return; }
+    // 与冲突页同一段校验：裁决人姓名直接拼进 /cmd 命令行，空格/制表符会把姓名拆成多个参数，
+    // 短横线开头会被当成 -- 参数键。这两种名字无法安全表达，明确拒绝而不是静默写错。
+    if (裁决人.indexOf(' ') >= 0 || 裁决人.indexOf('\t') >= 0 || 裁决人.charAt(0) === '-') {
+        alert('裁决人姓名不能含空格或短横线开头');
+        return;
+    }
+    发命令('task.promotion.decide --RepositoryRoot . --PoolRoot Pools --ProposalIdentifier ' + 提案id +
+        ' --Action ' + 动作 + ' --DeciderName ' + 裁决人);
+}
+
+function 落地提案(按钮) {
+    var 提案id = 按钮.getAttribute('data-提案');
+    发命令('task.promotion.decide --RepositoryRoot . --PoolRoot Pools --ProposalIdentifier ' + 提案id +
+        ' --Action 落地');
+}
+
+function 抽查(按钮) {
+    var 流水id = 按钮.getAttribute('data-流水');
+    var 结论 = prompt('抽查结论（合格 / 发现问题）：', '');
+    if (!结论) { return; }
+    if (结论 !== '合格' && 结论 !== '发现问题') {
+        alert('抽查结论必须是「合格」或「发现问题」');
+        return;
+    }
+    发命令('task.spotcheck --RepositoryRoot . --PoolRoot Pools --LedgerIdentifier ' + 流水id +
+        ' --Conclusion ' + 结论);
+}
+
+function 发命令(命令行) {
+    var 输出区 = document.getElementById('命令输出');
+    fetch('/cmd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({ '命令行': 命令行 })
+    }).then(function (响应) {
+        return 响应.json();
+    }).then(function (结果) {
+        if (!结果['允许']) {
+            输出区.textContent = '被拒绝：' + 结果['原因'];
+            return;
+        }
+        输出区.textContent = '退出码 ' + 结果['退出码'] + '\n' + 结果['输出'];
+        切换(当前页);
+    }).catch(function (错误) {
+        输出区.textContent = '请求失败：' + 错误.message;
+    });
 }
 
 function 切换(序号) {

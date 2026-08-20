@@ -661,6 +661,460 @@ namespace Template.Toolkit.Dashboard
         public IReadOnlyList<string> Quotations { get; }
     }
 
+    /// <summary>终审队列的一行：需求、标题、关卡待审、阶段与等待时长，附状态文件坏掉的原因。</summary>
+    public sealed class PanelReviewQueueRow
+    {
+        /// <summary>
+        /// 构造一行终审队列。
+        /// </summary>
+        /// <param name="requirementIdentifier">需求 id。</param>
+        /// <param name="title">需求标题。</param>
+        /// <param name="pendingGate">关卡待审的值。</param>
+        /// <param name="stage">阶段。</param>
+        /// <param name="subState">子状态。</param>
+        /// <param name="grade">风险级，取自放行流水里该需求最近一条。</param>
+        /// <param name="lastTouchedMoment">状态文件最后写入时间（ISO 8601，UTC）。</param>
+        /// <param name="waitingLabel">等待时长的人话。</param>
+        /// <param name="hasStateFailure">状态文件是否读不动或坏掉。</param>
+        /// <param name="stateFailureReason">状态文件坏掉的原因，正常时为空串。</param>
+        public PanelReviewQueueRow(
+            string requirementIdentifier,
+            string title,
+            string pendingGate,
+            string stage,
+            string subState,
+            string grade,
+            string lastTouchedMoment,
+            string waitingLabel,
+            bool hasStateFailure,
+            string stateFailureReason)
+        {
+            RequirementIdentifier = requirementIdentifier ?? "";
+            Title = title ?? "";
+            PendingGate = pendingGate ?? "";
+            Stage = stage ?? "";
+            SubState = subState ?? "";
+            Grade = grade ?? "";
+            LastTouchedMoment = lastTouchedMoment ?? "";
+            WaitingLabel = waitingLabel ?? "";
+            HasStateFailure = hasStateFailure;
+            StateFailureReason = stateFailureReason ?? "";
+        }
+
+        /// <summary>需求 id。</summary>
+        [JsonPropertyName("需求id")]
+        public string RequirementIdentifier { get; }
+
+        /// <summary>需求标题，从需求文件取；取不到给空串。</summary>
+        [JsonPropertyName("标题")]
+        public string Title { get; }
+
+        /// <summary>关卡待审的值。</summary>
+        [JsonPropertyName("关卡待审")]
+        public string PendingGate { get; }
+
+        /// <summary>阶段。</summary>
+        [JsonPropertyName("阶段")]
+        public string Stage { get; }
+
+        /// <summary>子状态。</summary>
+        [JsonPropertyName("子状态")]
+        public string SubState { get; }
+
+        /// <summary>风险级，从放行流水里该需求最近一条的 Grade 搬来；找不到给空串。面板不自己算风险级。</summary>
+        [JsonPropertyName("风险级")]
+        public string Grade { get; }
+
+        /// <summary>状态文件最后写入时间（ISO 8601，UTC）。</summary>
+        [JsonPropertyName("最后修改时间")]
+        public string LastTouchedMoment { get; }
+
+        /// <summary>
+        /// 等待时长的人话，例「等了 3 天 4 小时」。
+        /// 注意：按状态文件最后修改时间算的，不是「进关卡的时间」——状态文件里没有进关卡的时间戳。
+        /// </summary>
+        [JsonPropertyName("等待")]
+        public string WaitingLabel { get; }
+
+        /// <summary>状态文件是否读不动或坏掉；坏掉时这一行仍然产出，让人看见。</summary>
+        [JsonPropertyName("状态失败")]
+        public bool HasStateFailure { get; }
+
+        /// <summary>状态文件坏掉的原因，正常时为空串。</summary>
+        [JsonPropertyName("状态失败原因")]
+        public string StateFailureReason { get; }
+    }
+
+    /// <summary>放行流水的一行：流水 id、需求、风险级、范围、放行时间与抽查状态。</summary>
+    public sealed class PanelReleaseRow
+    {
+        /// <summary>
+        /// 构造一行放行流水。
+        /// </summary>
+        /// <param name="identifier">流水 id，形如 RL-0001。</param>
+        /// <param name="requirementIdentifier">需求 id。</param>
+        /// <param name="grade">风险级。</param>
+        /// <param name="scopeText">范围，用「、」连起来的文本。</param>
+        /// <param name="releasedMoment">放行时间，ISO 8601 字符串。</param>
+        /// <param name="mergeCommit">合并提交哈希。</param>
+        /// <param name="spotCheckState">抽查状态：未抽查 / 合格 / 发现问题。</param>
+        /// <param name="spotCheckConclusion">抽查结论正文。</param>
+        /// <param name="revertCommit">回滚提交哈希。</param>
+        /// <param name="isSpotChecked">是否抽查过（抽查状态不是「未抽查」）。</param>
+        /// <param name="hasProblem">抽查状态是否是「发现问题」。</param>
+        public PanelReleaseRow(
+            string identifier,
+            string requirementIdentifier,
+            string grade,
+            string scopeText,
+            string releasedMoment,
+            string mergeCommit,
+            string spotCheckState,
+            string spotCheckConclusion,
+            string revertCommit,
+            bool isSpotChecked,
+            bool hasProblem)
+        {
+            Identifier = identifier ?? "";
+            RequirementIdentifier = requirementIdentifier ?? "";
+            Grade = grade ?? "";
+            ScopeText = scopeText ?? "";
+            ReleasedMoment = releasedMoment ?? "";
+            MergeCommit = mergeCommit ?? "";
+            SpotCheckState = spotCheckState ?? "";
+            SpotCheckConclusion = spotCheckConclusion ?? "";
+            RevertCommit = revertCommit ?? "";
+            IsSpotChecked = isSpotChecked;
+            HasProblem = hasProblem;
+        }
+
+        /// <summary>流水 id，形如 RL-0001。</summary>
+        [JsonPropertyName("id")]
+        public string Identifier { get; }
+
+        /// <summary>需求 id。</summary>
+        [JsonPropertyName("需求id")]
+        public string RequirementIdentifier { get; }
+
+        /// <summary>风险级。</summary>
+        [JsonPropertyName("风险级")]
+        public string Grade { get; }
+
+        /// <summary>范围，用「、」连起来的文本。</summary>
+        [JsonPropertyName("范围")]
+        public string ScopeText { get; }
+
+        /// <summary>放行时间，ISO 8601 字符串。</summary>
+        [JsonPropertyName("放行时间")]
+        public string ReleasedMoment { get; }
+
+        /// <summary>合并提交哈希。</summary>
+        [JsonPropertyName("合并提交")]
+        public string MergeCommit { get; }
+
+        /// <summary>抽查状态：未抽查 / 合格 / 发现问题。</summary>
+        [JsonPropertyName("抽查状态")]
+        public string SpotCheckState { get; }
+
+        /// <summary>抽查结论正文。</summary>
+        [JsonPropertyName("抽查结论")]
+        public string SpotCheckConclusion { get; }
+
+        /// <summary>回滚提交哈希。</summary>
+        [JsonPropertyName("回滚提交")]
+        public string RevertCommit { get; }
+
+        /// <summary>是否抽查过（抽查状态不是「未抽查」）。</summary>
+        [JsonPropertyName("已抽查")]
+        public bool IsSpotChecked { get; }
+
+        /// <summary>抽查状态是否是「发现问题」。</summary>
+        [JsonPropertyName("发现问题")]
+        public bool HasProblem { get; }
+    }
+
+    /// <summary>放行流水页的汇总：行列表、三个计数与「读成没有」。</summary>
+    public sealed class PanelReleaseSummary
+    {
+        /// <summary>
+        /// 构造一份放行流水汇总。
+        /// </summary>
+        /// <param name="rows">流水行，按流水 id 序数序。</param>
+        /// <param name="totalCount">总条数。</param>
+        /// <param name="uncheckedCount">未抽查条数。</param>
+        /// <param name="problemCount">发现问题条数。</param>
+        /// <param name="loaded">流水是否读成。</param>
+        /// <param name="loadFailureReason">读不成的原因，正常时为空串。</param>
+        public PanelReleaseSummary(
+            IReadOnlyList<PanelReleaseRow> rows,
+            int totalCount,
+            int uncheckedCount,
+            int problemCount,
+            bool loaded,
+            string loadFailureReason)
+        {
+            Rows = rows ?? Array.Empty<PanelReleaseRow>();
+            TotalCount = totalCount;
+            UncheckedCount = uncheckedCount;
+            ProblemCount = problemCount;
+            Loaded = loaded;
+            LoadFailureReason = loadFailureReason ?? "";
+        }
+
+        /// <summary>流水行，按流水 id 序数序。</summary>
+        [JsonPropertyName("行")]
+        public IReadOnlyList<PanelReleaseRow> Rows { get; }
+
+        /// <summary>总条数。</summary>
+        [JsonPropertyName("总数")]
+        public int TotalCount { get; }
+
+        /// <summary>未抽查条数。</summary>
+        [JsonPropertyName("未抽查数")]
+        public int UncheckedCount { get; }
+
+        /// <summary>发现问题条数。</summary>
+        [JsonPropertyName("问题数")]
+        public int ProblemCount { get; }
+
+        /// <summary>流水是否读成；LoadFailureReason 非空时为 false。</summary>
+        [JsonPropertyName("读成")]
+        public bool Loaded { get; }
+
+        /// <summary>读不成的原因，正常时为空串。残缺的流水不能拿来下「零问题」的结论。</summary>
+        [JsonPropertyName("失败原因")]
+        public string LoadFailureReason { get; }
+    }
+
+    /// <summary>规范浏览的一行：层、模块、文件名、字节数、规则条数与可读性。</summary>
+    public sealed class PanelSpecificationRow
+    {
+        /// <summary>
+        /// 构造一行规范文件。
+        /// </summary>
+        /// <param name="layer">层：基线 / 项目 / 业务。</param>
+        /// <param name="moduleName">业务层的模块名，其余层为空串。</param>
+        /// <param name="fileName">文件名（含后缀）。</param>
+        /// <param name="relativePath">相对仓库根的路径，分隔符统一成 /。</param>
+        /// <param name="byteCount">文件字节数。</param>
+        /// <param name="ruleCount">规则条数；算不出来给 -1。</param>
+        /// <param name="isReadable">文件是否读得动。</param>
+        /// <param name="failureReason">读不动或 JSON 坏的原因，正常时为空串。</param>
+        public PanelSpecificationRow(
+            string layer,
+            string moduleName,
+            string fileName,
+            string relativePath,
+            long byteCount,
+            int ruleCount,
+            bool isReadable,
+            string failureReason)
+        {
+            Layer = layer ?? "";
+            ModuleName = moduleName ?? "";
+            FileName = fileName ?? "";
+            RelativePath = relativePath ?? "";
+            ByteCount = byteCount;
+            RuleCount = ruleCount;
+            IsReadable = isReadable;
+            FailureReason = failureReason ?? "";
+        }
+
+        /// <summary>层：基线 / 项目 / 业务。</summary>
+        [JsonPropertyName("层")]
+        public string Layer { get; }
+
+        /// <summary>业务层的模块名，其余层为空串。</summary>
+        [JsonPropertyName("模块")]
+        public string ModuleName { get; }
+
+        /// <summary>文件名（含后缀）。</summary>
+        [JsonPropertyName("文件名")]
+        public string FileName { get; }
+
+        /// <summary>相对仓库根的路径，分隔符统一成 /。</summary>
+        [JsonPropertyName("相对路径")]
+        public string RelativePath { get; }
+
+        /// <summary>文件字节数。</summary>
+        [JsonPropertyName("字节数")]
+        public long ByteCount { get; }
+
+        /// <summary>规则条数；只对 .json 且顶层是数组、或顶层对象里有「规则」数组时给条数，算不出来给 -1。</summary>
+        [JsonPropertyName("规则数")]
+        public int RuleCount { get; }
+
+        /// <summary>文件是否读得动。</summary>
+        [JsonPropertyName("可读")]
+        public bool IsReadable { get; }
+
+        /// <summary>读不动或 JSON 坏的原因，正常时为空串；这一行仍然产出，让人看见。</summary>
+        [JsonPropertyName("失败原因")]
+        public string FailureReason { get; }
+    }
+
+    /// <summary>晋升提案待批的一行：提案 id、类别、状态、裁决信息与原文引用。</summary>
+    public sealed class PanelPromotionProposalRow
+    {
+        /// <summary>
+        /// 构造一行晋升提案。
+        /// </summary>
+        /// <param name="identifier">提案 id，形如 PR-0001。</param>
+        /// <param name="category">问题类别。</param>
+        /// <param name="count">同类条数。</param>
+        /// <param name="rulability">可规则化性。</param>
+        /// <param name="targetChannel">晋升去向：检查器 / 预审规则 / 无。</param>
+        /// <param name="moduleText">涉及模块，用「、」连起来的文本。</param>
+        /// <param name="state">状态：待批 / 已批准 / 已拒绝 / 已落地。</param>
+        /// <param name="proposedMoment">提出时间，ISO 8601 字符串。</param>
+        /// <param name="deciderName">裁决人，未裁决时为空串。</param>
+        /// <param name="decidedMoment">裁决时间，未裁决时为空串。</param>
+        /// <param name="landingArtifact">落地产物路径，未落地时为空串。</param>
+        /// <param name="isOpen">是否未关闭（状态是 待批 或 已批准）。</param>
+        /// <param name="isPending">状态是否是 待批。</param>
+        /// <param name="quotations">原文引用，最多前三条。</param>
+        public PanelPromotionProposalRow(
+            string identifier,
+            string category,
+            int count,
+            string rulability,
+            string targetChannel,
+            string moduleText,
+            string state,
+            string proposedMoment,
+            string deciderName,
+            string decidedMoment,
+            string landingArtifact,
+            bool isOpen,
+            bool isPending,
+            IReadOnlyList<string> quotations)
+        {
+            Identifier = identifier ?? "";
+            Category = category ?? "";
+            Count = count;
+            Rulability = rulability ?? "";
+            TargetChannel = targetChannel ?? "";
+            ModuleText = moduleText ?? "";
+            State = state ?? "";
+            ProposedMoment = proposedMoment ?? "";
+            DeciderName = deciderName ?? "";
+            DecidedMoment = decidedMoment ?? "";
+            LandingArtifact = landingArtifact ?? "";
+            IsOpen = isOpen;
+            IsPending = isPending;
+            Quotations = quotations ?? Array.Empty<string>();
+        }
+
+        /// <summary>提案 id，形如 PR-0001。</summary>
+        [JsonPropertyName("id")]
+        public string Identifier { get; }
+
+        /// <summary>问题类别。</summary>
+        [JsonPropertyName("问题类别")]
+        public string Category { get; }
+
+        /// <summary>同类条数。</summary>
+        [JsonPropertyName("同类条数")]
+        public int Count { get; }
+
+        /// <summary>可规则化性。</summary>
+        [JsonPropertyName("可规则化性")]
+        public string Rulability { get; }
+
+        /// <summary>晋升去向：检查器 / 预审规则 / 无。</summary>
+        [JsonPropertyName("晋升去向")]
+        public string TargetChannel { get; }
+
+        /// <summary>涉及模块，用「、」连起来的文本。</summary>
+        [JsonPropertyName("模块")]
+        public string ModuleText { get; }
+
+        /// <summary>状态：待批 / 已批准 / 已拒绝 / 已落地。</summary>
+        [JsonPropertyName("状态")]
+        public string State { get; }
+
+        /// <summary>提出时间，ISO 8601 字符串。</summary>
+        [JsonPropertyName("提出时间")]
+        public string ProposedMoment { get; }
+
+        /// <summary>裁决人，未裁决时为空串。</summary>
+        [JsonPropertyName("裁决人")]
+        public string DeciderName { get; }
+
+        /// <summary>裁决时间，未裁决时为空串。</summary>
+        [JsonPropertyName("裁决时间")]
+        public string DecidedMoment { get; }
+
+        /// <summary>落地产物路径，未落地时为空串。</summary>
+        [JsonPropertyName("落地产物")]
+        public string LandingArtifact { get; }
+
+        /// <summary>是否未关闭（状态是 待批 或 已批准，与决策 62 同一套判据）。</summary>
+        [JsonPropertyName("未关闭")]
+        public bool IsOpen { get; }
+
+        /// <summary>状态是否是 待批。</summary>
+        [JsonPropertyName("待批")]
+        public bool IsPending { get; }
+
+        /// <summary>原文引用，最多前三条。</summary>
+        [JsonPropertyName("原文引用")]
+        public IReadOnlyList<string> Quotations { get; }
+    }
+
+    /// <summary>晋升提案待批页的汇总：行列表、三个计数与「读成没有」。</summary>
+    public sealed class PanelPromotionProposalSummary
+    {
+        /// <summary>
+        /// 构造一份晋升提案汇总。
+        /// </summary>
+        /// <param name="rows">提案行，按提案 id 序数序。</param>
+        /// <param name="totalCount">总条数。</param>
+        /// <param name="pendingCount">待批条数。</param>
+        /// <param name="openCount">未关闭条数。</param>
+        /// <param name="loaded">账本是否读成。</param>
+        /// <param name="loadFailureReason">读不成的原因，正常时为空串。</param>
+        public PanelPromotionProposalSummary(
+            IReadOnlyList<PanelPromotionProposalRow> rows,
+            int totalCount,
+            int pendingCount,
+            int openCount,
+            bool loaded,
+            string loadFailureReason)
+        {
+            Rows = rows ?? Array.Empty<PanelPromotionProposalRow>();
+            TotalCount = totalCount;
+            PendingCount = pendingCount;
+            OpenCount = openCount;
+            Loaded = loaded;
+            LoadFailureReason = loadFailureReason ?? "";
+        }
+
+        /// <summary>提案行，按提案 id 序数序。</summary>
+        [JsonPropertyName("行")]
+        public IReadOnlyList<PanelPromotionProposalRow> Rows { get; }
+
+        /// <summary>总条数。</summary>
+        [JsonPropertyName("总数")]
+        public int TotalCount { get; }
+
+        /// <summary>待批条数。</summary>
+        [JsonPropertyName("待批数")]
+        public int PendingCount { get; }
+
+        /// <summary>未关闭条数（状态是 待批 或 已批准）。</summary>
+        [JsonPropertyName("未关闭数")]
+        public int OpenCount { get; }
+
+        /// <summary>账本是否读成；LoadFailureReason 非空时为 false。</summary>
+        [JsonPropertyName("读成")]
+        public bool Loaded { get; }
+
+        /// <summary>读不成的原因，正常时为空串。</summary>
+        [JsonPropertyName("失败原因")]
+        public string LoadFailureReason { get; }
+    }
+
     /// <summary>
     /// 面板八页的数据读取器：每页只读磁盘文件，返回可直接序列化成 JSON 的对象。
     /// 全部方法零私有状态、零缓存，每次调用现读文件；任何单点失败都降级，不往上抛。
@@ -1230,6 +1684,433 @@ namespace Template.Toolkit.Dashboard
             }
 
             return rows;
+        }
+
+        /// <summary>
+        /// 读终审队列：列 _Tasks/ 下一级目录（目录名即需求 id），只留「关卡待审」非空的；
+        /// 状态文件读不动或坏掉的也产出一行并带原因（有东西烂在库里必须让人看见）。
+        /// 风险级从放行流水里找该需求最近一条的 Grade 搬来，面板不自己算（决策 21）；
+        /// 等待时长按状态文件最后修改时间算——状态文件里没有进关卡的时间戳。
+        /// _Tasks/ 不存在返回空列表，这是正常的，不是错误。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static IReadOnlyList<PanelReviewQueueRow> ReadReviewQueue(string repositoryRoot, string poolRoot)
+        {
+            var taskDirectory = Path.Combine(repositoryRoot, "_Tasks");
+            if (!Directory.Exists(taskDirectory))
+            {
+                return Array.Empty<PanelReviewQueueRow>();
+            }
+
+            var identifiers = Directory.GetDirectories(taskDirectory)
+                .Select(directory => Path.GetFileName(directory))
+                .Where(name => !string.IsNullOrEmpty(name))
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToList();
+
+            var gradeByRequirement = ReadLatestGrades(poolRoot);
+
+            var candidates = new List<ReviewQueueCandidate>();
+            foreach (var identifier in identifiers)
+            {
+                var stateFilePath = PipelinePaths.TaskStateFile(repositoryRoot, identifier);
+                if (!File.Exists(stateFilePath))
+                {
+                    continue;
+                }
+
+                var pendingGate = "";
+                var stage = "";
+                var subState = "";
+                var stateFailureReason = "";
+                try
+                {
+                    using (var document = JsonDocument.Parse(File.ReadAllText(stateFilePath)))
+                    {
+                        var root = document.RootElement;
+                        if (root.ValueKind != JsonValueKind.Object)
+                        {
+                            stateFailureReason = "状态文件根不是对象";
+                        }
+                        else
+                        {
+                            pendingGate = ReadStringOrEmpty(root, "关卡待审");
+                            stage = ReadStringOrEmpty(root, "阶段");
+                            subState = ReadStringOrEmpty(root, "子状态");
+                        }
+                    }
+                }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+                {
+                    stateFailureReason = $"状态文件解析失败：{exception.Message}";
+                }
+
+                // 状态文件坏掉的照常产出一行让人看见；正常的只留「关卡待审」非空的。
+                if (stateFailureReason.Length == 0 && string.IsNullOrEmpty(pendingGate))
+                {
+                    continue;
+                }
+
+                var touchedUtc = File.GetLastWriteTimeUtc(stateFilePath);
+                // 状态文件必然存在，mtime 早于 Unix 纪元（1970）视为异常/缺失：文件系统不支持那么早的
+                // 时间时会返回默认值（1601-01-01），把它当「没有时间」处理，排最后。
+                var hasTouchedTime = touchedUtc >= new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                var grade = gradeByRequirement.TryGetValue(identifier, out var existingGrade) ? existingGrade : "";
+                candidates.Add(new ReviewQueueCandidate(
+                    identifier,
+                    ReadRequirementTitle(poolRoot, identifier),
+                    pendingGate,
+                    stage,
+                    subState,
+                    grade,
+                    touchedUtc,
+                    hasTouchedTime,
+                    stateFailureReason));
+            }
+
+            // 等待时长按状态文件最后修改时间升序（等得最久的排最前），时间相同或缺失的按需求 id 序数序；缺失时间的排最后。
+            candidates.Sort((left, right) =>
+            {
+                if (!left.HasTouchedTime && !right.HasTouchedTime)
+                {
+                    return string.CompareOrdinal(left.RequirementIdentifier, right.RequirementIdentifier);
+                }
+
+                if (!left.HasTouchedTime)
+                {
+                    return 1;
+                }
+
+                if (!right.HasTouchedTime)
+                {
+                    return -1;
+                }
+
+                var byTime = left.TouchedUtc.CompareTo(right.TouchedUtc);
+                return byTime != 0 ? byTime : string.CompareOrdinal(left.RequirementIdentifier, right.RequirementIdentifier);
+            });
+
+            var nowUtc = DateTime.UtcNow;
+            var rows = new List<PanelReviewQueueRow>();
+            foreach (var candidate in candidates)
+            {
+                rows.Add(new PanelReviewQueueRow(
+                    candidate.RequirementIdentifier,
+                    candidate.Title,
+                    candidate.PendingGate,
+                    candidate.Stage,
+                    candidate.SubState,
+                    candidate.Grade,
+                    candidate.HasTouchedTime ? candidate.TouchedUtc.ToString("o") : "",
+                    BuildWaitingLabel(candidate.HasTouchedTime ? nowUtc - candidate.TouchedUtc : (TimeSpan?)null),
+                    candidate.StateFailureReason.Length > 0,
+                    candidate.StateFailureReason));
+            }
+
+            return rows;
+        }
+
+        /// <summary>
+        /// 读放行流水：直接用 ReleaseLedger.Load（面板与 CLI 同源，不另写一份读取）。
+        /// 空流水是正常状态；LoadFailureReason 非空时 Loaded 为 false——残缺的流水
+        /// 不能拿来下「零问题」的结论（决策 42）。
+        /// </summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static PanelReleaseSummary ReadReleases(string poolRoot)
+        {
+            var ledger = ReleaseLedger.Load(poolRoot);
+            var rows = new List<PanelReleaseRow>();
+            foreach (var entry in ledger.Entries)
+            {
+                rows.Add(new PanelReleaseRow(
+                    entry.Identifier,
+                    entry.RequirementIdentifier,
+                    entry.Grade,
+                    string.Join("、", entry.Scopes),
+                    entry.ReleasedMoment,
+                    entry.MergeCommit,
+                    entry.SpotCheckState,
+                    entry.SpotCheckConclusion,
+                    entry.RevertCommit,
+                    entry.IsSpotChecked,
+                    string.Equals(entry.SpotCheckState, "发现问题", StringComparison.Ordinal)));
+            }
+
+            return new PanelReleaseSummary(
+                rows,
+                rows.Count,
+                ledger.UncheckedCount(),
+                ledger.ProblemCount(),
+                ledger.LoadFailureReason.Length == 0,
+                ledger.LoadFailureReason);
+        }
+
+        /// <summary>
+        /// 读规范浏览：扫三层（基线 / 项目 / 业务）各自目录下（不递归）的 .json 与 .md，
+        /// 业务层按一级子目录分模块。任一层不存在该层零行，不是错误。
+        /// 排序：层固定顺序（基线 → 项目 → 业务）→ 模块名序数序 → 文件名序数序，不依赖文件系统枚举顺序。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static IReadOnlyList<PanelSpecificationRow> ReadSpecifications(string repositoryRoot)
+        {
+            var rows = new List<PanelSpecificationRow>();
+            CollectSpecificationFiles(
+                repositoryRoot,
+                SpecificationPaths.BaselineDirectory(repositoryRoot),
+                "基线",
+                "",
+                rows);
+            CollectSpecificationFiles(
+                repositoryRoot,
+                SpecificationPaths.ProjectDirectory(repositoryRoot),
+                "项目",
+                "",
+                rows);
+
+            var businessRoot = Path.Combine(repositoryRoot, "规范", "业务");
+            if (Directory.Exists(businessRoot))
+            {
+                var moduleNames = Directory.GetDirectories(businessRoot)
+                    .Select(directory => Path.GetFileName(directory))
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .ToList();
+                foreach (var moduleName in moduleNames)
+                {
+                    CollectSpecificationFiles(
+                        repositoryRoot,
+                        SpecificationPaths.BusinessDirectory(repositoryRoot, moduleName),
+                        "业务",
+                        moduleName,
+                        rows);
+                }
+            }
+
+            return rows;
+        }
+
+        /// <summary>
+        /// 读晋升提案待批：直接用 PromotionLedger.Load（不是 PromotionProposalBuilder——
+        /// 那是现有「晋升」页读的候选，两回事）。
+        /// 空账本是正常状态；LoadFailureReason 非空时 Loaded 为 false。
+        /// 未关闭不判红也不告警——待批提案是待办不是违规（决策 51 同理）。
+        /// </summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static PanelPromotionProposalSummary ReadPromotionProposals(string poolRoot)
+        {
+            var ledger = PromotionLedger.Load(poolRoot);
+            var rows = new List<PanelPromotionProposalRow>();
+            var pendingCount = 0;
+            foreach (var record in ledger.Records)
+            {
+                var quotations = record.Quotations;
+                if (quotations.Count > 3)
+                {
+                    quotations = quotations.Take(3).ToList();
+                }
+
+                var isPending = string.Equals(record.State, PromotionRecord.PendingState, StringComparison.Ordinal);
+                if (isPending)
+                {
+                    pendingCount++;
+                }
+
+                rows.Add(new PanelPromotionProposalRow(
+                    record.Identifier,
+                    record.Category,
+                    record.Count,
+                    record.Rulability,
+                    record.TargetChannel,
+                    string.Join("、", record.ModuleNames),
+                    record.State,
+                    record.ProposedMoment,
+                    record.DeciderName,
+                    record.DecidedMoment,
+                    record.LandingArtifact,
+                    record.IsOpen,
+                    isPending,
+                    quotations));
+            }
+
+            return new PanelPromotionProposalSummary(
+                rows,
+                rows.Count,
+                pendingCount,
+                ledger.OpenCount(),
+                ledger.LoadFailureReason.Length == 0,
+                ledger.LoadFailureReason);
+        }
+
+        /// <summary>把放行流水里每个需求最近一条（流水 id 最大）的 Grade 收进字典；流水读不动时给空字典。</summary>
+        private static Dictionary<string, string> ReadLatestGrades(string poolRoot)
+        {
+            var grades = new Dictionary<string, string>(StringComparer.Ordinal);
+            var ledger = ReleaseLedger.Load(poolRoot);
+            foreach (var entry in ledger.Entries)
+            {
+                // 流水已按 id 序数序，后匹配到的就是该需求最近一条。
+                grades[entry.RequirementIdentifier] = entry.Grade;
+            }
+
+            return grades;
+        }
+
+        /// <summary>把等待时长拼成人话：「等了 X 天 Y 小时」；不足一小时「等了不到 1 小时」；时间缺失给空串。</summary>
+        private static string BuildWaitingLabel(TimeSpan? elapsed)
+        {
+            if (elapsed == null || elapsed.Value < TimeSpan.Zero)
+            {
+                return "";
+            }
+
+            if (elapsed.Value.TotalMinutes < 1)
+            {
+                return "等了不到 1 小时";
+            }
+
+            var totalHours = (int)elapsed.Value.TotalHours;
+            var days = totalHours / 24;
+            var hours = totalHours % 24;
+            return days > 0 ? $"等了 {days} 天 {hours} 小时" : $"等了 {hours} 小时";
+        }
+
+        /// <summary>收某一层目录下（不递归）的 .json 与 .md 文件，各产一行；目录不存在返回。</summary>
+        private static void CollectSpecificationFiles(
+            string repositoryRoot,
+            string layerDirectory,
+            string layer,
+            string moduleName,
+            List<PanelSpecificationRow> rows)
+        {
+            if (!Directory.Exists(layerDirectory))
+            {
+                return;
+            }
+
+            var filePaths = Directory.EnumerateFiles(layerDirectory, "*", SearchOption.TopDirectoryOnly)
+                .Where(path => IsSpecificationFile(path))
+                .ToList();
+            filePaths.Sort(StringComparer.Ordinal);
+
+            foreach (var filePath in filePaths)
+            {
+                var fileName = Path.GetFileName(filePath);
+                var relativePath = Path.GetRelativePath(Path.GetFullPath(repositoryRoot), Path.GetFullPath(filePath))
+                    .Replace('\\', '/');
+                var byteCount = 0L;
+                var ruleCount = -1;
+                var isReadable = true;
+                var failureReason = "";
+                try
+                {
+                    byteCount = new FileInfo(filePath).Length;
+                    if (string.Equals(Path.GetExtension(fileName), ".json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ruleCount = CountSpecificationRules(filePath, out isReadable, out failureReason);
+                    }
+                }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+                {
+                    isReadable = false;
+                    failureReason = $"读不了：{exception.Message}";
+                }
+
+                rows.Add(new PanelSpecificationRow(
+                    layer,
+                    moduleName,
+                    fileName,
+                    relativePath,
+                    byteCount,
+                    ruleCount,
+                    isReadable,
+                    failureReason));
+            }
+        }
+
+        /// <summary>文件名后缀是否 .json 或 .md，大小写不敏感。</summary>
+        private static bool IsSpecificationFile(string filePath)
+        {
+            var extension = Path.GetExtension(filePath);
+            return string.Equals(extension, ".json", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(extension, ".md", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>数一份规范 JSON 的规则条数：顶层是数组给数组长度；顶层对象带「规则」数组给那个数组长度；其余给 -1。</summary>
+        private static int CountSpecificationRules(string filePath, out bool isReadable, out string failureReason)
+        {
+            isReadable = true;
+            failureReason = "";
+            try
+            {
+                using (var document = JsonDocument.Parse(File.ReadAllText(filePath)))
+                {
+                    var root = document.RootElement;
+                    if (root.ValueKind == JsonValueKind.Array)
+                    {
+                        return root.GetArrayLength();
+                    }
+
+                    if (root.ValueKind == JsonValueKind.Object)
+                    {
+                        return root.TryGetProperty("规则", out var rules) && rules.ValueKind == JsonValueKind.Array
+                            ? rules.GetArrayLength()
+                            : -1;
+                    }
+
+                    return -1;
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                isReadable = false;
+                failureReason = $"JSON 解析失败：{exception.Message}";
+                return -1;
+            }
+        }
+
+        /// <summary>终审队列排序用的中间候选：行字段 + 文件最后修改时间这一排序键。</summary>
+        private sealed class ReviewQueueCandidate
+        {
+            internal ReviewQueueCandidate(
+                string requirementIdentifier,
+                string title,
+                string pendingGate,
+                string stage,
+                string subState,
+                string grade,
+                DateTime touchedUtc,
+                bool hasTouchedTime,
+                string stateFailureReason)
+            {
+                RequirementIdentifier = requirementIdentifier;
+                Title = title;
+                PendingGate = pendingGate;
+                Stage = stage;
+                SubState = subState;
+                Grade = grade;
+                TouchedUtc = touchedUtc;
+                HasTouchedTime = hasTouchedTime;
+                StateFailureReason = stateFailureReason;
+            }
+
+            internal string RequirementIdentifier { get; }
+
+            internal string Title { get; }
+
+            internal string PendingGate { get; }
+
+            internal string Stage { get; }
+
+            internal string SubState { get; }
+
+            internal string Grade { get; }
+
+            internal DateTime TouchedUtc { get; }
+
+            internal bool HasTouchedTime { get; }
+
+            internal string StateFailureReason { get; }
         }
 
         /// <summary>设计池的分类目录名。</summary>
