@@ -42,7 +42,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 "无偏差",
                 "预审通过",
                 "验收通过",
-                new List<string> { "feat: 改动 A" });
+                new List<string> { "feat: 改动 A" },
+                null);
             var risk = new RiskGradeResult("高", new[] { "框架", "检查器" }, "涉及高危范围：框架");
             var decision = new ReleaseDecision(false, "高", risk.Scopes, new[] { "基线底线：本次改动涉及高危范围「框架」，永不自动放行" });
 
@@ -63,7 +64,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 "",
                 "",
                 "",
-                new List<string>());
+                new List<string>(),
+                null);
             var risk = new RiskGradeResult("低", new[] { "业务" }, "小改动且只涉业务或其它范围、零发现");
             var decision = new ReleaseDecision(true, "低", risk.Scopes, Array.Empty<string>());
 
@@ -84,7 +86,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 "无偏差",
                 "预审通过",
                 "验收通过",
-                new List<string> { "feat: 改动 A" });
+                new List<string> { "feat: 改动 A" },
+                null);
             var risk = new RiskGradeResult("低", new[] { "业务" }, "小改动且只涉业务或其它范围、零发现");
             var reasons = new[]
             {
@@ -111,7 +114,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 "无偏差",
                 "预审通过",
                 "验收通过",
-                new List<string> { "feat: 改动 A" });
+                new List<string> { "feat: 改动 A" },
+                null);
             var risk = new RiskGradeResult("低", new[] { "业务" }, "小改动且只涉业务或其它范围、零发现");
             var decision = new ReleaseDecision(true, "低", risk.Scopes, Array.Empty<string>());
 
@@ -138,7 +142,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 "无偏差",
                 "预审通过",
                 "验收通过",
-                new List<string> { "feat: 改动 A" });
+                new List<string> { "feat: 改动 A" },
+                null);
             var risk = new RiskGradeResult("低", new[] { "业务" }, "小改动且只涉业务或其它范围、零发现");
             var decision = new ReleaseDecision(automatic, "低", risk.Scopes, reasons);
             return ReviewPackageBuilder.Build(input, risk, decision);

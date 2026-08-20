@@ -87,7 +87,7 @@ namespace Template.Toolkit.CreationPipeline
                 ValidationMessageExporter.WriteTo(ProvisionPaths.ValidationMessageFile(repositoryRoot, driverName));
                 producedFiles.Add(ProvisionPaths.ValidationMessageFile(repositoryRoot, driverName));
 
-                var packageFiles = AssistantPackageBuilder.Build(repositoryRoot, poolRoot, schema, driverName);
+                var packageFiles = AssistantPackageBuilder.Build(repositoryRoot, poolRoot, schema, driverName, ConflictList.Load(poolRoot));
                 producedFiles.AddRange(packageFiles);
 
                 ProvisionFingerprint.Create(driver.Name, driver.ContractRange, schemaHash, designDigestHash)

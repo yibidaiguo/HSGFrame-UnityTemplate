@@ -161,6 +161,7 @@ namespace Template.Toolkit.CreationPipeline
                 (ProvisionPaths.ValidationMessageFile(repositoryRoot, driverName), "导入成下游的校验提示文案；拒收回贴与助手用的是同一份"),
                 (Path.Combine(packageDirectory, "系统提示.md"), "全文贴进助手的系统提示框"),
                 (Path.Combine(knowledgeDirectory, "设计池摘要.md"), "上传为助手的知识库文件"),
+                (Path.Combine(knowledgeDirectory, "冲突清单.md"), "上传为助手的知识库文件"),
                 (Path.Combine(knowledgeDirectory, "术语表.md"), "上传为助手的知识库文件"),
                 (Path.Combine(knowledgeDirectory, "正反例.md"), "上传为助手的知识库文件"),
                 (Path.Combine(knowledgeDirectory, "模块清单.md"), "上传为助手的知识库文件"),

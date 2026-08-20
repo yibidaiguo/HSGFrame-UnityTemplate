@@ -21,6 +21,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="preReviewText">预审报告文本。</param>
         /// <param name="acceptanceText">验收报告文本。</param>
         /// <param name="commitSubjects">提交清单，按工作项分 commit 的主题行。</param>
+        /// <param name="conflictDebt">本需求相关的未决冲突；null 表示没查。</param>
         public ReviewPackageInput(
             string requirementIdentifier,
             IReadOnlyList<string> changedPaths,
@@ -28,7 +29,8 @@ namespace Template.Toolkit.CreationPipeline
             string planDeviationText,
             string preReviewText,
             string acceptanceText,
-            IReadOnlyList<string> commitSubjects)
+            IReadOnlyList<string> commitSubjects,
+            ConflictDebtReport conflictDebt)
         {
             RequirementIdentifier = requirementIdentifier ?? "";
             ChangedPaths = changedPaths ?? Array.Empty<string>();
@@ -37,6 +39,7 @@ namespace Template.Toolkit.CreationPipeline
             PreReviewText = preReviewText ?? "";
             AcceptanceText = acceptanceText ?? "";
             CommitSubjects = commitSubjects ?? Array.Empty<string>();
+            ConflictDebt = conflictDebt;
         }
 
         /// <summary>需求 id。</summary>
@@ -59,6 +62,9 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>提交清单，按工作项分 commit 的主题行。</summary>
         public IReadOnlyList<string> CommitSubjects { get; }
+
+        /// <summary>本需求相关的未决冲突；null 表示没查。</summary>
+        public ConflictDebtReport ConflictDebt { get; }
     }
 
     /// <summary>
@@ -128,6 +134,10 @@ namespace Template.Toolkit.CreationPipeline
                 }
             }
 
+            builder.AppendLine();
+            builder.AppendLine("## 六、未决冲突");
+            AppendConflictDebt(builder, input?.ConflictDebt);
+
             return builder.ToString();
         }
 
@@ -182,6 +192,34 @@ namespace Template.Toolkit.CreationPipeline
                     builder.AppendLine($"- {path}");
                 }
             }
+        }
+
+        /// <summary>
+        /// 渲染第六节：未决冲突只把账摆出来给人看，不影响放行结论（决策 51）。
+        /// 「没查」与「零未决」必须分成两个分支（决策 42），绝不许把没查渲染成无冲突。
+        /// </summary>
+        private static void AppendConflictDebt(StringBuilder builder, ConflictDebtReport report)
+        {
+            if (report == null || !report.Scanned)
+            {
+                var reason = report?.LoadFailureReason ?? "";
+                builder.AppendLine(string.IsNullOrEmpty(reason) ? "（未查）" : $"（未查：{reason}）");
+                return;
+            }
+
+            if (report.Items.Count == 0)
+            {
+                builder.AppendLine($"本需求无未决冲突（池子里共 {report.TotalPending} 条未决）");
+                return;
+            }
+
+            foreach (var item in report.Items)
+            {
+                var mark = item.IsForcePushed ? "⚠ " : "";
+                builder.AppendLine($"- {mark}{item.Summary}");
+            }
+
+            builder.AppendLine($"合计：本需求 {report.Items.Count} 条未决，池子共 {report.TotalPending} 条");
         }
 
         /// <summary>四段文本之一为空时写「（未提供）」，不留空段。</summary>

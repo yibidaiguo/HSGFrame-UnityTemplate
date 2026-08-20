@@ -8,37 +8,41 @@ using System.Text.Json;
 namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>
-    /// 生成助手配置包：系统提示、设计池摘要、术语表、正反例、模块清单与导入说明六个 markdown 文件。
+    /// 生成助手配置包：系统提示、设计池摘要、冲突清单、术语表、正反例、模块清单与导入说明七个 markdown 文件。
     /// 知识素材（术语表 / 正反例 / 模块清单）是可选的——拿不到时降级成占位文案，不让供给整条失败。
     /// </summary>
     public static class AssistantPackageBuilder
     {
         /// <summary>
-        /// 生成助手配置包的六个 markdown 文件，全部写 UTF-8、中文正文；
+        /// 生成助手配置包的七个 markdown 文件，全部写 UTF-8、中文正文；
         /// 返回写出的文件绝对路径列表，顺序即写盘顺序。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录，模块清单降级扫描从这里展开。</param>
         /// <param name="poolRoot">池子根目录，设计池汇总与知识素材从这里读。</param>
         /// <param name="schema">合并后的池子 schema，系统提示的摘要表数据源。</param>
         /// <param name="driverName">面向的 driver 名称，决定产物目录名。</param>
+        /// <param name="conflictList">冲突列表；null 视为读不成，冲突清单写占位并声明不作数。</param>
         public static IReadOnlyList<string> Build(
             string repositoryRoot,
             string poolRoot,
             PoolSchema schema,
-            string driverName)
+            string driverName,
+            ConflictList conflictList)
         {
             var knowledgeDirectory = ProvisionPaths.AssistantKnowledgeDirectory(repositoryRoot, driverName);
             Directory.CreateDirectory(knowledgeDirectory);
 
             var systemPromptFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "系统提示.md");
             var designSummaryFile = Path.Combine(knowledgeDirectory, "设计池摘要.md");
+            var conflictListFile = Path.Combine(knowledgeDirectory, "冲突清单.md");
             var glossaryFile = Path.Combine(knowledgeDirectory, "术语表.md");
             var examplesFile = Path.Combine(knowledgeDirectory, "正反例.md");
             var moduleListFile = Path.Combine(knowledgeDirectory, "模块清单.md");
             var importGuideFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "导入说明.md");
 
             WriteAll(systemPromptFile, BuildSystemPrompt(schema));
-            WriteAll(designSummaryFile, BuildDesignSummary(poolRoot));
+            WriteAll(designSummaryFile, BuildDesignSummary(poolRoot, conflictList));
+            WriteAll(conflictListFile, BuildConflictList(conflictList));
             WriteAll(glossaryFile, BuildGlossary(poolRoot));
             WriteAll(examplesFile, BuildExamples(poolRoot));
             WriteAll(moduleListFile, BuildModuleList(repositoryRoot, poolRoot));
@@ -48,7 +52,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 只列助手配置包六个文件的路径，不碰磁盘；供干跑列出将要生成的文件用。
+        /// 只列助手配置包七个文件的路径，不碰磁盘；供干跑列出将要生成的文件用。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="driverName">面向的 driver 名称。</param>
@@ -57,12 +61,13 @@ namespace Template.Toolkit.CreationPipeline
             return PackageFiles(repositoryRoot, driverName);
         }
 
-        /// <summary>助手配置包六个文件的绝对路径列表，顺序即写盘顺序。</summary>
+        /// <summary>助手配置包七个文件的绝对路径列表，顺序即写盘顺序。</summary>
         private static IReadOnlyList<string> PackageFiles(string repositoryRoot, string driverName)
         {
             var knowledgeDirectory = ProvisionPaths.AssistantKnowledgeDirectory(repositoryRoot, driverName);
             var systemPromptFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "系统提示.md");
             var designSummaryFile = Path.Combine(knowledgeDirectory, "设计池摘要.md");
+            var conflictListFile = Path.Combine(knowledgeDirectory, "冲突清单.md");
             var glossaryFile = Path.Combine(knowledgeDirectory, "术语表.md");
             var examplesFile = Path.Combine(knowledgeDirectory, "正反例.md");
             var moduleListFile = Path.Combine(knowledgeDirectory, "模块清单.md");
@@ -72,6 +77,7 @@ namespace Template.Toolkit.CreationPipeline
             {
                 systemPromptFile,
                 designSummaryFile,
+                conflictListFile,
                 glossaryFile,
                 examplesFile,
                 moduleListFile,
@@ -95,6 +101,7 @@ namespace Template.Toolkit.CreationPipeline
             builder.AppendLine("1. 需求必须落在 schema 声明的字段里，不发明 schema 之外的字段。");
             builder.AppendLine("2. 分类型必填不能少：按需求的类型补齐该类型要求的必填字段。");
             builder.AppendLine("3. 发现与既有设计冲突时，先指出冲突再帮着写。");
+            builder.AppendLine("4. 新需求碰到「冲突清单.md」里列出的涉区 id 时，先提醒提出人那块还挂着未销账的冲突，再继续填写。");
             builder.AppendLine();
             builder.AppendLine("## schema 摘要");
             builder.AppendLine();
@@ -127,8 +134,11 @@ namespace Template.Toolkit.CreationPipeline
             return builder.ToString();
         }
 
-        /// <summary>组设计池摘要：设计池汇总下每个 md 出一节，文件缺失时给占位文案。</summary>
-        private static string BuildDesignSummary(string poolRoot)
+        /// <summary>
+        /// 组设计池摘要：冲突区域标注在最前，之后每个 md 出一节，文件缺失时给占位文案。
+        /// 冲突区域标注只在冲突列表读成且有未决冲突时出现；读不成时改插一句声明，零未决时不插。
+        /// </summary>
+        private static string BuildDesignSummary(string poolRoot, ConflictList conflictList)
         {
             var summaryDirectory = PoolPaths.DesignSummaryDirectory(poolRoot);
             if (!Directory.Exists(summaryDirectory))
@@ -144,6 +154,7 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             var builder = new StringBuilder();
+            AppendConflictMark(builder, conflictList);
             for (var i = 0; i < files.Count; i++)
             {
                 if (i > 0)
@@ -160,6 +171,93 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             return builder.ToString();
+        }
+
+        /// <summary>
+        /// 组冲突清单：只列未销账的冲突与涉区 id，供助手在策划提新需求时提醒「这块还挂着账」。
+        /// 读不成时写一句声明并声明不作数，绝不许写成「暂无冲突」——助手拿着一份假清单去打包票比没有清单糟。
+        /// </summary>
+        private static string BuildConflictList(ConflictList conflictList)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("# 冲突清单");
+            builder.AppendLine();
+            builder.AppendLine("> 这份清单来自冲突列表，只列**未销账**的。新需求如果碰到下面这些区域，");
+            builder.AppendLine("> 提醒策划：这块还挂着账，先看看之前是怎么决定的。");
+            builder.AppendLine();
+
+            if (conflictList == null || conflictList.LoadFailureReason.Length > 0)
+            {
+                var reason = conflictList?.LoadFailureReason ?? "";
+                var reasonText = string.IsNullOrEmpty(reason) ? "" : $"：{reason}";
+                builder.AppendLine($"（冲突列表没读成{reasonText}；这份清单不作数）");
+                builder.AppendLine();
+                AppendConflictListSection(builder, "未决冲突", Array.Empty<string>());
+                AppendConflictListSection(builder, "涉区 id（碰到这些 id 就要提醒）", Array.Empty<string>());
+                return builder.ToString();
+            }
+
+            var report = ConflictDebtView.All(conflictList);
+            if (report.Items.Count == 0)
+            {
+                builder.AppendLine("当前没有未决冲突。");
+                builder.AppendLine();
+                AppendConflictListSection(builder, "未决冲突", Array.Empty<string>());
+                AppendConflictListSection(builder, "涉区 id（碰到这些 id 就要提醒）", Array.Empty<string>());
+                return builder.ToString();
+            }
+
+            var summaries = new List<string>();
+            foreach (var item in report.Items)
+            {
+                summaries.Add(item.Summary);
+            }
+
+            AppendConflictListSection(builder, "未决冲突", summaries);
+            AppendConflictListSection(builder, "涉区 id（碰到这些 id 就要提醒）", ConflictDebtView.AffectedIdentifiers(report));
+            return builder.ToString();
+        }
+
+        /// <summary>渲染冲突清单里的一个小节：标题恒在，没内容写「- 无」。</summary>
+        private static void AppendConflictListSection(StringBuilder builder, string title, IReadOnlyList<string> items)
+        {
+            builder.AppendLine($"## {title}");
+            builder.AppendLine();
+            if (items.Count == 0)
+            {
+                builder.AppendLine("- 无");
+                return;
+            }
+
+            foreach (var item in items)
+            {
+                builder.AppendLine($"- {item}");
+            }
+        }
+
+        /// <summary>
+        /// 在设计池摘要最前面插冲突区域标注：读不成插声明，有未决插区域 id，零未决不插。
+        /// </summary>
+        private static void AppendConflictMark(StringBuilder builder, ConflictList conflictList)
+        {
+            if (conflictList == null || conflictList.LoadFailureReason.Length > 0)
+            {
+                var reason = conflictList?.LoadFailureReason ?? "";
+                var reasonText = string.IsNullOrEmpty(reason) ? "" : $"：{reason}";
+                builder.AppendLine($"> ⚠ 冲突列表没读成{reasonText}；本摘要未标注冲突区域。");
+                builder.AppendLine();
+                return;
+            }
+
+            var report = ConflictDebtView.All(conflictList);
+            if (report.Items.Count == 0)
+            {
+                return;
+            }
+
+            var identifiers = string.Join("、", ConflictDebtView.AffectedIdentifiers(report));
+            builder.AppendLine($"> ⚠ 冲突区域：{identifiers}——这些 id 上还挂着未销账的冲突，涉及它们的新需求要先问清楚。");
+            builder.AppendLine();
         }
 
         /// <summary>组术语表：读知识目录下的术语表.json，渲染两列表；拿不到给占位文案。</summary>

@@ -160,6 +160,11 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("门禁是否全绿，缺省 false")]
         [DefaultValue(false)]
         public bool AllGatesGreen { get; set; }
+
+        /// <summary>池子根目录，相对当前工作目录；不给就不查未决冲突。</summary>
+        [Summary("池子根目录，相对当前工作目录；不给就不查未决冲突")]
+        [DefaultValue("")]
+        public string PoolRoot { get; set; }
     }
 
     /// <summary>引擎一轮命令 engine.tick 与 engine.wake 共用的参数。</summary>
@@ -1360,7 +1365,34 @@ namespace Template.Toolkit.CommandHost.Commands
                 lines.Add($"注意：{finding.ToDisplayText()}");
             }
 
+            // 未决冲突只摆账不改放行结论（决策 51）；池子根目录没给就不查，如实写「没查成」。
+            lines.Add(BuildConflictDebtLine(arguments));
+
             return CommandResult.Success("放行判定完成", lines);
+        }
+
+        /// <summary>组「未决冲突：」那一行输出：没查成 / 零未决 / 有未决三种文案。</summary>
+        private static string BuildConflictDebtLine(TaskReleaseArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return "未决冲突：没查成（未给池子根目录）";
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            // task.release 不针对某个需求，需求 id 传空白 = 看全池未决。
+            var report = ConflictDebtView.ForRequirement(ConflictList.Load(poolRoot), "");
+            if (!report.Scanned)
+            {
+                return $"未决冲突：没查成（{report.LoadFailureReason}）";
+            }
+
+            if (report.Items.Count == 0)
+            {
+                return $"未决冲突：本需求 0 条（池子共 {report.TotalPending} 条）";
+            }
+
+            return $"未决冲突：本需求 {report.Items.Count} 条（池子共 {report.TotalPending} 条）";
         }
 
         /// <summary>

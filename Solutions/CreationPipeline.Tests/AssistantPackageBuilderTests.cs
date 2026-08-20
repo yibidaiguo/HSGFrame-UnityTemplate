@@ -10,16 +10,16 @@ namespace Template.Toolkit.CreationPipeline.Tests
     /// <summary>AssistantPackageBuilder 的助手配置包生成测试：六个文件、降级文案与内容核对。</summary>
     public class AssistantPackageBuilderTests
     {
-        /// <summary>六个文件都写出来了，且返回顺序即路径列表。</summary>
+        /// <summary>七个文件都写出来了，且返回顺序即路径列表。</summary>
         [Fact]
-        public void BuildWritesAllSixFiles()
+        public void BuildWritesAllSevenFiles()
         {
             using var workspace = PrepareWorkspace();
             var schema = PoolSchemaLoader.Load(workspace.Root, "需求");
 
-            var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动");
+            var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动", null);
 
-            Assert.Equal(6, files.Count);
+            Assert.Equal(7, files.Count);
             Assert.All(files, file => Assert.True(File.Exists(file)));
         }
 
@@ -30,7 +30,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             using var workspace = PrepareWorkspace();
             var schema = PoolSchemaLoader.Load(workspace.Root, "需求");
 
-            var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动");
+            var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动", null);
             var designSummary = File.ReadAllText(files.Single(file => Path.GetFileName(file) == "设计池摘要.md"));
 
             Assert.Contains("暂无设计汇总。", designSummary);
@@ -49,7 +49,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 new UTF8Encoding(false));
 
             var schema = PoolSchemaLoader.Load(workspace.Root, "需求");
-            var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动");
+            var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动", null);
             var glossary = File.ReadAllText(files.Single(file => Path.GetFileName(file) == "术语表.md"));
 
             Assert.Contains("签到", glossary);
@@ -63,7 +63,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             using var workspace = PrepareWorkspace();
             var schema = PoolSchemaLoader.Load(workspace.Root, "需求");
 
-            var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动");
+            var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动", null);
             var systemPrompt = File.ReadAllText(files.Single(file => Path.GetFileName(file) == "系统提示.md"));
 
             Assert.Contains("设计一致性把关", systemPrompt);
@@ -77,7 +77,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             using var workspace = PrepareWorkspace();
             var schema = PoolSchemaLoader.Load(workspace.Root, "需求");
 
-            var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动");
+            var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动", null);
             var importGuide = File.ReadAllText(files.Single(file => Path.GetFileName(file) == "导入说明.md"));
 
             Assert.DoesNotContain("feishu", importGuide);

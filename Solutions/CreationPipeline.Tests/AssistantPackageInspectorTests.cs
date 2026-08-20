@@ -9,7 +9,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
     /// <summary>AssistantPackageInspector 的供给产物完整性检查测试：未供给、全齐、缺失、空文件与对账接线。</summary>
     public class AssistantPackageInspectorTests
     {
-        /// <summary>产物目录整个不存在：判定为未供给，发现为空，但 10 份产物状态照常列出且全缺。</summary>
+        /// <summary>产物目录整个不存在：判定为未供给，发现为空，但 11 份产物状态照常列出且全缺。</summary>
         [Fact]
         public void InspectReportsNotProvisionedWhenDirectoryMissing()
         {
@@ -18,13 +18,13 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var inspection = AssistantPackageInspector.Inspect(workspace.Root, "demo");
 
             Assert.Empty(inspection.Findings);
-            Assert.Equal(10, inspection.Artifacts.Count);
-            Assert.Equal(10, inspection.MissingCount);
+            Assert.Equal(11, inspection.Artifacts.Count);
+            Assert.Equal(11, inspection.MissingCount);
             Assert.Equal(0, inspection.EmptyCount);
             Assert.All(inspection.Artifacts, artifact => Assert.False(artifact.Exists));
         }
 
-        /// <summary>真跑一次供给之后：10 份产物齐全，缺失与空文件都是 0，无发现。</summary>
+        /// <summary>真跑一次供给之后：11 份产物齐全，缺失与空文件都是 0，无发现。</summary>
         [Fact]
         public void InspectReportsAllPresentAfterProvision()
         {
@@ -79,7 +79,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             var inspection = AssistantPackageInspector.Inspect(workspace.Root, "demo");
 
-            Assert.Equal(10, inspection.Artifacts.Count);
+            Assert.Equal(11, inspection.Artifacts.Count);
             Assert.All(inspection.Artifacts, artifact => Assert.False(string.IsNullOrWhiteSpace(artifact.ImportHint)));
         }
 
