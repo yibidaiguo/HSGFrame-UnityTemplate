@@ -93,6 +93,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BridgeFeishu", "..\Bridges\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BridgeComfyui", "..\Bridges\comfyui\src\BridgeComfyui\BridgeComfyui.csproj", "{E7F8A9B0-C1D2-4E3F-8A9B-0C1D2E3F4A5B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BridgeTripo", "..\Bridges\tripo\src\BridgeTripo\BridgeTripo.csproj", "{F4A3B2C1-D5E6-4F7A-8B9C-0D1E2F3A4B5C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -643,6 +645,18 @@ Global
 		{E7F8A9B0-C1D2-4E3F-8A9B-0C1D2E3F4A5B}.Release|x64.Build.0 = Release|Any CPU
 		{E7F8A9B0-C1D2-4E3F-8A9B-0C1D2E3F4A5B}.Release|x86.ActiveCfg = Release|Any CPU
 		{E7F8A9B0-C1D2-4E3F-8A9B-0C1D2E3F4A5B}.Release|x86.Build.0 = Release|Any CPU
+		{F4A3B2C1-D5E6-4F7A-8B9C-0D1E2F3A4B5C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F4A3B2C1-D5E6-4F7A-8B9C-0D1E2F3A4B5C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F4A3B2C1-D5E6-4F7A-8B9C-0D1E2F3A4B5C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F4A3B2C1-D5E6-4F7A-8B9C-0D1E2F3A4B5C}.Debug|x64.Build.0 = Debug|Any CPU
+		{F4A3B2C1-D5E6-4F7A-8B9C-0D1E2F3A4B5C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F4A3B2C1-D5E6-4F7A-8B9C-0D1E2F3A4B5C}.Debug|x86.Build.0 = Debug|Any CPU
+		{F4A3B2C1-D5E6-4F7A-8B9C-0D1E2F3A4B5C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F4A3B2C1-D5E6-4F7A-8B9C-0D1E2F3A4B5C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F4A3B2C1-D5E6-4F7A-8B9C-0D1E2F3A4B5C}.Release|x64.ActiveCfg = Release|Any CPU
+		{F4A3B2C1-D5E6-4F7A-8B9C-0D1E2F3A4B5C}.Release|x64.Build.0 = Release|Any CPU
+		{F4A3B2C1-D5E6-4F7A-8B9C-0D1E2F3A4B5C}.Release|x86.ActiveCfg = Release|Any CPU
+		{F4A3B2C1-D5E6-4F7A-8B9C-0D1E2F3A4B5C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

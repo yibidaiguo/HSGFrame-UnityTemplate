@@ -3,6 +3,7 @@
   "契约版本": "1.0.0",
   "域路由": {
     "生图": "comfyui",
+    "模型生成": "tripo",
     "模型加工": "blender",
     "执行后端": "oaicompat",
     "需求编辑端": "feishu",
@@ -13,6 +14,10 @@
     "bridge-comfyui": {
       "可执行": "dotnet",
       "参数": ["run", "--project", "Bridges/comfyui/src/BridgeComfyui", "--"]
+    },
+    "bridge-tripo": {
+      "可执行": "dotnet",
+      "参数": ["run", "--project", "Bridges/tripo/src/BridgeTripo", "--"]
     },
     "bridge-blender": {
       "可执行": "dotnet",

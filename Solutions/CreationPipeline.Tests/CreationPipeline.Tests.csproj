@@ -17,5 +17,7 @@
     <ProjectReference Include="../../Bridges/feishu/src/BridgeFeishu/BridgeFeishu.csproj" />
     <!-- 配方翻译器住在生图桥里（决策 84、87），测它要引桥工程。 -->
     <ProjectReference Include="../../Bridges/comfyui/src/BridgeComfyui/BridgeComfyui.csproj" />
+    <!-- tripo 状态机与错误码映射住在模型生成桥里（决策 84、93），测它要引桥工程。 -->
+    <ProjectReference Include="../../Bridges/tripo/src/BridgeTripo/BridgeTripo.csproj" />
   </ItemGroup>
 </Project>

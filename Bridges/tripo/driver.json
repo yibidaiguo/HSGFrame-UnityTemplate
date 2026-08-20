@@ -8,7 +8,7 @@
     "超时秒": { "类型": "number", "默认": 600 }
   },
   "密钥字段": ["模型生成密钥"],
-  "试跑": "",
+  "试跑": "bridge.model --Driver tripo --DryRun true",
   "能力探测": "",
   "实现": "bridge-tripo",
   "字段类型映射": {},

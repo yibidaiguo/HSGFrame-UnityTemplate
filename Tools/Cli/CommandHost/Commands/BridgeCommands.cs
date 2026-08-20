@@ -132,6 +132,37 @@ namespace Template.Toolkit.CommandHost.Commands
         public int TimeoutSeconds { get; set; }
     }
 
+    /// <summary>下游模型生成命令 bridge.model 的参数。</summary>
+    public sealed class BridgeModelArguments
+    {
+        /// <summary>要调用的下游 driver 名，对应 Bridges/&lt;名&gt;/ 目录。</summary>
+        [Summary("要调用的下游 driver 名，对应 Bridges/<名>/ 目录")]
+        public string Driver { get; set; }
+
+        /// <summary>生成提示词。</summary>
+        [Summary("生成提示词")]
+        public string Prompt { get; set; }
+
+        /// <summary>粗模的输出目录（绝对或相对路径）。</summary>
+        [Summary("粗模的输出目录（绝对或相对路径）")]
+        public string OutputDirectory { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>只打要发的请求不真发——真发花用户的积分，默认不花。</summary>
+        [Summary("只打要发的请求不真发；默认 true，要真发显式传 false")]
+        [DefaultValue(true)]
+        public bool DryRun { get; set; }
+
+        /// <summary>子进程超时秒数。</summary>
+        [Summary("子进程超时秒数")]
+        [DefaultValue(600)]
+        public int TimeoutSeconds { get; set; }
+    }
+
     /// <summary>下游供给命令：bridge.provision，一次产出建表描述、专项表、校验错误文案、助手配置包与指纹。</summary>
     public static class BridgeCommands
     {
@@ -566,6 +597,148 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             return CommandResult.Success($"共出 {variantCount} 张图", lines);
+        }
+
+        /// <summary>
+        /// 下游模型生成：真出粗模（花积分）。默认干跑只打要发的请求不真发——真发要花用户的积分，
+        /// 默认值就该是不花。干跑时读 driver 自述与本机配置，把「要发给桥的请求」打出来，
+        /// 密钥只报配没配、绝不显示值（决策 5、78）。
+        /// </summary>
+        /// <param name="arguments">模型生成命令参数。</param>
+        [EditorCommand("bridge.model")]
+        [Summary("下游模型生成：真出粗模；默认干跑，--dry-run false 才真发（花积分）")]
+        public static CommandResult Model(BridgeModelArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            {
+                return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.Prompt))
+            {
+                return CommandResult.Failure("必须指定 --prompt");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.OutputDirectory))
+            {
+                return CommandResult.Failure("必须指定 --output-directory");
+            }
+
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            string outputDirectory;
+            try
+            {
+                outputDirectory = Path.GetFullPath(arguments.OutputDirectory);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 OutputDirectory 无法解析为绝对路径：{exception.Message}");
+            }
+
+            if (arguments.DryRun)
+            {
+                return DryRunModel(repositoryRoot, arguments.Driver, arguments.Prompt, outputDirectory);
+            }
+
+            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["提示词"] = arguments.Prompt,
+                ["输出目录"] = outputDirectory
+            });
+
+            var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "generate", payload, arguments.TimeoutSeconds);
+            if (!result.Succeeded)
+            {
+                return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
+            }
+
+            var modelFile = ReadString(result.Payload, "模型文件");
+            var taskId = ReadString(result.Payload, "task_id");
+            var statusText = ReadString(result.Payload, "状态");
+
+            var lines = new List<string>
+            {
+                $"模型文件：{RelativeTo(repositoryRoot, modelFile)}",
+                $"字节数：{ByteCountOf(modelFile)}",
+                $"task_id：{taskId}",
+                $"状态：{statusText}"
+            };
+
+            return CommandResult.Success($"模型生成完成：{RelativeTo(repositoryRoot, modelFile)}", lines);
+        }
+
+        /// <summary>干跑：读 driver 自述与本机配置，把将发给桥的请求打出来，不发任何请求。</summary>
+        private static CommandResult DryRunModel(string repositoryRoot, string driverName, string prompt, string outputDirectory)
+        {
+            BridgeDriverDescriptor descriptor;
+            try
+            {
+                descriptor = BridgeDriverDescriptor.Load(repositoryRoot, driverName);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return CommandResult.Failure(exception.Message);
+            }
+
+            var localSettings = LocalBridgeSettings.Load(repositoryRoot);
+            if (!localSettings.Loaded)
+            {
+                return CommandResult.Failure("本机配置错误", new[] { localSettings.LoadFailureReason });
+            }
+
+            var lines = new List<string>
+            {
+                "干跑：以下是将发给桥的请求，没有真发（真发花积分）",
+                $"动作：generate",
+                $"载荷：{{\"提示词\":\"{prompt}\",\"输出目录\":\"{outputDirectory}\"}}"
+            };
+
+            if (localSettings.TryGetDriverConfiguration(driverName, out var driverConfiguration)
+                && driverConfiguration.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var property in driverConfiguration.EnumerateObject())
+                {
+                    if (property.Value.ValueKind == JsonValueKind.String)
+                    {
+                        lines.Add($"配置.{property.Name}：{property.Value.GetString()}");
+                    }
+                    else
+                    {
+                        lines.Add($"配置.{property.Name}：{property.Value.GetRawText()}");
+                    }
+                }
+            }
+
+            foreach (var secretFieldName in descriptor.SecretFieldNames)
+            {
+                var configured = localSettings.TryGetSecret(secretFieldName, out _);
+                lines.Add($"密钥「{secretFieldName}」：{(configured ? "已配置" : "未配置")}（值绝不显示）");
+            }
+
+            lines.Add("说明：桥将向下游提交生成任务、轮询到终态、下载模型落盘；密钥只进 Authorization 头");
+            return CommandResult.Success($"干跑完成：driver={descriptor.Name}，未发任何请求", lines);
+        }
+
+        /// <summary>读文件字节数；文件不存在给 -1。</summary>
+        private static long ByteCountOf(string filePath)
+        {
+            try
+            {
+                return new FileInfo(filePath).Length;
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is ArgumentException || exception is NotSupportedException)
+            {
+                return -1;
+            }
         }
 
         /// <summary>读响应载荷里字符串键的值；缺失或类型不对给空串。</summary>
