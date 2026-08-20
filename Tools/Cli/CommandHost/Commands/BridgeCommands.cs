@@ -97,6 +97,36 @@ namespace Template.Toolkit.CommandHost.Commands
         public int TimeoutSeconds { get; set; }
     }
 
+    /// <summary>下游生图命令 bridge.generate 的参数。</summary>
+    public sealed class BridgeGenerateArguments
+    {
+        /// <summary>要调用的下游 driver 名，对应 Bridges/&lt;名&gt;/ 目录。</summary>
+        [Summary("要调用的下游 driver 名，对应 Bridges/<名>/ 目录")]
+        public string Driver { get; set; }
+
+        /// <summary>资产请求 JSON 文件的路径（art.request 产的）。</summary>
+        [Summary("资产请求 JSON 文件的路径（art.request 产的）")]
+        public string RequestPath { get; set; }
+
+        /// <summary>配方名，对应 Bridges/&lt;driver&gt;/配方/&lt;配方名&gt;/。</summary>
+        [Summary("配方名，对应 Bridges/<driver>/配方/<配方名>/")]
+        public string RecipeName { get; set; }
+
+        /// <summary>变体与溯源边车的输出目录（绝对或相对路径，变体落其下「变体/」子目录）。</summary>
+        [Summary("变体与溯源边车的输出目录（变体落其下「变体/」子目录）")]
+        public string OutputDirectory { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>子进程超时秒数。</summary>
+        [Summary("子进程超时秒数")]
+        [DefaultValue(900)]
+        public int TimeoutSeconds { get; set; }
+    }
+
     /// <summary>下游供给命令：bridge.provision，一次产出建表描述、专项表、校验错误文案、助手配置包与指纹。</summary>
     public static class BridgeCommands
     {
@@ -415,6 +445,115 @@ namespace Template.Toolkit.CommandHost.Commands
             return CommandResult.Success($"加工完成：{RelativeTo(repositoryRoot, outputModel)}", lines);
         }
 
+        /// <summary>
+        /// 下游生图：跑 driver 的 generate 动作，把资产请求按配方真出图，变体与溯源边车落输出目录。
+        /// 成功时把「出了几张、落在哪」摆成明细行；失败时把错误信封的「人话」原样摆出来。
+        /// </summary>
+        /// <param name="arguments">生图命令参数。</param>
+        [EditorCommand("bridge.generate")]
+        [Summary("下游生图：按配方把资产请求真出图，变体与溯源边车落输出目录")]
+        public static CommandResult Generate(BridgeGenerateArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            {
+                return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.RequestPath))
+            {
+                return CommandResult.Failure("必须指定 --request-path");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.RecipeName))
+            {
+                return CommandResult.Failure("必须指定 --recipe-name");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.OutputDirectory))
+            {
+                return CommandResult.Failure("必须指定 --output-directory");
+            }
+
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            string requestPath;
+            string outputDirectory;
+            try
+            {
+                requestPath = Path.GetFullPath(arguments.RequestPath);
+                outputDirectory = Path.GetFullPath(arguments.OutputDirectory);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"路径参数无法解析为绝对路径：{exception.Message}");
+            }
+
+            if (!File.Exists(requestPath))
+            {
+                return CommandResult.Failure($"资产请求文件不存在：{requestPath}");
+            }
+
+            JsonNode requestNode;
+            try
+            {
+                requestNode = JsonNode.Parse(File.ReadAllText(requestPath));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"资产请求文件不是合法 JSON：{requestPath}：{exception.Message}");
+            }
+
+            if (requestNode is not JsonObject)
+            {
+                return CommandResult.Failure($"资产请求文件顶层必须是对象：{requestPath}");
+            }
+
+            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["资产请求"] = requestNode,
+                ["配方名"] = arguments.RecipeName,
+                ["输出目录"] = outputDirectory
+            });
+
+            var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "generate", payload, arguments.TimeoutSeconds);
+            if (!result.Succeeded)
+            {
+                return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
+            }
+
+            var lines = new List<string>();
+            var variantCount = ReadArrayLength(result.Payload, "变体");
+            lines.Add($"共出 {variantCount} 张图");
+            lines.Add($"prompt id：{ReadString(result.Payload, "prompt_id")}");
+
+            if (result.Payload.TryGetProperty("变体", out var variants) && variants.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var variant in variants.EnumerateArray())
+                {
+                    if (variant.ValueKind != JsonValueKind.Object)
+                    {
+                        continue;
+                    }
+
+                    var file = ReadString(variant, "文件");
+                    var byteCount = ReadInt(variant, "字节数");
+                    var width = ReadInt(variant, "宽");
+                    var height = ReadInt(variant, "高");
+                    lines.Add($"{RelativeTo(repositoryRoot, file)}（{byteCount} 字节，{width}×{height}）");
+                }
+            }
+
+            return CommandResult.Success($"共出 {variantCount} 张图", lines);
+        }
+
         /// <summary>读响应载荷里字符串键的值；缺失或类型不对给空串。</summary>
         private static string ReadString(JsonElement element, string propertyName)
         {
@@ -436,6 +575,25 @@ namespace Template.Toolkit.CommandHost.Commands
                 && value.ValueKind == JsonValueKind.Array)
             {
                 return value.GetArrayLength();
+            }
+
+            return 0;
+        }
+
+        /// <summary>读响应载荷里整数键的值；缺失或类型不对给 0。</summary>
+        private static int ReadInt(JsonElement element, string propertyName)
+        {
+            if (element.ValueKind == JsonValueKind.Object
+                && element.TryGetProperty(propertyName, out var value)
+                && value.ValueKind == JsonValueKind.Number)
+            {
+                try
+                {
+                    return value.GetInt32();
+                }
+                catch (Exception exception) when (exception is FormatException || exception is InvalidOperationException || exception is OverflowException)
+                {
+                }
             }
 
             return 0;

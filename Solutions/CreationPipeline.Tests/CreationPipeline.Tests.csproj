@@ -15,5 +15,7 @@
     <ProjectReference Include="../../Tools/CreationPipeline/CreationPipeline.csproj" />
     <!-- 飞书字段类型码住在桥里而不是引擎里（决策 11、93），所以测它要引桥工程。 -->
     <ProjectReference Include="../../Bridges/feishu/src/BridgeFeishu/BridgeFeishu.csproj" />
+    <!-- 配方翻译器住在生图桥里（决策 84、87），测它要引桥工程。 -->
+    <ProjectReference Include="../../Bridges/comfyui/src/BridgeComfyui/BridgeComfyui.csproj" />
   </ItemGroup>
 </Project>
