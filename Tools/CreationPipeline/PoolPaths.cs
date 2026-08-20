@@ -90,5 +90,12 @@ namespace Template.Toolkit.CreationPipeline
         {
             return Path.Combine(poolRoot, "Designs", "冲突列表.json");
         }
+
+        /// <summary>意见库目录：审查意见。</summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static string ReviewOpinionDirectory(string poolRoot)
+        {
+            return Path.Combine(poolRoot, "审查意见");
+        }
     }
 }

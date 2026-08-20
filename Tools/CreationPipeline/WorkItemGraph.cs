@@ -16,16 +16,19 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="dependencies">依赖的工作项 id 列表。</param>
         /// <param name="referencedRequirementFields">引用的需求字段名列表。</param>
         /// <param name="state">工作项状态。</param>
+        /// <param name="title">工作项标题；工作项文件没有这个键时是空串。</param>
         internal WorkItemNode(
             string identifier,
             IReadOnlyList<string> dependencies,
             IReadOnlyList<string> referencedRequirementFields,
-            string state)
+            string state,
+            string title)
         {
             Identifier = identifier;
             Dependencies = dependencies;
             ReferencedRequirementFields = referencedRequirementFields;
             State = state;
+            Title = title ?? "";
         }
 
         /// <summary>工作项 id，形如 WI-0042-03。</summary>
@@ -39,6 +42,9 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>工作项状态。</summary>
         public string State { get; }
+
+        /// <summary>工作项标题，供面板的任务图页显示；工作项文件没有这个键时是空串。</summary>
+        public string Title { get; }
     }
 
     /// <summary>
@@ -264,7 +270,8 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             TryReadString(obj, "状态", out var state);
-            node = new WorkItemNode(identifier, dependencies, referencedRequirementFields, state);
+            TryReadString(obj, "标题", out var title);
+            node = new WorkItemNode(identifier, dependencies, referencedRequirementFields, state, title);
             return true;
         }
 

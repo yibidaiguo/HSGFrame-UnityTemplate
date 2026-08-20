@@ -192,6 +192,20 @@ namespace Template.Toolkit.Dashboard
                     case "/api/panel/provision":
                         WritePanelPage(response, () => CreationPanelReader.ReadProvision(_repositoryRoot, _poolRoot));
                         break;
+                    case "/api/panel/dag":
+                        // 键同时收中文与 ASCII 别名：中文键要客户端把它按 UTF-8 百分号编码才认得出来，
+                        // 浏览器会编、手敲的 curl 常常不编——不给别名的话，参数没认出来和
+                        // 「这个需求没有工作项」会返回同一个空数组，分不清是哪种。
+                        WritePanelPage(response, () => CreationPanelReader.ReadTaskDag(
+                            _repositoryRoot,
+                            request.QueryString["需求id"] ?? request.QueryString["requirement"] ?? ""));
+                        break;
+                    case "/api/panel/conflicts":
+                        WritePanelPage(response, () => CreationPanelReader.ReadConflicts(_poolRoot));
+                        break;
+                    case "/api/panel/promotions":
+                        WritePanelPage(response, () => CreationPanelReader.ReadPromotions(_poolRoot, 3));
+                        break;
                     case "/api/panel/task":
                         WriteTaskDetail(request, response);
                         break;

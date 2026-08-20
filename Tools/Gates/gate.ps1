@@ -213,6 +213,12 @@ if ((Invoke-GateCommand -CommandName 'gate.conflict' -CommandArguments @{ PoolRo
     $failedGateNames += '冲突可见'
 }
 
+# 晋升门禁：意见库格式合法且晋升提案可见。有提案不判红——提案是待办，不是违规，这道查的是格式。
+Write-GateHeader '晋升门禁'
+if ((Invoke-GateCommand -CommandName 'gate.promotion' -CommandArguments @{ PoolRoot = (Join-Path $templateRoot 'Pools') }) -ne 0) {
+    $failedGateNames += '晋升门禁'
+}
+
 # 生成物幂等：仓库里已生成的产物必须与当前 schema / 定义一致，谁手改了产物这里就会红。
 Write-GateHeader '生成物幂等'
 $idempotencyFailed = $false

@@ -513,4 +513,104 @@ namespace Template.Toolkit.CommandHost.Commands
             return false;
         }
     }
+
+    /// <summary>晋升门禁命令的参数。</summary>
+    public sealed class GatePromotionArguments
+    {
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>晋升阈值条数，缺省 3。</summary>
+        [Summary("晋升阈值条数，缺省 3")]
+        [DefaultValue(3)]
+        public int Threshold { get; set; }
+    }
+
+    /// <summary>
+    /// 晋升门禁命令：意见库格式合法且晋升提案可见。有晋升提案不判红——提案是待办，不是违规；
+    /// 这道门禁只查意见库的格式，提案数只是报出来让人看见。
+    /// </summary>
+    public static class GatePromotionCommand
+    {
+        /// <summary>意见 id 模式：OP- 加四位数字。</summary>
+        private const string OpinionIdentifierPatternText = "^OP-\\d{4}$";
+
+        /// <summary>
+        /// 跑晋升门禁：把意见库加载问题、id 模式、可规则化性合法值、类别/模块为空四类问题
+        /// 转成 finding；空库或目录不存在是通过，不判红。
+        /// </summary>
+        /// <param name="arguments">晋升门禁命令参数。</param>
+        [EditorCommand("gate.promotion")]
+        [Summary("晋升门禁：意见库格式合法且晋升提案可见")]
+        public static CommandResult Execute(GatePromotionArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            ReviewOpinionBook book;
+            try
+            {
+                book = ReviewOpinionBook.Load(poolRoot);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return CommandResult.Failure($"意见库加载失败：{exception.Message}");
+            }
+
+            var opinionDirectory = PoolPaths.ReviewOpinionDirectory(poolRoot);
+            var reference = "Doc/创作管线子文档/03-执行引擎.md";
+            var findings = new List<PoolFinding>();
+
+            if (book.LoadFailureReason.Length > 0)
+            {
+                findings.Add(new PoolFinding(
+                    opinionDirectory,
+                    $"意见库加载有问题：{book.LoadFailureReason}",
+                    "把坏条目修成合法意见 JSON",
+                    reference));
+            }
+
+            foreach (var opinion in book.Opinions)
+            {
+                if (!Regex.IsMatch(opinion.Identifier, OpinionIdentifierPatternText))
+                {
+                    findings.Add(new PoolFinding(
+                        opinionDirectory,
+                        $"意见条目 id「{opinion.Identifier}」不匹配 {OpinionIdentifierPatternText}",
+                        "改成 OP- 加四位数字",
+                        reference));
+                }
+
+                if (!ReviewOpinionBook.IsAllowedRulability(opinion.Rulability))
+                {
+                    findings.Add(new PoolFinding(
+                        opinionDirectory,
+                        $"意见 {opinion.Identifier} 的可规则化性「{opinion.Rulability}」不在合法值里",
+                        $"改成 {string.Join("、", ReviewOpinionBook.AllowedRulabilityValues)} 之一",
+                        reference));
+                }
+
+                if (string.IsNullOrEmpty(opinion.Category) || string.IsNullOrEmpty(opinion.ModuleName))
+                {
+                    findings.Add(new PoolFinding(
+                        opinionDirectory,
+                        $"意见 {opinion.Identifier} 的问题类别或模块为空",
+                        "补上问题类别与模块",
+                        reference));
+                }
+            }
+
+            var proposals = PromotionProposalBuilder.Build(book, arguments.Threshold);
+            var gateFindings = findings
+                .Select(finding => new GateFinding(finding.Location, finding.Reason, finding.FixAction, finding.ReferenceExamplePath))
+                .ToList();
+            return GateCommandSupport.ToResult(
+                $"晋升门禁（意见 {book.Opinions.Count} 条，达阈值的提案 {proposals.Count} 条）",
+                gateFindings);
+        }
+    }
 }

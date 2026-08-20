@@ -69,7 +69,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 new[] { "导入", "统一单位", "pivot归位", "减面", "UV", "烘法线", "命名", "导出" },
                 plan.Steps.Select(step => step.Name).ToArray());
 
-            var baking = Assert.Single(plan.Steps.Where(step => step.Name == "烘法线"));
+            var baking = Assert.Single(plan.Steps, step => step.Name == "烘法线");
             Assert.False(baking.IsEnabled);
             Assert.NotEmpty(baking.SkipReason);
             Assert.Empty(baking.Parameters);
@@ -98,7 +98,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             var plan = ProcessingPlanBuilder.Build(workspace.Root, PropRequest(), "");
 
-            var reduction = Assert.Single(plan.Steps.Where(step => step.Name == "减面"));
+            var reduction = Assert.Single(plan.Steps, step => step.Name == "减面");
             Assert.False(reduction.IsEnabled);
             Assert.Contains("最大面数", reduction.SkipReason);
             Assert.Empty(reduction.Parameters);
@@ -183,10 +183,10 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             var plan = ProcessingPlanBuilder.Build(workspace.Root, request, "");
 
-            var reduction = Assert.Single(plan.Steps.Where(step => step.Name == "减面"));
+            var reduction = Assert.Single(plan.Steps, step => step.Name == "减面");
             Assert.Equal("1500", reduction.Parameters["目标面数"]);
 
-            var pivot = Assert.Single(plan.Steps.Where(step => step.Name == "pivot归位"));
+            var pivot = Assert.Single(plan.Steps, step => step.Name == "pivot归位");
             Assert.Equal("底部", pivot.Parameters["pivot"]);
         }
 

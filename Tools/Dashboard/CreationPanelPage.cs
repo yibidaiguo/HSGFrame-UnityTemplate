@@ -81,7 +81,10 @@ var 页面表 = [
     { 键: '引擎', 地址: '/api/panel/engine', 渲染: 渲染引擎 },
     { 键: '资产', 地址: '/api/panel/assets', 渲染: 渲染资产 },
     { 键: '设计池', 地址: '/api/panel/designs', 渲染: 渲染设计池 },
-    { 键: '供给对账', 地址: '/api/panel/provision', 渲染: 渲染供给对账 }
+    { 键: '供给对账', 地址: '/api/panel/provision', 渲染: 渲染供给对账 },
+    { 键: '任务图', 地址: '/api/panel/dag', 渲染: 渲染任务图 },
+    { 键: '冲突', 地址: '/api/panel/conflicts', 渲染: 渲染冲突 },
+    { 键: '晋升', 地址: '/api/panel/promotions', 渲染: 渲染晋升 }
 ];
 var 当前页 = 0;
 var 内容区 = document.getElementById('内容');
@@ -227,6 +230,115 @@ function 渲染供给对账(数据) {
             '</tr>';
     }
     return 文本 + '</table>';
+}
+
+function 渲染任务图(数据) {
+    var 输入框 = document.getElementById('需求id输入');
+    var 当前id = 输入框 ? 输入框.value : '';
+    var 文本 = ""<h2>任务依赖图</h2>"" +
+        ""<input id='需求id输入' placeholder='需求 id，如 REQ-0042' value='"" + 转义(当前id) + ""' oninput='刷新任务图(this.value)'>"";
+    if (!当前id) { return 文本 + ""<p class='灰'>（先填一个需求 id）</p>""; }
+    if (!数据 || 数据.length === 0) { return 文本 + ""<p class='灰'>（这个需求还没有工作项）</p>""; }
+    文本 += ""<table><tr><th>深度</th><th>工作项</th><th>标题</th><th>状态</th><th>依赖</th></tr>"";
+    for (var i = 0; i < 数据.length; i++) {
+        var 行 = 数据[i];
+        var 在环上 = 行['深度'] === -1;
+        var 深度格 = 在环上 ? '环' : 行['深度'];
+        文本 += ""<tr"" + (在环上 ? "" style='background:#3a1d1d;color:#f38ba8;'"" : "") + "">"" +
+            ""<td>"" + 转义(深度格) + ""</td>"" +
+            ""<td>"" + 转义(行['id']) + ""</td>"" +
+            单元格(行['标题']) +
+            单元格(行['状态']) +
+            ""<td>"" + 转义((行['依赖'] || []).join('、')) + ""</td></tr>"";
+    }
+    return 文本 + ""</table>"";
+}
+
+function 刷新任务图(需求id) {
+    var 地址 = '/api/panel/dag';
+    if (需求id) { 地址 += '?需求id=' + encodeURIComponent(需求id); }
+    fetch(地址).then(function (响应) {
+        if (!响应.ok) { throw new Error('HTTP ' + 响应.status); }
+        return 响应.json();
+    }).then(function (数据) {
+        内容区.innerHTML = 渲染任务图(数据);
+    }).catch(function (错误) {
+        内容区.innerHTML = ""<p class='红'>这一页取数据失败："" + 转义(错误.message) + ""</p>"";
+    });
+}
+
+function 渲染冲突(数据) {
+    if (!数据 || 数据.length === 0) { return ""<p class='灰'>（冲突列表为空）</p>""; }
+    var 输入框 = document.getElementById('裁决人输入');
+    var 有裁决人 = 输入框 && 输入框.value.trim().length > 0;
+    var 禁用 = 有裁决人 ? '' : ' disabled';
+    var 文本 = ""<input id='裁决人输入' placeholder='裁决人' oninput='刷新裁决按钮()'>"";
+    文本 += ""<table><tr><th>冲突</th><th>旧</th><th>新</th><th>发现阶段</th><th>状态</th><th>选择</th><th>裁决人</th><th>时间</th><th>操作</th></tr>"";
+    for (var i = 0; i < 数据.length; i++) {
+        var 行 = 数据[i];
+        文本 += ""<tr>"" +
+            单元格(行['id']) + 单元格(行['旧']) + 单元格(行['新']) + 单元格(行['发现阶段']) +
+            单元格(行['状态']) + 单元格(行['选择']) + 单元格(行['裁决人']) + 单元格(行['时间']);
+        if (行['未决']) {
+            文本 += ""<td>"" +
+                ""<button class='裁决按钮' data-冲突='"" + 行['id'] + ""' data-选择='改新的'"" + 禁用 + "" onclick='裁决(this)'>改新的</button> "" +
+                ""<button class='裁决按钮' data-冲突='"" + 行['id'] + ""' data-选择='改旧的'"" + 禁用 + "" onclick='裁决(this)'>改旧的</button> "" +
+                ""<button class='裁决按钮' data-冲突='"" + 行['id'] + ""' data-选择='强制推送'"" + 禁用 + "" onclick='裁决(this)'>强制推送</button></td>"";
+        } else {
+            文本 += ""<td class='灰'>已裁决，不许覆盖</td>"";
+        }
+        文本 += ""</tr>"";
+    }
+    return 文本 + ""</table>"";
+}
+
+function 刷新裁决按钮() {
+    var 输入框 = document.getElementById('裁决人输入');
+    var 有裁决人 = 输入框 && 输入框.value.trim().length > 0;
+    var 按钮们 = document.getElementsByClassName('裁决按钮');
+    for (var i = 0; i < 按钮们.length; i++) { 按钮们[i].disabled = !有裁决人; }
+}
+
+function 裁决(按钮) {
+    var 冲突id = 按钮.getAttribute('data-冲突');
+    var 选择 = 按钮.getAttribute('data-选择');
+    var 输入框 = document.getElementById('裁决人输入');
+    var 裁决人 = 输入框 ? 输入框.value.trim() : '';
+    if (!裁决人) { return; }
+    // 裁决人姓名直接拼进 /cmd 命令行：空格/制表符会把姓名拆成多个参数，
+    // 短横线开头会被当成 -- 参数键。这两种名字无法安全表达，明确拒绝而不是静默写错。
+    if (裁决人.indexOf(' ') >= 0 || 裁决人.indexOf('\t') >= 0 || 裁决人.charAt(0) === '-') {
+        alert('裁决人姓名不能含空格或短横线开头');
+        return;
+    }
+    var 命令行 = 'conflict.resolve --PoolRoot Pools --ConflictIdentifier ' + 冲突id +
+        ' --ResolverName ' + 裁决人 + ' --Choice ' + 选择;
+    var 输出区 = document.getElementById('命令输出');
+    fetch('/cmd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({ '命令行': 命令行 })
+    }).then(function (响应) {
+        return 响应.json();
+    }).then(function (结果) {
+        if (!结果['允许']) {
+            输出区.textContent = '被拒绝：' + 结果['原因'];
+            return;
+        }
+        输出区.textContent = '退出码 ' + 结果['退出码'] + '\n' + 结果['输出'];
+        切换(当前页);
+    }).catch(function (错误) {
+        输出区.textContent = '请求失败：' + 错误.message;
+    });
+}
+
+function 渲染晋升(数据) {
+    if (!数据 || 数据.length === 0) { return ""<p class='灰'>（还没有达到阈值的晋升提案）</p>""; }
+    return 表格('晋升提案', ['问题类别', '条数', '可规则化性', '晋升去向', '模块', '原文举例'], 数据,
+        function (行) {
+            return [行['问题类别'], 行['条数'], 行['可规则化性'], 行['晋升去向'],
+                (行['模块'] || []).join('、'), (行['原文举例'] || []).join('；')];
+        });
 }
 
 function 切换(序号) {

@@ -488,6 +488,179 @@ namespace Template.Toolkit.Dashboard
         public int FindingCount { get; }
     }
 
+    /// <summary>任务依赖图的一行：工作项 id、标题、状态、依赖与拓扑深度。</summary>
+    public sealed class PanelDagNode
+    {
+        /// <summary>
+        /// 构造一行任务依赖图节点。
+        /// </summary>
+        /// <param name="identifier">工作项 id。</param>
+        /// <param name="title">工作项标题（当前数据源不提供，恒为空串）。</param>
+        /// <param name="state">工作项状态。</param>
+        /// <param name="dependencies">依赖的工作项 id 列表。</param>
+        /// <param name="depth">拓扑深度；环上节点为 -1。</param>
+        public PanelDagNode(
+            string identifier,
+            string title,
+            string state,
+            IReadOnlyList<string> dependencies,
+            int depth)
+        {
+            Identifier = identifier ?? "";
+            Title = title ?? "";
+            State = state ?? "";
+            Dependencies = dependencies ?? Array.Empty<string>();
+            Depth = depth;
+        }
+
+        /// <summary>工作项 id。</summary>
+        [JsonPropertyName("id")]
+        public string Identifier { get; }
+
+        /// <summary>工作项标题（当前数据源不提供，恒为空串）。</summary>
+        [JsonPropertyName("标题")]
+        public string Title { get; }
+
+        /// <summary>工作项状态。</summary>
+        [JsonPropertyName("状态")]
+        public string State { get; }
+
+        /// <summary>依赖的工作项 id 列表。</summary>
+        [JsonPropertyName("依赖")]
+        public IReadOnlyList<string> Dependencies { get; }
+
+        /// <summary>拓扑深度；环上节点为 -1。</summary>
+        [JsonPropertyName("深度")]
+        public int Depth { get; }
+    }
+
+    /// <summary>冲突页的一行：新旧配对、发现阶段、状态、裁决与未销账标记。</summary>
+    public sealed class PanelConflictRow
+    {
+        /// <summary>
+        /// 构造一行冲突。
+        /// </summary>
+        /// <param name="identifier">冲突 id。</param>
+        /// <param name="oldIdentifier">旧设计或旧需求 id。</param>
+        /// <param name="newIdentifier">新需求 id。</param>
+        /// <param name="discoveryStage">发现阶段。</param>
+        /// <param name="state">状态：未决 / 已裁决。</param>
+        /// <param name="choice">裁决选择，未决时为空串。</param>
+        /// <param name="resolverName">裁决人，未决时为空串。</param>
+        /// <param name="resolvedMoment">裁决时间，未决时为空串。</param>
+        /// <param name="isPending">是否未销账（状态未决或选择强制推送）。</param>
+        public PanelConflictRow(
+            string identifier,
+            string oldIdentifier,
+            string newIdentifier,
+            string discoveryStage,
+            string state,
+            string choice,
+            string resolverName,
+            string resolvedMoment,
+            bool isPending)
+        {
+            Identifier = identifier ?? "";
+            OldIdentifier = oldIdentifier ?? "";
+            NewIdentifier = newIdentifier ?? "";
+            DiscoveryStage = discoveryStage ?? "";
+            State = state ?? "";
+            Choice = choice ?? "";
+            ResolverName = resolverName ?? "";
+            ResolvedMoment = resolvedMoment ?? "";
+            IsPending = isPending;
+        }
+
+        /// <summary>冲突 id。</summary>
+        [JsonPropertyName("id")]
+        public string Identifier { get; }
+
+        /// <summary>旧设计或旧需求 id。</summary>
+        [JsonPropertyName("旧")]
+        public string OldIdentifier { get; }
+
+        /// <summary>新需求 id。</summary>
+        [JsonPropertyName("新")]
+        public string NewIdentifier { get; }
+
+        /// <summary>发现阶段。</summary>
+        [JsonPropertyName("发现阶段")]
+        public string DiscoveryStage { get; }
+
+        /// <summary>状态：未决 / 已裁决。</summary>
+        [JsonPropertyName("状态")]
+        public string State { get; }
+
+        /// <summary>裁决选择，未决时为空串。</summary>
+        [JsonPropertyName("选择")]
+        public string Choice { get; }
+
+        /// <summary>裁决人，未决时为空串。</summary>
+        [JsonPropertyName("裁决人")]
+        public string ResolverName { get; }
+
+        /// <summary>裁决时间，未决时为空串。</summary>
+        [JsonPropertyName("时间")]
+        public string ResolvedMoment { get; }
+
+        /// <summary>是否未销账（状态未决或选择强制推送，与 ConflictList.PendingCount 同一口径）。</summary>
+        [JsonPropertyName("未决")]
+        public bool IsPending { get; }
+    }
+
+    /// <summary>晋升页的一行：问题类别、条数、可规则化性、去向、模块与原文举例。</summary>
+    public sealed class PanelPromotionRow
+    {
+        /// <summary>
+        /// 构造一行晋升提案。
+        /// </summary>
+        /// <param name="category">问题类别。</param>
+        /// <param name="count">同类条数。</param>
+        /// <param name="rulability">该类里出现最多的可规则化性。</param>
+        /// <param name="targetChannel">晋升去向：检查器 / 预审规则 / 无。</param>
+        /// <param name="moduleNames">涉及模块，序数序。</param>
+        /// <param name="quotations">原文引用，最多三条。</param>
+        public PanelPromotionRow(
+            string category,
+            int count,
+            string rulability,
+            string targetChannel,
+            IReadOnlyList<string> moduleNames,
+            IReadOnlyList<string> quotations)
+        {
+            Category = category ?? "";
+            Count = count;
+            Rulability = rulability ?? "";
+            TargetChannel = targetChannel ?? "";
+            ModuleNames = moduleNames ?? Array.Empty<string>();
+            Quotations = quotations ?? Array.Empty<string>();
+        }
+
+        /// <summary>问题类别。</summary>
+        [JsonPropertyName("问题类别")]
+        public string Category { get; }
+
+        /// <summary>同类条数。</summary>
+        [JsonPropertyName("条数")]
+        public int Count { get; }
+
+        /// <summary>该类里出现最多的可规则化性。</summary>
+        [JsonPropertyName("可规则化性")]
+        public string Rulability { get; }
+
+        /// <summary>晋升去向：检查器 / 预审规则 / 无。</summary>
+        [JsonPropertyName("晋升去向")]
+        public string TargetChannel { get; }
+
+        /// <summary>涉及模块，序数序。</summary>
+        [JsonPropertyName("模块")]
+        public IReadOnlyList<string> ModuleNames { get; }
+
+        /// <summary>原文引用，最多三条。</summary>
+        [JsonPropertyName("原文举例")]
+        public IReadOnlyList<string> Quotations { get; }
+    }
+
     /// <summary>
     /// 面板八页的数据读取器：每页只读磁盘文件，返回可直接序列化成 JSON 的对象。
     /// 全部方法零私有状态、零缓存，每次调用现读文件；任何单点失败都降级，不往上抛。
@@ -905,6 +1078,157 @@ namespace Template.Toolkit.Dashboard
             }
 
             rows.Sort((left, right) => StringComparer.Ordinal.Compare(left.DriverName, right.DriverName));
+            return rows;
+        }
+
+        /// <summary>
+        /// 读某需求的工作项依赖图：直接用 WorkItemGraph.Load（面板与 CLI 同源，不另写一份读取）。
+        /// 深度 = 从无依赖节点起算的最长路径长度；图有环时环上节点深度记 -1，不因环死循环。
+        /// 结果先按深度升序、再按 id 序数序；需求不存在或无工作项返回空列表，不抛。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="requirementIdentifier">需求 id。</param>
+        public static IReadOnlyList<PanelDagNode> ReadTaskDag(string repositoryRoot, string requirementIdentifier)
+        {
+            var graph = WorkItemGraph.Load(repositoryRoot, requirementIdentifier ?? "");
+            if (graph.Nodes.Count == 0)
+            {
+                return Array.Empty<PanelDagNode>();
+            }
+
+            var byIdentifier = new Dictionary<string, WorkItemNode>(StringComparer.Ordinal);
+            foreach (var node in graph.Nodes)
+            {
+                byIdentifier[node.Identifier] = node;
+            }
+
+            // Kahn 拓扑排序求深度：入度为零的节点深度 0，每推进一层深度取 max(父深度 + 1)。
+            // 依赖指向图外的 id 不贡献入度（那个节点没有出边），免得把正常节点误标成环。
+            var indegree = new Dictionary<string, int>(StringComparer.Ordinal);
+            var downstream = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            foreach (var node in graph.Nodes)
+            {
+                var dependencyCount = 0;
+                foreach (var dependency in node.Dependencies)
+                {
+                    if (!byIdentifier.ContainsKey(dependency))
+                    {
+                        continue;
+                    }
+
+                    dependencyCount++;
+                    if (!downstream.TryGetValue(dependency, out var children))
+                    {
+                        children = new List<string>();
+                        downstream[dependency] = children;
+                    }
+
+                    children.Add(node.Identifier);
+                }
+
+                indegree[node.Identifier] = dependencyCount;
+            }
+
+            var depth = new Dictionary<string, int>(StringComparer.Ordinal);
+            var queue = new Queue<string>();
+            foreach (var node in graph.Nodes)
+            {
+                if (indegree[node.Identifier] == 0)
+                {
+                    depth[node.Identifier] = 0;
+                    queue.Enqueue(node.Identifier);
+                }
+            }
+
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+                if (!downstream.TryGetValue(current, out var children))
+                {
+                    continue;
+                }
+
+                var parentDepth = depth[current];
+                foreach (var child in children)
+                {
+                    var candidate = parentDepth + 1;
+                    if (!depth.TryGetValue(child, out var existing) || candidate > existing)
+                    {
+                        depth[child] = candidate;
+                    }
+
+                    indegree[child]--;
+                    if (indegree[child] == 0)
+                    {
+                        queue.Enqueue(child);
+                    }
+                }
+            }
+
+            // 拓扑排不出去的（入度消不掉）就是环上节点，深度记 -1。
+            var rows = new List<PanelDagNode>();
+            foreach (var node in graph.Nodes)
+            {
+                var nodeDepth = depth.TryGetValue(node.Identifier, out var computedDepth) ? computedDepth : -1;
+                rows.Add(new PanelDagNode(node.Identifier, node.Title, node.State, node.Dependencies, nodeDepth));
+            }
+
+            rows.Sort((left, right) =>
+            {
+                var byDepth = left.Depth.CompareTo(right.Depth);
+                return byDepth != 0 ? byDepth : string.CompareOrdinal(left.Identifier, right.Identifier);
+            });
+            return rows;
+        }
+
+        /// <summary>
+        /// 读冲突列表：直接用 ConflictList.Load（面板与 CLI 同源，不另写一份读取）。
+        /// 空列表是正常状态；未销账口径与 ConflictList.PendingCount 一致（状态未决或选择强制推送）。
+        /// </summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static IReadOnlyList<PanelConflictRow> ReadConflicts(string poolRoot)
+        {
+            var list = ConflictList.Load(poolRoot);
+            var rows = new List<PanelConflictRow>();
+            foreach (var entry in list.Entries)
+            {
+                rows.Add(new PanelConflictRow(
+                    entry.Identifier,
+                    entry.OldIdentifier,
+                    entry.NewIdentifier,
+                    entry.DiscoveryStage,
+                    entry.State,
+                    entry.Choice,
+                    entry.ResolverName,
+                    entry.ResolvedMoment,
+                    string.Equals(entry.State, ConflictEntry.PendingState, StringComparison.Ordinal)
+                        || string.Equals(entry.Choice, "强制推送", StringComparison.Ordinal)));
+            }
+
+            return rows;
+        }
+
+        /// <summary>
+        /// 读晋升提案：直接用 ReviewOpinionBook.Load + PromotionProposalBuilder.Build
+        /// （面板与 CLI 同源，不另写一份读取）。
+        /// </summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="threshold">同类条数阈值。</param>
+        public static IReadOnlyList<PanelPromotionRow> ReadPromotions(string poolRoot, int threshold)
+        {
+            var book = ReviewOpinionBook.Load(poolRoot);
+            var rows = new List<PanelPromotionRow>();
+            foreach (var proposal in PromotionProposalBuilder.Build(book, threshold))
+            {
+                rows.Add(new PanelPromotionRow(
+                    proposal.Category,
+                    proposal.Count,
+                    proposal.Rulability,
+                    proposal.TargetChannel,
+                    proposal.ModuleNames,
+                    proposal.Quotations));
+            }
+
             return rows;
         }
 

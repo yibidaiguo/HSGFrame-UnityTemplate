@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -159,6 +160,47 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("门禁是否全绿，缺省 false")]
         [DefaultValue(false)]
         public bool AllGatesGreen { get; set; }
+    }
+
+    /// <summary>引擎一轮命令 engine.tick 与 engine.wake 共用的参数。</summary>
+    public sealed class EngineTickArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>上次取活时刻，ISO 8601；缺省按从未取过。</summary>
+        [Summary("上次取活时刻，ISO 8601；缺省按从未取过")]
+        [DefaultValue("")]
+        public string LastTickMoment { get; set; }
+    }
+
+    /// <summary>意见库追加命令 task.opinion 的参数。</summary>
+    public sealed class TaskOpinionArguments
+    {
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>问题类别，如「空引用未防」。</summary>
+        [Summary("问题类别，如「空引用未防」")]
+        public string Category { get; set; }
+
+        /// <summary>模块名，如「签到」。</summary>
+        [Summary("模块名，如「签到」")]
+        public string ModuleName { get; set; }
+
+        /// <summary>可规则化性：可代码化 / 可提示词化 / 不可规则化。</summary>
+        [Summary("可规则化性：可代码化 / 可提示词化 / 不可规则化")]
+        public string Rulability { get; set; }
+
+        /// <summary>原文引用，打回意见里的一句话。</summary>
+        [Summary("原文引用，打回意见里的一句话")]
+        public string Quotation { get; set; }
     }
 
     /// <summary>冲突列表命令 conflict.list 的参数。</summary>
@@ -861,6 +903,175 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             return CommandResult.Success("放行判定完成", lines);
+        }
+
+        /// <summary>
+        /// 引擎一轮：按模式判定该不该取活。先拿单实例锁，拿不到不是失败——那正是单实例该有的行为。
+        /// </summary>
+        /// <param name="arguments">引擎一轮命令参数。</param>
+        [EditorCommand("engine.tick")]
+        [Summary("引擎一轮：按模式判定该不该取活")]
+        public static CommandResult Tick(EngineTickArguments arguments)
+        {
+            return RunEngineTick(arguments, false);
+        }
+
+        /// <summary>
+        /// 引擎唤醒：提前跑一轮，判定逻辑与轮询同一条，只跳过间隔检查（子文档 03 §五，防漏）。
+        /// </summary>
+        /// <param name="arguments">引擎唤醒命令参数。</param>
+        [EditorCommand("engine.wake")]
+        [Summary("引擎唤醒：提前跑一轮")]
+        public static CommandResult Wake(EngineTickArguments arguments)
+        {
+            return RunEngineTick(arguments, true);
+        }
+
+        // engine.tick 与 engine.wake 共用：拿单实例锁 + 加载配置与队列 + 跑一轮取活判定。
+        private static CommandResult RunEngineTick(EngineTickArguments arguments, bool isWakeUp)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"仓库根目录不存在：{repositoryRoot}");
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            if (!Directory.Exists(poolRoot))
+            {
+                return CommandResult.Failure($"池子根目录不存在：{poolRoot}");
+            }
+
+            if (!SingleInstanceLock.TryAcquire(repositoryRoot, out var instanceLock, out var lockReason))
+            {
+                return CommandResult.Success("本轮跳过（单实例锁被占，不是失败）", new[] { lockReason });
+            }
+
+            using (instanceLock)
+            {
+                if (!TryParseLastTickMoment(arguments.LastTickMoment, out var lastTickMoment, out var parseFailure))
+                {
+                    return CommandResult.Failure(parseFailure);
+                }
+
+                var settings = EngineSettings.Load(repositoryRoot);
+                var queue = ExecutionQueue.Load(poolRoot);
+                var decision = PollingScheduler.Tick(settings, queue, DateTimeOffset.Now, lastTickMoment, isWakeUp);
+
+                var lines = new List<string>
+                {
+                    $"引擎模式：{EngineSettings.ToChineseName(settings.Mode)}",
+                    $"该不该取活：{(decision.ShouldTake ? "取" : "不取")}",
+                    $"原因：{decision.Reason}",
+                    $"下轮建议：{decision.NextTickSeconds} 秒后再来"
+                };
+                if (decision.Entry != null)
+                {
+                    lines.Add($"取到的条目：{decision.Entry.RequirementIdentifier}（入队 {decision.Entry.EnqueueTime}）");
+                }
+
+                if (instanceLock.ReleaseFailureReason.Length > 0)
+                {
+                    lines.Add($"注意：{instanceLock.ReleaseFailureReason}");
+                }
+
+                return CommandResult.Success($"引擎{(isWakeUp ? "唤醒" : "一轮")}完成", lines);
+            }
+        }
+
+        // 把 ISO 8601 文本解析成取活时刻；空白按从未取过（MinValue），解析不了给失败原因。
+        private static bool TryParseLastTickMoment(string text, out DateTimeOffset moment, out string failure)
+        {
+            failure = "";
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                moment = DateTimeOffset.MinValue;
+                return true;
+            }
+
+            if (DateTimeOffset.TryParse(
+                text,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind,
+                out moment))
+            {
+                return true;
+            }
+
+            failure = $"参数 LastTickMoment「{text}」不是合法 ISO 8601 时间";
+            return false;
+        }
+
+        /// <summary>
+        /// 意见库追加一条终审打回意见；可规则化性非法时转成失败，文案列出三个合法值。
+        /// </summary>
+        /// <param name="arguments">意见库追加命令参数。</param>
+        [EditorCommand("task.opinion")]
+        [Summary("意见库：追加一条终审打回意见")]
+        public static CommandResult Opinion(TaskOpinionArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.Category))
+            {
+                return CommandResult.Failure("参数 Category 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.ModuleName))
+            {
+                return CommandResult.Failure("参数 ModuleName 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.Rulability))
+            {
+                return CommandResult.Failure("参数 Rulability 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.Quotation))
+            {
+                return CommandResult.Failure("参数 Quotation 为必填项");
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            if (!Directory.Exists(poolRoot))
+            {
+                return CommandResult.Failure($"池子根目录不存在：{poolRoot}");
+            }
+
+            try
+            {
+                var opinion = ReviewOpinionBook.Append(
+                    poolRoot,
+                    arguments.Category,
+                    arguments.ModuleName,
+                    arguments.Rulability,
+                    arguments.Quotation,
+                    DateTimeOffset.Now.ToString("o"));
+                return CommandResult.Success($"意见已入库：{opinion.Identifier}", new[]
+                {
+                    $"问题类别：{opinion.Category}",
+                    $"模块：{opinion.ModuleName}",
+                    $"可规则化性：{opinion.Rulability}",
+                    $"原文引用：{opinion.Quotation}"
+                });
+            }
+            catch (Exception exception) when (exception is InvalidOperationException || exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return CommandResult.Failure($"意见入库失败：{exception.Message}");
+            }
         }
 
         // 按换行分隔的改动路径文本拆成路径列表：去掉空行与首尾空白。
