@@ -3,7 +3,10 @@
   "契约版本": "1.0.0",
   "域路由": {
     "模型加工": "blender",
-    "执行后端": "oaicompat"
+    "执行后端": "oaicompat",
+    "需求编辑端": "feishu",
+    "消息卡片": "feishu",
+    "助手": "feishu"
   },
   "实现": {
     "bridge-blender": {
@@ -13,6 +16,10 @@
     "bridge-oaicompat": {
       "可执行": "dotnet",
       "参数": ["run", "--project", "Bridges/oaicompat/src/BridgeOaicompat", "--"]
+    },
+    "bridge-feishu": {
+      "可执行": "dotnet",
+      "参数": ["run", "--project", "Bridges/feishu/src/BridgeFeishu", "--"]
     }
   }
 }

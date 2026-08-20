@@ -454,4 +454,289 @@ namespace Template.Toolkit.CommandHost.Commands
             return relative.StartsWith("..", StringComparison.Ordinal) ? fullPath : relative;
         }
     }
+
+    /// <summary>下游建表命令 bridge.apply 的参数。</summary>
+    public sealed class BridgeApplyArguments
+    {
+        /// <summary>要调用的下游 driver 名，对应 Bridges/&lt;名&gt;/ 目录。</summary>
+        [Summary("要调用的下游 driver 名，对应 Bridges/<名>/ 目录")]
+        public string Driver { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>只算不写：列出要建的表与字段，不发任何写请求。默认 true——真建表是写下游的工作区，默认不写。</summary>
+        [Summary("只算不写：列出要建的表与字段，不发任何写请求。默认 true，要真建显式传 false")]
+        [DefaultValue(true)]
+        public bool DryRun { get; set; }
+
+        /// <summary>子进程超时秒数。</summary>
+        [Summary("子进程超时秒数")]
+        [DefaultValue(120)]
+        public int TimeoutSeconds { get; set; }
+    }
+
+    /// <summary>下游发卡片命令 bridge.card 的参数。</summary>
+    public sealed class BridgeCardArguments
+    {
+        /// <summary>要调用的下游 driver 名，对应 Bridges/&lt;名&gt;/ 目录。</summary>
+        [Summary("要调用的下游 driver 名，对应 Bridges/<名>/ 目录")]
+        public string Driver { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>只算不写：把要发的卡片 JSON 打出来，不真发。默认 true——真发消息也是写下游的工作区，默认不写。</summary>
+        [Summary("只算不写：把要发的卡片 JSON 打出来，不真发。默认 true，要真发显式传 false")]
+        [DefaultValue(true)]
+        public bool DryRun { get; set; }
+
+        /// <summary>子进程超时秒数。</summary>
+        [Summary("子进程超时秒数")]
+        [DefaultValue(120)]
+        public int TimeoutSeconds { get; set; }
+
+        /// <summary>需求 id，如 REQ-0042，选片卡的数据来源。</summary>
+        [Summary("需求 id，如 REQ-0042，选片卡的数据来源")]
+        public string RequirementIdentifier { get; set; }
+
+        /// <summary>资产 id，如 ASSET-0042-01。</summary>
+        [Summary("资产 id，如 ASSET-0042-01")]
+        public string AssetIdentifier { get; set; }
+
+        /// <summary>选片轮次，从 1 起。</summary>
+        [Summary("选片轮次，从 1 起")]
+        [DefaultValue(1)]
+        public int Round { get; set; }
+    }
+
+    /// <summary>下游供给命令族：bridge.apply（真建表）、bridge.card（真发卡）等。</summary>
+    public static class BridgeWriteCommands
+    {
+        /// <summary>
+        /// 下游建表：按本地产物里的建表描述真建表（幂等，同名表跳过）；干跑只列计划、不发写请求。
+        /// 真建表是写下游的工作区，所以 DryRun 默认 true，要真建必须显式传 --dry-run false。
+        /// </summary>
+        /// <param name="arguments">建表命令参数。</param>
+        [EditorCommand("bridge.apply")]
+        [Summary("按建表描述在下游真建表（幂等，同名跳过）；默认干跑，--dry-run false 才真写")]
+        public static CommandResult Apply(BridgeApplyArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            {
+                return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
+            }
+
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            var payload = JsonSerializer.SerializeToElement(new JsonObject { ["干跑"] = arguments.DryRun });
+
+            var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "apply", payload, arguments.TimeoutSeconds);
+            if (!result.Succeeded)
+            {
+                return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
+            }
+
+            var lines = new List<string>();
+            if (arguments.DryRun)
+            {
+                lines.Add("干跑：以下是建表计划，没有发任何写请求");
+                var plans = ReadArray(result.Payload, "计划");
+                foreach (var plan in plans)
+                {
+                    if (plan.ValueKind != JsonValueKind.Object)
+                    {
+                        continue;
+                    }
+
+                    var tableName = ReadString(plan, "表名");
+                    var fieldCount = ReadInt(plan, "字段数");
+                    lines.Add($"表「{tableName}」：{fieldCount} 个字段");
+                    foreach (var field in ReadArray(plan, "字段"))
+                    {
+                        if (field.ValueKind != JsonValueKind.Object)
+                        {
+                            continue;
+                        }
+
+                        lines.Add($"  {ReadString(field, "名称")}：{ReadString(field, "下游类型")}（类型码 {ReadInt(field, "类型码")}）");
+                    }
+                }
+
+                return CommandResult.Success($"干跑完成，计划 {plans.Count} 张表", lines);
+            }
+
+            var created = ReadArray(result.Payload, "建了");
+            var skipped = ReadArray(result.Payload, "跳过的");
+            foreach (var item in created)
+            {
+                if (item.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                lines.Add($"建了：{ReadString(item, "表名")}（table_id={ReadString(item, "table_id")}）");
+            }
+
+            foreach (var item in skipped)
+            {
+                if (item.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                lines.Add($"跳过：{ReadString(item, "表名")}（{ReadString(item, "原因")}）");
+            }
+
+            lines.Add($"共建 {created.Count} 张、跳过 {skipped.Count} 张");
+            return CommandResult.Success($"建表完成：建了 {created.Count} 张、跳过 {skipped.Count} 张", lines);
+        }
+
+        /// <summary>
+        /// 下游发卡片：装配一张选片卡真发一条；干跑只打印要发的卡片 JSON、不真发。
+        /// 真发是写下游的工作区，所以 DryRun 默认 true，要真发必须显式传 --dry-run false。
+        /// </summary>
+        /// <param name="arguments">发卡片命令参数。</param>
+        [EditorCommand("bridge.card")]
+        [Summary("装配一张选片卡并发一条消息；默认干跑，--dry-run false 才真发")]
+        public static CommandResult Card(BridgeCardArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            {
+                return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.RequirementIdentifier) || string.IsNullOrWhiteSpace(arguments.AssetIdentifier))
+            {
+                return CommandResult.Failure("必须指定 --requirement-identifier 与 --asset-identifier");
+            }
+
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            var buildResult = SelectionCardBuilder.Build(repositoryRoot, arguments.RequirementIdentifier, arguments.AssetIdentifier, arguments.Round);
+            if (buildResult.Card == null)
+            {
+                var lines = new List<string>();
+                foreach (var finding in buildResult.Findings)
+                {
+                    lines.Add(finding.ToDisplayText());
+                }
+
+                return CommandResult.Failure("选片卡装配失败，没有可发的卡片", lines);
+            }
+
+            var variants = new JsonArray();
+            foreach (var variant in buildResult.Card.QualifiedVariants)
+            {
+                variants.Add(variant);
+            }
+
+            var buttons = new JsonArray();
+            foreach (var button in buildResult.Card.Buttons)
+            {
+                buttons.Add(button);
+            }
+
+            var cardNode = new JsonObject
+            {
+                ["需求id"] = buildResult.Card.RequirementIdentifier,
+                ["资产id"] = buildResult.Card.AssetIdentifier,
+                ["轮次"] = buildResult.Card.Round,
+                ["合格变体"] = variants,
+                ["弃置数"] = buildResult.Card.RejectedCount,
+                ["按钮"] = buttons,
+                ["提示"] = buildResult.Card.Hint
+            };
+
+            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["干跑"] = arguments.DryRun,
+                ["卡片"] = cardNode
+            });
+
+            var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "card", payload, arguments.TimeoutSeconds);
+            if (!result.Succeeded)
+            {
+                return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
+            }
+
+            if (arguments.DryRun)
+            {
+                var cardJson = ReadString(result.Payload, "要发的卡片JSON");
+                return CommandResult.Success("干跑：以下是卡片 JSON，没有真发", new[] { cardJson });
+            }
+
+            var messageId = ReadString(result.Payload, "message_id");
+            return CommandResult.Success($"已发送一条选片卡，message_id={messageId}", new[] { $"message_id={messageId}" });
+        }
+
+        /// <summary>读响应载荷里数组键的值；缺失或类型不对给空列表。</summary>
+        private static List<JsonElement> ReadArray(JsonElement element, string propertyName)
+        {
+            var values = new List<JsonElement>();
+            if (element.ValueKind == JsonValueKind.Object
+                && element.TryGetProperty(propertyName, out var value)
+                && value.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in value.EnumerateArray())
+                {
+                    values.Add(item.Clone());
+                }
+            }
+
+            return values;
+        }
+
+        /// <summary>读响应载荷里字符串键的值；缺失或类型不对给空串。</summary>
+        private static string ReadString(JsonElement element, string propertyName)
+        {
+            if (element.ValueKind == JsonValueKind.Object
+                && element.TryGetProperty(propertyName, out var value)
+                && value.ValueKind == JsonValueKind.String)
+            {
+                return value.GetString() ?? "";
+            }
+
+            return "";
+        }
+
+        /// <summary>读响应载荷里整数键的值；缺失或类型不对给 0。</summary>
+        private static int ReadInt(JsonElement element, string propertyName)
+        {
+            if (element.ValueKind == JsonValueKind.Object
+                && element.TryGetProperty(propertyName, out var value)
+                && value.ValueKind == JsonValueKind.Number)
+            {
+                try
+                {
+                    return value.GetInt32();
+                }
+                catch (Exception exception) when (exception is FormatException || exception is InvalidOperationException || exception is OverflowException)
+                {
+                }
+            }
+
+            return 0;
+        }
+    }
 }

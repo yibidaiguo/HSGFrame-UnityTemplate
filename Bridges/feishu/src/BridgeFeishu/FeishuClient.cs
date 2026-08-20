@@ -1,0 +1,414 @@
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Template.Toolkit.CreationPipeline;
+
+namespace Template.Bridges.Feishu
+{
+    /// <summary>
+    /// 飞书桥的 HTTP 底座：拿 tenant_access_token（进程内缓存到过期前 5 分钟）、发带鉴权的请求、
+    /// 按飞书返回的 code 做错误映射。
+    /// 密钥红线（决策 5、78）：token 与 app_secret 只许出现在请求体 / Authorization 头里——
+    /// 不进日志、不进异常消息、不进返回载荷，长度和前缀也不许。打印 HTTP 错误前先确认
+    /// 请求头没有被带进文案（HttpClient 的异常消息不含请求头，但自己拼错误文案时不许拼进去）。
+    /// 错误映射：连不上 → 下游不可达；code=99991672 → 凭据无效（带飞书回的那句原文）；
+    /// code 非 0 的其余 → 下游报错，带飞书的 msg 与 log_id（工单要用的）。
+    /// </summary>
+    public static class FeishuClient
+    {
+        /// <summary>取 tenant_access_token 的端点。</summary>
+        private const string TokenEndpoint = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal";
+
+        /// <summary>多维表格的 app 前缀：/open-apis/bitable/v1/apps/&lt;app_token&gt;/…。</summary>
+        private const string BitableAppsPrefix = "https://open.feishu.cn/open-apis/bitable/v1/apps/";
+
+        /// <summary>发消息的端点（receive_id_type=open_id）。</summary>
+        private const string ImMessagesEndpoint = "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=open_id";
+
+        /// <summary>飞书对取 token 有频率限制，token 缓存在进程内、过期前 5 分钟视为过期。</summary>
+        private static readonly TimeSpan TokenRefreshAhead = TimeSpan.FromMinutes(5);
+
+        /// <summary>进程内缓存的 token 值。密钥：绝不进日志、异常、返回。</summary>
+        private static string _cachedToken = "";
+
+        /// <summary>缓存 token 的过期时刻；已过期（含提前量）时视为没有缓存。</summary>
+        private static DateTimeOffset _tokenExpiresAt = DateTimeOffset.MinValue;
+
+        /// <summary>一次带鉴权请求的结果：成功时带解析好的响应体，失败时带协议响应。</summary>
+        public sealed class HttpCall
+        {
+            public bool Succeeded;
+            public BridgeResponse Response;
+            public JsonElement ResponseBody;
+        }
+
+        /// <summary>拼多维表格 app 下的子路径 URL：BitableAppsPrefix + appToken + "/" + 相对路径。</summary>
+        public static string BitableUrl(string appToken, string relativePath)
+        {
+            return BitableAppsPrefix + Uri.EscapeDataString(appToken) + "/" + relativePath;
+        }
+
+        /// <summary>发消息的 URL（receive_id_type=open_id）。</summary>
+        public static string ImMessagesUrl()
+        {
+            return ImMessagesEndpoint;
+        }
+
+        /// <summary>
+        /// 发一次带鉴权的飞书请求：先拿（或复用）token，再按 method 发请求，读响应体并按 code 映射错误。
+        /// 成功时 ResponseBody 是响应体的 JSON 对象（已 clone）；失败时 Response 是失败协议响应。
+        /// </summary>
+        /// <param name="method">HTTP 方法：GET / POST / DELETE。</param>
+        /// <param name="url">完整请求 URL。</param>
+        /// <param name="bodyJson">请求体 JSON 文本；GET 时传 null。</param>
+        /// <param name="appId">飞书应用标识。</param>
+        /// <param name="appSecret">飞书应用密钥，只进 token 请求体，绝不出现在任何文案里。</param>
+        /// <param name="timeoutSeconds">单次 HTTP 超时秒数。</param>
+        public static HttpCall Send(string method, string url, string bodyJson, string appId, string appSecret, int timeoutSeconds)
+        {
+            if (!TryGetToken(appId, appSecret, timeoutSeconds, out var token, out var tokenError))
+            {
+                return new HttpCall { Succeeded = false, Response = tokenError };
+            }
+
+            return SendWithToken(method, url, bodyJson, token, timeoutSeconds);
+        }
+
+        /// <summary>
+        /// 拿 tenant_access_token。进程内缓存未到「过期前 5 分钟」直接复用；
+        /// 否则 POST 换取新的。token 值只经 out 参数出去，绝不出现在日志、异常与返回文案里。
+        /// </summary>
+        private static bool TryGetToken(string appId, string appSecret, int timeoutSeconds, out string token, out BridgeResponse error)
+        {
+            token = "";
+            error = null;
+
+            if (_cachedToken.Length > 0 && DateTimeOffset.UtcNow < _tokenExpiresAt - TokenRefreshAhead)
+            {
+                token = _cachedToken;
+                return true;
+            }
+
+            var requestBody = "{\"app_id\":" + JsonSerializer.Serialize(appId)
+                + ",\"app_secret\":" + JsonSerializer.Serialize(appSecret) + "}";
+
+            HttpCall call;
+            try
+            {
+                call = PostJson(TokenEndpoint, requestBody, timeoutSeconds);
+            }
+            catch (Exception exception) when (exception is TaskCanceledException)
+            {
+                error = BridgeResponse.Failure("1.0.0", "超时", $"飞书取 token 超过 {timeoutSeconds} 秒未响应", retryable: true);
+                return false;
+            }
+            catch (Exception exception) when (exception is HttpRequestException)
+            {
+                error = BridgeResponse.Failure("1.0.0", "下游不可达", "连不上飞书：无法建立连接（取 token 阶段）", retryable: true);
+                return false;
+            }
+
+            if (!call.Succeeded)
+            {
+                error = call.Response;
+                return false;
+            }
+
+            if (!TryReadTokenResponse(call.ResponseBody, out var newToken, out var reason))
+            {
+                error = BridgeResponse.Failure("1.0.0", "下游报错", "飞书取 token 的响应里没有 token：" + reason, retryable: false);
+                return false;
+            }
+
+            _cachedToken = newToken;
+            _tokenExpiresAt = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(TokenLifetimeSeconds);
+            token = newToken;
+            return true;
+        }
+
+        /// <summary>token 响应里的有效期秒数；解析不到时按 7200 兜底（过期了会再换，不影响正确性）。</summary>
+        private static int TokenLifetimeSeconds = 7200;
+
+        /// <summary>解析取 token 的响应体：code 必须为 0，token 取 tenant_access_token 字符串。</summary>
+        private static bool TryReadTokenResponse(JsonElement body, out string token, out string reason)
+        {
+            token = "";
+            reason = "";
+            if (body.ValueKind != JsonValueKind.Object)
+            {
+                reason = "响应顶层不是对象";
+                return false;
+            }
+
+            if (!body.TryGetProperty("tenant_access_token", out var tokenElement) || tokenElement.ValueKind != JsonValueKind.String)
+            {
+                reason = "响应缺 tenant_access_token 字段";
+                return false;
+            }
+
+            if (body.TryGetProperty("expire", out var expireElement) && expireElement.ValueKind == JsonValueKind.Number)
+            {
+                try
+                {
+                    TokenLifetimeSeconds = expireElement.GetInt32();
+                }
+                catch (Exception exception) when (exception is FormatException || exception is InvalidOperationException || exception is OverflowException)
+                {
+                    TokenLifetimeSeconds = 7200;
+                }
+            }
+
+            token = tokenElement.GetString() ?? "";
+            return token.Length > 0;
+        }
+
+        /// <summary>带 token 发一次请求并解析响应体；token 只进 Authorization 头。</summary>
+        private static HttpCall SendWithToken(string method, string url, string bodyJson, string token, int timeoutSeconds)
+        {
+            try
+            {
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(Math.Max(1, timeoutSeconds)) };
+                using var request = new HttpRequestMessage(new HttpMethod(method), url);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                if (bodyJson != null)
+                {
+                    request.Content = new StringContent(bodyJson, Encoding.UTF8, "application/json");
+                }
+
+                using var response = client.SendAsync(request).GetAwaiter().GetResult();
+                var responseText = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                var logId = ReadLogIdFromHeaders(response);
+
+                var statusCode = (int)response.StatusCode;
+                if (statusCode >= 200 && statusCode < 300)
+                {
+                    if (!TryParseBody(responseText, out var body))
+                    {
+                        return new HttpCall
+                        {
+                            Succeeded = false,
+                            Response = BridgeResponse.Failure("1.0.0", "下游报错", "飞书返回的响应体不是合法 JSON", retryable: false)
+                        };
+                    }
+
+                    if (body.TryGetProperty("code", out var codeElement))
+                    {
+                        if (codeElement.ValueKind != JsonValueKind.Number || !TryParseCode(codeElement, out var code))
+                        {
+                            return new HttpCall
+                            {
+                                Succeeded = false,
+                                Response = BridgeResponse.Failure("1.0.0", "下游报错", "飞书响应的 code 不是合法整数", retryable: false)
+                            };
+                        }
+
+                        if (code != 0)
+                        {
+                            return new HttpCall { Succeeded = false, Response = MapCodeError(body, code, logId) };
+                        }
+                    }
+
+                    return new HttpCall { Succeeded = true, ResponseBody = body.Clone() };
+                }
+
+                // 调试日志走 stderr：只打方法、URL 与状态码，绝不含请求头（Authorization 里有 token）。
+                Console.Error.WriteLine($"BridgeFeishu HTTP {statusCode}：{method} {url}");
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = MapHttpError(statusCode, responseText, logId, method, url)
+                };
+            }
+            catch (TaskCanceledException)
+            {
+                // HttpClient.Timeout 到期抛 TaskCanceledException；本进程没有其他取消源。
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = BridgeResponse.Failure("1.0.0", "超时", $"飞书超过 {timeoutSeconds} 秒未响应，已放弃本次调用", retryable: true)
+                };
+            }
+            catch (HttpRequestException)
+            {
+                // 连不上：DNS 失败、连接被拒、TLS 失败都落在这一支。异常消息不含请求头，也不含 token。
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = BridgeResponse.Failure("1.0.0", "下游不可达", "连不上飞书，请检查网络", retryable: true)
+                };
+            }
+        }
+
+        /// <summary>POST JSON 到端点，返回原始 HttpCall（不解析飞书业务 code，取 token 专用）。</summary>
+        private static HttpCall PostJson(string url, string bodyJson, int timeoutSeconds)
+        {
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(Math.Max(1, timeoutSeconds)) };
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Content = new StringContent(bodyJson, Encoding.UTF8, "application/json");
+
+            using var response = client.SendAsync(request).GetAwaiter().GetResult();
+            var responseText = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            var logId = ReadLogIdFromHeaders(response);
+
+            var statusCode = (int)response.StatusCode;
+            if (statusCode >= 200 && statusCode < 300)
+            {
+                if (!TryParseBody(responseText, out var body))
+                {
+                    return new HttpCall
+                    {
+                        Succeeded = false,
+                        Response = BridgeResponse.Failure("1.0.0", "下游报错", "飞书返回的响应体不是合法 JSON", retryable: false)
+                    };
+                }
+
+                if (body.TryGetProperty("code", out var codeElement))
+                {
+                    if (codeElement.ValueKind != JsonValueKind.Number || !TryParseCode(codeElement, out var code))
+                    {
+                        return new HttpCall
+                        {
+                            Succeeded = false,
+                            Response = BridgeResponse.Failure("1.0.0", "下游报错", "飞书响应的 code 不是合法整数", retryable: false)
+                        };
+                    }
+
+                    if (code != 0)
+                    {
+                        return new HttpCall { Succeeded = false, Response = MapCodeError(body, code, logId) };
+                    }
+                }
+
+                return new HttpCall { Succeeded = true, ResponseBody = body.Clone() };
+            }
+
+            // 调试日志走 stderr：只打方法、URL 与状态码，绝不含请求体（里面有 app_secret）。
+            Console.Error.WriteLine($"BridgeFeishu HTTP {statusCode}：POST {url}");
+            return new HttpCall
+            {
+                Succeeded = false,
+                Response = MapHttpError(statusCode, responseText, logId, "POST", url)
+            };
+        }
+
+        /// <summary>按飞书业务 code 映射错误：99991672 → 凭据无效（带原文）；其余 → 下游报错（带 msg 与 log_id）。</summary>
+        private static BridgeResponse MapCodeError(JsonElement body, int code, string logId)
+        {
+            var msg = ReadString(body, "msg");
+            var idPart = string.IsNullOrWhiteSpace(logId) ? "（响应头与响应体都没有 log_id）" : "log_id=" + logId;
+
+            if (code == 99991672)
+            {
+                // 人话里必须把飞书回的那句原文带出来——它直接告诉人去点哪个权限。
+                var permissionText = string.IsNullOrWhiteSpace(msg) ? "应用尚未开通所需权限" : msg;
+                return BridgeResponse.Failure(
+                    "1.0.0",
+                    "凭据无效",
+                    $"飞书返回 code=99991672：{permissionText}（{idPart}）",
+                    retryable: false);
+            }
+
+            var messagePart = string.IsNullOrWhiteSpace(msg) ? "（飞书没有给出 msg）" : msg;
+            return BridgeResponse.Failure(
+                "1.0.0",
+                "下游报错",
+                $"飞书返回 code={code}：{messagePart}（{idPart}）",
+                retryable: false);
+        }
+
+        /// <summary>非 2xx 的 HTTP 错误：尝试从响应体抠 msg/log_id，抠不出给状态码占位。</summary>
+        private static BridgeResponse MapHttpError(int statusCode, string responseText, string logId, string method, string url)
+        {
+            var msg = "";
+            var bodyLogId = "";
+            if (TryParseBody(responseText, out var body))
+            {
+                msg = ReadString(body, "msg");
+                bodyLogId = ReadString(body, "log_id");
+            }
+
+            var effectiveLogId = string.IsNullOrWhiteSpace(bodyLogId) ? logId : bodyLogId;
+            var idPart = string.IsNullOrWhiteSpace(effectiveLogId) ? "（响应里没有 log_id）" : "log_id=" + effectiveLogId;
+            var messagePart = string.IsNullOrWhiteSpace(msg) ? $"飞书返回 HTTP {statusCode}" : msg;
+            var urlPart = string.IsNullOrWhiteSpace(url) ? "" : $"（请求：{method} {url}）";
+
+            return BridgeResponse.Failure(
+                "1.0.0",
+                "下游报错",
+                $"飞书返回 HTTP {statusCode}：{messagePart}{urlPart}（{idPart}）",
+                retryable: statusCode >= 500);
+        }
+
+        /// <summary>从响应头里读 log_id（飞书工单排查要用的），读不到给空串。</summary>
+        private static string ReadLogIdFromHeaders(HttpResponseMessage response)
+        {
+            foreach (var headerName in new[] { "X-Tt-Logid", "X-Tt-LogId", "x-tt-logid" })
+            {
+                if (response.Headers.TryGetValues(headerName, out var values))
+                {
+                    foreach (var value in values)
+                    {
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            return value;
+                        }
+                    }
+                }
+            }
+
+            return "";
+        }
+
+        /// <summary>解析 JSON 文本成对象；失败返回 false。响应体不含密钥，可以进错误文案。</summary>
+        private static bool TryParseBody(string text, out JsonElement body)
+        {
+            body = default;
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(text);
+                body = document.RootElement.Clone();
+                return true;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>读 JSON 对象里的字符串键；缺失或类型不对给空串。</summary>
+        private static string ReadString(JsonElement element, string propertyName)
+        {
+            if (element.ValueKind == JsonValueKind.Object
+                && element.TryGetProperty(propertyName, out var value)
+                && value.ValueKind == JsonValueKind.String)
+            {
+                return value.GetString() ?? "";
+            }
+
+            return "";
+        }
+
+        /// <summary>读 JSON 对象里的整数键；缺失或类型不对给 0。</summary>
+        private static bool TryParseCode(JsonElement element, out int code)
+        {
+            code = 0;
+            try
+            {
+                code = element.GetInt32();
+                return true;
+            }
+            catch (Exception exception) when (exception is FormatException || exception is InvalidOperationException || exception is OverflowException)
+            {
+                return false;
+            }
+        }
+    }
+}

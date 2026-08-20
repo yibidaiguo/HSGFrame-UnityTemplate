@@ -13,5 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../Tools/CreationPipeline/CreationPipeline.csproj" />
+    <!-- 飞书字段类型码住在桥里而不是引擎里（决策 11、93），所以测它要引桥工程。 -->
+    <ProjectReference Include="../../Bridges/feishu/src/BridgeFeishu/BridgeFeishu.csproj" />
   </ItemGroup>
 </Project>
