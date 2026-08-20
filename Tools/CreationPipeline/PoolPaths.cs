@@ -23,6 +23,12 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(poolRoot, "Inbox");
         }
 
+        /// <summary>专项认领的收件箱目录：Inbox/专项。</summary>
+        public static string EpicInboxDirectory(string poolRoot)
+        {
+            return Path.Combine(poolRoot, "Inbox", "专项");
+        }
+
         /// <summary>需求目录：Requirements。</summary>
         public static string RequirementsDirectory(string poolRoot)
         {

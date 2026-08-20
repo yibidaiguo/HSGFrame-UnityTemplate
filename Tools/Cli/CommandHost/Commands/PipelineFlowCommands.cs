@@ -92,9 +92,43 @@ namespace Template.Toolkit.CommandHost.Commands
         public string PoolRoot { get; set; }
     }
 
+    /// <summary>专项认领入站命令 pool.claimpull 的参数。</summary>
+    public sealed class PoolClaimPullArguments
+    {
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+    }
+
+    /// <summary>专项认领写盘命令 pool.claim 的参数。</summary>
+    public sealed class PoolClaimArguments
+    {
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>专项 id，如「EP-0003」。</summary>
+        [Summary("专项 id，如「EP-0003」")]
+        public string EpicIdentifier { get; set; }
+
+        /// <summary>职责名，只许 美术/程序/策划。</summary>
+        [Summary("职责名，只许 美术/程序/策划")]
+        public string Duty { get; set; }
+
+        /// <summary>成员的 open_id。</summary>
+        [Summary("成员的 open_id")]
+        public string OpenIdentifier { get; set; }
+
+        /// <summary>true 走隐式认领（仅限默认职责内），false 走显式认领。</summary>
+        [Summary("true 走隐式认领（仅限默认职责内），false 走显式认领")]
+        [DefaultValue(false)]
+        public bool IsImplicit { get; set; }
+    }
+
     /// <summary>
-    /// 入站/出站/队列/状态五条命令的 CLI 入口：
+    /// 入站/出站/专项认领/队列/状态七条命令的 CLI 入口：
     /// pool.pull 跑一轮入站、pool.push 按出站事件生成意图信封、
+    /// pool.claimpull 同步专项认领入站、pool.claim 显式或隐式记一次认领、
     /// task.status 看任务状态、engine.mode 看/切引擎模式、engine.queue 看队列与能否自动派活。
     /// </summary>
     public static class PipelineFlowCommands
@@ -319,6 +353,104 @@ namespace Template.Toolkit.CommandHost.Commands
             lines.Add($"自动派活：{(canTake ? "可以" : "不可以")}（{dispatchReason}）");
 
             return CommandResult.Success("引擎队列", lines);
+        }
+
+        /// <summary>
+        /// 跑一轮专项认领入站：扫专项收件箱，把下游同步来的认领字段写进专项文件。
+        /// 有拒收判命令失败并逐条列出；全部通过则报处理与跳过条数。
+        /// </summary>
+        /// <param name="arguments">专项认领入站命令参数。</param>
+        [EditorCommand("pool.claimpull")]
+        [Summary("专项认领入站：从专项收件箱同步认领字段")]
+        public static CommandResult ClaimPull(PoolClaimPullArguments arguments)
+        {
+            var poolRoot = ResolveRoot(arguments?.PoolRoot, "Pools", "PoolRoot", "池子根", out var poolFailure);
+            if (poolFailure.Length > 0)
+            {
+                return CommandResult.Failure(poolFailure);
+            }
+
+            EpicClaimIntakeReport report;
+            try
+            {
+                report = EpicClaimIntake.Process(poolRoot);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"专项认领入站失败：{exception.Message}");
+            }
+
+            var lines = report.Rejections.Select(rejection => rejection.ToDisplayText()).ToList();
+            foreach (var finding in report.Findings)
+            {
+                lines.Add($"注意：{finding.ToDisplayText()}");
+            }
+
+            if (report.Rejections.Count > 0)
+            {
+                return CommandResult.Failure(
+                    $"专项认领入站完成：处理 {report.ProcessedCount} 条、跳过 {report.SkippedCount} 条、拒收 {report.Rejections.Count} 条",
+                    lines);
+            }
+
+            return CommandResult.Success(
+                $"专项认领入站完成：处理 {report.ProcessedCount} 条、跳过 {report.SkippedCount} 条（幂等）",
+                lines);
+        }
+
+        /// <summary>
+        /// 显式或隐式记一次专项认领：显式可跨默认职责，隐式仅限默认职责内且该职责须无人。
+        /// 没写不算失败——「已认领过」「该职责已有人」都是正常结果，文案里说清没写与原因。
+        /// </summary>
+        /// <param name="arguments">专项认领写盘命令参数。</param>
+        [EditorCommand("pool.claim")]
+        [Summary("专项认领：显式或隐式记一次认领")]
+        public static CommandResult Claim(PoolClaimArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.EpicIdentifier))
+            {
+                return CommandResult.Failure("参数 EpicIdentifier 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.Duty))
+            {
+                return CommandResult.Failure("参数 Duty 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.OpenIdentifier))
+            {
+                return CommandResult.Failure("参数 OpenIdentifier 为必填项");
+            }
+
+            var poolRoot = ResolveRoot(arguments.PoolRoot, "Pools", "PoolRoot", "池子根", out var poolFailure);
+            if (poolFailure.Length > 0)
+            {
+                return CommandResult.Failure(poolFailure);
+            }
+
+            ClaimWriteResult writeResult;
+            try
+            {
+                writeResult = arguments.IsImplicit
+                    ? EpicClaimWriter.RecordImplicitClaim(poolRoot, arguments.EpicIdentifier, arguments.Duty, arguments.OpenIdentifier)
+                    : EpicClaimWriter.RecordExplicitClaim(poolRoot, arguments.EpicIdentifier, arguments.Duty, arguments.OpenIdentifier);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"专项认领写盘失败：{exception.Message}");
+            }
+
+            var mode = arguments.IsImplicit ? "隐式" : "显式";
+            if (writeResult.Written)
+            {
+                return CommandResult.Success(
+                    $"{mode}认领已写入：{arguments.EpicIdentifier} 职责 {arguments.Duty}",
+                    new[] { writeResult.Reason });
+            }
+
+            return CommandResult.Success(
+                $"{mode}认领未写入（正常结果）：{writeResult.Reason}",
+                new[] { writeResult.Reason });
         }
 
         // 五条命令共用的根目录解析：空白取默认值，转绝对路径，目录不存在即失败。

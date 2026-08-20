@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Template.Toolkit.CommandFramework;
 using Template.Toolkit.CreationPipeline;
 
@@ -95,6 +98,41 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <summary>需求 id，如「REQ-0042」。</summary>
         [Summary("需求 id，如「REQ-0042」")]
         public string Requirement { get; set; }
+    }
+
+    /// <summary>选片命令 art.select 的参数。</summary>
+    public sealed class ArtSelectArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>需求 id，如「REQ-0042」。</summary>
+        [Summary("需求 id，如「REQ-0042」")]
+        public string RequirementIdentifier { get; set; }
+
+        /// <summary>资产 id，如「ASSET-0042-01」。</summary>
+        [Summary("资产 id，如「ASSET-0042-01」")]
+        public string AssetIdentifier { get; set; }
+
+        /// <summary>需求所属专项 id，可空；空串按无专项路由。</summary>
+        [Summary("需求所属专项 id，可空；空串按无专项路由")]
+        [DefaultValue("")]
+        public string EpicIdentifier { get; set; }
+
+        /// <summary>选片轮次，缺省 1。</summary>
+        [Summary("选片轮次，缺省 1")]
+        [DefaultValue(1)]
+        public int Round { get; set; }
+
+        /// <summary>出站意图信封的落盘路径；缺省落 _Tasks/&lt;需求id&gt;/40-出站/。</summary>
+        [Summary("出站意图信封的落盘路径；缺省落 _Tasks/<需求id>/40-出站/")]
+        [DefaultValue("")]
+        public string OutputPath { get; set; }
     }
 
     /// <summary>美术资产命令：art.request 建资产请求、art.validate 校验资产请求与溯源边车。</summary>
@@ -317,6 +355,182 @@ namespace Template.Toolkit.CommandHost.Commands
             return CommandResult.Failure(
                 $"{title}失败，问题 {findings.Count} 条",
                 findings.Select(finding => finding.ToDisplayText()).ToList());
+        }
+
+        /// <summary>
+        /// 选片：装配选片卡片并产出站意图信封。
+        /// 卡片装配不出来（变体目录缺失、没有合格变体等）判失败并逐条列问题；
+        /// 卡片建出来了但带 findings 仍算成功，问题附在文案里。
+        /// </summary>
+        /// <param name="arguments">选片命令参数。</param>
+        [EditorCommand("art.select")]
+        [Summary("选片：装配选片卡片并产出站意图信封")]
+        public static CommandResult Select(ArtSelectArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RequirementIdentifier))
+            {
+                return CommandResult.Failure("参数 RequirementIdentifier 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.AssetIdentifier))
+            {
+                return CommandResult.Failure("参数 AssetIdentifier 为必填项");
+            }
+
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"仓库根目录不存在：{repositoryRoot}");
+            }
+
+            string poolRoot;
+            try
+            {
+                poolRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.PoolRoot) ? "Pools" : arguments.PoolRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 PoolRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            if (!Directory.Exists(poolRoot))
+            {
+                return CommandResult.Failure($"池子根目录不存在：{poolRoot}");
+            }
+
+            var result = SelectionOutboundPlanner.Plan(
+                repositoryRoot,
+                poolRoot,
+                arguments.RequirementIdentifier,
+                arguments.AssetIdentifier,
+                arguments.EpicIdentifier ?? "",
+                arguments.Round,
+                DateTimeOffset.Now);
+
+            if (result.Envelope == null)
+            {
+                return CommandResult.Failure(
+                    $"选片卡片没装配出来，问题 {result.Findings.Count} 条",
+                    result.Findings.Select(finding => finding.ToDisplayText()).ToList());
+            }
+
+            var outputPath = ResolveSelectionOutputPath(repositoryRoot, arguments, result.Card);
+            try
+            {
+                WriteSelectionEnvelope(outputPath, result.Envelope);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"出站意图信封写盘失败：{exception.Message}");
+            }
+
+            var recipients = result.Envelope.Routing.Recipients.Count == 0
+                ? "无"
+                : string.Join(",", result.Envelope.Routing.Recipients);
+            var buttons = string.Join(" ", result.Card.Buttons);
+
+            var lines = new List<string>
+            {
+                $"需求：{result.Envelope.RequirementIdentifier}",
+                $"资产：{result.Card.AssetIdentifier}",
+                $"第 {result.Card.Round} 轮",
+                $"合格变体 {result.Card.QualifiedVariants.Count} 张、弃置 {result.Card.RejectedCount} 张",
+                $"按钮：{buttons}",
+                $"推送对象：{recipients}",
+                $"命中步骤：{result.Envelope.Routing.Step.ToString()}",
+                $"落盘：{RelativeTo(repositoryRoot, outputPath)}"
+            };
+
+            if (result.Findings.Count > 0)
+            {
+                foreach (var finding in result.Findings)
+                {
+                    lines.Add($"注意：{finding.ToDisplayText()}");
+                }
+            }
+
+            return CommandResult.Success(
+                $"选片卡片已装配，出站意图信封已生成（推送对象：{recipients}）",
+                lines);
+        }
+
+        /// <summary>选片信封的落盘路径：给了 OutputPath 用它，否则落 _Tasks/&lt;需求id&gt;/40-出站/&lt;资产id&gt;-选片-第&lt;轮次&gt;轮.json。</summary>
+        private static string ResolveSelectionOutputPath(string repositoryRoot, ArtSelectArguments arguments, SelectionCard card)
+        {
+            if (!string.IsNullOrWhiteSpace(arguments.OutputPath))
+            {
+                return Path.GetFullPath(arguments.OutputPath);
+            }
+
+            return Path.Combine(
+                repositoryRoot,
+                "_Tasks",
+                card.RequirementIdentifier,
+                "40-出站",
+                $"{card.AssetIdentifier}-选片-第{card.Round}轮.json");
+        }
+
+        /// <summary>把选片出站意图信封写成与 OutboundEnvelope 同构的 JSON 文件。</summary>
+        private static void WriteSelectionEnvelope(string filePath, OutboundEnvelope envelope)
+        {
+            var directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var writeBack = new JsonObject();
+            foreach (var pair in envelope.WriteBackFields)
+            {
+                writeBack[pair.Key] = pair.Value;
+            }
+
+            var recipients = new JsonArray();
+            foreach (var recipient in envelope.Routing.Recipients)
+            {
+                recipients.Add(recipient);
+            }
+
+            var content = new JsonObject
+            {
+                ["需求id"] = envelope.RequirementIdentifier,
+                ["事件"] = envelope.Event,
+                ["时间"] = envelope.Moment.ToString("o"),
+                ["回写"] = writeBack,
+                ["卡片"] = new JsonObject
+                {
+                    ["类型"] = envelope.Routing.CardType,
+                    ["职责"] = envelope.Routing.Duty,
+                    ["收件人"] = recipients,
+                    ["命中步骤"] = envelope.Routing.Step.ToString(),
+                    ["理由"] = envelope.Routing.Reason
+                },
+                ["摘要"] = envelope.Summary
+            };
+
+            File.WriteAllText(filePath, content.ToJsonString(CreateWriteOptions()), new UTF8Encoding(false));
+        }
+
+        /// <summary>
+        /// 写盘选项：以 JsonSerializerOptions.Default 为基类带上默认 TypeInfoResolver；
+        /// 信封里的 JsonArray 含字符串元素，.NET 10 下无 resolver 的 options 序列化它们会抛异常。
+        /// </summary>
+        private static JsonSerializerOptions CreateWriteOptions()
+        {
+            return new JsonSerializerOptions(JsonSerializerOptions.Default)
+            {
+                WriteIndented = true,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
         }
 
         /// <summary>
