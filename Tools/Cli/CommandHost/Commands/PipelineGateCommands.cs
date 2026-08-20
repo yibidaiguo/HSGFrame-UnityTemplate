@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Template.Toolkit.CommandFramework;
 using Template.Toolkit.CreationPipeline;
 using Template.Toolkit.Gates;
@@ -381,6 +383,134 @@ namespace Template.Toolkit.CommandHost.Commands
                 .Select(finding => new GateFinding(finding.Location, finding.Reason, finding.FixAction, finding.ReferenceExamplePath))
                 .ToList();
             return GateCommandSupport.ToResult($"模型门禁（模型资产 {modelAssetCount} 个）", gateFindings);
+        }
+    }
+
+    /// <summary>冲突可见门禁命令的参数。</summary>
+    public sealed class GateConflictArguments
+    {
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+    }
+
+    /// <summary>
+    /// 冲突可见门禁命令：冲突列表格式合法且未销账数可见。未销账不判红——冲突不拦执行，
+    /// 这道门禁只查格式，未销账数只是报出来让人看见。
+    /// </summary>
+    public static class GateConflictCommand
+    {
+        /// <summary>
+        /// 跑冲突可见门禁：把列表加载问题、id 模式、发现阶段、已裁决但选择非法、未决却带裁决对象
+        /// 五类问题转成 finding；空列表或列表不存在是通过，不判红。
+        /// </summary>
+        /// <param name="arguments">冲突可见门禁命令参数。</param>
+        [EditorCommand("gate.conflict")]
+        [Summary("冲突可见门禁：冲突列表格式合法且未销账数可见")]
+        public static CommandResult Execute(GateConflictArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            ConflictList list;
+            try
+            {
+                list = ConflictList.Load(poolRoot);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"冲突列表加载失败：{exception.Message}");
+            }
+
+            var conflictFile = PoolPaths.ConflictListFile(poolRoot);
+            var reference = "Doc/创作管线子文档/01-池子与需求模型.md";
+            var findings = new List<PoolFinding>();
+
+            if (list.LoadFailureReason.Length > 0)
+            {
+                findings.Add(new PoolFinding(
+                    conflictFile,
+                    $"冲突列表加载有问题：{list.LoadFailureReason}",
+                    "把冲突列表修成合法 JSON 数组",
+                    reference));
+            }
+
+            foreach (var entry in list.Entries)
+            {
+                if (!Regex.IsMatch(entry.Identifier, ConflictEntry.IdentifierPatternText))
+                {
+                    findings.Add(new PoolFinding(
+                        conflictFile,
+                        $"冲突条目 id「{entry.Identifier}」不匹配 {ConflictEntry.IdentifierPatternText}",
+                        "改成 CF- 加四位数字",
+                        reference));
+                }
+
+                if (!IsAllowedStage(entry.DiscoveryStage))
+                {
+                    findings.Add(new PoolFinding(
+                        conflictFile,
+                        $"冲突 {entry.Identifier} 的发现阶段「{entry.DiscoveryStage}」不在合法值里",
+                        $"改成 {string.Join("、", ConflictEntry.AllowedStages)} 之一",
+                        reference));
+                }
+
+                if (string.Equals(entry.State, ConflictEntry.ResolvedState, StringComparison.Ordinal)
+                    && !IsAllowedChoice(entry.Choice))
+                {
+                    findings.Add(new PoolFinding(
+                        conflictFile,
+                        $"冲突 {entry.Identifier} 已裁决但选择「{entry.Choice}」为空或不在三个合法值里",
+                        $"补上 {string.Join("、", ConflictEntry.AllowedChoices)} 之一",
+                        reference));
+                }
+
+                if (string.Equals(entry.State, ConflictEntry.PendingState, StringComparison.Ordinal)
+                    && entry.HasResolutionPayload)
+                {
+                    findings.Add(new PoolFinding(
+                        conflictFile,
+                        $"冲突 {entry.Identifier} 状态是未决但裁决对象非空",
+                        "未决条目的 裁决 置回 null",
+                        reference));
+                }
+            }
+
+            var gateFindings = findings
+                .Select(finding => new GateFinding(finding.Location, finding.Reason, finding.FixAction, finding.ReferenceExamplePath))
+                .ToList();
+            return GateCommandSupport.ToResult(
+                $"冲突可见门禁（冲突 {list.Entries.Count} 条，未销账 {list.PendingCount()} 条）",
+                gateFindings);
+        }
+
+        private static bool IsAllowedStage(string discoveryStage)
+        {
+            foreach (var allowed in ConflictEntry.AllowedStages)
+            {
+                if (string.Equals(discoveryStage, allowed, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsAllowedChoice(string choice)
+        {
+            foreach (var allowed in ConflictEntry.AllowedChoices)
+            {
+                if (string.Equals(choice, allowed, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

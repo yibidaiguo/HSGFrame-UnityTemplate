@@ -83,5 +83,12 @@ namespace Template.Toolkit.CreationPipeline
         {
             return Path.Combine(poolRoot, "队列.json");
         }
+
+        /// <summary>冲突列表文件：Designs/冲突列表.json。</summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static string ConflictListFile(string poolRoot)
+        {
+            return Path.Combine(poolRoot, "Designs", "冲突列表.json");
+        }
     }
 }

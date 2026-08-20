@@ -207,6 +207,12 @@ if ((Invoke-GateCommand -CommandName 'gate.model' -CommandArguments @{ Repositor
     $failedGateNames += '模型门禁'
 }
 
+# 冲突可见：冲突列表格式合法、未销账数可见。未销账不判红——冲突不拦执行，这道查的是格式。
+Write-GateHeader '冲突可见'
+if ((Invoke-GateCommand -CommandName 'gate.conflict' -CommandArguments @{ PoolRoot = (Join-Path $templateRoot 'Pools') }) -ne 0) {
+    $failedGateNames += '冲突可见'
+}
+
 # 生成物幂等：仓库里已生成的产物必须与当前 schema / 定义一致，谁手改了产物这里就会红。
 Write-GateHeader '生成物幂等'
 $idempotencyFailed = $false

@@ -161,6 +161,55 @@ namespace Template.Toolkit.CommandHost.Commands
         public bool AllGatesGreen { get; set; }
     }
 
+    /// <summary>冲突列表命令 conflict.list 的参数。</summary>
+    public sealed class ConflictListArguments
+    {
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>只看未销账（未决 + 强制推送），缺省 false。</summary>
+        [Summary("只看未销账（未决 + 强制推送），缺省 false")]
+        [DefaultValue(false)]
+        public bool OnlyPending { get; set; }
+    }
+
+    /// <summary>冲突裁决命令 conflict.resolve 的参数。</summary>
+    public sealed class ConflictResolveArguments
+    {
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>冲突 id，形如 CF-0009。</summary>
+        [Summary("冲突 id，形如 CF-0009")]
+        public string ConflictIdentifier { get; set; }
+
+        /// <summary>裁决人姓名。</summary>
+        [Summary("裁决人姓名")]
+        public string ResolverName { get; set; }
+
+        /// <summary>三选一：改新的 / 改旧的 / 强制推送。</summary>
+        [Summary("三选一：改新的 / 改旧的 / 强制推送")]
+        public string Choice { get; set; }
+    }
+
+    /// <summary>打断重规划命令 task.replan 的参数。</summary>
+    public sealed class TaskReplanArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>需求 id，形如 REQ-0042。</summary>
+        [Summary("需求 id，形如 REQ-0042")]
+        public string RequirementIdentifier { get; set; }
+
+        /// <summary>按换行分隔的字段 diff 命中的需求字段名文本。</summary>
+        [Summary("按换行分隔的字段 diff 命中的需求字段名文本")]
+        public string ChangedFieldsText { get; set; }
+    }
+
     /// <summary>专项认领入站命令 pool.claimpull 的参数。</summary>
     public sealed class PoolClaimPullArguments
     {
@@ -520,6 +569,191 @@ namespace Template.Toolkit.CommandHost.Commands
             return CommandResult.Success(
                 $"{mode}认领未写入（正常结果）：{writeResult.Reason}",
                 new[] { writeResult.Reason });
+        }
+
+        /// <summary>
+        /// 列出冲突列表：全部或只看未销账；空列表是正常状态不判失败，未销账数末尾一行。
+        /// </summary>
+        /// <param name="arguments">冲突列表命令参数。</param>
+        [EditorCommand("conflict.list")]
+        [Summary("冲突列表：列出全部冲突与未销账数")]
+        public static CommandResult ListConflicts(ConflictListArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            ConflictList list;
+            try
+            {
+                list = ConflictList.Load(poolRoot);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"冲突列表加载失败：{exception.Message}");
+            }
+
+            var lines = new List<string>();
+            foreach (var entry in list.Entries)
+            {
+                if (arguments.OnlyPending && !IsPendingConflict(entry))
+                {
+                    continue;
+                }
+
+                var choice = entry.Choice.Length > 0 ? entry.Choice : "—";
+                lines.Add($"{entry.Identifier}　旧 {entry.OldIdentifier}　新 {entry.NewIdentifier}　{entry.State}　选择 {choice}");
+            }
+
+            lines.Add($"未销账 {list.PendingCount()} 条");
+            if (list.LoadFailureReason.Length > 0)
+            {
+                lines.Add($"注意：{list.LoadFailureReason}");
+            }
+
+            if (list.Entries.Count == 0)
+            {
+                return CommandResult.Success("冲突列表为空", lines);
+            }
+
+            return CommandResult.Success($"冲突 {list.Entries.Count} 条", lines);
+        }
+
+        /// <summary>
+        /// 冲突裁决：三选一；裁决失败是真失败——id 打错、选项打错、重复裁决都要让人立刻看见。
+        /// </summary>
+        /// <param name="arguments">冲突裁决命令参数。</param>
+        [EditorCommand("conflict.resolve")]
+        [Summary("冲突裁决：改新的 / 改旧的 / 强制推送 三选一")]
+        public static CommandResult ResolveConflict(ConflictResolveArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.ConflictIdentifier))
+            {
+                return CommandResult.Failure("参数 ConflictIdentifier 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.ResolverName))
+            {
+                return CommandResult.Failure("参数 ResolverName 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.Choice))
+            {
+                return CommandResult.Failure("参数 Choice 为必填项");
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            if (!Directory.Exists(poolRoot))
+            {
+                return CommandResult.Failure($"位置：{poolRoot}；原因：池子根目录不存在；修复：把 PoolRoot 指向池子根");
+            }
+
+            ConflictResolutionResult result;
+            try
+            {
+                result = ConflictList.Resolve(
+                    poolRoot,
+                    arguments.ConflictIdentifier,
+                    arguments.ResolverName,
+                    arguments.Choice,
+                    DateTimeOffset.Now.ToString("o"));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"冲突裁决失败：{exception.Message}");
+            }
+
+            if (!result.IsResolved)
+            {
+                return CommandResult.Failure(result.Reason);
+            }
+
+            var lines = new List<string>
+            {
+                $"{result.Entry.Identifier} 已裁决：{result.Entry.Choice}"
+            };
+            foreach (var action in result.SystemActions)
+            {
+                lines.Add($"动作：{action}");
+            }
+
+            return CommandResult.Success($"冲突 {result.Entry.Identifier} 裁决完成", lines);
+        }
+
+        /// <summary>
+        /// 打断重规划：算脏项、净项与要问人的地方。重规划算完不算失败——它是一份计划，不是判决。
+        /// </summary>
+        /// <param name="arguments">打断重规划命令参数。</param>
+        [EditorCommand("task.replan")]
+        [Summary("打断重规划：算脏项、净项与要问人的地方")]
+        public static CommandResult Replan(TaskReplanArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.RequirementIdentifier))
+            {
+                return CommandResult.Failure("参数 RequirementIdentifier 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.ChangedFieldsText))
+            {
+                return CommandResult.Failure("参数 ChangedFieldsText 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            var graph = WorkItemGraph.Load(repositoryRoot, arguments.RequirementIdentifier);
+            var changedFields = SplitChangedPaths(arguments.ChangedFieldsText);
+            var result = ReplanPlanner.Plan(graph, changedFields, null);
+
+            var lines = new List<string>();
+            if (result.MustAskHuman)
+            {
+                lines.Add("** 停下问人 **：有「人改权威」文件落在脏集内，先问人再重跑");
+            }
+
+            lines.Add($"脏项（{result.PropagatedDirty.Count}）：{JoinOrNone(result.PropagatedDirty)}");
+            lines.Add($"净项（{result.Clean.Count}）：{JoinOrNone(result.Clean)}");
+            lines.Add($"要后端评估（{result.NeedsBackendEvaluation.Count}）：{JoinOrNone(result.NeedsBackendEvaluation)}");
+            lines.Add($"要问人的（{result.AuthoritativeFilesInDirtySet.Count}）：{JoinOrNone(result.AuthoritativeFilesInDirtySet)}");
+            foreach (var finding in result.Findings)
+            {
+                lines.Add($"注意：{finding}");
+            }
+
+            if (graph.LoadFailureReason.Length > 0)
+            {
+                lines.Add($"注意：{graph.LoadFailureReason}");
+            }
+
+            return CommandResult.Success("重规划完成（计划，不是判决）", lines);
+        }
+
+        /// <summary>该条目是否算未销账：状态=未决 或 选择=强制推送。</summary>
+        private static bool IsPendingConflict(ConflictEntry entry)
+        {
+            return string.Equals(entry.State, ConflictEntry.PendingState, StringComparison.Ordinal)
+                || string.Equals(entry.Choice, "强制推送", StringComparison.Ordinal);
+        }
+
+        /// <summary>列表拼成顿号分隔的中文串；空列表给「无」。</summary>
+        private static string JoinOrNone(IReadOnlyList<string> identifiers)
+        {
+            return identifiers.Count == 0 ? "无" : string.Join("、", identifiers);
         }
 
         /// <summary>
