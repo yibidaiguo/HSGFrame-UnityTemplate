@@ -183,6 +183,15 @@ namespace Template.Toolkit.Dashboard
                     case "/api/panel/engine":
                         WritePanelPage(response, () => CreationPanelReader.ReadEngine(_repositoryRoot, _poolRoot));
                         break;
+                    case "/api/panel/assets":
+                        WritePanelPage(response, () => CreationPanelReader.ReadAssets(_repositoryRoot, _poolRoot));
+                        break;
+                    case "/api/panel/designs":
+                        WritePanelPage(response, () => CreationPanelReader.ReadDesigns(_poolRoot));
+                        break;
+                    case "/api/panel/provision":
+                        WritePanelPage(response, () => CreationPanelReader.ReadProvision(_repositoryRoot, _poolRoot));
+                        break;
                     case "/api/panel/task":
                         WriteTaskDetail(request, response);
                         break;

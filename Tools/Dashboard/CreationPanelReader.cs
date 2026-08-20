@@ -300,8 +300,196 @@ namespace Template.Toolkit.Dashboard
         public IReadOnlyDictionary<string, string> CardRoutes { get; }
     }
 
+    /// <summary>资产页的一行：资产 id、所属需求、类型、落点、规格摘要与变体/弃置/预览计数。</summary>
+    public sealed class PanelAssetRow
+    {
+        /// <summary>
+        /// 构造一行资产。
+        /// </summary>
+        /// <param name="assetIdentifier">资产 id。</param>
+        /// <param name="requirementIdentifier">所属需求 id。</param>
+        /// <param name="assetType">资产类型。</param>
+        /// <param name="destination">落点目录。</param>
+        /// <param name="specSummary">规格摘要，形如「宽=256 高=256 格式=PNG」。</param>
+        /// <param name="requestedVariantCount">请求里写的变体数。</param>
+        /// <param name="qualifiedVariantCount">实际带溯源边车的合格变体数。</param>
+        /// <param name="rejectedVariantCount">弃置目录里的文件数。</param>
+        /// <param name="hasPreview">是否有实机预览截图。</param>
+        public PanelAssetRow(
+            string assetIdentifier,
+            string requirementIdentifier,
+            string assetType,
+            string destination,
+            string specSummary,
+            int requestedVariantCount,
+            int qualifiedVariantCount,
+            int rejectedVariantCount,
+            bool hasPreview)
+        {
+            AssetIdentifier = assetIdentifier ?? "";
+            RequirementIdentifier = requirementIdentifier ?? "";
+            AssetType = assetType ?? "";
+            Destination = destination ?? "";
+            SpecSummary = specSummary ?? "";
+            RequestedVariantCount = requestedVariantCount;
+            QualifiedVariantCount = qualifiedVariantCount;
+            RejectedVariantCount = rejectedVariantCount;
+            HasPreview = hasPreview;
+        }
+
+        /// <summary>资产 id。</summary>
+        [JsonPropertyName("资产id")]
+        public string AssetIdentifier { get; }
+
+        /// <summary>所属需求 id。</summary>
+        [JsonPropertyName("需求")]
+        public string RequirementIdentifier { get; }
+
+        /// <summary>资产类型。</summary>
+        [JsonPropertyName("类型")]
+        public string AssetType { get; }
+
+        /// <summary>落点目录。</summary>
+        [JsonPropertyName("落点")]
+        public string Destination { get; }
+
+        /// <summary>规格摘要，形如「宽=256 高=256 格式=PNG」。</summary>
+        [JsonPropertyName("规格")]
+        public string SpecSummary { get; }
+
+        /// <summary>请求里写的变体数。</summary>
+        [JsonPropertyName("请求变体")]
+        public int RequestedVariantCount { get; }
+
+        /// <summary>实际带溯源边车的合格变体数。</summary>
+        [JsonPropertyName("合格变体")]
+        public int QualifiedVariantCount { get; }
+
+        /// <summary>弃置目录里的文件数。</summary>
+        [JsonPropertyName("弃置")]
+        public int RejectedVariantCount { get; }
+
+        /// <summary>是否有实机预览截图。</summary>
+        [JsonPropertyName("预览")]
+        public bool HasPreview { get; }
+    }
+
+    /// <summary>设计池页的一行：分类、文件名、标题、版本、时间与可读性。</summary>
+    public sealed class PanelDesignRow
+    {
+        /// <summary>
+        /// 构造一行设计文档。
+        /// </summary>
+        /// <param name="category">分类：定稿 / 汇总 / 记录。</param>
+        /// <param name="name">文件名去掉扩展名。</param>
+        /// <param name="title">文件里的名称或标题字段，没有时为空串。</param>
+        /// <param name="version">文件里的版本字段，没有时为空串。</param>
+        /// <param name="moment">文件里的时间或创建时间字段，没有时为空串。</param>
+        /// <param name="isReadable">文件能否解析成 JSON 对象。</param>
+        public PanelDesignRow(string category, string name, string title, string version, string moment, bool isReadable)
+        {
+            Category = category ?? "";
+            Name = name ?? "";
+            Title = title ?? "";
+            Version = version ?? "";
+            Moment = moment ?? "";
+            IsReadable = isReadable;
+        }
+
+        /// <summary>分类：定稿 / 汇总 / 记录。</summary>
+        [JsonPropertyName("分类")]
+        public string Category { get; }
+
+        /// <summary>文件名去掉扩展名。</summary>
+        [JsonPropertyName("名称")]
+        public string Name { get; }
+
+        /// <summary>文件里的名称或标题字段，没有时为空串。</summary>
+        [JsonPropertyName("标题")]
+        public string Title { get; }
+
+        /// <summary>文件里的版本字段，没有时为空串。</summary>
+        [JsonPropertyName("版本")]
+        public string Version { get; }
+
+        /// <summary>文件里的时间或创建时间字段，没有时为空串。</summary>
+        [JsonPropertyName("时间")]
+        public string Moment { get; }
+
+        /// <summary>文件能否解析成 JSON 对象。</summary>
+        [JsonPropertyName("可读")]
+        public bool IsReadable { get; }
+    }
+
+    /// <summary>供给对账页的一行：driver 名、形态、端口、供给状态、对账状态、依赖清单与配方/问题计数。</summary>
+    public sealed class PanelProvisionRow
+    {
+        /// <summary>
+        /// 构造一行供给对账。
+        /// </summary>
+        /// <param name="driverName">driver 名称。</param>
+        /// <param name="form">形态：线上或本地；自述损坏时为空串。</param>
+        /// <param name="ports">对外提供的端口列表。</param>
+        /// <param name="provisionState">供给状态：已供给 / 未供给 / 自述损坏。</param>
+        /// <param name="reconcileState">对账状态：一致 / 失配 / 未跑。</param>
+        /// <param name="hasDependencyManifest">是否有依赖清单。</param>
+        /// <param name="recipeCount">配方数。</param>
+        /// <param name="findingCount">本 driver 摊到的对账发现数。</param>
+        public PanelProvisionRow(
+            string driverName,
+            string form,
+            IReadOnlyList<string> ports,
+            string provisionState,
+            string reconcileState,
+            bool hasDependencyManifest,
+            int recipeCount,
+            int findingCount)
+        {
+            DriverName = driverName ?? "";
+            Form = form ?? "";
+            Ports = ports ?? Array.Empty<string>();
+            ProvisionState = provisionState ?? "";
+            ReconcileState = reconcileState ?? "";
+            HasDependencyManifest = hasDependencyManifest;
+            RecipeCount = recipeCount;
+            FindingCount = findingCount;
+        }
+
+        /// <summary>driver 名称。</summary>
+        [JsonPropertyName("driver")]
+        public string DriverName { get; }
+
+        /// <summary>形态：线上或本地；自述损坏时为空串。</summary>
+        [JsonPropertyName("形态")]
+        public string Form { get; }
+
+        /// <summary>对外提供的端口列表。</summary>
+        [JsonPropertyName("端口")]
+        public IReadOnlyList<string> Ports { get; }
+
+        /// <summary>供给状态：已供给 / 未供给 / 自述损坏。</summary>
+        [JsonPropertyName("供给")]
+        public string ProvisionState { get; }
+
+        /// <summary>对账状态：一致 / 失配 / 未跑。</summary>
+        [JsonPropertyName("对账")]
+        public string ReconcileState { get; }
+
+        /// <summary>是否有依赖清单。</summary>
+        [JsonPropertyName("依赖清单")]
+        public bool HasDependencyManifest { get; }
+
+        /// <summary>配方数。</summary>
+        [JsonPropertyName("配方数")]
+        public int RecipeCount { get; }
+
+        /// <summary>本 driver 摊到的对账发现数。</summary>
+        [JsonPropertyName("问题数")]
+        public int FindingCount { get; }
+    }
+
     /// <summary>
-    /// 面板五页的数据读取器：每页只读磁盘文件，返回可直接序列化成 JSON 的对象。
+    /// 面板八页的数据读取器：每页只读磁盘文件，返回可直接序列化成 JSON 的对象。
     /// 全部方法零私有状态、零缓存，每次调用现读文件；任何单点失败都降级，不往上抛。
     /// </summary>
     public static class CreationPanelReader
@@ -530,6 +718,340 @@ namespace Template.Toolkit.Dashboard
             {
                 return $"渲染任务详情失败：{exception.Message}";
             }
+        }
+
+        /// <summary>
+        /// 读资产页：扫 _Tasks/&lt;需求id&gt;/资产请求/ 下的 *.json（各一层，不递归）。
+        /// 每份用 AssetRequest.Read 读，读不动的跳过不产行；资产类型与请求里的规格摘要直接取自请求。
+        /// 变体合格判定与选片一致：顶层图片文件且有同名「.溯源.json」边车才算合格，弃置数与预览存在性用 AssetPaths 数。
+        /// 结果按资产 id 序数序。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static IReadOnlyList<PanelAssetRow> ReadAssets(string repositoryRoot, string poolRoot)
+        {
+            var taskDirectory = Path.Combine(repositoryRoot, "_Tasks");
+            if (!Directory.Exists(taskDirectory))
+            {
+                return Array.Empty<PanelAssetRow>();
+            }
+
+            // 落点缺省时从合并后的资产规格目录补：资产规格三层合并是管线的事，面板只做只读消费。
+            var catalog = AssetSpecCatalog.Load(repositoryRoot, "");
+            var rows = new List<PanelAssetRow>();
+            foreach (var requirementDirectory in Directory.GetDirectories(taskDirectory))
+            {
+                var requirementIdentifier = Path.GetFileName(requirementDirectory);
+                var requestDirectory = AssetPaths.AssetRequestDirectory(repositoryRoot, requirementIdentifier);
+                if (!Directory.Exists(requestDirectory))
+                {
+                    continue;
+                }
+
+                foreach (var filePath in Directory.GetFiles(requestDirectory, "*.json"))
+                {
+                    var request = AssetRequest.Read(filePath);
+                    if (string.IsNullOrEmpty(request.Identifier))
+                    {
+                        // 读不动的请求跳过：不产一行假数据，坏文件不该让整页 500。
+                        continue;
+                    }
+
+                    var destination = request.Destination;
+                    if (string.IsNullOrEmpty(destination))
+                    {
+                        var spec = catalog.Find(request.AssetType);
+                        destination = spec != null ? spec.Destination : "";
+                    }
+
+                    rows.Add(new PanelAssetRow(
+                        request.Identifier,
+                        request.RequirementIdentifier,
+                        request.AssetType,
+                        destination,
+                        BuildSpecSummary(request.Specification),
+                        request.VariantCount,
+                        CountQualifiedVariants(repositoryRoot, requirementIdentifier, request.Identifier),
+                        CountRejectedVariants(repositoryRoot, requirementIdentifier, request.Identifier),
+                        File.Exists(AssetPaths.PreviewFile(repositoryRoot, requirementIdentifier, request.Identifier))));
+                }
+            }
+
+            rows.Sort((left, right) => StringComparer.Ordinal.Compare(left.AssetIdentifier, right.AssetIdentifier));
+            return rows;
+        }
+
+        /// <summary>
+        /// 读设计池页：扫 &lt;池根&gt;/Designs/定稿、汇总、记录 三个目录（各自顶层，不递归）。
+        /// 目录不存在跳过那一类；解析不了的文件照样产一行、IsReadable 为 false——设计池页要让人
+        /// 看见「这里有个坏文件」，静默吞掉才是骗人。结果先按分类再按名称序数序。
+        /// </summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static IReadOnlyList<PanelDesignRow> ReadDesigns(string poolRoot)
+        {
+            var rows = new List<PanelDesignRow>();
+            foreach (var category in DesignCategories)
+            {
+                var directory = Path.Combine(poolRoot, "Designs", category);
+                if (!Directory.Exists(directory))
+                {
+                    continue;
+                }
+
+                var files = Directory.GetFiles(directory, "*.json").ToList();
+                files.Sort(StringComparer.Ordinal);
+                foreach (var filePath in files)
+                {
+                    rows.Add(ReadDesignRow(category, filePath));
+                }
+            }
+
+            rows.Sort((left, right) =>
+            {
+                var byCategory = StringComparer.Ordinal.Compare(left.Category, right.Category);
+                return byCategory != 0 ? byCategory : StringComparer.Ordinal.Compare(left.Name, right.Name);
+            });
+            return rows;
+        }
+
+        /// <summary>
+        /// 读供给对账页：driver 名从 Bridges/&lt;名&gt;/driver.json 扫出（目录名即 driver 名）。
+        /// 自述用 BridgeDriverDescriptor.Load，抛异常则该行供给状态记「自述损坏」并继续下一个；
+        /// 对账整体调一次 ProvisionReconciler.Reconcile，Findings 按文本含 driver 名分摊到行。
+        /// 未供给一律「未跑」；对账整体没跑成也一律「未跑」——没有的东西不说成一致。
+        /// 结果按 driver 名序数序。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static IReadOnlyList<PanelProvisionRow> ReadProvision(string repositoryRoot, string poolRoot)
+        {
+            var driverNames = DiscoverDriverNames(repositoryRoot);
+            if (driverNames.Count == 0)
+            {
+                return Array.Empty<PanelProvisionRow>();
+            }
+
+            IReadOnlyList<PoolFinding> findings = Array.Empty<PoolFinding>();
+            var reconcileRan = true;
+            try
+            {
+                findings = ProvisionReconciler.Reconcile(repositoryRoot, poolRoot).Findings;
+            }
+            catch (Exception)
+            {
+                // 对账整体没跑成（如基线 schema 缺失）：全部行一律「未跑」。
+                // 这里必须单立一个标志——只把 findings 置空是不够的：有指纹的 driver
+                // 会因为「零 finding」被判成「一致」，把崩掉的对账说成对上了，
+                // 正是门禁报告那条「不存在就报未跑，不报绿」要防的假绿。
+                reconcileRan = false;
+            }
+
+            var rows = new List<PanelProvisionRow>();
+            foreach (var driverName in driverNames)
+            {
+                var provisionState = "未供给";
+                var form = "";
+                IReadOnlyList<string> ports = Array.Empty<string>();
+                try
+                {
+                    var descriptor = BridgeDriverDescriptor.Load(repositoryRoot, driverName);
+                    form = descriptor.Form;
+                    ports = descriptor.Ports;
+                }
+                catch (Exception)
+                {
+                    provisionState = "自述损坏";
+                }
+
+                // 已供给的判定口径与 ProvisionReconciler 一致：指纹文件在即计入「已供给」计数。
+                var hasFingerprint = File.Exists(ProvisionPaths.FingerprintFile(repositoryRoot, driverName));
+                if (provisionState != "自述损坏")
+                {
+                    provisionState = hasFingerprint ? "已供给" : "未供给";
+                }
+
+                var findingCount = 0;
+                foreach (var finding in findings)
+                {
+                    if (finding.ToDisplayText().Contains(driverName, StringComparison.Ordinal))
+                    {
+                        findingCount++;
+                    }
+                }
+
+                string reconcileState;
+                if (!reconcileRan || !hasFingerprint)
+                {
+                    reconcileState = "未跑";
+                }
+                else if (findingCount == 0)
+                {
+                    reconcileState = "一致";
+                }
+                else
+                {
+                    reconcileState = "失配";
+                }
+
+                rows.Add(new PanelProvisionRow(
+                    driverName,
+                    form,
+                    ports,
+                    provisionState,
+                    reconcileState,
+                    DependencyManifest.Exists(repositoryRoot, driverName),
+                    RecipeDefinition.DiscoverNames(repositoryRoot, driverName).Count,
+                    findingCount));
+            }
+
+            rows.Sort((left, right) => StringComparer.Ordinal.Compare(left.DriverName, right.DriverName));
+            return rows;
+        }
+
+        /// <summary>设计池的分类目录名。</summary>
+        private static readonly string[] DesignCategories = { "定稿", "汇总", "记录" };
+
+        /// <summary>允许的图片后缀，比较时大小写不敏感（与选片一致）。</summary>
+        private static readonly string[] AllowedImageExtensions = { ".png", ".jpg", ".jpeg", ".webp" };
+
+        /// <summary>扫 Bridges/ 下一级含 driver.json 的目录名（目录名即 driver 名），序数序；Bridges 不存在返回空列表。</summary>
+        private static List<string> DiscoverDriverNames(string repositoryRoot)
+        {
+            var bridgesDirectory = Path.Combine(repositoryRoot, "Bridges");
+            var driverNames = new List<string>();
+            if (!Directory.Exists(bridgesDirectory))
+            {
+                return driverNames;
+            }
+
+            foreach (var directoryPath in Directory.EnumerateDirectories(bridgesDirectory))
+            {
+                if (File.Exists(Path.Combine(directoryPath, "driver.json")))
+                {
+                    driverNames.Add(Path.GetFileName(directoryPath));
+                }
+            }
+
+            driverNames.Sort(StringComparer.Ordinal);
+            return driverNames;
+        }
+
+        /// <summary>读一份设计文档：解析成 JSON 对象成功则取名称/标题、版本、时间/创建时间，失败则产一行不可读。</summary>
+        private static PanelDesignRow ReadDesignRow(string category, string filePath)
+        {
+            var name = Path.GetFileNameWithoutExtension(filePath);
+            var title = "";
+            var version = "";
+            var moment = "";
+            var isReadable = false;
+            try
+            {
+                using (var document = JsonDocument.Parse(File.ReadAllText(filePath)))
+                {
+                    var root = document.RootElement;
+                    if (root.ValueKind == JsonValueKind.Object)
+                    {
+                        isReadable = true;
+                        title = ReadStringOrEmpty(root, "名称");
+                        if (string.IsNullOrEmpty(title))
+                        {
+                            title = ReadStringOrEmpty(root, "标题");
+                        }
+
+                        version = ReadStringOrEmpty(root, "版本");
+                        moment = ReadStringOrEmpty(root, "时间");
+                        if (string.IsNullOrEmpty(moment))
+                        {
+                            moment = ReadStringOrEmpty(root, "创建时间");
+                        }
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                // 解析不了照样产一行：IsReadable 为 false、其余字段空串，让页面看见这个坏文件。
+            }
+
+            return new PanelDesignRow(category, name, title, version, moment, isReadable);
+        }
+
+        /// <summary>数某资产的合格变体：顶层图片文件且同名边车存在，判定口径与选片一致。</summary>
+        private static int CountQualifiedVariants(string repositoryRoot, string requirementIdentifier, string assetIdentifier)
+        {
+            var variantDirectory = AssetPaths.VariantDirectory(repositoryRoot, requirementIdentifier, assetIdentifier);
+            if (!Directory.Exists(variantDirectory))
+            {
+                return 0;
+            }
+
+            var qualifiedCount = 0;
+            foreach (var filePath in Directory.EnumerateFiles(variantDirectory, "*", SearchOption.TopDirectoryOnly))
+            {
+                var variantName = Path.GetFileName(filePath);
+                if (!IsImageFile(variantName))
+                {
+                    continue;
+                }
+
+                if (File.Exists(AssetPaths.SidecarFile(repositoryRoot, requirementIdentifier, assetIdentifier, variantName)))
+                {
+                    qualifiedCount++;
+                }
+            }
+
+            return qualifiedCount;
+        }
+
+        /// <summary>数某资产弃置目录里的文件数；目录不存在按 0。</summary>
+        private static int CountRejectedVariants(string repositoryRoot, string requirementIdentifier, string assetIdentifier)
+        {
+            var rejectedDirectory = AssetPaths.RejectedDirectory(repositoryRoot, requirementIdentifier, assetIdentifier);
+            if (!Directory.Exists(rejectedDirectory))
+            {
+                return 0;
+            }
+
+            return Directory.EnumerateFiles(rejectedDirectory, "*", SearchOption.TopDirectoryOnly).Count();
+        }
+
+        /// <summary>文件名后缀是否属于允许的图片格式，大小写不敏感（与选片一致）。</summary>
+        private static bool IsImageFile(string fileName)
+        {
+            var extension = Path.GetExtension(fileName);
+            foreach (var allowed in AllowedImageExtensions)
+            {
+                if (string.Equals(extension, allowed, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>把规格字典拼成「键=值」空格连接的一行，键按序数序；字符串值去掉 JSON 引号。</summary>
+        private static string BuildSpecSummary(IReadOnlyDictionary<string, string> specification)
+        {
+            var keys = new List<string>(specification.Keys);
+            keys.Sort(StringComparer.Ordinal);
+            var parts = new List<string>();
+            foreach (var key in keys)
+            {
+                parts.Add($"{key}={StripJsonStringQuotes(specification[key])}");
+            }
+
+            return string.Join(" ", parts);
+        }
+
+        /// <summary>去掉 JSON 字符串值的首尾引号；非引号包裹的原样返回。</summary>
+        private static string StripJsonStringQuotes(string rawText)
+        {
+            if (rawText.Length >= 2 && rawText[0] == '"' && rawText[rawText.Length - 1] == '"')
+            {
+                return rawText.Substring(1, rawText.Length - 2);
+            }
+
+            return rawText;
         }
 
         /// <summary>读一份需求 JSON；解析失败或根不是对象返回 null，让调用方跳过该份。</summary>
