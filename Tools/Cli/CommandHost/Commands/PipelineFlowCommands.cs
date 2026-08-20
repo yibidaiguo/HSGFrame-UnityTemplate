@@ -295,6 +295,59 @@ namespace Template.Toolkit.CommandHost.Commands
         public string Rulability { get; set; }
     }
 
+    /// <summary>晋升提案命令 task.promotion 的参数。</summary>
+    public sealed class TaskPromotionArguments
+    {
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>动作：列出 / 入库；不给默认列出。</summary>
+        [Summary("动作：列出 / 入库；不给默认列出")]
+        [DefaultValue("列出")]
+        public string Action { get; set; }
+
+        /// <summary>同类条数阈值，缺省 3。</summary>
+        [Summary("同类条数阈值，缺省 3")]
+        [DefaultValue(3)]
+        public int Threshold { get; set; }
+
+        /// <summary>提出时间，ISO 8601；不给用当前时间。</summary>
+        [Summary("提出时间，ISO 8601；不给用当前时间")]
+        [DefaultValue("")]
+        public string ProposedMoment { get; set; }
+    }
+
+    /// <summary>晋升裁决命令 task.promotion.decide 的参数。</summary>
+    public sealed class TaskPromotionDecideArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>提案 id，形如 PR-0001。</summary>
+        [Summary("提案 id，形如 PR-0001")]
+        public string ProposalIdentifier { get; set; }
+
+        /// <summary>动作：批准 / 拒绝 / 落地。</summary>
+        [Summary("动作：批准 / 拒绝 / 落地")]
+        public string Action { get; set; }
+
+        /// <summary>裁决人姓名；批准 / 拒绝时必填。</summary>
+        [Summary("裁决人姓名；批准 / 拒绝时必填")]
+        [DefaultValue("")]
+        public string DeciderName { get; set; }
+
+        /// <summary>裁决时间，ISO 8601；不给用当前时间。</summary>
+        [Summary("裁决时间，ISO 8601；不给用当前时间")]
+        [DefaultValue("")]
+        public string DecidedMoment { get; set; }
+    }
+
     /// <summary>冲突列表命令 conflict.list 的参数。</summary>
     public sealed class ConflictListArguments
     {
@@ -1495,6 +1548,297 @@ namespace Template.Toolkit.CommandHost.Commands
                 + $"拒收 {outcomes.Count(outcome => outcome.Decision == IntakeDecision.Rejected)} 条，"
                 + $"转为变更请求 {outcomes.Count(outcome => outcome.Decision == IntakeDecision.Diverted)} 条，"
                 + $"无法解析 {outcomes.Count(outcome => outcome.Decision == IntakeDecision.Unreadable)} 条";
+        }
+
+        /// <summary>
+        /// 晋升提案：列出账本，或把意见库攒够阈值的意见入库成提案。
+        /// 列出时账本读不动是真失败（锁定决策 42）；入库时被跳过的提案逐条报出原因（锁定决策 46）。
+        /// </summary>
+        /// <param name="arguments">晋升提案命令参数。</param>
+        [EditorCommand("task.promotion")]
+        [Summary("晋升提案：列出账本，或把够阈值的意见入库成提案")]
+        public static CommandResult Promotion(TaskPromotionArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            if (!Directory.Exists(poolRoot))
+            {
+                return CommandResult.Failure($"位置：{poolRoot}；原因：池子根目录不存在；修复：把 PoolRoot 指向池子根");
+            }
+
+            var action = string.IsNullOrWhiteSpace(arguments.Action) ? "列出" : arguments.Action;
+            if (string.Equals(action, "列出", StringComparison.Ordinal))
+            {
+                return ListPromotions(poolRoot);
+            }
+
+            if (string.Equals(action, "入库", StringComparison.Ordinal))
+            {
+                return PromoteFromOpinions(poolRoot, arguments.Threshold, arguments.ProposedMoment);
+            }
+
+            return CommandResult.Failure($"动作「{action}」不合法；合法值是：列出、入库");
+        }
+
+        /// <summary>列出晋升账本；账本读不动返回 Failure（把没查的说成查过是决策 42 的另一种长相）。</summary>
+        private static CommandResult ListPromotions(string poolRoot)
+        {
+            PromotionLedger ledger;
+            try
+            {
+                ledger = PromotionLedger.Load(poolRoot);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"晋升账本加载失败：{exception.Message}");
+            }
+
+            if (ledger.LoadFailureReason.Length > 0)
+            {
+                return CommandResult.Failure($"晋升账本读不动：{ledger.LoadFailureReason}");
+            }
+
+            var lines = new List<string>();
+            foreach (var record in ledger.Records)
+            {
+                var decider = record.DeciderName.Length > 0 ? record.DeciderName : "—";
+                lines.Add($"{record.Identifier}　{record.Category}　{record.TargetChannel}　{record.State}　裁决人 {decider}");
+            }
+
+            return CommandResult.Success($"提案 {ledger.Records.Count} 条，未关闭 {ledger.OpenCount()} 条", lines);
+        }
+
+        /// <summary>把意见库里攒够阈值的意见入库成提案；被跳过的逐条列出原因，不静默吞掉。</summary>
+        private static CommandResult PromoteFromOpinions(string poolRoot, int threshold, string proposedMoment)
+        {
+            ReviewOpinionBook book;
+            try
+            {
+                book = ReviewOpinionBook.Load(poolRoot);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"意见库加载失败：{exception.Message}");
+            }
+
+            if (book.LoadFailureReason.Length > 0)
+            {
+                return CommandResult.Failure($"意见库读不动，先修好再入库：{book.LoadFailureReason}");
+            }
+
+            var proposals = PromotionProposalBuilder.Build(book, threshold);
+            var moment = string.IsNullOrWhiteSpace(proposedMoment) ? DateTimeOffset.Now.ToString("o") : proposedMoment;
+
+            var entered = new List<PromotionRecord>();
+            var skipped = new List<string>();
+            foreach (var proposal in proposals)
+            {
+                var record = PromotionLedger.Append(poolRoot, proposal, moment, out var reason);
+                if (record != null)
+                {
+                    entered.Add(record);
+                }
+                else
+                {
+                    skipped.Add($"提案「{proposal.Category}」跳过：{reason}");
+                }
+            }
+
+            var lines = new List<string> { $"入库 {entered.Count} 条：" };
+            foreach (var record in entered)
+            {
+                lines.Add($"{record.Identifier}　{record.Category}");
+            }
+
+            lines.Add($"跳过 {skipped.Count} 条：");
+            lines.AddRange(skipped);
+
+            return CommandResult.Success($"入库 {entered.Count} 条，跳过 {skipped.Count} 条", lines);
+        }
+
+        /// <summary>
+        /// 晋升裁决：批准 / 拒绝 / 落地一条提案。落地先产产物再改状态——
+        /// 产物写成了但状态没跟上，比状态先跳过去而产物没写要好查得多。
+        /// </summary>
+        /// <param name="arguments">晋升裁决命令参数。</param>
+        [EditorCommand("task.promotion.decide")]
+        [Summary("晋升裁决：批准 / 拒绝 / 落地一条提案")]
+        public static CommandResult DecidePromotion(TaskPromotionDecideArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.ProposalIdentifier))
+            {
+                return CommandResult.Failure("参数 ProposalIdentifier 为必填项");
+            }
+
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Action))
+            {
+                return CommandResult.Failure("参数 Action 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            if (!Directory.Exists(poolRoot))
+            {
+                return CommandResult.Failure($"位置：{poolRoot}；原因：池子根目录不存在；修复：把 PoolRoot 指向池子根");
+            }
+
+            var identifier = arguments.ProposalIdentifier;
+            var moment = string.IsNullOrWhiteSpace(arguments.DecidedMoment)
+                ? DateTimeOffset.Now.ToString("o")
+                : arguments.DecidedMoment;
+
+            if (string.Equals(arguments.Action, "批准", StringComparison.Ordinal))
+            {
+                return DecideApprove(poolRoot, identifier, arguments.DeciderName, moment);
+            }
+
+            if (string.Equals(arguments.Action, "拒绝", StringComparison.Ordinal))
+            {
+                return DecideReject(poolRoot, identifier, arguments.DeciderName, moment);
+            }
+
+            if (string.Equals(arguments.Action, "落地", StringComparison.Ordinal))
+            {
+                return DecideLand(repositoryRoot, poolRoot, identifier);
+            }
+
+            return CommandResult.Failure($"动作「{arguments.Action}」不合法；合法值是：批准、拒绝、落地");
+        }
+
+        /// <summary>批准一条提案；成功后提醒下一步跑落地。</summary>
+        private static CommandResult DecideApprove(string poolRoot, string identifier, string deciderName, string moment)
+        {
+            if (string.IsNullOrWhiteSpace(deciderName))
+            {
+                return CommandResult.Failure("参数 DeciderName 为必填项（批准 / 拒绝时）");
+            }
+
+            try
+            {
+                var ok = PromotionLedger.UpdateState(poolRoot, identifier, "已批准", deciderName, moment, "", out var reason);
+                if (!ok)
+                {
+                    return CommandResult.Failure(reason);
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"批准失败：{exception.Message}");
+            }
+
+            return CommandResult.Success($"提案 {identifier} 已批准", new[]
+            {
+                "下一步：跑 task.promotion.decide 落地 把产物真的写出来"
+            });
+        }
+
+        /// <summary>拒绝一条提案。</summary>
+        private static CommandResult DecideReject(string poolRoot, string identifier, string deciderName, string moment)
+        {
+            if (string.IsNullOrWhiteSpace(deciderName))
+            {
+                return CommandResult.Failure("参数 DeciderName 为必填项（批准 / 拒绝时）");
+            }
+
+            try
+            {
+                var ok = PromotionLedger.UpdateState(poolRoot, identifier, "已拒绝", deciderName, moment, "", out var reason);
+                if (!ok)
+                {
+                    return CommandResult.Failure(reason);
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"拒绝失败：{exception.Message}");
+            }
+
+            return CommandResult.Success($"提案 {identifier} 已拒绝");
+        }
+
+        /// <summary>落地一条提案：先产产物，成功后再改状态；产物写出但状态没跟上时明确说出来。</summary>
+        private static CommandResult DecideLand(string repositoryRoot, string poolRoot, string identifier)
+        {
+            PromotionLedger ledger;
+            try
+            {
+                ledger = PromotionLedger.Load(poolRoot);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"晋升账本加载失败：{exception.Message}");
+            }
+
+            if (ledger.LoadFailureReason.Length > 0)
+            {
+                // 账本读不动与账本空必须分开（决策 42）：坏文件里的提案是查不到的，
+                // 不能把「文件损坏」误报成「提案不存在」。
+                return CommandResult.Failure($"晋升账本读不动，先修好再落地：{ledger.LoadFailureReason}");
+            }
+
+            PromotionRecord record = null;
+            foreach (var candidate in ledger.Records)
+            {
+                if (string.Equals(candidate.Identifier, identifier, StringComparison.Ordinal))
+                {
+                    record = candidate;
+                    break;
+                }
+            }
+
+            if (record == null)
+            {
+                return CommandResult.Failure($"提案 {identifier} 不存在");
+            }
+
+            PromotionLandingResult landing;
+            try
+            {
+                landing = PromotionLandingPlanner.Land(repositoryRoot, record);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"落地失败：{exception.Message}");
+            }
+
+            if (!landing.Succeeded)
+            {
+                return CommandResult.Failure($"落地失败：{landing.Reason}");
+            }
+
+            try
+            {
+                var ok = PromotionLedger.UpdateState(poolRoot, identifier, "已落地", "", "", landing.ArtifactPath, out var reason);
+                if (!ok)
+                {
+                    return CommandResult.Failure($"产物已经写出去了但状态没跟上：{landing.ArtifactPath}；{reason}");
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"产物已经写出去了但状态没跟上：{landing.ArtifactPath}；{exception.Message}");
+            }
+
+            return CommandResult.Success($"提案 {identifier} 已落地", new[] { $"产物：{landing.ArtifactPath}" });
         }
     }
 }

@@ -98,6 +98,13 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(poolRoot, "审查意见");
         }
 
+        /// <summary>晋升提案目录：晋升提案。</summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static string PromotionProposalDirectory(string poolRoot)
+        {
+            return Path.Combine(poolRoot, "晋升提案");
+        }
+
         /// <summary>放行流水文件：放行流水.json。</summary>
         /// <param name="poolRoot">池子根目录。</param>
         public static string ReleaseLedgerFile(string poolRoot)

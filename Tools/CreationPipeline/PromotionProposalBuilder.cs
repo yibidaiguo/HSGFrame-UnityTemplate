@@ -92,10 +92,13 @@ namespace Template.Toolkit.CreationPipeline
                     .Distinct(StringComparer.Ordinal)
                     .OrderBy(name => name, StringComparer.Ordinal)
                     .ToList();
+                // 先按 id 序数序排好，再按原文去重（保留首次出现的次序），最后取前三条。
+                // 三条意见引同一句话时只列一遍——引文是给人看证据的，重复没有信息量。
                 var quotations = opinions
                     .OrderBy(opinion => opinion.Identifier, StringComparer.Ordinal)
-                    .Take(3)
                     .Select(opinion => opinion.Quotation)
+                    .Distinct(StringComparer.Ordinal)
+                    .Take(3)
                     .ToList();
 
                 proposals.Add(new PromotionProposal(

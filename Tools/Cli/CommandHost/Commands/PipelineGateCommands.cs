@@ -631,8 +631,8 @@ namespace Template.Toolkit.CommandHost.Commands
     }
 
     /// <summary>
-    /// 晋升门禁命令：意见库格式合法且晋升提案可见。有晋升提案不判红——提案是待办，不是违规；
-    /// 这道门禁只查意见库的格式，提案数只是报出来让人看见。
+    /// 晋升门禁命令：意见库格式合法且晋升提案文件格式合法。有晋升提案不判红——提案是待办，
+    /// 不是违规；这道门禁只查意见库与提案账本的格式，提案数只是报出来让人看见。
     /// </summary>
     public static class GatePromotionCommand
     {
@@ -640,12 +640,13 @@ namespace Template.Toolkit.CommandHost.Commands
         private const string OpinionIdentifierPatternText = "^OP-\\d{4}$";
 
         /// <summary>
-        /// 跑晋升门禁：把意见库加载问题、id 模式、可规则化性合法值、类别/模块为空四类问题
-        /// 转成 finding；空库或目录不存在是通过，不判红。
+        /// 跑晋升门禁：把意见库加载问题、id 模式、可规则化性合法值、类别/模块为空四类问题，
+        /// 以及提案账本加载问题、提案 id 模式、状态合法值、状态与裁决人/产物对不上五类问题，
+        /// 全部转成 finding；空库或目录不存在是通过，不判红。
         /// </summary>
         /// <param name="arguments">晋升门禁命令参数。</param>
         [EditorCommand("gate.promotion")]
-        [Summary("晋升门禁：意见库格式合法且晋升提案可见")]
+        [Summary("晋升门禁：意见库格式合法且晋升提案文件格式合法")]
         public static CommandResult Execute(GatePromotionArguments arguments)
         {
             if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
@@ -707,13 +708,85 @@ namespace Template.Toolkit.CommandHost.Commands
                 }
             }
 
-            var proposals = PromotionProposalBuilder.Build(book, arguments.Threshold);
+            var proposalDirectory = PoolPaths.PromotionProposalDirectory(poolRoot);
+            var ledger = PromotionLedger.Load(poolRoot);
+
+            // 账本读不动和账本空必须分开（锁定决策 42）：账本有坏文件时，
+            // 后面四条逐条检查不再做——坏账本里查出的任何「合法」都没有意义，但必须报出来。
+            if (ledger.LoadFailureReason.Length > 0)
+            {
+                findings.Add(new PoolFinding(
+                    proposalDirectory,
+                    $"晋升提案账本加载有问题：{ledger.LoadFailureReason}",
+                    "把坏提案文件修成合法提案 JSON",
+                    reference));
+            }
+            else
+            {
+                foreach (var record in ledger.Records)
+                {
+                    // 正则用字符串连接拼，别用插值——{4} 会被 C# 当成表达式吃掉。
+                    if (!Regex.IsMatch(record.Identifier, PromotionRecord.IdentifierPatternText))
+                    {
+                        findings.Add(new PoolFinding(
+                            proposalDirectory,
+                            $"提案条目 id「{record.Identifier}」不匹配 " + PromotionRecord.IdentifierPatternText,
+                            "改成 PR- 加四位数字",
+                            reference));
+                    }
+
+                    if (!IsAllowedPromotionState(record.State))
+                    {
+                        findings.Add(new PoolFinding(
+                            proposalDirectory,
+                            $"提案 {record.Identifier} 的状态「{record.State}」不在合法值里",
+                            $"改成 {string.Join("、", PromotionRecord.AllowedStates)} 之一",
+                            reference));
+                    }
+
+                    if ((string.Equals(record.State, PromotionRecord.ApprovedState, StringComparison.Ordinal)
+                        || string.Equals(record.State, PromotionRecord.RejectedState, StringComparison.Ordinal))
+                        && string.IsNullOrEmpty(record.DeciderName))
+                    {
+                        findings.Add(new PoolFinding(
+                            proposalDirectory,
+                            $"提案 {record.Identifier} 的状态是「{record.State}」但裁决人为空",
+                            "补上裁决人",
+                            reference));
+                    }
+
+                    if (string.Equals(record.State, PromotionRecord.LandedState, StringComparison.Ordinal)
+                        && string.IsNullOrEmpty(record.LandingArtifact))
+                    {
+                        findings.Add(new PoolFinding(
+                            proposalDirectory,
+                            $"提案 {record.Identifier} 的状态是「{PromotionRecord.LandedState}」但落地产物为空",
+                            "补上落地产物路径",
+                            reference));
+                    }
+                }
+            }
+
             var gateFindings = findings
                 .Select(finding => new GateFinding(finding.Location, finding.Reason, finding.FixAction, finding.ReferenceExamplePath))
                 .ToList();
             return GateCommandSupport.ToResult(
-                $"晋升门禁（意见 {book.Opinions.Count} 条，达阈值的提案 {proposals.Count} 条）",
+                $"晋升门禁（意见 {book.Opinions.Count} 条，提案 {ledger.Records.Count} 条，未关闭 {ledger.OpenCount()} 条）",
                 gateFindings);
+        }
+
+        /// <summary>状态是否在合法值里。</summary>
+        private static bool IsAllowedPromotionState(string state)
+        {
+            foreach (var allowed in PromotionRecord.AllowedStates)
+            {
+                if (string.Equals(state, allowed, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

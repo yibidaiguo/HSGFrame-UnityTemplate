@@ -95,6 +95,23 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal(new[] { "第一条", "第二条", "第三条" }, proposal.Quotations);
         }
 
+        /// <summary>三条原文一模一样的意见 → Quotations 只有 1 条（先按原文去重再取前三）。</summary>
+        [Fact]
+        public void QuotationsDeduplicatedByText()
+        {
+            var book = Book(
+                Opinion("OP-0001", "空引用未防", "可代码化", "签到", "这里没判 null"),
+                Opinion("OP-0002", "空引用未防", "可代码化", "签到", "这里没判 null"),
+                Opinion("OP-0003", "空引用未防", "可代码化", "签到", "这里没判 null"));
+
+            var proposals = PromotionProposalBuilder.Build(book, 3);
+
+            var proposal = Assert.Single(proposals);
+            Assert.Equal(3, proposal.Count);
+            Assert.Single(proposal.Quotations);
+            Assert.Equal("这里没判 null", proposal.Quotations[0]);
+        }
+
         /// <summary>两组不同条数 → 按 Count 降序排。</summary>
         [Fact]
         public void ProposalsSortedByCountDescending()

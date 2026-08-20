@@ -58,5 +58,17 @@ namespace Template.Toolkit.CreationPipeline
         {
             return Path.Combine(repositoryRoot, "规范", "业务", moduleName, "放行策略.json");
         }
+
+        /// <summary>检查器草案目录：提案/检查器。</summary>
+        public static string CheckerDraftDirectory(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "提案", "检查器");
+        }
+
+        /// <summary>项目层预审规则文件：规范/项目/预审规则.json。</summary>
+        public static string ProjectPreReviewRuleFile(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "规范", "项目", "预审规则.json");
+        }
     }
 }
