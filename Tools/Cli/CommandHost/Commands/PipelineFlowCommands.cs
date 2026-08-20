@@ -92,6 +92,75 @@ namespace Template.Toolkit.CommandHost.Commands
         public string PoolRoot { get; set; }
     }
 
+    /// <summary>风险分级命令 task.risk 的参数。</summary>
+    public sealed class TaskRiskArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>按换行分隔的改动路径文本。</summary>
+        [Summary("按换行分隔的改动路径文本")]
+        public string ChangedPathsText { get; set; }
+
+        /// <summary>改动行数，缺省 0。</summary>
+        [Summary("改动行数，缺省 0")]
+        [DefaultValue(0)]
+        public int ChangedLineCount { get; set; }
+
+        /// <summary>阻断级发现数，缺省 0。</summary>
+        [Summary("阻断级发现数，缺省 0")]
+        [DefaultValue(0)]
+        public int BlockingFindingCount { get; set; }
+
+        /// <summary>建议级发现数，缺省 0。</summary>
+        [Summary("建议级发现数，缺省 0")]
+        [DefaultValue(0)]
+        public int SuggestionFindingCount { get; set; }
+
+        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        [DefaultValue("")]
+        public string ModuleName { get; set; }
+    }
+
+    /// <summary>放行判定命令 task.release 的参数，在 task.risk 之上加门禁全绿开关。</summary>
+    public sealed class TaskReleaseArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>按换行分隔的改动路径文本。</summary>
+        [Summary("按换行分隔的改动路径文本")]
+        public string ChangedPathsText { get; set; }
+
+        /// <summary>改动行数，缺省 0。</summary>
+        [Summary("改动行数，缺省 0")]
+        [DefaultValue(0)]
+        public int ChangedLineCount { get; set; }
+
+        /// <summary>阻断级发现数，缺省 0。</summary>
+        [Summary("阻断级发现数，缺省 0")]
+        [DefaultValue(0)]
+        public int BlockingFindingCount { get; set; }
+
+        /// <summary>建议级发现数，缺省 0。</summary>
+        [Summary("建议级发现数，缺省 0")]
+        [DefaultValue(0)]
+        public int SuggestionFindingCount { get; set; }
+
+        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        [DefaultValue("")]
+        public string ModuleName { get; set; }
+
+        /// <summary>门禁是否全绿，缺省 false。</summary>
+        [Summary("门禁是否全绿，缺省 false")]
+        [DefaultValue(false)]
+        public bool AllGatesGreen { get; set; }
+    }
+
     /// <summary>专项认领入站命令 pool.claimpull 的参数。</summary>
     public sealed class PoolClaimPullArguments
     {
@@ -451,6 +520,123 @@ namespace Template.Toolkit.CommandHost.Commands
             return CommandResult.Success(
                 $"{mode}认领未写入（正常结果）：{writeResult.Reason}",
                 new[] { writeResult.Reason });
+        }
+
+        /// <summary>
+        /// 风险分级：读放行策略目录取高危范围，按改动范围与规模给风险级。
+        /// </summary>
+        /// <param name="arguments">风险分级命令参数。</param>
+        [EditorCommand("task.risk")]
+        [Summary("风险分级：按改动范围与规模给风险级")]
+        public static CommandResult Risk(TaskRiskArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.ChangedPathsText))
+            {
+                return CommandResult.Failure("参数 ChangedPathsText 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            var catalog = ReleasePolicyCatalog.Load(repositoryRoot, arguments.ModuleName);
+            var changedPaths = SplitChangedPaths(arguments.ChangedPathsText);
+            var risk = RiskGrader.Grade(
+                changedPaths,
+                arguments.ChangedLineCount,
+                arguments.BlockingFindingCount,
+                arguments.SuggestionFindingCount,
+                catalog.HighRiskScopes);
+
+            var lines = new List<string>
+            {
+                $"风险级：{risk.Grade}",
+                $"范围：{(risk.Scopes.Count == 0 ? "无" : string.Join("、", risk.Scopes))}",
+                $"理由：{risk.Reason}"
+            };
+
+            foreach (var finding in catalog.Findings)
+            {
+                lines.Add($"注意：{finding.ToDisplayText()}");
+            }
+
+            return CommandResult.Success("风险分级完成", lines);
+        }
+
+        /// <summary>
+        /// 放行判定：四条判据全绿才自动放行；「要人审」是正常结论不是失败，无论放不放行都是 Success。
+        /// </summary>
+        /// <param name="arguments">放行判定命令参数。</param>
+        [EditorCommand("task.release")]
+        [Summary("放行判定：四条判据全绿才自动放行")]
+        public static CommandResult Release(TaskReleaseArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.ChangedPathsText))
+            {
+                return CommandResult.Failure("参数 ChangedPathsText 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            var catalog = ReleasePolicyCatalog.Load(repositoryRoot, arguments.ModuleName);
+            var changedPaths = SplitChangedPaths(arguments.ChangedPathsText);
+            var risk = RiskGrader.Grade(
+                changedPaths,
+                arguments.ChangedLineCount,
+                arguments.BlockingFindingCount,
+                arguments.SuggestionFindingCount,
+                catalog.HighRiskScopes);
+            var decision = ReleaseDecider.Decide(
+                catalog,
+                risk,
+                arguments.AllGatesGreen,
+                arguments.BlockingFindingCount,
+                arguments.SuggestionFindingCount);
+
+            var lines = new List<string>
+            {
+                $"风险级：{risk.Grade}",
+                $"范围：{(risk.Scopes.Count == 0 ? "无" : string.Join("、", risk.Scopes))}",
+                $"放行结论：{(decision.IsAutomatic ? "自动放行" : "人审")}"
+            };
+
+            foreach (var reason in decision.Reasons)
+            {
+                lines.Add($"不满足：{reason}");
+            }
+
+            foreach (var finding in catalog.Findings)
+            {
+                lines.Add($"注意：{finding.ToDisplayText()}");
+            }
+
+            return CommandResult.Success("放行判定完成", lines);
+        }
+
+        // 按换行分隔的改动路径文本拆成路径列表：去掉空行与首尾空白。
+        private static IReadOnlyList<string> SplitChangedPaths(string text)
+        {
+            return text
+                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0)
+                .ToList();
         }
 
         // 五条命令共用的根目录解析：空白取默认值，转绝对路径，目录不存在即失败。

@@ -40,5 +40,23 @@ namespace Template.Toolkit.CreationPipeline
         {
             return Path.Combine(repositoryRoot, "规范", "业务", moduleName, "资产规格.json");
         }
+
+        /// <summary>基线放行策略文件：规范/基线/放行策略.基线.json。</summary>
+        public static string BaselineReleasePolicyFile(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "规范", "基线", "放行策略.基线.json");
+        }
+
+        /// <summary>项目放行策略文件：规范/项目/放行策略.json。</summary>
+        public static string ProjectReleasePolicyFile(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "规范", "项目", "放行策略.json");
+        }
+
+        /// <summary>业务放行策略文件：规范/业务/&lt;模块名&gt;/放行策略.json。</summary>
+        public static string BusinessReleasePolicyFile(string repositoryRoot, string moduleName)
+        {
+            return Path.Combine(repositoryRoot, "规范", "业务", moduleName, "放行策略.json");
+        }
     }
 }

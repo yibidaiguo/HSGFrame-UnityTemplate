@@ -204,6 +204,50 @@ namespace Template.Toolkit.CommandHost.Commands
         }
     }
 
+    /// <summary>放行策略门禁命令的参数。</summary>
+    public sealed class GateReleaseArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        [DefaultValue("")]
+        public string ModuleName { get; set; }
+    }
+
+    /// <summary>放行策略门禁命令：三层放行策略数据的合法性。</summary>
+    public static class GateReleaseCommand
+    {
+        /// <summary>
+        /// 跑放行策略门禁：三层就近合并，把合并过程中发现的违规（放宽被拒、非法值、
+        /// 基线独有键被下层写等）一次报出。
+        /// </summary>
+        /// <param name="arguments">放行策略门禁命令参数。</param>
+        [EditorCommand("gate.release")]
+        [Summary("放行策略门禁：三层策略数据的合法性")]
+        public static CommandResult Execute(GateReleaseArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            var catalog = ReleasePolicyCatalog.Load(repositoryRoot, arguments.ModuleName);
+            var gateFindings = catalog.Findings
+                .Select(finding => new GateFinding(finding.Location, finding.Reason, finding.FixAction, finding.ReferenceExamplePath))
+                .ToList();
+            return GateCommandSupport.ToResult($"放行策略门禁（策略键 {catalog.Policies.Count} 条）", gateFindings);
+        }
+    }
+
     /// <summary>配方门禁命令的参数。</summary>
     public sealed class GateRecipeArguments
     {

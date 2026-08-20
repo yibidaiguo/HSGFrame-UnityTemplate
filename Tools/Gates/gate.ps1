@@ -197,6 +197,11 @@ if ((Invoke-GateCommand -CommandName 'gate.recipe' -CommandArguments @{ Reposito
     $failedGateNames += '配方门禁'
 }
 
+Write-GateHeader '放行策略'
+if ((Invoke-GateCommand -CommandName 'gate.release' -CommandArguments @{ RepositoryRoot = $templateRoot }) -ne 0) {
+    $failedGateNames += '放行策略'
+}
+
 # 生成物幂等：仓库里已生成的产物必须与当前 schema / 定义一致，谁手改了产物这里就会红。
 Write-GateHeader '生成物幂等'
 $idempotencyFailed = $false
