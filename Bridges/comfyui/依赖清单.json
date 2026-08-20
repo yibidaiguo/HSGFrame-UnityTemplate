@@ -1,0 +1,21 @@
+{
+  "契约版本": "1.0.0",
+  "依赖": [
+    {
+      "名称": "ComfyUI-Impact-Pack",
+      "类别": "节点",
+      "版本": "8.0.0",
+      "来源": "https://github.com/ltdrdata/ComfyUI-Impact-Pack",
+      "安装命令": "git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack custom_nodes/ComfyUI-Impact-Pack",
+      "说明": "图标配方用它做透明底裁切"
+    },
+    {
+      "名称": "sd_xl_base_1.0.safetensors",
+      "类别": "模型",
+      "版本": "1.0",
+      "来源": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0",
+      "安装命令": "",
+      "说明": "底模，体积大，刻意不进仓库"
+    }
+  ]
+}

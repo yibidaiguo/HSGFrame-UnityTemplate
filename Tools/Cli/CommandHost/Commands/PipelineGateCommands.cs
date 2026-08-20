@@ -203,4 +203,65 @@ namespace Template.Toolkit.CommandHost.Commands
             return GateCommandSupport.ToResult($"资产规格门禁（资产类型 {catalog.Types.Count} 个）", gateFindings);
         }
     }
+
+    /// <summary>配方门禁命令的参数。</summary>
+    public sealed class GateRecipeArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+    }
+
+    /// <summary>配方门禁命令：每个生图 driver 的配方映射与依赖清单静态合法性。</summary>
+    public static class GateRecipeCommand
+    {
+        /// <summary>
+        /// 跑配方门禁：扫 Bridges/ 下每个含 driver.json 的目录，逐个配方核对映射、锚点与依赖声明。
+        /// </summary>
+        /// <param name="arguments">配方门禁命令参数。</param>
+        [EditorCommand("gate.recipe")]
+        [Summary("配方门禁：配方映射与依赖清单的静态合法性")]
+        public static CommandResult Execute(GateRecipeArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            var bridgesDirectory = Path.Combine(repositoryRoot, "Bridges");
+            var driverNames = new List<string>();
+            if (Directory.Exists(bridgesDirectory))
+            {
+                foreach (var directoryPath in Directory.EnumerateDirectories(bridgesDirectory))
+                {
+                    if (File.Exists(Path.Combine(directoryPath, "driver.json")))
+                    {
+                        driverNames.Add(Path.GetFileName(directoryPath));
+                    }
+                }
+
+                driverNames.Sort(StringComparer.Ordinal);
+            }
+
+            var findings = new List<PoolFinding>();
+            var recipeCount = 0;
+            foreach (var driverName in driverNames)
+            {
+                recipeCount += RecipeDefinition.DiscoverNames(repositoryRoot, driverName).Count;
+                findings.AddRange(RecipeInspector.Inspect(repositoryRoot, driverName));
+            }
+
+            var gateFindings = findings
+                .Select(finding => new GateFinding(finding.Location, finding.Reason, finding.FixAction, finding.ReferenceExamplePath))
+                .ToList();
+            return GateCommandSupport.ToResult($"配方门禁（driver {driverNames.Count} 个，配方 {recipeCount} 个）", gateFindings);
+        }
+    }
 }

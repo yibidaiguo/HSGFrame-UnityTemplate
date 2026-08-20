@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using Template.Toolkit.CommandFramework;
 using Template.Toolkit.CreationPipeline;
 
@@ -60,6 +61,22 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("变体数，默认 6")]
         [DefaultValue(6)]
         public int VariantCount { get; set; }
+    }
+
+    /// <summary>能力对账命令的参数。</summary>
+    public sealed class ArtCapabilityArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>driver 名称。</summary>
+        [Summary("driver 名称")]
+        public string DriverName { get; set; }
+
+        /// <summary>能力探测输出文件的路径。</summary>
+        [Summary("能力探测输出文件的路径")]
+        public string ProbeResultPath { get; set; }
     }
 
     /// <summary>校验资产请求与边车命令的参数。</summary>
@@ -302,11 +319,123 @@ namespace Template.Toolkit.CommandHost.Commands
                 findings.Select(finding => finding.ToDisplayText()).ToList());
         }
 
+        /// <summary>
+        /// 跑能力对账：本地形态 driver 的依赖清单逐条对着探测输出查「在不在」。
+        /// 探测输出文件不存在时，报错文案点出自述里的「能力探测」值，让调用方知道先跑什么生成探测输出。
+        /// </summary>
+        /// <param name="arguments">能力对账命令参数。</param>
+        [EditorCommand("art.caps")]
+        [Summary("能力对账：本地形态 driver 的依赖清单与探测输出对账")]
+        public static CommandResult Capability(ArtCapabilityArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.DriverName))
+            {
+                return CommandResult.Failure("参数 DriverName 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.ProbeResultPath))
+            {
+                return CommandResult.Failure("参数 ProbeResultPath 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            BridgeDriverDescriptor descriptor;
+            try
+            {
+                descriptor = BridgeDriverDescriptor.Load(repositoryRoot, arguments.DriverName);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return CommandResult.Failure(exception.Message);
+            }
+
+            if (descriptor.Form != "本地")
+            {
+                return CommandResult.Failure("能力对账只对本地形态 driver 有意义");
+            }
+
+            DependencyManifest manifest;
+            try
+            {
+                manifest = DependencyManifest.Load(repositoryRoot, arguments.DriverName);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return CommandResult.Failure(exception.Message);
+            }
+
+            var probeResultPath = Path.GetFullPath(arguments.ProbeResultPath);
+            CapabilityProbeResult probeResult;
+            try
+            {
+                probeResult = CapabilityProbeResult.LoadFromFile(probeResultPath);
+            }
+            catch (InvalidOperationException exception)
+            {
+                if (!File.Exists(probeResultPath))
+                {
+                    var probeCommand = ReadProbeCommand(repositoryRoot, arguments.DriverName);
+                    return CommandResult.Failure(
+                        $"找不到能力探测输出：{probeResultPath}；跑「{probeCommand}」生成探测输出后再对账");
+                }
+
+                return CommandResult.Failure(exception.Message);
+            }
+
+            var report = CapabilityReconciler.Reconcile(arguments.DriverName, manifest, probeResult);
+            if (report.Findings.Count == 0)
+            {
+                return CommandResult.Success($"能力对账通过（依赖 {report.DependencyCount} 项，全部满足）");
+            }
+
+            return CommandResult.Failure(
+                $"能力对账未通过（依赖 {report.DependencyCount} 项，缺 {report.DependencyCount - report.SatisfiedCount} 项）",
+                report.Findings.Select(finding => finding.ToDisplayText()).ToList());
+        }
+
         /// <summary>把绝对路径转成相对仓库根的路径；无法相对化时原样返回。</summary>
         private static string RelativeTo(string basePath, string fullPath)
         {
             var relative = Path.GetRelativePath(basePath, fullPath);
             return relative.StartsWith("..", StringComparison.Ordinal) ? fullPath : relative;
+        }
+
+        /// <summary>从 driver 自述文件读「能力探测」字段的值；缺失或不是字符串给空串。</summary>
+        private static string ReadProbeCommand(string repositoryRoot, string driverName)
+        {
+            var driverFilePath = BridgeDriverDescriptor.DriverFile(repositoryRoot, driverName);
+            if (!File.Exists(driverFilePath))
+            {
+                return "";
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(File.ReadAllText(driverFilePath));
+                var root = document.RootElement;
+                if (root.ValueKind == JsonValueKind.Object
+                    && root.TryGetProperty("能力探测", out var value)
+                    && value.ValueKind == JsonValueKind.String)
+                {
+                    return value.GetString() ?? "";
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                // 自述文件已在上面被 BridgeDriverDescriptor.Load 校验过，这里读不到就退回空串。
+            }
+
+            return "";
         }
     }
 }

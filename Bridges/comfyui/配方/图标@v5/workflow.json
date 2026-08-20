@@ -1,0 +1,7 @@
+{
+  "1": { "类型": "CheckpointLoaderSimple", "参数": { "ckpt_name": "sd_xl_base_1.0.safetensors" } },
+  "2": { "类型": "CLIPTextEncode", "参数": { "text": "" } },
+  "3": { "类型": "EmptyLatentImage", "参数": { "width": 256, "height": 256, "batch_size": 1 } },
+  "4": { "类型": "SaveImage", "参数": { "filename_prefix": "" } },
+  "5": { "类型": "LoadImage", "参数": { "image": "" } }
+}
