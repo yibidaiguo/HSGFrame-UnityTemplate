@@ -19,6 +19,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
               },
               "可覆盖": ["低.业务", "低.其他", "常规.业务"],
               "建议数阈值": 3,
+              "抽查比例": 0.2,
               "高危范围": ["框架", "引擎"]
             }
             """;

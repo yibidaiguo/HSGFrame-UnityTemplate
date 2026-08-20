@@ -6,7 +6,7 @@ using System.Text;
 namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>
-    /// 单实例锁：锁文件 <仓库根>/_Tasks/.engine.lock 保证同时只有一个轮询实例在跑。
+    /// 单实例锁：锁文件 &lt;仓库根&gt;/_Tasks/.engine.lock 保证同时只有一个轮询实例在跑。
     /// 陈旧锁（进程已退出）会被接管——机器断电后留下一把永远解不开的锁，
     /// 会让轮询模式再也起不来，那比偶尔多跑一个实例糟得多。
     /// </summary>

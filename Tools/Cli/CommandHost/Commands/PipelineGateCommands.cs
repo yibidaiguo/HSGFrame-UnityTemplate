@@ -217,6 +217,11 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
         [DefaultValue("")]
         public string ModuleName { get; set; }
+
+        /// <summary>池子根目录，相对 RepositoryRoot 解析。</summary>
+        [Summary("池子根目录，相对 RepositoryRoot 解析")]
+        [DefaultValue("Pools")]
+        public string PoolRoot { get; set; }
     }
 
     /// <summary>放行策略门禁命令：三层放行策略数据的合法性。</summary>
@@ -224,11 +229,11 @@ namespace Template.Toolkit.CommandHost.Commands
     {
         /// <summary>
         /// 跑放行策略门禁：三层就近合并，把合并过程中发现的违规（放宽被拒、非法值、
-        /// 基线独有键被下层写等）一次报出。
+        /// 基线独有键被下层写等）一次报出；再加载放行流水，查流水本身的格式问题。
         /// </summary>
         /// <param name="arguments">放行策略门禁命令参数。</param>
         [EditorCommand("gate.release")]
-        [Summary("放行策略门禁：三层策略数据的合法性")]
+        [Summary("放行策略门禁：三层策略数据与放行流水的合法性")]
         public static CommandResult Execute(GateReleaseArguments arguments)
         {
             if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
@@ -246,7 +251,105 @@ namespace Template.Toolkit.CommandHost.Commands
             var gateFindings = catalog.Findings
                 .Select(finding => new GateFinding(finding.Location, finding.Reason, finding.FixAction, finding.ReferenceExamplePath))
                 .ToList();
-            return GateCommandSupport.ToResult($"放行策略门禁（策略键 {catalog.Policies.Count} 条）", gateFindings);
+
+            // 加载放行流水：流水格式与策略数据一起查。
+            var poolRoot = Path.GetFullPath(
+                string.IsNullOrWhiteSpace(arguments.PoolRoot)
+                    ? Path.Combine(repositoryRoot, "Pools")
+                    : Path.Combine(repositoryRoot, arguments.PoolRoot));
+            var ledger = ReleaseLedger.Load(poolRoot);
+            var ledgerFile = PoolPaths.ReleaseLedgerFile(poolRoot);
+            var ledgerReference = "Doc/创作管线子文档/03-执行引擎.md";
+
+            // 账本读不动：一条 finding 顶上，后面四条不再查——账本都读不动，逐条查没有意义。
+            if (ledger.LoadFailureReason.Length > 0)
+            {
+                gateFindings.Add(new GateFinding(
+                    ledgerFile,
+                    $"放行流水加载有问题：{ledger.LoadFailureReason}",
+                    "修好放行流水.json 或删掉它重来",
+                    ledgerReference));
+            }
+            else
+            {
+                foreach (var entry in ledger.Entries)
+                {
+                    // 引用正则常量用字符串连接，不用插值字符串——常量里的 {4} 会被插值吃掉。
+                    if (!Regex.IsMatch(entry.Identifier, ReleaseLedgerEntry.IdentifierPatternText))
+                    {
+                        gateFindings.Add(new GateFinding(
+                            ledgerFile,
+                            "放行流水条目 id「" + entry.Identifier + "」不匹配 "
+                                + ReleaseLedgerEntry.IdentifierPatternText,
+                            "改成 RL- 加四位数字",
+                            ledgerReference));
+                    }
+
+                    if (string.IsNullOrEmpty(entry.RequirementIdentifier))
+                    {
+                        gateFindings.Add(new GateFinding(
+                            ledgerFile,
+                            $"流水条目 {entry.Identifier} 的需求id为空",
+                            "补上 需求id",
+                            ledgerReference));
+                    }
+
+                    if (string.IsNullOrEmpty(entry.Grade))
+                    {
+                        gateFindings.Add(new GateFinding(
+                            ledgerFile,
+                            $"流水条目 {entry.Identifier} 的风险级为空",
+                            "补上 风险级",
+                            ledgerReference));
+                    }
+
+                    if (entry.Scopes.Count == 0)
+                    {
+                        gateFindings.Add(new GateFinding(
+                            ledgerFile,
+                            $"流水条目 {entry.Identifier} 的范围为空数组",
+                            "补上 范围",
+                            ledgerReference));
+                    }
+
+                    if (!IsAllowedSpotCheckState(entry.SpotCheckState))
+                    {
+                        gateFindings.Add(new GateFinding(
+                            ledgerFile,
+                            $"流水条目 {entry.Identifier} 的抽查状态「{entry.SpotCheckState}」不在合法值里",
+                            $"改成 {string.Join("、", ReleaseLedgerEntry.AllowedSpotCheckStates)} 之一",
+                            ledgerReference));
+                    }
+
+                    if (string.Equals(entry.SpotCheckState, "发现问题", StringComparison.Ordinal)
+                        && string.IsNullOrEmpty(entry.SpotCheckConclusion)
+                        && string.IsNullOrEmpty(entry.RevertCommit))
+                    {
+                        gateFindings.Add(new GateFinding(
+                            ledgerFile,
+                            $"流水条目 {entry.Identifier} 抽查记了发现问题，却既没写结论也没记回滚提交，这笔账查不出所以然",
+                            "补上 抽查结论 或 回滚提交",
+                            ledgerReference));
+                    }
+                }
+            }
+
+            return GateCommandSupport.ToResult(
+                $"放行策略门禁（策略键 {catalog.Policies.Count} 条，放行流水 {ledger.Entries.Count} 条，未抽查 {ledger.UncheckedCount()} 条）",
+                gateFindings);
+        }
+
+        private static bool IsAllowedSpotCheckState(string state)
+        {
+            foreach (var allowed in ReleaseLedgerEntry.AllowedSpotCheckStates)
+            {
+                if (string.Equals(state, allowed, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 

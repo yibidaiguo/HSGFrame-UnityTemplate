@@ -203,6 +203,98 @@ namespace Template.Toolkit.CommandHost.Commands
         public string Quotation { get; set; }
     }
 
+    /// <summary>放行入账命令 task.release.record 的参数。</summary>
+    public sealed class TaskReleaseRecordArguments
+    {
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>需求 id，形如 REQ-0042。</summary>
+        [Summary("需求 id，形如 REQ-0042")]
+        public string RequirementIdentifier { get; set; }
+
+        /// <summary>风险级：低 / 常规 / 高。</summary>
+        [Summary("风险级：低 / 常规 / 高")]
+        public string Grade { get; set; }
+
+        /// <summary>本次改动涉及的范围，逗号分隔，如「业务,其他」。</summary>
+        [Summary("本次改动涉及的范围，逗号分隔，如「业务,其他」")]
+        public string Scopes { get; set; }
+
+        /// <summary>放行时间，ISO 8601；不给就用当前时间的 ISO 8601 文本。</summary>
+        [Summary("放行时间，ISO 8601；不给就用当前时间")]
+        [DefaultValue("")]
+        public string ReleasedMoment { get; set; }
+
+        /// <summary>合并提交哈希；没记就留空。</summary>
+        [Summary("合并提交哈希；没记就留空")]
+        [DefaultValue("")]
+        public string MergeCommit { get; set; }
+    }
+
+    /// <summary>放行流水查看命令 task.ledger 的参数。</summary>
+    public sealed class TaskLedgerArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        [DefaultValue("")]
+        public string ModuleName { get; set; }
+
+        /// <summary>抽查比例；小于 0 视为不给，用放行策略目录的抽查比例。</summary>
+        [Summary("抽查比例；小于 0 视为不给，用放行策略目录的抽查比例")]
+        [DefaultValue(-1.0)]
+        public double Ratio { get; set; }
+    }
+
+    /// <summary>抽查销账命令 task.spotcheck 的参数。</summary>
+    public sealed class TaskSpotCheckArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>放行流水条目 id，形如 RL-0001。</summary>
+        [Summary("放行流水条目 id，形如 RL-0001")]
+        public string LedgerIdentifier { get; set; }
+
+        /// <summary>抽查结论状态：合格 / 发现问题。</summary>
+        [Summary("抽查结论状态：合格 / 发现问题")]
+        public string Conclusion { get; set; }
+
+        /// <summary>抽查结论正文；没写就留空。</summary>
+        [Summary("抽查结论正文；没写就留空")]
+        [DefaultValue("")]
+        public string ConclusionText { get; set; }
+
+        /// <summary>回滚提交哈希；合格时留空。</summary>
+        [Summary("回滚提交哈希；合格时留空")]
+        [DefaultValue("")]
+        public string RevertCommit { get; set; }
+
+        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖与意见库模块名。</summary>
+        [Summary("业务模块名，用于就近覆盖与意见库模块名")]
+        [DefaultValue("")]
+        public string ModuleName { get; set; }
+
+        /// <summary>可规则化性：可代码化 / 可提示词化 / 不可规则化。</summary>
+        [Summary("可规则化性：可代码化 / 可提示词化 / 不可规则化")]
+        [DefaultValue("不可规则化")]
+        public string Rulability { get; set; }
+    }
+
     /// <summary>冲突列表命令 conflict.list 的参数。</summary>
     public sealed class ConflictListArguments
     {
@@ -1071,6 +1163,277 @@ namespace Template.Toolkit.CommandHost.Commands
             catch (Exception exception) when (exception is InvalidOperationException || exception is IOException || exception is UnauthorizedAccessException)
             {
                 return CommandResult.Failure($"意见入库失败：{exception.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 放行入账：把一次自动放行的合并记进放行流水。只追加，不改已有条目。
+        /// </summary>
+        /// <param name="arguments">放行入账命令参数。</param>
+        [EditorCommand("task.release.record")]
+        [Summary("放行入账：把一次自动放行记进放行流水")]
+        public static CommandResult ReleaseRecord(TaskReleaseRecordArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.RequirementIdentifier))
+            {
+                return CommandResult.Failure("参数 RequirementIdentifier 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.Grade))
+            {
+                return CommandResult.Failure("参数 Grade 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.Scopes))
+            {
+                return CommandResult.Failure("参数 Scopes 为必填项");
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            if (!Directory.Exists(poolRoot))
+            {
+                return CommandResult.Failure($"位置：{poolRoot}；原因：池子根目录不存在；修复：把 PoolRoot 指向池子根");
+            }
+
+            var scopes = arguments.Scopes
+                .Split(new[] { ',', '，' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(scope => scope.Trim())
+                .Where(scope => scope.Length > 0)
+                .ToList();
+            var moment = string.IsNullOrWhiteSpace(arguments.ReleasedMoment)
+                ? DateTimeOffset.Now.ToString("o")
+                : arguments.ReleasedMoment;
+
+            try
+            {
+                var entry = ReleaseLedger.Append(
+                    poolRoot,
+                    arguments.RequirementIdentifier,
+                    arguments.Grade,
+                    scopes,
+                    moment,
+                    arguments.MergeCommit ?? "");
+                return CommandResult.Success(
+                    $"放行已入账：{entry.Identifier}",
+                    new[]
+                    {
+                        $"需求：{entry.RequirementIdentifier}",
+                        $"风险级：{entry.Grade}",
+                        $"范围：{(entry.Scopes.Count == 0 ? "无" : string.Join("、", entry.Scopes))}",
+                        $"抽查状态：{entry.SpotCheckState}"
+                    });
+            }
+            catch (Exception exception) when (exception is InvalidOperationException || exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"放行入账失败：{exception.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 放行流水：列出全部自动放行记录与本轮抽查建议。流水读不动时是失败，
+        /// 不许当成「零条」报——读不动的账本和空账本是两回事。
+        /// </summary>
+        /// <param name="arguments">放行流水查看命令参数。</param>
+        [EditorCommand("task.ledger")]
+        [Summary("放行流水：列出自动放行记录与本轮抽查建议")]
+        public static CommandResult Ledger(TaskLedgerArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            if (!Directory.Exists(poolRoot))
+            {
+                return CommandResult.Failure($"位置：{poolRoot}；原因：池子根目录不存在；修复：把 PoolRoot 指向池子根");
+            }
+
+            try
+            {
+                var ledger = ReleaseLedger.Load(poolRoot);
+                if (ledger.LoadFailureReason.Length > 0)
+                {
+                    return CommandResult.Failure($"放行流水读不动，拒绝当零条报：{ledger.LoadFailureReason}");
+                }
+
+                var catalog = ReleasePolicyCatalog.Load(repositoryRoot, arguments.ModuleName ?? "");
+                var ratio = arguments.Ratio < 0.0 ? catalog.SpotCheckRatio : arguments.Ratio;
+                var suggestions = SpotCheckSelector.Select(ledger, ratio);
+
+                var lines = new List<string>
+                {
+                    $"放行流水 {ledger.Entries.Count} 条，未抽查 {ledger.UncheckedCount()} 条，发现问题 {ledger.ProblemCount()} 条"
+                };
+
+                foreach (var entry in ledger.Entries)
+                {
+                    lines.Add(
+                        $"{entry.Identifier}　需求 {entry.RequirementIdentifier}　{entry.Grade}　"
+                        + $"范围 {(entry.Scopes.Count == 0 ? "无" : string.Join("、", entry.Scopes))}　{entry.SpotCheckState}");
+                }
+
+                lines.Add($"本轮抽查建议（{ratio:0.##} 比例）：{suggestions.Count} 条");
+                foreach (var entry in suggestions)
+                {
+                    lines.Add(
+                        $"{entry.Identifier}　需求 {entry.RequirementIdentifier}　{entry.Grade}　"
+                        + $"范围 {(entry.Scopes.Count == 0 ? "无" : string.Join("、", entry.Scopes))}");
+                }
+
+                return CommandResult.Success($"放行流水 {ledger.Entries.Count} 条", lines);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"放行流水读取失败：{exception.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 抽查销账：记抽查结论，发现问题就回落策略并记意见库。
+        /// 顺序钉死：先记结论，合格到此为止；发现问题再做 revert 计划、策略回落、记意见库三件事。
+        /// 一行 git 都不跑——revert 只出计划文案，不真起子进程。
+        /// </summary>
+        /// <param name="arguments">抽查销账命令参数。</param>
+        [EditorCommand("task.spotcheck")]
+        [Summary("抽查销账：记结论，发现问题就回落策略并记意见库")]
+        public static CommandResult SpotCheck(TaskSpotCheckArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.LedgerIdentifier))
+            {
+                return CommandResult.Failure("参数 LedgerIdentifier 为必填项");
+            }
+
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Conclusion))
+            {
+                return CommandResult.Failure("参数 Conclusion 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            if (!Directory.Exists(poolRoot))
+            {
+                return CommandResult.Failure($"位置：{poolRoot}；原因：池子根目录不存在；修复：把 PoolRoot 指向池子根");
+            }
+
+            try
+            {
+                // 1. 找到那一条。
+                var ledger = ReleaseLedger.Load(poolRoot);
+                ReleaseLedgerEntry target = null;
+                foreach (var entry in ledger.Entries)
+                {
+                    if (string.Equals(entry.Identifier, arguments.LedgerIdentifier, StringComparison.Ordinal))
+                    {
+                        target = entry;
+                        break;
+                    }
+                }
+
+                if (target == null)
+                {
+                    return CommandResult.Failure($"流水条目 {arguments.LedgerIdentifier} 不存在");
+                }
+
+                // 2. 记结论。
+                if (!ReleaseLedger.RecordSpotCheck(
+                    poolRoot,
+                    arguments.LedgerIdentifier,
+                    arguments.Conclusion,
+                    arguments.ConclusionText ?? "",
+                    arguments.RevertCommit ?? "",
+                    out var recordReason))
+                {
+                    return CommandResult.Failure($"抽查销账失败：{recordReason}");
+                }
+
+                // 3. 合格：到此为止。
+                if (string.Equals(arguments.Conclusion, "合格", StringComparison.Ordinal))
+                {
+                    return CommandResult.Success(
+                        $"抽查合格，策略不动",
+                        new[] { $"流水条目 {arguments.LedgerIdentifier} 已记为合格" });
+                }
+
+                // 4. 发现问题：revert 计划 + 策略回落 + 记意见库，每件的结果都要出现。
+                var lines = new List<string> { $"流水条目 {arguments.LedgerIdentifier} 记为发现问题" };
+
+                // 4a. revert 计划：只出计划，不起 git 子进程。
+                if (target.MergeCommit.Length > 0)
+                {
+                    lines.Add($"revert 计划：合并提交 {target.MergeCommit} 需要被 revert，生成回滚 PR 后人工确认再合");
+                }
+                else
+                {
+                    lines.Add("revert 计划：这条流水没记合并提交，revert 目标要人工确认");
+                }
+
+                // 4b. 策略回落：grade 与 scopes 取自这条流水条目本身。
+                var catalog = ReleasePolicyCatalog.Load(repositoryRoot, arguments.ModuleName ?? "");
+                var plan = PolicyFallbackPlanner.Plan(catalog, target.Grade, target.Scopes);
+                var appliedKeys = PolicyFallbackPlanner.Apply(repositoryRoot, plan);
+                if (appliedKeys.Count > 0)
+                {
+                    lines.Add($"策略回落：{string.Join("、", appliedKeys)} 已改为人审");
+                }
+                else
+                {
+                    lines.Add("策略回落：没有需要改的键");
+                }
+
+                if (plan.AlreadyManualKeys.Count > 0)
+                {
+                    lines.Add($"本来就是人审：{string.Join("、", plan.AlreadyManualKeys)}");
+                }
+
+                // 4c. 记意见库。
+                var moduleName = string.IsNullOrWhiteSpace(arguments.ModuleName) ? "未指定" : arguments.ModuleName;
+                var quotation = string.IsNullOrWhiteSpace(arguments.ConclusionText) ? target.Identifier : arguments.ConclusionText;
+                var opinion = ReviewOpinionBook.Append(
+                    poolRoot,
+                    "抽查发现问题",
+                    moduleName,
+                    string.IsNullOrWhiteSpace(arguments.Rulability) ? "不可规则化" : arguments.Rulability,
+                    quotation,
+                    DateTimeOffset.Now.ToString("o"));
+                lines.Add($"意见库：{opinion.Identifier} 已记");
+
+                return CommandResult.Success($"抽查销账完成：{arguments.LedgerIdentifier}", lines);
+            }
+            catch (Exception exception) when (exception is InvalidOperationException || exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"抽查销账失败：{exception.Message}");
             }
         }
 

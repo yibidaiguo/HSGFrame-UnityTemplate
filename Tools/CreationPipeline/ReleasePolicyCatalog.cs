@@ -24,13 +24,15 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="highRiskScopes">高危范围清单。</param>
         /// <param name="findings">合并过程中发现的违规。</param>
         /// <param name="sourceLayers">每个策略键最后动过它的层名：基线 / 项目 / 业务。</param>
+        /// <param name="spotCheckRatio">抽查比例，只从基线读，缺省 0.2。</param>
         public ReleasePolicyCatalog(
             IReadOnlyDictionary<string, string> policies,
             IReadOnlyList<string> overridableKeys,
             int suggestionThreshold,
             IReadOnlyList<string> highRiskScopes,
             IReadOnlyList<PoolFinding> findings,
-            IReadOnlyDictionary<string, string> sourceLayers)
+            IReadOnlyDictionary<string, string> sourceLayers,
+            double spotCheckRatio = 0.2)
         {
             Policies = policies ?? new Dictionary<string, string>(StringComparer.Ordinal);
             OverridableKeys = overridableKeys ?? Array.Empty<string>();
@@ -38,6 +40,7 @@ namespace Template.Toolkit.CreationPipeline
             HighRiskScopes = highRiskScopes ?? Array.Empty<string>();
             Findings = findings ?? Array.Empty<PoolFinding>();
             SourceLayers = sourceLayers ?? new Dictionary<string, string>(StringComparer.Ordinal);
+            SpotCheckRatio = spotCheckRatio;
         }
 
         /// <summary>合并后的策略表，键为「&lt;风险级&gt;.&lt;范围&gt;」。</summary>
@@ -48,6 +51,9 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>建议级发现数阈值，来自基线「建议数阈值」，缺省 3。</summary>
         public int SuggestionThreshold { get; }
+
+        /// <summary>抽查比例，来自基线「抽查比例」，缺省 0.2，只从基线读。</summary>
+        public double SpotCheckRatio { get; }
 
         /// <summary>高危范围清单，来自基线「高危范围」。</summary>
         public IReadOnlyList<string> HighRiskScopes { get; }
@@ -100,6 +106,7 @@ namespace Template.Toolkit.CreationPipeline
 
             var overridableKeys = new List<string>();
             var suggestionThreshold = 3;
+            var spotCheckRatio = 0.2;
             var highRiskScopes = new List<string>();
 
             foreach (var layer in CollectLayers(repositoryRoot, moduleName))
@@ -118,6 +125,21 @@ namespace Template.Toolkit.CreationPipeline
                     suggestionThreshold = layerData.SuggestionThreshold ?? 3;
                     // 高危范围只从基线读，顺序照基线文件原文，不重排。
                     highRiskScopes = layerData.HighRiskScopes.ToList();
+                    // 抽查比例只从基线读，缺省 0.2；缺失、非数字或越界都取默认值并报一条 finding。
+                    if (layerData.SpotCheckRatio.HasValue
+                        && layerData.SpotCheckRatio.Value >= 0.0
+                        && layerData.SpotCheckRatio.Value <= 1.0)
+                    {
+                        spotCheckRatio = layerData.SpotCheckRatio.Value;
+                    }
+                    else
+                    {
+                        findings.Add(new PoolFinding(
+                            RepositoryRelative(repositoryRoot, layer.FilePath),
+                            "基线「抽查比例」缺失、不是数字或不在 0 到 1 之间，取默认值 0.2",
+                            "在基线里写一个 0 到 1 之间的数字，或接受默认值 0.2",
+                            "规范/基线/放行策略.基线.json"));
+                    }
                 }
                 else
                 {
@@ -148,7 +170,7 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             return new ReleasePolicyCatalog(
-                policies, overridableKeys, suggestionThreshold, highRiskScopes, findings, sourceLayers);
+                policies, overridableKeys, suggestionThreshold, highRiskScopes, findings, sourceLayers, spotCheckRatio);
         }
 
         private static List<(string LayerName, string FilePath)> CollectLayers(string repositoryRoot, string moduleName)
@@ -218,6 +240,12 @@ namespace Template.Toolkit.CreationPipeline
                     data.SuggestionThreshold = threshold;
                 }
 
+                if (root.TryGetProperty("抽查比例", out var ratioElement) && ratioElement.ValueKind == JsonValueKind.Number
+                    && ratioElement.TryGetDouble(out var ratio))
+                {
+                    data.SpotCheckRatio = ratio;
+                }
+
                 if (root.TryGetProperty("高危范围", out var highRiskElement) && highRiskElement.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var item in highRiskElement.EnumerateArray())
@@ -264,6 +292,15 @@ namespace Template.Toolkit.CreationPipeline
                     RepositoryRelative(repositoryRoot, layer.FilePath),
                     $"{layer.LayerName}层写了「建议数阈值」，但它是基线独有的数据，下层写了不生效",
                     "删掉该键；阈值只由基线定",
+                    "规范/基线/放行策略.基线.json"));
+            }
+
+            if (layerData.SpotCheckRatio.HasValue)
+            {
+                findings.Add(new PoolFinding(
+                    RepositoryRelative(repositoryRoot, layer.FilePath),
+                    $"{layer.LayerName}层写了「抽查比例」，但它是基线独有的数据，下层写了不生效",
+                    "删掉该键；抽查比例只由基线定",
                     "规范/基线/放行策略.基线.json"));
             }
 
@@ -356,6 +393,7 @@ namespace Template.Toolkit.CreationPipeline
                 Policies = new Dictionary<string, string>(StringComparer.Ordinal);
                 OverridableKeys = new List<string>();
                 SuggestionThreshold = null;
+                SpotCheckRatio = null;
                 HighRiskScopes = new List<string>();
             }
 
@@ -364,6 +402,8 @@ namespace Template.Toolkit.CreationPipeline
             public List<string> OverridableKeys { get; }
 
             public int? SuggestionThreshold { get; set; }
+
+            public double? SpotCheckRatio { get; set; }
 
             public List<string> HighRiskScopes { get; }
         }
