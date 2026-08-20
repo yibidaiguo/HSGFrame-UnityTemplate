@@ -111,5 +111,12 @@ namespace Template.Toolkit.CreationPipeline
         {
             return Path.Combine(poolRoot, "放行流水.json");
         }
+
+        /// <summary>冲突裁决流水文件：Designs/冲突裁决流水.json。</summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static string ConflictDecisionLedgerFile(string poolRoot)
+        {
+            return Path.Combine(poolRoot, "Designs", "冲突裁决流水.json");
+        }
     }
 }

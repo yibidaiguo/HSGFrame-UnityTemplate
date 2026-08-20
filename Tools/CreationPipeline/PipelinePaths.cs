@@ -50,5 +50,12 @@ namespace Template.Toolkit.CreationPipeline
         {
             return Path.Combine(repositoryRoot, "_Tasks", requirementIdentifier, "状态.json");
         }
+
+        /// <summary>同步水位文件：Config/创作管线/同步水位.json。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static string SyncWatermarkFile(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "Config", "创作管线", "同步水位.json");
+        }
     }
 }

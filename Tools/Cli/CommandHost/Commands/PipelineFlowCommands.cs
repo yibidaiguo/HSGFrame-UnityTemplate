@@ -381,6 +381,45 @@ namespace Template.Toolkit.CommandHost.Commands
         public string Choice { get; set; }
     }
 
+    /// <summary>冲突自动探测命令 conflict.detect 的参数。</summary>
+    public sealed class ConflictDetectArguments
+    {
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>需求 id，形如 REQ-0042。</summary>
+        [Summary("需求 id，形如 REQ-0042")]
+        public string RequirementIdentifier { get; set; }
+    }
+
+    /// <summary>同步水位命令 sync.watermark 的参数。</summary>
+    public sealed class SyncWatermarkArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>动作：查看 / 前进 / 回退（ASCII 别名 show / advance / rewind）。</summary>
+        [Summary("动作：查看 / 前进 / 回退（ASCII 别名 show / advance / rewind）")]
+        public string Action { get; set; }
+
+        /// <summary>driver 名，前进 / 回退时必填。</summary>
+        [Summary("driver 名，前进 / 回退时必填")]
+        [DefaultValue("")]
+        public string DriverName { get; set; }
+
+        /// <summary>水位时刻，ISO 8601；前进 / 回退时必填。</summary>
+        [Summary("水位时刻，ISO 8601；前进 / 回退时必填")]
+        [DefaultValue("")]
+        public string Moment { get; set; }
+
+        /// <summary>最后记录 id，可选。</summary>
+        [Summary("最后记录 id，可选")]
+        [DefaultValue("")]
+        public string RecordIdentifier { get; set; }
+    }
+
     /// <summary>打断重规划命令 task.replan 的参数。</summary>
     public sealed class TaskReplanArguments
     {
@@ -871,7 +910,209 @@ namespace Template.Toolkit.CommandHost.Commands
                 lines.Add($"动作：{action}");
             }
 
+            var history = ConflictDecisionLedger.Load(poolRoot).FindByConflict(result.Entry.Identifier);
+            lines.Add($"裁决流水：本条冲突累计 {history.Count} 次裁决（本次是第 {history.Count} 次）");
+
             return CommandResult.Success($"冲突 {result.Entry.Identifier} 裁决完成", lines);
+        }
+
+        /// <summary>
+        /// 冲突自动探测：把一条新需求与池子存量需求比对，产出冲突候选与置信度。
+        /// 本命令一个字都不写盘——挂账仍然只能靠 conflict.list / conflict.resolve 那条路。
+        /// 「没扫成」与「未发现候选」是两个分支（决策 42）：探测没跑成时结论行必须写清原因。
+        /// </summary>
+        /// <param name="arguments">冲突探测命令参数。</param>
+        [EditorCommand("conflict.detect")]
+        [Summary("冲突自动探测：新需求 vs 存量需求，产出候选不写盘")]
+        public static CommandResult DetectConflict(ConflictDetectArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.RequirementIdentifier))
+            {
+                return CommandResult.Failure("参数 RequirementIdentifier 为必填项");
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            ConflictDetectionReport report;
+            try
+            {
+                report = ConflictDetector.Detect(poolRoot, arguments.RequirementIdentifier);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"冲突探测失败：{exception.Message}");
+            }
+
+            var lines = new List<string>();
+            if (!report.Scanned)
+            {
+                return CommandResult.Success($"冲突探测没跑成：{report.LoadFailureReason}", lines);
+            }
+
+            if (report.LoadFailureReason.Length > 0)
+            {
+                lines.Add($"注意：{report.LoadFailureReason}");
+            }
+
+            if (report.Candidates.Count == 0)
+            {
+                return CommandResult.Success(
+                    $"冲突探测（比对 {report.ScannedCount} 条存量需求）：未发现候选",
+                    lines);
+            }
+
+            var raiseCount = report.Candidates.Count(candidate => candidate.ShouldRaiseCard);
+            foreach (var candidate in report.Candidates)
+            {
+                var star = candidate.ShouldRaiseCard ? "★" : "";
+                lines.Add($"{star}[{candidate.Confidence}] {candidate.OldIdentifier} ← {candidate.Reason} ({candidate.Score.ToString("0.000")}) {candidate.Detail}");
+            }
+
+            return CommandResult.Success(
+                $"冲突探测（比对 {report.ScannedCount} 条存量需求）：候选 {report.Candidates.Count} 条，建议发卡 {raiseCount} 条",
+                lines);
+        }
+
+        /// <summary>
+        /// 同步水位：查看 / 前进 / 回退。查看列出全部 driver 的水位；前进只许前进（时间相同
+        /// 是幂等重放不算前进）；回退是显式重拉的正门，不做前进检查直接写。
+        /// </summary>
+        /// <param name="arguments">同步水位命令参数。</param>
+        [EditorCommand("sync.watermark")]
+        [Summary("同步水位：查看 / 前进 / 回退")]
+        public static CommandResult ManageWatermark(SyncWatermarkArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            var action = NormalizeWatermarkAction(arguments.Action);
+            if (action.Length == 0)
+            {
+                return CommandResult.Failure($"动作「{arguments.Action}」不合法；合法值是：查看、前进、回退（ASCII 别名 show、advance、rewind）");
+            }
+
+            if (string.Equals(action, "查看", StringComparison.Ordinal))
+            {
+                SyncWatermark watermark;
+                try
+                {
+                    watermark = SyncWatermark.Load(repositoryRoot);
+                }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+                {
+                    return CommandResult.Failure($"同步水位读取失败：{exception.Message}");
+                }
+
+                var lines = new List<string>();
+                if (watermark.LoadFailureReason.Length > 0)
+                {
+                    lines.Add($"注意：{watermark.LoadFailureReason}");
+                }
+
+                if (watermark.Entries.Count == 0)
+                {
+                    return CommandResult.Success("同步水位：还没有任何 driver 记过水位（全量拉）", lines);
+                }
+
+                foreach (var pair in watermark.Entries.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+                {
+                    lines.Add($"{pair.Key}　最后修改时间 {pair.Value.Moment}　最后记录id {pair.Value.RecordIdentifier}");
+                }
+
+                return CommandResult.Success($"同步水位 {watermark.Entries.Count} 个 driver", lines);
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.DriverName))
+            {
+                return CommandResult.Failure("参数 DriverName 为必填项（前进 / 回退时）");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.Moment))
+            {
+                return CommandResult.Failure("参数 Moment 为必填项（前进 / 回退时）");
+            }
+
+            var recordIdentifier = arguments.RecordIdentifier ?? "";
+            if (string.Equals(action, "前进", StringComparison.Ordinal))
+            {
+                WatermarkAdvanceResult result;
+                try
+                {
+                    result = SyncWatermark.Advance(repositoryRoot, arguments.DriverName, arguments.Moment, recordIdentifier);
+                }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+                {
+                    return CommandResult.Failure($"同步水位前进失败：{exception.Message}");
+                }
+
+                if (!result.Succeeded)
+                {
+                    return CommandResult.Failure(result.FailureReason);
+                }
+
+                if (!result.Advanced)
+                {
+                    return CommandResult.Success("水位没动（给的时间与当前水位相同）");
+                }
+
+                return CommandResult.Success($"水位已前进到 {result.Entry.Moment}：下次从这里增量拉");
+            }
+
+            WatermarkAdvanceResult rewindResult;
+            try
+            {
+                rewindResult = SyncWatermark.Rewind(repositoryRoot, arguments.DriverName, arguments.Moment, recordIdentifier);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"同步水位回退失败：{exception.Message}");
+            }
+
+            if (!rewindResult.Succeeded)
+            {
+                return CommandResult.Failure(rewindResult.FailureReason);
+            }
+
+            return CommandResult.Success($"水位已回退到 {rewindResult.Entry.Moment}：下次会重拉这之后的记录");
+        }
+
+        /// <summary>把 ASCII 别名归一成中文动作名；认不出的返回空串。</summary>
+        private static string NormalizeWatermarkAction(string action)
+        {
+            if (string.IsNullOrWhiteSpace(action))
+            {
+                return "";
+            }
+
+            var trimmed = action.Trim();
+            if (string.Equals(trimmed, "查看", StringComparison.Ordinal) || string.Equals(trimmed, "show", StringComparison.OrdinalIgnoreCase))
+            {
+                return "查看";
+            }
+
+            if (string.Equals(trimmed, "前进", StringComparison.Ordinal) || string.Equals(trimmed, "advance", StringComparison.OrdinalIgnoreCase))
+            {
+                return "前进";
+            }
+
+            if (string.Equals(trimmed, "回退", StringComparison.Ordinal) || string.Equals(trimmed, "rewind", StringComparison.OrdinalIgnoreCase))
+            {
+                return "回退";
+            }
+
+            return "";
         }
 
         /// <summary>

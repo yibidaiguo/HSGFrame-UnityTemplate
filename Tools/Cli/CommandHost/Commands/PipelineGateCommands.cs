@@ -582,11 +582,73 @@ namespace Template.Toolkit.CommandHost.Commands
                 }
             }
 
+            // 裁决流水四查：读不动、序号断号/重号、选择不在合法值、指向的冲突不存在。
+            // 流水是账不是违规——条数不判红，但账本身要格式合法。
+            var ledger = ConflictDecisionLedger.Load(poolRoot);
+            var ledgerFile = PoolPaths.ConflictDecisionLedgerFile(poolRoot);
+            if (ledger.LoadFailureReason.Length > 0)
+            {
+                findings.Add(new PoolFinding(
+                    ledgerFile,
+                    $"裁决流水加载有问题：{ledger.LoadFailureReason}",
+                    "把裁决流水修成合法 JSON 数组",
+                    reference));
+            }
+
+            var conflictIdentifiers = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var entry in list.Entries)
+            {
+                conflictIdentifiers.Add(entry.Identifier);
+            }
+
+            ConflictDecisionRecord previousRecord = null;
+            var seenSequenceNumbers = new HashSet<int>();
+            foreach (var record in ledger.Records)
+            {
+                if (!seenSequenceNumbers.Add(record.SequenceNumber))
+                {
+                    findings.Add(new PoolFinding(
+                        ledgerFile,
+                        $"裁决流水序号重复：{record.SequenceNumber}",
+                        "序号改成从 1 起连续不重复",
+                        reference));
+                }
+
+                if (previousRecord != null && record.SequenceNumber != previousRecord.SequenceNumber + 1)
+                {
+                    findings.Add(new PoolFinding(
+                        ledgerFile,
+                        $"裁决流水序号不连续：{previousRecord.SequenceNumber} 之后是 {record.SequenceNumber}",
+                        "序号改成从 1 起连续不重复",
+                        reference));
+                }
+
+                if (!IsAllowedChoice(record.Choice))
+                {
+                    findings.Add(new PoolFinding(
+                        ledgerFile,
+                        $"裁决流水第 {record.SequenceNumber} 条的选择「{record.Choice}」不在三个合法值里",
+                        $"改成 {string.Join("、", ConflictEntry.AllowedChoices)} 之一",
+                        reference));
+                }
+
+                if (!conflictIdentifiers.Contains(record.ConflictIdentifier))
+                {
+                    findings.Add(new PoolFinding(
+                        ledgerFile,
+                        $"裁决流水第 {record.SequenceNumber} 条指向的冲突 {record.ConflictIdentifier} 不在冲突列表里",
+                        "补上对应的冲突条目，或删掉这条流水",
+                        reference));
+                }
+
+                previousRecord = record;
+            }
+
             var gateFindings = findings
                 .Select(finding => new GateFinding(finding.Location, finding.Reason, finding.FixAction, finding.ReferenceExamplePath))
                 .ToList();
             return GateCommandSupport.ToResult(
-                $"冲突可见门禁（冲突 {list.Entries.Count} 条，未销账 {list.PendingCount()} 条）",
+                $"冲突可见门禁（冲突 {list.Entries.Count} 条，未销账 {list.PendingCount()} 条，裁决流水 {ledger.Records.Count} 条）",
                 gateFindings);
         }
 

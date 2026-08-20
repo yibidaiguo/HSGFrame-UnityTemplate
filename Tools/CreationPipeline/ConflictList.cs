@@ -178,6 +178,8 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>
         /// 就地裁决一条冲突：把该条的「状态」与「裁决」两个键换掉，其余键与其余条目一字不动，整体写回。
+        /// 先写裁决流水、后改状态（决策 63 同理）：流水写失败则整个裁决不执行、状态一个字不改——
+        /// 证据落不了盘就不许销账，否则补选会覆盖掉上一次的裁决记录，「当初是谁强制推送的」查不出来。
         /// 已销账（状态=已裁决）的条目不许再裁决——销账动作改了就查不出账。
         /// 强制推送只挂账、状态留未决，之后可以补选改新的/改旧的来销账；但不许重复强制推送。
         /// </summary>
@@ -265,7 +267,29 @@ namespace Template.Toolkit.CreationPipeline
             // 状态留在未决——真正的裁决是事后补选改新的/改旧的，那才叫销账。
             // 把强制推送也置成已裁决，会连同「已裁决不许覆盖」一起把销账路径堵死。
             var isForcePush = string.Equals(choice, ForcePushChoice, StringComparison.Ordinal);
-            target["状态"] = isForcePush ? ConflictEntry.PendingState : ConflictEntry.ResolvedState;
+
+            // 先流水、后状态：流水写了状态没改，是「跑一次就好」；状态改了流水没写，
+            // 是证据永远丢了——补选会覆盖掉上一次的裁决记录，「当初是谁强制推送的」再也查不出来。
+            // 这与决策 63（落地先产物后状态）是同一条道理。
+            var stateBefore = ReadEntryString(target, "状态");
+            var stateAfter = isForcePush ? ConflictEntry.PendingState : ConflictEntry.ResolvedState;
+            try
+            {
+                ConflictDecisionLedger.Append(
+                    poolRoot,
+                    conflictIdentifier,
+                    resolverName,
+                    choice,
+                    moment,
+                    stateBefore,
+                    stateAfter);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException || exception is InvalidOperationException)
+            {
+                return ConflictResolutionResult.Failed($"裁决流水写不进去，本次裁决没有执行：{exception.Message}");
+            }
+
+            target["状态"] = stateAfter;
             target["裁决"] = new JsonObject
             {
                 ["人"] = resolverName,
