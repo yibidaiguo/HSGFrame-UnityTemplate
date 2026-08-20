@@ -218,6 +218,22 @@ namespace Template.Toolkit.Dashboard
                     case "/api/panel/proposals":
                         WritePanelPage(response, () => CreationPanelReader.ReadPromotionProposals(_poolRoot));
                         break;
+                    case "/api/panel/bridges":
+                        WritePanelPage(response, () => CreationPanelReader.ReadBridges(_repositoryRoot, _poolRoot));
+                        break;
+                    case "/api/panel/deviation":
+                        // 键同时收中文与 ASCII 别名（决策 57）：中文键要客户端把它按 UTF-8 百分号编码才认得出来，
+                        // 浏览器会编、手敲的 curl 常常不编——不给别名的话，参数没认出来和
+                        // 「这条资产确实没算成」会返回同一个空结果，分不清是哪种（决策 42 的又一种长相）。
+                        {
+                            var requirement = request.QueryString["需求id"] ?? request.QueryString["requirement"] ?? "";
+                            var asset = request.QueryString["资产id"] ?? request.QueryString["asset"] ?? "";
+                            var missing = MissingDeviationParameter(requirement, asset);
+                            WritePanelPage(response, () => missing != null
+                                ? new PanelDeviationResult("", -1, Array.Empty<string>(), false, missing)
+                                : CreationPanelReader.ReadDeviation(_repositoryRoot, _poolRoot, requirement, asset));
+                        }
+                        break;
                     case "/api/panel/task":
                         WriteTaskDetail(request, response);
                         break;
@@ -328,6 +344,23 @@ namespace Template.Toolkit.Dashboard
             var commandLine = ReadCommandLine(request);
             var outcome = _commandRunner.Run(commandLine);
             WritePanelJson(response, outcome, outcome.IsAllowed ? HttpStatusCode.OK : HttpStatusCode.Forbidden);
+        }
+
+        /// <summary>离风格路由的缺参检查：需求 id 与资产 id 任一为空时返回缺参文案，两个都在返回 null。</summary>
+        private static string MissingDeviationParameter(string requirement, string asset)
+        {
+            var missing = new List<string>();
+            if (string.IsNullOrWhiteSpace(requirement))
+            {
+                missing.Add("需求id");
+            }
+
+            if (string.IsNullOrWhiteSpace(asset))
+            {
+                missing.Add("资产id");
+            }
+
+            return missing.Count == 0 ? null : "缺参数：" + string.Join("、", missing);
         }
 
         /// <summary>从请求体里读顶层「命令行」字符串；请求体不是合法 JSON 时按空命令行处理。</summary>

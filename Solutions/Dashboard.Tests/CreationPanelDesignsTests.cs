@@ -55,30 +55,33 @@ namespace Template.Toolkit.DashboardTests
             Assert.Equal("记录文档", rows[2].Name);
         }
 
-        /// <summary>同一类里的文件按名称序数序排序。</summary>
+        /// <summary>同一类里的文件按名称序数序排序（Moment 相同时）。</summary>
         [Fact]
         public void RowsInsideCategoryAreSortedByName()
         {
             WriteDesign("汇总", "乙文档.json", """
                 {
-                  "名称": "乙"
+                  "名称": "乙",
+                  "时间": "2026-01-01"
                 }
                 """);
             WriteDesign("汇总", "甲文档.json", """
                 {
-                  "名称": "甲"
+                  "名称": "甲",
+                  "时间": "2026-01-01"
                 }
                 """);
 
             var rows = CreationPanelReader.ReadDesigns(_poolRoot);
 
-            // 序数序按 Unicode 码位：「乙」(U+4E59) 在「甲」(U+7532) 之前。
+            // 两个文件「时间」相同，退回按名称序数序比较；序数序按 Unicode 码位：
+            // 「乙」(U+4E59) 在「甲」(U+7532) 之前。
             Assert.Equal(2, rows.Count);
             Assert.Equal("乙文档", rows[0].Name);
             Assert.Equal("甲文档", rows[1].Name);
         }
 
-        /// <summary>坏 JSON 照样产一行且 IsReadable 为 false，其余字段空串。</summary>
+        /// <summary>坏 JSON 照样产一行且 IsReadable 为 false；时间取不到「时间」字段退化成文件最后写入时间。</summary>
         [Fact]
         public void BrokenDesignFileStillProducesRow()
         {
@@ -95,7 +98,8 @@ namespace Template.Toolkit.DashboardTests
             Assert.False(row.IsReadable);
             Assert.Equal("", row.Title);
             Assert.Equal("", row.Version);
-            Assert.Equal("", row.Moment);
+            Assert.True(row.MomentFromFileTime);
+            Assert.False(string.IsNullOrEmpty(row.Moment));
         }
 
         /// <summary>有「名称」无「标题」时 Title 取名称；版本与时间字段也读得到。</summary>
@@ -118,7 +122,7 @@ namespace Template.Toolkit.DashboardTests
             Assert.True(row.IsReadable);
         }
 
-        /// <summary>有「标题」无「名称」时 Title 取标题；没有「时间」时取「创建时间」。</summary>
+        /// <summary>有「标题」无「名称」时 Title 取标题；没有「时间」时退回「创建时间」，不退化成文件时间。</summary>
         [Fact]
         public void TitleReadsTitleFieldWhenNameMissing()
         {
@@ -133,6 +137,7 @@ namespace Template.Toolkit.DashboardTests
 
             Assert.Equal("只有标题", row.Title);
             Assert.Equal("2026-02-02", row.Moment);
+            Assert.False(row.MomentFromFileTime);
         }
 
         /// <summary>删除本测试建的临时目录；清理失败不影响测试结论。</summary>

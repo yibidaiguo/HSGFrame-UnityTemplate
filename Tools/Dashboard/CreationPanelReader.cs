@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -300,7 +301,7 @@ namespace Template.Toolkit.Dashboard
         public IReadOnlyDictionary<string, string> CardRoutes { get; }
     }
 
-    /// <summary>资产页的一行：资产 id、所属需求、类型、落点、规格摘要与变体/弃置/预览计数。</summary>
+    /// <summary>资产页的一行：资产 id、所属需求、类型、落点、规格摘要、变体/弃置/预览计数，以及离风格列的预览路径与风格锚点定稿名。</summary>
     public sealed class PanelAssetRow
     {
         /// <summary>
@@ -315,6 +316,8 @@ namespace Template.Toolkit.Dashboard
         /// <param name="qualifiedVariantCount">实际带溯源边车的合格变体数。</param>
         /// <param name="rejectedVariantCount">弃置目录里的文件数。</param>
         /// <param name="hasPreview">是否有实机预览截图。</param>
+        /// <param name="previewPath">预览截图的仓库相对路径；文件不存在给空串。</param>
+        /// <param name="anchorFinalName">资产请求「风格锚点.定稿」的值；没有给空串。</param>
         public PanelAssetRow(
             string assetIdentifier,
             string requirementIdentifier,
@@ -324,7 +327,9 @@ namespace Template.Toolkit.Dashboard
             int requestedVariantCount,
             int qualifiedVariantCount,
             int rejectedVariantCount,
-            bool hasPreview)
+            bool hasPreview,
+            string previewPath,
+            string anchorFinalName)
         {
             AssetIdentifier = assetIdentifier ?? "";
             RequirementIdentifier = requirementIdentifier ?? "";
@@ -335,6 +340,8 @@ namespace Template.Toolkit.Dashboard
             QualifiedVariantCount = qualifiedVariantCount;
             RejectedVariantCount = rejectedVariantCount;
             HasPreview = hasPreview;
+            PreviewPath = previewPath ?? "";
+            AnchorFinalName = anchorFinalName ?? "";
         }
 
         /// <summary>资产 id。</summary>
@@ -372,9 +379,17 @@ namespace Template.Toolkit.Dashboard
         /// <summary>是否有实机预览截图。</summary>
         [JsonPropertyName("预览")]
         public bool HasPreview { get; }
+
+        /// <summary>预览截图的仓库相对路径（正斜杠）；文件不存在给空串。</summary>
+        [JsonPropertyName("预览路径")]
+        public string PreviewPath { get; }
+
+        /// <summary>资产请求「风格锚点.定稿」的值（去掉 JSON 引号）；没有给空串。</summary>
+        [JsonPropertyName("风格锚点定稿")]
+        public string AnchorFinalName { get; }
     }
 
-    /// <summary>设计池页的一行：分类、文件名、标题、版本、时间与可读性。</summary>
+    /// <summary>设计池页的一行：分类、文件名、标题、版本、时间与可读性，以及定稿专属的色板与参考图。</summary>
     public sealed class PanelDesignRow
     {
         /// <summary>
@@ -384,9 +399,23 @@ namespace Template.Toolkit.Dashboard
         /// <param name="name">文件名去掉扩展名。</param>
         /// <param name="title">文件里的名称或标题字段，没有时为空串。</param>
         /// <param name="version">文件里的版本字段，没有时为空串。</param>
-        /// <param name="moment">文件里的时间或创建时间字段，没有时为空串。</param>
+        /// <param name="moment">记录的时间：优先取文件 JSON 里的「时间」字段，取不到时退化成文件最后写入时间（ISO 8601，UTC）——两个来源语义不同，标记位在 MomentFromFileTime。</param>
         /// <param name="isReadable">文件能否解析成 JSON 对象。</param>
-        public PanelDesignRow(string category, string name, string title, string version, string moment, bool isReadable)
+        /// <param name="momentFromFileTime">Moment 是否退化成了文件最后写入时间（JSON 里没有「时间」字段时）。</param>
+        /// <param name="paletteColors">定稿行的色板十六进制串（非法项已跳过）；其余行是空列表。</param>
+        /// <param name="finalVersion">定稿行取文件里的数字版本，取不到给 0；其余行恒 0。</param>
+        /// <param name="referenceImages">定稿行的参考图相对路径列表；其余行是空列表。</param>
+        public PanelDesignRow(
+            string category,
+            string name,
+            string title,
+            string version,
+            string moment,
+            bool isReadable,
+            bool momentFromFileTime,
+            IReadOnlyList<string> paletteColors,
+            int finalVersion,
+            IReadOnlyList<string> referenceImages)
         {
             Category = category ?? "";
             Name = name ?? "";
@@ -394,6 +423,10 @@ namespace Template.Toolkit.Dashboard
             Version = version ?? "";
             Moment = moment ?? "";
             IsReadable = isReadable;
+            MomentFromFileTime = momentFromFileTime;
+            PaletteColors = paletteColors ?? Array.Empty<string>();
+            FinalVersion = finalVersion;
+            ReferenceImages = referenceImages ?? Array.Empty<string>();
         }
 
         /// <summary>分类：定稿 / 汇总 / 记录。</summary>
@@ -412,13 +445,230 @@ namespace Template.Toolkit.Dashboard
         [JsonPropertyName("版本")]
         public string Version { get; }
 
-        /// <summary>文件里的时间或创建时间字段，没有时为空串。</summary>
+        /// <summary>记录的时间：优先取文件 JSON 里的「时间」字段，取不到时退化成文件最后写入时间（ISO 8601，UTC）——两个来源语义不同，是否退化了看 MomentFromFileTime。</summary>
         [JsonPropertyName("时间")]
         public string Moment { get; }
 
         /// <summary>文件能否解析成 JSON 对象。</summary>
         [JsonPropertyName("可读")]
         public bool IsReadable { get; }
+
+        /// <summary>Moment 是否退化成了文件最后写入时间（JSON 里没有「时间」字段时）。</summary>
+        [JsonPropertyName("时间取自文件")]
+        public bool MomentFromFileTime { get; }
+
+        /// <summary>定稿行的色板十六进制串（非法项已跳过）；其余行是空列表。</summary>
+        [JsonPropertyName("色板")]
+        public IReadOnlyList<string> PaletteColors { get; }
+
+        /// <summary>定稿行取文件里的数字版本，取不到给 0；其余行恒 0。</summary>
+        [JsonPropertyName("定稿版本")]
+        public int FinalVersion { get; }
+
+        /// <summary>定稿行的参考图相对路径列表；其余行是空列表。</summary>
+        [JsonPropertyName("参考图")]
+        public IReadOnlyList<string> ReferenceImages { get; }
+    }
+
+    /// <summary>下游页里一个配置字段：名称、类型、必填与是否密钥。</summary>
+    public sealed class PanelBridgeFieldRow
+    {
+        /// <summary>
+        /// 构造下游页里的一个配置字段行。
+        /// </summary>
+        /// <param name="name">字段名。</param>
+        /// <param name="fieldType">控件类型：string / number / bool / enum / secret。</param>
+        /// <param name="isRequired">是否必填。</param>
+        /// <param name="options">enum 的可选值；其他类型是空列表。</param>
+        /// <param name="isSecret">是不是密钥字段。密钥的值永不读取、永不输出。</param>
+        /// <param name="secretState">密钥配没配：已配 / 未配；非密钥字段是空串。</param>
+        public PanelBridgeFieldRow(
+            string name,
+            string fieldType,
+            bool isRequired,
+            IReadOnlyList<string> options,
+            bool isSecret,
+            string secretState)
+        {
+            Name = name ?? "";
+            FieldType = fieldType ?? "";
+            IsRequired = isRequired;
+            Options = options ?? Array.Empty<string>();
+            IsSecret = isSecret;
+            SecretState = secretState ?? "";
+        }
+
+        /// <summary>字段名。</summary>
+        [JsonPropertyName("名")]
+        public string Name { get; }
+
+        /// <summary>控件类型：string / number / bool / enum / secret。</summary>
+        [JsonPropertyName("类型")]
+        public string FieldType { get; }
+
+        /// <summary>是否必填。</summary>
+        [JsonPropertyName("必填")]
+        public bool IsRequired { get; }
+
+        /// <summary>enum 的可选值；其他类型是空列表。</summary>
+        [JsonPropertyName("选项")]
+        public IReadOnlyList<string> Options { get; }
+
+        /// <summary>是不是密钥字段。密钥的值永不读取、永不输出。</summary>
+        [JsonPropertyName("密钥")]
+        public bool IsSecret { get; }
+
+        /// <summary>密钥配没配：已配 / 未配；非密钥字段是空串。</summary>
+        [JsonPropertyName("密钥状态")]
+        public string SecretState { get; }
+    }
+
+    /// <summary>下游页里的一个 driver。</summary>
+    public sealed class PanelBridgeRow
+    {
+        /// <summary>
+        /// 构造下游页里的一行 driver。
+        /// </summary>
+        /// <param name="driverName">driver 名称。</param>
+        /// <param name="shape">形态：线上 / 本地；自述损坏时为空串。</param>
+        /// <param name="contractVersion">契约版本。</param>
+        /// <param name="implementation">实现名；实现还不存在时这里仍然有值（决策 23：不写桩，但自述照写）。</param>
+        /// <param name="trialCommand">试跑命令；为空串表示还没有可跑的试跑。</param>
+        /// <param name="probeCommand">能力探测命令；为空串表示没有探测器。</param>
+        /// <param name="fields">配置字段行列表。</param>
+        /// <param name="isProvisioned">供给过没有：_Generated/Bridges/&lt;名&gt;/ 下有指纹文件即为 true。</param>
+        /// <param name="dependencyCount">能力对账的依赖总数；对账没跑成时是 -1。</param>
+        /// <param name="satisfiedCount">能力对账的满足数；对账没跑成时是 -1。</param>
+        /// <param name="capabilityMeasured">能力对账跑成了没有。</param>
+        /// <param name="capabilityNotes">能力对账没跑成的原因，或逐条发现的文案。</param>
+        /// <param name="loadFailureReason">driver.json 读不动时的原因；正常为空串。</param>
+        public PanelBridgeRow(
+            string driverName,
+            string shape,
+            string contractVersion,
+            string implementation,
+            string trialCommand,
+            string probeCommand,
+            IReadOnlyList<PanelBridgeFieldRow> fields,
+            bool isProvisioned,
+            int dependencyCount,
+            int satisfiedCount,
+            bool capabilityMeasured,
+            IReadOnlyList<string> capabilityNotes,
+            string loadFailureReason)
+        {
+            DriverName = driverName ?? "";
+            Shape = shape ?? "";
+            ContractVersion = contractVersion ?? "";
+            Implementation = implementation ?? "";
+            TrialCommand = trialCommand ?? "";
+            ProbeCommand = probeCommand ?? "";
+            Fields = fields ?? Array.Empty<PanelBridgeFieldRow>();
+            IsProvisioned = isProvisioned;
+            DependencyCount = dependencyCount;
+            SatisfiedCount = satisfiedCount;
+            CapabilityMeasured = capabilityMeasured;
+            CapabilityNotes = capabilityNotes ?? Array.Empty<string>();
+            LoadFailureReason = loadFailureReason ?? "";
+        }
+
+        /// <summary>driver 名称。</summary>
+        [JsonPropertyName("driver")]
+        public string DriverName { get; }
+
+        /// <summary>形态：线上 / 本地；自述损坏时为空串。</summary>
+        [JsonPropertyName("形态")]
+        public string Shape { get; }
+
+        /// <summary>契约版本。</summary>
+        [JsonPropertyName("契约")]
+        public string ContractVersion { get; }
+
+        /// <summary>实现名；实现还不存在时这里仍然有值（决策 23：不写桩，但自述照写）。</summary>
+        [JsonPropertyName("实现")]
+        public string Implementation { get; }
+
+        /// <summary>试跑命令；为空串表示还没有可跑的试跑。</summary>
+        [JsonPropertyName("试跑")]
+        public string TrialCommand { get; }
+
+        /// <summary>能力探测命令；为空串表示没有探测器。</summary>
+        [JsonPropertyName("探测")]
+        public string ProbeCommand { get; }
+
+        /// <summary>配置字段行列表。</summary>
+        [JsonPropertyName("字段")]
+        public IReadOnlyList<PanelBridgeFieldRow> Fields { get; }
+
+        /// <summary>供给过没有：_Generated/Bridges/&lt;名&gt;/ 下有指纹文件即为 true。</summary>
+        [JsonPropertyName("供给")]
+        public bool IsProvisioned { get; }
+
+        /// <summary>能力对账的依赖总数；对账没跑成时是 -1。</summary>
+        [JsonPropertyName("依赖数")]
+        public int DependencyCount { get; }
+
+        /// <summary>能力对账的满足数；对账没跑成时是 -1。</summary>
+        [JsonPropertyName("满足数")]
+        public int SatisfiedCount { get; }
+
+        /// <summary>能力对账跑成了没有。</summary>
+        [JsonPropertyName("对账成")]
+        public bool CapabilityMeasured { get; }
+
+        /// <summary>能力对账没跑成的原因，或逐条发现的文案。</summary>
+        [JsonPropertyName("对账说明")]
+        public IReadOnlyList<string> CapabilityNotes { get; }
+
+        /// <summary>driver.json 读不动时的原因；正常为空串。该行仍然产出。</summary>
+        [JsonPropertyName("读失败")]
+        public string LoadFailureReason { get; }
+    }
+
+    /// <summary>一条资产的离风格结果，供面板按需拉取。</summary>
+    public sealed class PanelDeviationResult
+    {
+        /// <summary>
+        /// 构造一条离风格结果。
+        /// </summary>
+        /// <param name="assetIdentifier">资产 id。</param>
+        /// <param name="deviation">加权最小色板距离；没算成时是 -1。</param>
+        /// <param name="swatches">主色十六进制串，最多前五色。</param>
+        /// <param name="measured">算成了没有。</param>
+        /// <param name="failureReason">没算成的原因；算成了是空串。</param>
+        public PanelDeviationResult(
+            string assetIdentifier,
+            double deviation,
+            IReadOnlyList<string> swatches,
+            bool measured,
+            string failureReason)
+        {
+            AssetIdentifier = assetIdentifier ?? "";
+            Deviation = deviation;
+            Swatches = swatches ?? Array.Empty<string>();
+            Measured = measured;
+            FailureReason = failureReason ?? "";
+        }
+
+        /// <summary>资产 id。</summary>
+        [JsonPropertyName("资产id")]
+        public string AssetIdentifier { get; }
+
+        /// <summary>加权最小色板距离；没算成时是 -1。</summary>
+        [JsonPropertyName("距离")]
+        public double Deviation { get; }
+
+        /// <summary>主色十六进制串，最多前五色。</summary>
+        [JsonPropertyName("主色")]
+        public IReadOnlyList<string> Swatches { get; }
+
+        /// <summary>算成了没有。</summary>
+        [JsonPropertyName("测成")]
+        public bool Measured { get; }
+
+        /// <summary>没算成的原因；算成了是空串。</summary>
+        [JsonPropertyName("原因")]
+        public string FailureReason { get; }
     }
 
     /// <summary>供给对账页的一行：driver 名、形态、端口、供给状态、对账状态、依赖清单与配方/问题计数。</summary>
@@ -1391,6 +1641,7 @@ namespace Template.Toolkit.Dashboard
                         destination = spec != null ? spec.Destination : "";
                     }
 
+                    var previewFullPath = AssetPaths.PreviewFile(repositoryRoot, requirementIdentifier, request.Identifier);
                     rows.Add(new PanelAssetRow(
                         request.Identifier,
                         request.RequirementIdentifier,
@@ -1400,7 +1651,9 @@ namespace Template.Toolkit.Dashboard
                         request.VariantCount,
                         CountQualifiedVariants(repositoryRoot, requirementIdentifier, request.Identifier),
                         CountRejectedVariants(repositoryRoot, requirementIdentifier, request.Identifier),
-                        File.Exists(AssetPaths.PreviewFile(repositoryRoot, requirementIdentifier, request.Identifier))));
+                        File.Exists(previewFullPath),
+                        File.Exists(previewFullPath) ? RepositoryRelative(repositoryRoot, previewFullPath) : "",
+                        ReadStyleAnchorFinalName(request)));
                 }
             }
 
@@ -1411,7 +1664,8 @@ namespace Template.Toolkit.Dashboard
         /// <summary>
         /// 读设计池页：扫 &lt;池根&gt;/Designs/定稿、汇总、记录 三个目录（各自顶层，不递归）。
         /// 目录不存在跳过那一类；解析不了的文件照样产一行、IsReadable 为 false——设计池页要让人
-        /// 看见「这里有个坏文件」，静默吞掉才是骗人。结果先按分类再按名称序数序。
+        /// 看见「这里有个坏文件」，静默吞掉才是骗人。排序：分类固定 定稿 → 汇总 → 记录，
+        /// 同类内按 Moment 降序（新的在前），时间相同按文件名序数序。
         /// </summary>
         /// <param name="poolRoot">池子根目录。</param>
         public static IReadOnlyList<PanelDesignRow> ReadDesigns(string poolRoot)
@@ -1426,6 +1680,22 @@ namespace Template.Toolkit.Dashboard
                 }
 
                 var files = Directory.GetFiles(directory, "*.json").ToList();
+
+                // 定稿是一稿一目录：Designs/定稿/<名>/定稿.json（子文档 06 §五，
+                // FinalPalette.Load 也是照这个找的）。只扫平铺的 *.json 就永远扫不到任何一份真定稿，
+                // 定稿预览那一块会恒显示「还没有定稿」——P7 批次三验收时真踩到过。
+                if (string.Equals(category, "定稿", StringComparison.Ordinal))
+                {
+                    foreach (var finalDirectory in Directory.EnumerateDirectories(directory))
+                    {
+                        var finalFile = Path.Combine(finalDirectory, "定稿.json");
+                        if (File.Exists(finalFile))
+                        {
+                            files.Add(finalFile);
+                        }
+                    }
+                }
+
                 files.Sort(StringComparer.Ordinal);
                 foreach (var filePath in files)
                 {
@@ -1435,8 +1705,19 @@ namespace Template.Toolkit.Dashboard
 
             rows.Sort((left, right) =>
             {
-                var byCategory = StringComparer.Ordinal.Compare(left.Category, right.Category);
-                return byCategory != 0 ? byCategory : StringComparer.Ordinal.Compare(left.Name, right.Name);
+                var byCategory = CategoryIndex(left.Category).CompareTo(CategoryIndex(right.Category));
+                if (byCategory != 0)
+                {
+                    return byCategory;
+                }
+
+                var byMoment = string.CompareOrdinal(right.Moment, left.Moment);
+                if (byMoment != 0)
+                {
+                    return byMoment;
+                }
+
+                return StringComparer.Ordinal.Compare(left.Name, right.Name);
             });
             return rows;
         }
@@ -2141,14 +2422,282 @@ namespace Template.Toolkit.Dashboard
             return driverNames;
         }
 
-        /// <summary>读一份设计文档：解析成 JSON 对象成功则取名称/标题、版本、时间/创建时间，失败则产一行不可读。</summary>
+        /// <summary>
+        /// 读下游页：扫 Bridges/ 下每个带 driver.json 的目录（目录名即 driver 名，按序数序）。
+        /// driver.json 读不动或坏时该行仍然产出，只填名称与 LoadFailureReason（决策 43）；
+        /// 密钥（决策 5）只判 Config/创作管线/本机.json 里键在不在，值永不读取、永不输出；
+        /// 能力对账只对本地形态 driver 跑，没跑成时不渲染成「全部满足」（决策 42）。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static IReadOnlyList<PanelBridgeRow> ReadBridges(string repositoryRoot, string poolRoot)
+        {
+            var driverNames = DiscoverDriverNames(repositoryRoot);
+            var rows = new List<PanelBridgeRow>();
+            foreach (var driverName in driverNames)
+            {
+                rows.Add(ReadBridgeRow(repositoryRoot, driverName));
+            }
+
+            return rows;
+        }
+
+        /// <summary>
+        /// 按需算一条资产的离风格：解码预览图、聚类主色、与定稿色板比距离（一律走 StyleDeviationAnalyzer，
+        /// 面板不另写一份距离算法——决策 21）。只报告不行动：本方法不写盘、不移动任何资产文件。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="requirementIdentifier">需求 id，如「REQ-0042」。</param>
+        /// <param name="assetIdentifier">资产 id，如「ASSET-0042-01」。</param>
+        public static PanelDeviationResult ReadDeviation(
+            string repositoryRoot,
+            string poolRoot,
+            string requirementIdentifier,
+            string assetIdentifier)
+        {
+            if (string.IsNullOrWhiteSpace(requirementIdentifier))
+            {
+                return new PanelDeviationResult("", -1, Array.Empty<string>(), false, "缺需求 id");
+            }
+
+            if (string.IsNullOrWhiteSpace(assetIdentifier))
+            {
+                return new PanelDeviationResult("", -1, Array.Empty<string>(), false, "缺资产 id");
+            }
+
+            var request = AssetRequest.Read(AssetPaths.AssetRequestFile(repositoryRoot, requirementIdentifier, assetIdentifier));
+            if (string.IsNullOrEmpty(request.Identifier))
+            {
+                return new PanelDeviationResult(assetIdentifier, -1, Array.Empty<string>(), false, "资产请求读不成或不存在");
+            }
+
+            var previewPath = AssetPaths.PreviewFile(repositoryRoot, requirementIdentifier, assetIdentifier);
+            if (!File.Exists(previewPath))
+            {
+                return new PanelDeviationResult(assetIdentifier, -1, Array.Empty<string>(), false, "还没有预览图，无从比较");
+            }
+
+            if (!request.StyleAnchors.TryGetValue("定稿", out var anchorRaw) || string.IsNullOrWhiteSpace(anchorRaw))
+            {
+                return new PanelDeviationResult(assetIdentifier, -1, Array.Empty<string>(), false, "这条资产没有风格锚点");
+            }
+
+            var anchorFinalName = StripJsonStringQuotes(anchorRaw);
+            if (string.IsNullOrWhiteSpace(anchorFinalName))
+            {
+                return new PanelDeviationResult(assetIdentifier, -1, Array.Empty<string>(), false, "这条资产没有风格锚点");
+            }
+
+            var palette = FinalPalette.Load(poolRoot, anchorFinalName);
+            if (!palette.Loaded)
+            {
+                return new PanelDeviationResult(assetIdentifier, -1, Array.Empty<string>(), false, palette.LoadFailureReason);
+            }
+
+            var result = StyleDeviationAnalyzer.Measure(
+                new[] { previewPath },
+                palette,
+                ColorPalette.DefaultClusterCount,
+                1);
+            if (result.Ranked.Count > 0)
+            {
+                var entry = result.Ranked[0];
+                var swatches = entry.Swatches.Take(5).Select(swatch => swatch.Color.ToHex()).ToList();
+                return new PanelDeviationResult(assetIdentifier, entry.Deviation, swatches, true, "");
+            }
+
+            if (result.Skipped.Count > 0)
+            {
+                return new PanelDeviationResult(assetIdentifier, -1, Array.Empty<string>(), false, result.Skipped[0].SkipReason);
+            }
+
+            return new PanelDeviationResult(assetIdentifier, -1, Array.Empty<string>(), false, "离风格没算成");
+        }
+
+        /// <summary>读下游页里的一行 driver；driver.json 读不动时只填名称与原因，该行照常产出。</summary>
+        private static PanelBridgeRow ReadBridgeRow(string repositoryRoot, string driverName)
+        {
+            BridgeDriverDescriptor descriptor;
+            try
+            {
+                descriptor = BridgeDriverDescriptor.Load(repositoryRoot, driverName);
+            }
+            catch (InvalidOperationException exception)
+            {
+                // 决策 43：烂在库里的必须让人看见——这一行仍然产出，只给名称与原因。
+                return new PanelBridgeRow(
+                    driverName, "", "", "", "", "",
+                    Array.Empty<PanelBridgeFieldRow>(), false, -1, -1, false, Array.Empty<string>(), exception.Message);
+            }
+
+            var (fields, probeCommand) = ReadBridgeFields(repositoryRoot, driverName, descriptor);
+            var isProvisioned = File.Exists(ProvisionPaths.FingerprintFile(repositoryRoot, driverName));
+            if (descriptor.Form != "本地")
+            {
+                var notes = new List<string>();
+                if (string.Equals(descriptor.Form, "线上", StringComparison.Ordinal))
+                {
+                    notes.Add("线上 driver 不做本地能力对账");
+                }
+
+                return new PanelBridgeRow(
+                    driverName, descriptor.Form, descriptor.ContractRange, descriptor.ImplementationName,
+                    descriptor.TrialCommand, probeCommand, fields, isProvisioned, -1, -1, false, notes, "");
+            }
+
+            try
+            {
+                var manifest = DependencyManifest.Load(repositoryRoot, driverName);
+                var probePath = Path.Combine(ProvisionPaths.GeneratedBridgeDirectory(repositoryRoot, driverName), "探测结果.json");
+                var probeResult = CapabilityProbeResult.LoadFromFile(probePath);
+                var report = CapabilityReconciler.Reconcile(driverName, manifest, probeResult);
+                var notes = report.Findings.Select(finding => finding.ToDisplayText()).ToList();
+                return new PanelBridgeRow(
+                    driverName, descriptor.Form, descriptor.ContractRange, descriptor.ImplementationName,
+                    descriptor.TrialCommand, probeCommand, fields, isProvisioned,
+                    report.DependencyCount, report.SatisfiedCount, true, notes, "");
+            }
+            catch (InvalidOperationException exception)
+            {
+                // 决策 42：对账没跑成（依赖清单缺失、探测输出缺失、JSON 坏）一律计数 -1、原因写明，
+                // 绝不渲染成「零个依赖全满足」。
+                return new PanelBridgeRow(
+                    driverName, descriptor.Form, descriptor.ContractRange, descriptor.ImplementationName,
+                    descriptor.TrialCommand, probeCommand, fields, isProvisioned, -1, -1, false,
+                    new List<string> { exception.Message }, "");
+            }
+        }
+
+        /// <summary>
+        /// 读 driver.json 的配置 schema 明细与能力探测命令。密钥字段（配置 schema 里类型是 secret 的、
+        /// 以及 driver.json 的「密钥字段」数组点名的）只判本机配置里键在不在，值一次都不取（决策 5）。
+        /// </summary>
+        private static (IReadOnlyList<PanelBridgeFieldRow> Fields, string ProbeCommand) ReadBridgeFields(
+            string repositoryRoot,
+            string driverName,
+            BridgeDriverDescriptor descriptor)
+        {
+            var filePath = BridgeDriverDescriptor.DriverFile(repositoryRoot, driverName);
+            var fields = new List<PanelBridgeFieldRow>();
+            var probeCommand = "";
+            try
+            {
+                using (var document = JsonDocument.Parse(File.ReadAllText(filePath)))
+                {
+                    var root = document.RootElement;
+                    probeCommand = ReadStringOrEmpty(root, "能力探测");
+
+                    var schemaFields = new List<(string Name, JsonElement Element)>();
+                    if (root.TryGetProperty("配置schema", out var schema) && schema.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var property in schema.EnumerateObject())
+                        {
+                            schemaFields.Add((property.Name, property.Value));
+                        }
+                    }
+
+                    schemaFields.Sort((left, right) => StringComparer.Ordinal.Compare(left.Name, right.Name));
+
+                    // 密钥字段数组里不在配置 schema 的字段名也补进表单（决策 5：密钥配没配必须可见），
+                    // 排在 schema 字段之后，类型就是 secret——它没有其它控件信息。
+                    foreach (var secretName in descriptor.SecretFieldNames)
+                    {
+                        if (!schemaFields.Any(candidate => string.Equals(candidate.Name, secretName, StringComparison.Ordinal)))
+                        {
+                            schemaFields.Add((secretName, default(JsonElement)));
+                        }
+                    }
+
+                    var secretNames = new HashSet<string>(descriptor.SecretFieldNames, StringComparer.Ordinal);
+                    foreach (var (name, element) in schemaFields)
+                    {
+                        var fieldType = "";
+                        var isRequired = false;
+                        var options = new List<string>();
+                        var isSecretFieldType = false;
+                        if (element.ValueKind == JsonValueKind.Object)
+                        {
+                            fieldType = ReadStringOrEmpty(element, "类型");
+                            isRequired = element.TryGetProperty("必填", out var requiredElement) && requiredElement.ValueKind == JsonValueKind.True;
+                            options = ReadStringList(element, "选项");
+                            isSecretFieldType = string.Equals(fieldType, "secret", StringComparison.Ordinal);
+                        }
+
+                        var isSecret = isSecretFieldType || secretNames.Contains(name);
+                        if (element.ValueKind != JsonValueKind.Object && isSecret)
+                        {
+                            fieldType = "secret";
+                        }
+
+                        fields.Add(new PanelBridgeFieldRow(
+                            name,
+                            fieldType,
+                            isRequired,
+                            options,
+                            isSecret,
+                            isSecret ? SecretStateOf(repositoryRoot, name) : ""));
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                // descriptor.Load 已经过了，这里再失败几乎不可能；字段与探测命令给默认值，不抛。
+            }
+
+            return (fields, probeCommand);
+        }
+
+        /// <summary>判一个密钥字段在 Config/创作管线/本机.json 里配没配。只判键在不在，一次都不取它的值（决策 5）。</summary>
+        private static string SecretStateOf(string repositoryRoot, string secretFieldName)
+        {
+            var localFilePath = Path.Combine(repositoryRoot, "Config", "创作管线", "本机.json");
+            if (!File.Exists(localFilePath))
+            {
+                return "未配";
+            }
+
+            try
+            {
+                using (var document = JsonDocument.Parse(File.ReadAllText(localFilePath)))
+                {
+                    var root = document.RootElement;
+                    if (root.ValueKind != JsonValueKind.Object)
+                    {
+                        return "未配";
+                    }
+
+                    // out _ 就是只判存在：密钥的值永远不落进任何返回、日志或文案。
+                    return root.TryGetProperty(secretFieldName, out _) ? "已配" : "未配";
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return "未配";
+            }
+        }
+
+        /// <summary>读一份设计文档：解析成 JSON 对象成功则取名称/标题、版本与时间；定稿行额外取色板、数字版本与参考图。时间取不到「时间」字段时退化成文件最后写入时间（ISO 8601，UTC），并置 MomentFromFileTime。失败照样产一行不可读（决策 43）。</summary>
         private static PanelDesignRow ReadDesignRow(string category, string filePath)
         {
             var name = Path.GetFileNameWithoutExtension(filePath);
+            if (string.Equals(name, "定稿", StringComparison.Ordinal))
+            {
+                // 一稿一目录时文件名恒是「定稿」，那个名字对人没有意义；目录名才是这份定稿的名字。
+                var parentName = Path.GetFileName(Path.GetDirectoryName(filePath));
+                if (!string.IsNullOrEmpty(parentName))
+                {
+                    name = parentName;
+                }
+            }
+
             var title = "";
             var version = "";
             var moment = "";
             var isReadable = false;
+            var paletteColors = new List<string>();
+            var finalVersion = 0;
+            var referenceImages = new List<string>();
             try
             {
                 using (var document = JsonDocument.Parse(File.ReadAllText(filePath)))
@@ -2167,7 +2716,15 @@ namespace Template.Toolkit.Dashboard
                         moment = ReadStringOrEmpty(root, "时间");
                         if (string.IsNullOrEmpty(moment))
                         {
+                            // 「创建时间」是本页原本就认的第二来源，别在加文件时间兜底时把它挤掉：
+                            // 作者写下的创建时间比「这个文件上次被谁碰过」准得多。
                             moment = ReadStringOrEmpty(root, "创建时间");
+                        }
+                        if (string.Equals(category, "定稿", StringComparison.Ordinal))
+                        {
+                            paletteColors = ReadHexColorList(root, "色板");
+                            finalVersion = ReadInt(root, "版本", 0);
+                            referenceImages = ReadStringList(root, "参考图");
                         }
                     }
                 }
@@ -2177,7 +2734,23 @@ namespace Template.Toolkit.Dashboard
                 // 解析不了照样产一行：IsReadable 为 false、其余字段空串，让页面看见这个坏文件。
             }
 
-            return new PanelDesignRow(category, name, title, version, moment, isReadable);
+            var momentFromFileTime = false;
+            if (string.IsNullOrEmpty(moment))
+            {
+                try
+                {
+                    // 「时间」字段取不到时退化成文件最后写入时间：JSON 里的时间是文档作者写的，
+                    // 文件时间是这行数据在盘上的事实，两个来源语义不同，必须用标志位标出来。
+                    moment = File.GetLastWriteTimeUtc(filePath).ToString("o", CultureInfo.InvariantCulture);
+                    momentFromFileTime = true;
+                }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+                {
+                    // 文件时间也读不到时保持空串，不抛。
+                }
+            }
+
+            return new PanelDesignRow(category, name, title, version, moment, isReadable, momentFromFileTime, paletteColors, finalVersion, referenceImages);
         }
 
         /// <summary>数某资产的合格变体：顶层图片文件且同名边车存在，判定口径与选片一致。</summary>
@@ -2335,6 +2908,81 @@ namespace Template.Toolkit.Dashboard
             }
 
             return fallback;
+        }
+
+        /// <summary>读字符串数组；缺失、类型不对或元素不是字符串时跳过该元素。</summary>
+        private static List<string> ReadStringList(JsonElement element, string propertyName)
+        {
+            var values = new List<string>();
+            if (!element.TryGetProperty(propertyName, out var listElement) || listElement.ValueKind != JsonValueKind.Array)
+            {
+                return values;
+            }
+
+            foreach (var item in listElement.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    values.Add(item.GetString() ?? "");
+                }
+            }
+
+            return values;
+        }
+
+        /// <summary>读色板数组：只收合法的十六进制串（#RRGGBB 或 RRGGBB），非法的跳过。</summary>
+        private static List<string> ReadHexColorList(JsonElement element, string propertyName)
+        {
+            var colors = new List<string>();
+            if (!element.TryGetProperty(propertyName, out var listElement) || listElement.ValueKind != JsonValueKind.Array)
+            {
+                return colors;
+            }
+
+            foreach (var item in listElement.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    var hex = item.GetString() ?? "";
+                    if (SrgbColor.TryParseHex(hex, out _))
+                    {
+                        colors.Add(hex);
+                    }
+                }
+            }
+
+            return colors;
+        }
+
+        /// <summary>分类的固定排序下标：定稿 0、汇总 1、记录 2，其余排最后。</summary>
+        private static int CategoryIndex(string category)
+        {
+            for (var i = 0; i < DesignCategories.Length; i++)
+            {
+                if (string.Equals(DesignCategories[i], category, StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+
+            return DesignCategories.Length;
+        }
+
+        /// <summary>把绝对路径转成仓库相对路径，分隔符统一成正斜杠。</summary>
+        private static string RepositoryRelative(string repositoryRoot, string fullPath)
+        {
+            return Path.GetRelativePath(Path.GetFullPath(repositoryRoot), Path.GetFullPath(fullPath)).Replace('\\', '/');
+        }
+
+        /// <summary>读资产请求「风格锚点.定稿」的值并剥掉 JSON 引号；没有给空串。</summary>
+        private static string ReadStyleAnchorFinalName(AssetRequest request)
+        {
+            if (request.StyleAnchors.TryGetValue("定稿", out var raw) && !string.IsNullOrWhiteSpace(raw))
+            {
+                return StripJsonStringQuotes(raw);
+            }
+
+            return "";
         }
     }
 }
