@@ -150,4 +150,57 @@ namespace Template.Toolkit.CommandHost.Commands
             return GateCommandSupport.ToResult("层边界门禁", findings);
         }
     }
+
+    /// <summary>资产规格门禁命令的参数。</summary>
+    public sealed class GateAssetSpecArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>需求 id；空表示全扫。</summary>
+        [Summary("需求 id；空表示全扫")]
+        [DefaultValue("")]
+        public string Requirement { get; set; }
+
+        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        [DefaultValue("")]
+        public string Module { get; set; }
+    }
+
+    /// <summary>资产规格门禁命令：资产请求的规格与落点必须符合资产规格数据。</summary>
+    public static class GateAssetSpecCommand
+    {
+        /// <summary>
+        /// 跑资产规格门禁：逐份资产请求核对资产类型、落点、命名与规格；不传 Requirement 时全扫。
+        /// </summary>
+        /// <param name="arguments">资产规格门禁参数。</param>
+        [EditorCommand("gate.assetspec")]
+        [Summary("资产规格门禁：资产请求的规格与落点必须符合资产规格数据")]
+        public static CommandResult Execute(GateAssetSpecArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            var catalog = AssetSpecCatalog.Load(repositoryRoot, arguments.Module);
+            var findings = string.IsNullOrWhiteSpace(arguments.Requirement)
+                ? AssetSpecInspector.InspectAll(repositoryRoot, arguments.Module)
+                : AssetSpecInspector.Inspect(repositoryRoot, arguments.Requirement, arguments.Module);
+
+            var gateFindings = findings
+                .Select(finding => new GateFinding(finding.Location, finding.Reason, finding.FixAction, finding.ReferenceExamplePath))
+                .ToList();
+            return GateCommandSupport.ToResult($"资产规格门禁（资产类型 {catalog.Types.Count} 个）", gateFindings);
+        }
+    }
 }

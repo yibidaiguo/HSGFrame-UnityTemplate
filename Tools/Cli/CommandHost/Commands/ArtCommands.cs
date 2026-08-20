@@ -29,18 +29,24 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("工作项 id，如「WI-0042-03」")]
         public string WorkItem { get; set; }
 
-        /// <summary>域，默认「资产.生图」。</summary>
-        [Summary("域，默认「资产.生图」")]
-        [DefaultValue("资产.生图")]
+        /// <summary>域，默认取资产规格数据的域。</summary>
+        [Summary("域，默认取资产规格数据的域")]
+        [DefaultValue("")]
         public string Domain { get; set; }
 
         /// <summary>资产类型，如「图标」。</summary>
         [Summary("资产类型，如「图标」")]
         public string AssetType { get; set; }
 
-        /// <summary>落点目录。</summary>
-        [Summary("落点目录")]
+        /// <summary>落点目录，默认取资产规格数据的落点。</summary>
+        [Summary("落点目录，默认取资产规格数据的落点")]
+        [DefaultValue("")]
         public string Destination { get; set; }
+
+        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        [DefaultValue("")]
+        public string Module { get; set; }
 
         /// <summary>命名文本。</summary>
         [Summary("命名文本")]
@@ -100,11 +106,6 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure("参数 AssetType 为必填项");
             }
 
-            if (string.IsNullOrWhiteSpace(arguments.Destination))
-            {
-                return CommandResult.Failure("参数 Destination 为必填项");
-            }
-
             if (string.IsNullOrWhiteSpace(arguments.NamingText))
             {
                 return CommandResult.Failure("参数 NamingText 为必填项");
@@ -145,15 +146,37 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure(exception.Message);
             }
 
+            var catalog = AssetSpecCatalog.Load(repositoryRoot, arguments.Module);
+            var assetSpec = catalog.Find(arguments.AssetType);
+            if (assetSpec == null)
+            {
+                var availableTypes = catalog.Types.Count == 0
+                    ? "（无）"
+                    : string.Join("、", catalog.Types.Keys);
+                return CommandResult.Failure($"资产类型「{arguments.AssetType}」不在资产规格数据里；可用类型：{availableTypes}");
+            }
+
+            var specification = new Dictionary<string, string>();
+            foreach (var pair in assetSpec.Values)
+            {
+                if (pair.Key.StartsWith("规格.", StringComparison.Ordinal))
+                {
+                    specification[pair.Key.Substring("规格.".Length)] = pair.Value;
+                }
+            }
+
+            var destination = string.IsNullOrWhiteSpace(arguments.Destination) ? assetSpec.Destination : arguments.Destination;
+            var domain = string.IsNullOrWhiteSpace(arguments.Domain) ? assetSpec.Domain : arguments.Domain;
+
             var identifier = AssetRequest.AllocateIdentifier(repositoryRoot, arguments.Requirement);
             var request = new AssetRequest(
                 identifier,
                 arguments.Requirement,
                 arguments.WorkItem,
-                string.IsNullOrWhiteSpace(arguments.Domain) ? "资产.生图" : arguments.Domain,
+                domain,
                 arguments.AssetType,
-                new Dictionary<string, string>(),
-                arguments.Destination,
+                specification,
+                destination,
                 arguments.NamingText,
                 arguments.Description,
                 new Dictionary<string, string>(),
@@ -175,14 +198,24 @@ namespace Template.Toolkit.CommandHost.Commands
                     findings.Select(finding => finding.ToDisplayText()).ToList());
             }
 
+            var specFindings = AssetSpecInspector.Inspect(repositoryRoot, arguments.Requirement, arguments.Module);
+            if (specFindings.Count > 0)
+            {
+                File.Delete(filePath);
+                return CommandResult.Failure(
+                    $"资产规格门禁未通过，已删除文件：{identifier}",
+                    specFindings.Select(finding => finding.ToDisplayText()).ToList());
+            }
+
             var lines = new List<string>
             {
                 $"已建资产请求：{identifier}",
                 $"落盘：{RelativeTo(repositoryRoot, filePath)}",
+                $"规格来自：{assetSpec.SourceLayer} 层",
                 "校验：通过"
             };
 
-            return CommandResult.Success($"变体数 {arguments.VariantCount}，域 {arguments.Domain}", lines);
+            return CommandResult.Success($"变体数 {arguments.VariantCount}，域 {domain}", lines);
         }
 
         /// <summary>
