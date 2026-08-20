@@ -9,7 +9,7 @@
   },
   "密钥字段": [],
   "试跑": "art.caps --driver blender",
-  "能力探测": "blender-caps",
+  "能力探测": "bridge.probe --Driver blender",
   "实现": "bridge-blender",
   "字段类型映射": {},
   "表单分组字段": ""

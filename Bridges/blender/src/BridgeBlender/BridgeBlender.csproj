@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>BridgeBlender</AssemblyName>
+    <RootNamespace>Template.Bridges.Blender</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../../Tools/CreationPipeline/CreationPipeline.csproj" />
+  </ItemGroup>
+
+  <!-- 加工站脚本跟 BridgeBlender 一起发布：运行时从 AppContext.BaseDirectory 找，
+       不依赖当前工作目录（CWD 由调用方控制，不该是脚本定位的依据）。 -->
+  <ItemGroup>
+    <None Include="../../scripts/probe.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../scripts/process.py" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

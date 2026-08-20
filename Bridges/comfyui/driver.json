@@ -9,7 +9,7 @@
   },
   "密钥字段": [],
   "试跑": "art.caps --driver comfyui",
-  "能力探测": "comfyui-caps",
+  "能力探测": "bridge.probe --Driver comfyui",
   "实现": "bridge-comfyui",
   "字段类型映射": {},
   "表单分组字段": ""
