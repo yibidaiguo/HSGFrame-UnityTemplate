@@ -61,6 +61,7 @@ _Tasks/*/30-产物/*/变体/**
 # 轮次账本是这台机器跑了什么的流水，锁文件带的是本机进程号，
 # 唤醒信号与它的归档是这台机器收到过什么。进 git 只会让两台机器互相打架。
 _Tasks/引擎轮次.jsonl
+_Tasks/.prereview-cache/
 _Tasks/.engine.lock
 _Tasks/唤醒/
 

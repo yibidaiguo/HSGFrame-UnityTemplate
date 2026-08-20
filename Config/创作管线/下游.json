@@ -2,12 +2,17 @@
   "_说明": "下游域路由表与实现表（决策 85）。域路由把 port 名指到 driver 名，实现表把实现名解析成可执行 + 参数。进 git；密钥一个都不许有，密钥值全在 本机.json（决策 5）。参数里的路径是仓库相对，按仓库根展开。",
   "契约版本": "1.0.0",
   "域路由": {
-    "模型加工": "blender"
+    "模型加工": "blender",
+    "执行后端": "oaicompat"
   },
   "实现": {
     "bridge-blender": {
       "可执行": "dotnet",
       "参数": ["run", "--project", "Bridges/blender/src/BridgeBlender", "--"]
+    },
+    "bridge-oaicompat": {
+      "可执行": "dotnet",
+      "参数": ["run", "--project", "Bridges/oaicompat/src/BridgeOaicompat", "--"]
     }
   }
 }

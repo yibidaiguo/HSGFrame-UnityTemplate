@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using Template.Toolkit.CommandFramework;
 using Template.Toolkit.CreationPipeline;
@@ -64,6 +65,33 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("池子根目录，相对当前工作目录")]
         [DefaultValue("Pools")]
         public string PoolRoot { get; set; }
+    }
+
+    /// <summary>AI 对抗预审命令 task.prereview 的参数。</summary>
+    public sealed class TaskPreReviewArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>需求 id，形如 REQ-0042；预审报告落 _Tasks/&lt;id&gt;/预审报告.json。</summary>
+        [Summary("需求 id，形如 REQ-0042；预审报告落 _Tasks/<id>/预审报告.json")]
+        public string RequirementIdentifier { get; set; }
+
+        /// <summary>变更 diff 的文件路径，内容作为预审输入。</summary>
+        [Summary("变更 diff 的文件路径，内容作为预审输入")]
+        public string DiffPath { get; set; }
+
+        /// <summary>执行后端调用超时秒数，缺省 120。</summary>
+        [Summary("执行后端调用超时秒数，缺省 120")]
+        [DefaultValue(120)]
+        public int TimeoutSeconds { get; set; }
+
+        /// <summary>试跑：只组装提示词、不发请求，打印提示词统计。</summary>
+        [Summary("试跑：只组装提示词、不发请求，打印提示词统计")]
+        [DefaultValue(false)]
+        public bool DryRun { get; set; }
     }
 
     /// <summary>引擎模式命令 engine.mode 的参数。</summary>
@@ -650,6 +678,180 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var lines = text.Split(new[] { Environment.NewLine }, StringSplitOptions.None).ToList();
             return CommandResult.Success("任务状态", lines);
+        }
+
+        /// <summary>
+        /// AI 对抗预审：执行后端按生效规范 + 历史打回意见库审查变更 diff，产物是预审报告。
+        /// 报告是产物不是判定（决策 89）：命令返回值永远是 Success，哪怕有阻断级发现。
+        /// 按判定键缓存（决策 90）：同输入同模型同提示词版本不重判，命中标「来自缓存」。
+        /// driver 名只走运行时数据（路由表解析），本文件不出现任何 driver 名字面量。
+        /// </summary>
+        /// <param name="arguments">预审命令参数。</param>
+        [EditorCommand("task.prereview")]
+        [Summary("AI 对抗预审：执行后端审查变更 diff，产物是预审报告")]
+        public static CommandResult PreReview(TaskPreReviewArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RequirementIdentifier))
+            {
+                return CommandResult.Failure("参数 RequirementIdentifier 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.DiffPath))
+            {
+                return CommandResult.Failure("参数 DiffPath 为必填项");
+            }
+
+            var repositoryRoot = ResolveRoot(arguments.RepositoryRoot, ".", "RepositoryRoot", "仓库根", out var repositoryFailure);
+            if (repositoryFailure.Length > 0)
+            {
+                return CommandResult.Failure(repositoryFailure);
+            }
+
+            string diffText;
+            try
+            {
+                diffText = File.ReadAllText(Path.GetFullPath(arguments.DiffPath));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is ArgumentException || exception is NotSupportedException)
+            {
+                return CommandResult.Failure($"读 diff 文件失败：{exception.Message}");
+            }
+
+            try
+            {
+                var opinions = ReviewOpinionBook.Load(Path.Combine(repositoryRoot, "Pools"));
+                var prompt = PreReviewPrompt.Build(repositoryRoot, diffText, null, opinions, PreReviewPrompt.DefaultFewShotLimit);
+
+                if (arguments.DryRun)
+                {
+                    return CommandResult.Success("预审试跑完成：只组装了提示词，未发任何请求", new[]
+                    {
+                        $"提示词字符数：{prompt.PromptText.Length}",
+                        $"提示词版本：{prompt.PromptVersion}"
+                    });
+                }
+
+                var routeTable = BridgeRouteTable.Load(repositoryRoot);
+                if (!routeTable.Loaded)
+                {
+                    return CommandResult.Failure($"路由表错误：{routeTable.LoadFailureReason}");
+                }
+
+                if (!routeTable.TryResolvePort("执行后端", out var driverName, out var routeReason))
+                {
+                    return CommandResult.Failure($"执行后端没有可用的 driver：{routeReason}");
+                }
+
+                var localSettings = LocalBridgeSettings.Load(repositoryRoot);
+                if (!localSettings.Loaded)
+                {
+                    return CommandResult.Failure($"本机配置错误：{localSettings.LoadFailureReason}");
+                }
+
+                var modelName = ReadConfiguredModelName(localSettings, driverName);
+                if (modelName.Length == 0)
+                {
+                    return CommandResult.Failure($"driver「{driverName}」的本机配置里没有「模型」键");
+                }
+
+                // 缓存键必须含模型名与提示词版本（决策 90）：换了模型还命中旧缓存，报告就在说谎。
+                var cacheKey = PreReviewCache.ComputeKey(prompt.PromptText, modelName, prompt.PromptVersion);
+
+                PreReviewReport report;
+                bool fromCache = false;
+                if (PreReviewCache.TryLoad(repositoryRoot, cacheKey, out var cached))
+                {
+                    report = cached.AsStamped(DateTimeOffset.Now.ToString("o"), fromCache: true);
+                    fromCache = true;
+                }
+                else
+                {
+                    var payload = JsonSerializer.SerializeToElement(new JsonObject
+                    {
+                        ["提示"] = prompt.PromptText,
+                        ["上下文"] = PreReviewSystemContext
+                    });
+
+                    var result = BridgeInvoker.Invoke(repositoryRoot, driverName, "complete", payload, arguments.TimeoutSeconds);
+                    if (!result.Succeeded)
+                    {
+                        return CommandResult.Failure($"执行后端调用失败（{result.ErrorCode}）：{result.HumanText}");
+                    }
+
+                    var modelText = ReadPayloadString(result.Payload, "文本");
+                    var returnedModel = ReadPayloadString(result.Payload, "模型");
+                    if (!PreReviewReport.TryParse(modelText, out report, out var parseReason))
+                    {
+                        // 解析失败绝不许当成零发现（决策 42）：判成了=false、零发现、原因写清。
+                        report = PreReviewReport.NotParsed(returnedModel, prompt.PromptVersion, cacheKey, parseReason);
+                    }
+                    else
+                    {
+                        report = new PreReviewReport(
+                            parsed: report.Parsed,
+                            model: returnedModel,
+                            promptVersion: prompt.PromptVersion,
+                            decisionKey: cacheKey,
+                            findings: report.Findings,
+                            blockingCount: report.BlockingCount,
+                            suggestionCount: report.SuggestionCount,
+                            fromCache: false,
+                            parseReason: "",
+                            timestamp: DateTimeOffset.Now.ToString("o"));
+                    }
+
+                    // 判没判成都缓存：同输入同模型同版本不再重判。
+                    PreReviewCache.Save(repositoryRoot, cacheKey, report);
+                }
+
+                var reportPath = report.WriteReport(repositoryRoot, arguments.RequirementIdentifier);
+                var outputLines = new List<string>
+                {
+                    $"判成了：{report.Parsed}",
+                    $"阻断级：{report.BlockingCount} 条",
+                    $"建议级：{report.SuggestionCount} 条",
+                    $"模型：{report.Model}",
+                    $"提示词版本：{report.PromptVersion}",
+                    $"判定键：{report.DecisionKey}",
+                    $"来自缓存：{fromCache}",
+                    $"报告：{reportPath}"
+                };
+                return CommandResult.Success("预审完成，报告已落盘", outputLines);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"预审失败：{exception.Message}");
+            }
+        }
+
+        /// <summary>执行后端调用的系统上下文：只定位角色，具体的审查要求全在提示词里。</summary>
+        private const string PreReviewSystemContext = "你是创作管线的 AI 对抗预审员。你只对给定的变更 diff 输出审查发现，输出必须是严格的 JSON，不要输出任何其他内容。";
+
+        /// <summary>从本机配置里读某 driver 的模型名（只读「模型」键，密钥不经这里）。</summary>
+        private static string ReadConfiguredModelName(LocalBridgeSettings localSettings, string driverName)
+        {
+            if (localSettings.TryGetDriverConfiguration(driverName, out var configuration)
+                && configuration.ValueKind == JsonValueKind.Object
+                && configuration.TryGetProperty("模型", out var modelElement)
+                && modelElement.ValueKind == JsonValueKind.String)
+            {
+                return modelElement.GetString() ?? "";
+            }
+
+            return "";
+        }
+
+        /// <summary>从桥返回载荷里读字符串键；缺失给空串。</summary>
+        private static string ReadPayloadString(JsonElement payload, string key)
+        {
+            if (payload.ValueKind == JsonValueKind.Object
+                && payload.TryGetProperty(key, out var element)
+                && element.ValueKind == JsonValueKind.String)
+            {
+                return element.GetString() ?? "";
+            }
+
+            return "";
         }
 
         /// <summary>
