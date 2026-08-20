@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -184,6 +185,45 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
         [DefaultValue("")]
         public string ModuleName { get; set; }
+    }
+
+    /// <summary>主色板命令 art.palette 的参数。</summary>
+    public sealed class ArtPaletteArguments
+    {
+        /// <summary>PNG 图片路径，必填。</summary>
+        [Summary("PNG 图片路径，必填")]
+        public string ImagePath { get; set; }
+
+        /// <summary>聚类色数，默认 8。</summary>
+        [Summary("聚类色数，默认 8")]
+        [DefaultValue(8)]
+        public int ClusterCount { get; set; }
+    }
+
+    /// <summary>离风格报告命令 art.deviation 的参数。</summary>
+    public sealed class ArtDeviationArguments
+    {
+        /// <summary>池子根目录，必填。</summary>
+        [Summary("池子根目录，必填")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>定稿名，必填，对应 Pools/Designs/定稿/&lt;名&gt;/定稿.json。</summary>
+        [Summary("定稿名，必填，对应 Pools/Designs/定稿/<名>/定稿.json")]
+        public string FinalName { get; set; }
+
+        /// <summary>图片根目录，必填，递归扫 *.png。</summary>
+        [Summary("图片根目录，必填，递归扫 *.png")]
+        public string ImageRoot { get; set; }
+
+        /// <summary>列出条数上限，默认 20；0 或负数表示全列。</summary>
+        [Summary("列出条数上限，默认 20；0 或负数表示全列")]
+        [DefaultValue(20)]
+        public int TopCount { get; set; }
+
+        /// <summary>聚类色数，默认 8。</summary>
+        [Summary("聚类色数，默认 8")]
+        [DefaultValue(8)]
+        public int ClusterCount { get; set; }
     }
 
     /// <summary>美术资产命令：art.request 建资产请求、art.validate 校验资产请求与溯源边车。</summary>
@@ -827,6 +867,178 @@ namespace Template.Toolkit.CommandHost.Commands
             return CommandResult.Failure(
                 $"模型机检未通过，问题 {findings.Count} 条",
                 findings.Select(finding => finding.ToDisplayText()).ToList());
+        }
+
+        /// <summary>
+        /// 主色板：对一张 PNG 做确定性 k-means 聚类，输出主色、权重与样本数。
+        /// 解码失败判失败；聚类没跑成（全透明等）算成功但结论行明说没算成，绝不输出空色板了事（决策 42）。
+        /// </summary>
+        /// <param name="arguments">主色板命令参数。</param>
+        [EditorCommand("art.palette")]
+        [Summary("对一张 PNG 出主色板：确定性 k-means 聚类")]
+        public static CommandResult Palette(ArtPaletteArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.ImagePath))
+            {
+                return CommandResult.Failure("参数 ImagePath 为必填项");
+            }
+
+            string imagePath;
+            try
+            {
+                imagePath = Path.GetFullPath(arguments.ImagePath);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 ImagePath 无法解析为绝对路径：{exception.Message}");
+            }
+
+            var decode = PngDecoder.DecodeFile(imagePath);
+            if (!decode.Succeeded)
+            {
+                return CommandResult.Failure($"图片解码失败：{decode.FailureReason}");
+            }
+
+            var clusterCount = arguments.ClusterCount > 0 ? arguments.ClusterCount : ColorPalette.DefaultClusterCount;
+            var result = ColorPalette.Cluster(decode.Image, clusterCount);
+            if (!result.Clustered)
+            {
+                return CommandResult.Success($"主色板没算成：{result.FailureReason}");
+            }
+
+            var lines = new List<string>();
+            foreach (var swatch in result.Swatches)
+            {
+                lines.Add($"{swatch.Color.ToHex()}  权重 {FormatFixedFour(swatch.Weight)}  样本 {swatch.SampleCount}");
+            }
+
+            return CommandResult.Success(
+                $"主色板（采样 {result.SampledPixelCount} 像素，跳过透明 {result.SkippedTransparentCount} 像素，共 {result.Swatches.Count} 色）",
+                lines);
+        }
+
+        /// <summary>
+        /// 离风格报告：扫图片根目录下全部 PNG，对每张算「主色聚类 vs 定稿色板最小距离和」，
+        /// 按距离降序列出 top-N。只报告不自动行动——这条命令一个字都不写盘。
+        /// 定稿色板没读成时明确说「报告没出」并列出全部跳过项，绝不说成「全部资产都符合风格」（决策 42）；
+        /// 被 TopCount 截断时加一行说明（决策 46 要求跳过项也必须逐条贴出来）。
+        /// </summary>
+        /// <param name="arguments">离风格报告命令参数。</param>
+        [EditorCommand("art.deviation")]
+        [Summary("离风格报告：资产主色 vs 定稿色板距离和排序，只报告不行动")]
+        public static CommandResult Deviation(ArtDeviationArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.FinalName))
+            {
+                return CommandResult.Failure("参数 FinalName 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.ImageRoot))
+            {
+                return CommandResult.Failure("参数 ImageRoot 为必填项");
+            }
+
+            string poolRoot;
+            try
+            {
+                poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 PoolRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            string imageRoot;
+            try
+            {
+                imageRoot = Path.GetFullPath(arguments.ImageRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 ImageRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            if (!Directory.Exists(imageRoot))
+            {
+                return CommandResult.Failure($"图片根目录不存在：{imageRoot}");
+            }
+
+            // 递归取全部 .png（大小写不敏感），按路径序数序排（确定性）。
+            var imagePaths = new List<string>();
+            foreach (var file in Directory.EnumerateFiles(imageRoot, "*.png", SearchOption.AllDirectories))
+            {
+                imagePaths.Add(file);
+            }
+
+            imagePaths.Sort(StringComparer.Ordinal);
+
+            var palette = FinalPalette.Load(poolRoot, arguments.FinalName);
+            var clusterCount = arguments.ClusterCount > 0 ? arguments.ClusterCount : ColorPalette.DefaultClusterCount;
+            var result = StyleDeviationAnalyzer.Measure(imagePaths, palette, clusterCount, arguments.TopCount);
+
+            if (!result.PaletteLoaded)
+            {
+                var lines = new List<string>();
+                if (result.Skipped.Count == 0)
+                {
+                    lines.Add("跳过：无");
+                }
+                else
+                {
+                    foreach (var entry in result.Skipped)
+                    {
+                        lines.Add($"跳过  {RelativeTo(imageRoot, entry.AssetPath)}  {entry.SkipReason}");
+                    }
+                }
+
+                return CommandResult.Failure($"离风格报告没出：{result.PaletteFailureReason}", lines);
+            }
+
+            var scannedCount = imagePaths.Count;
+            var skippedCount = result.Skipped.Count;
+            var measuredCount = scannedCount - skippedCount;
+            var listedCount = result.Ranked.Count;
+
+            var outputLines = new List<string>();
+            foreach (var entry in result.Ranked)
+            {
+                var relativePath = RelativeTo(imageRoot, entry.AssetPath);
+                var topColors = entry.Swatches.Take(3).Select(swatch => swatch.Color.ToHex()).ToList();
+                var colorsText = topColors.Count == 0 ? "无" : string.Join(",", topColors);
+                outputLines.Add($"距离 {FormatFixedFour(entry.Deviation)}  {relativePath}  主色 {colorsText}");
+            }
+
+            if (listedCount < measuredCount)
+            {
+                outputLines.Add($"（共 {measuredCount} 张算成，按 TopCount 只列了前 {listedCount} 张）");
+            }
+
+            if (skippedCount == 0)
+            {
+                outputLines.Add("跳过：无");
+            }
+            else
+            {
+                foreach (var entry in result.Skipped)
+                {
+                    outputLines.Add($"跳过  {RelativeTo(imageRoot, entry.AssetPath)}  {entry.SkipReason}");
+                }
+            }
+
+            return CommandResult.Success(
+                $"离风格报告（定稿 {palette.Name}@v{palette.Version}，扫描 {scannedCount} 张，算成 {measuredCount} 张，跳过 {skippedCount} 张，列出前 {listedCount} 张）",
+                outputLines);
+        }
+
+        /// <summary>把 double 渲染成固定四位小数。</summary>
+        private static string FormatFixedFour(double value)
+        {
+            return value.ToString("0.0000", CultureInfo.InvariantCulture);
         }
 
         /// <summary>加工计划落盘路径：给了 OutputPath 用它，否则落 _Tasks/&lt;需求id&gt;/30-产物/&lt;资产id&gt;/加工计划.json。</summary>
