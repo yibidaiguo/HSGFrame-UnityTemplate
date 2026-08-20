@@ -308,4 +308,79 @@ namespace Template.Toolkit.CommandHost.Commands
             return GateCommandSupport.ToResult($"配方门禁（driver {driverNames.Count} 个，配方 {recipeCount} 个）", gateFindings);
         }
     }
+
+    /// <summary>模型门禁命令的参数。</summary>
+    public sealed class GateModelArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        [DefaultValue("")]
+        public string ModuleName { get; set; }
+    }
+
+    /// <summary>
+    /// 模型门禁命令：每个模型资产请求都要能算出一份完整的加工计划，也就是规格数据够不够用。
+    /// 不查真模型文件——仓库里现在一个模型都没有。
+    /// </summary>
+    public static class GateModelCommand
+    {
+        /// <summary>
+        /// 跑模型门禁：扫 _Tasks/ 下全部资产请求，只挑域是资产.模型的逐个构建加工计划，
+        /// 把构建发现汇总。_Tasks 不存在或零个模型资产时通过，问题 0 条。
+        /// </summary>
+        /// <param name="arguments">模型门禁命令参数。</param>
+        [EditorCommand("gate.model")]
+        [Summary("模型门禁：加工计划的可产出性")]
+        public static CommandResult Execute(GateModelArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            var findings = new List<PoolFinding>();
+            var modelAssetCount = 0;
+
+            var tasksDirectory = Path.Combine(repositoryRoot, "_Tasks");
+            if (Directory.Exists(tasksDirectory))
+            {
+                foreach (var requirementDirectory in Directory.EnumerateDirectories(tasksDirectory))
+                {
+                    var requestDirectory = Path.Combine(requirementDirectory, "资产请求");
+                    if (!Directory.Exists(requestDirectory))
+                    {
+                        continue;
+                    }
+
+                    foreach (var requestFile in Directory.EnumerateFiles(requestDirectory, "*.json", SearchOption.TopDirectoryOnly))
+                    {
+                        var request = AssetRequest.Read(requestFile);
+                        if (!string.Equals(request.Domain, "资产.模型", StringComparison.Ordinal))
+                        {
+                            continue;
+                        }
+
+                        modelAssetCount++;
+                        findings.AddRange(ProcessingPlanBuilder.Build(repositoryRoot, request, arguments.ModuleName ?? "").Findings);
+                    }
+                }
+            }
+
+            var gateFindings = findings
+                .Select(finding => new GateFinding(finding.Location, finding.Reason, finding.FixAction, finding.ReferenceExamplePath))
+                .ToList();
+            return GateCommandSupport.ToResult($"模型门禁（模型资产 {modelAssetCount} 个）", gateFindings);
+        }
+    }
 }

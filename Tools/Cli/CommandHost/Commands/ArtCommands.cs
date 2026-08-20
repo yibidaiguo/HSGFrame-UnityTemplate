@@ -135,6 +135,57 @@ namespace Template.Toolkit.CommandHost.Commands
         public string OutputPath { get; set; }
     }
 
+    /// <summary>加工计划命令 art.plan 的参数。</summary>
+    public sealed class ArtPlanArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>需求 id，如「REQ-0042」。</summary>
+        [Summary("需求 id，如「REQ-0042」")]
+        public string RequirementIdentifier { get; set; }
+
+        /// <summary>资产 id，如「ASSET-0042-01」。</summary>
+        [Summary("资产 id，如「ASSET-0042-01」")]
+        public string AssetIdentifier { get; set; }
+
+        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        [DefaultValue("")]
+        public string ModuleName { get; set; }
+
+        /// <summary>加工计划落盘路径；缺省落 _Tasks/&lt;需求id&gt;/30-产物/&lt;资产id&gt;/加工计划.json。</summary>
+        [Summary("加工计划落盘路径；缺省落 _Tasks/<需求id>/30-产物/<资产id>/加工计划.json")]
+        [DefaultValue("")]
+        public string OutputPath { get; set; }
+    }
+
+    /// <summary>模型机检命令 art.modelcheck 的参数。</summary>
+    public sealed class ArtModelCheckArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>需求 id，如「REQ-0042」。</summary>
+        [Summary("需求 id，如「REQ-0042」")]
+        public string RequirementIdentifier { get; set; }
+
+        /// <summary>资产 id，如「ASSET-0042-01」。</summary>
+        [Summary("资产 id，如「ASSET-0042-01」")]
+        public string AssetIdentifier { get; set; }
+
+        /// <summary>模型度量文件的路径，由加工站产出。</summary>
+        [Summary("模型度量文件的路径，由加工站产出")]
+        public string MetricsPath { get; set; }
+
+        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        [DefaultValue("")]
+        public string ModuleName { get; set; }
+    }
+
     /// <summary>美术资产命令：art.request 建资产请求、art.validate 校验资产请求与溯源边车。</summary>
     public static class ArtCommands
     {
@@ -615,6 +666,184 @@ namespace Template.Toolkit.CommandHost.Commands
             return CommandResult.Failure(
                 $"能力对账未通过（依赖 {report.DependencyCount} 项，缺 {report.DependencyCount - report.SatisfiedCount} 项）",
                 report.Findings.Select(finding => finding.ToDisplayText()).ToList());
+        }
+
+        /// <summary>
+        /// 生成加工计划：读资产请求，从规格数据算出八步加工参数并落盘。
+        /// findings 非空不算失败——缺一个可选规格键该让人看见，不该让门禁红。
+        /// </summary>
+        /// <param name="arguments">加工计划命令参数。</param>
+        [EditorCommand("art.plan")]
+        [Summary("加工计划：从资产请求与规格数据算出八步加工参数")]
+        public static CommandResult Plan(ArtPlanArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.RequirementIdentifier))
+            {
+                return CommandResult.Failure("参数 RequirementIdentifier 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.AssetIdentifier))
+            {
+                return CommandResult.Failure("参数 AssetIdentifier 为必填项");
+            }
+
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            var requestFile = AssetPaths.AssetRequestFile(repositoryRoot, arguments.RequirementIdentifier, arguments.AssetIdentifier);
+            if (!File.Exists(requestFile))
+            {
+                return CommandResult.Failure($"资产请求文件不存在：{requestFile}");
+            }
+
+            var request = AssetRequest.Read(requestFile);
+            var plan = ProcessingPlanBuilder.Build(repositoryRoot, request, arguments.ModuleName ?? "");
+
+            var outputPath = ResolvePlanOutputPath(repositoryRoot, arguments);
+            try
+            {
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                File.WriteAllText(outputPath, plan.ToJsonText(), new UTF8Encoding(false));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return CommandResult.Failure($"加工计划写盘失败：{exception.Message}");
+            }
+
+            var enabledCount = plan.Steps.Count(step => step.IsEnabled);
+            var disabledCount = plan.Steps.Count - enabledCount;
+            var lines = new List<string>
+            {
+                $"资产：{plan.AssetIdentifier}（{plan.AssetType}）",
+                $"八步：启用 {enabledCount} 步、禁用 {disabledCount} 步",
+                $"落盘：{RelativeTo(repositoryRoot, outputPath)}"
+            };
+
+            foreach (var finding in plan.Findings)
+            {
+                lines.Add($"注意：{finding.ToDisplayText()}");
+            }
+
+            return CommandResult.Success(
+                $"加工计划已生成（启用 {enabledCount} 步、禁用 {disabledCount} 步）",
+                lines);
+        }
+
+        /// <summary>
+        /// 模型机检：读资产请求与模型度量，跑面数 / 材质 / 贴图 / 包围盒 / 骨骼五项。
+        /// 有 finding 判失败并逐条列出；度量文件不存在时点出「先跑加工站」。
+        /// </summary>
+        /// <param name="arguments">模型机检命令参数。</param>
+        [EditorCommand("art.modelcheck")]
+        [Summary("模型机检：面数 / 材质 / 贴图 / 包围盒 / 骨骼五项")]
+        public static CommandResult ModelCheck(ArtModelCheckArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.RequirementIdentifier))
+            {
+                return CommandResult.Failure("参数 RequirementIdentifier 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.AssetIdentifier))
+            {
+                return CommandResult.Failure("参数 AssetIdentifier 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.MetricsPath))
+            {
+                return CommandResult.Failure("参数 MetricsPath 为必填项");
+            }
+
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            var requestFile = AssetPaths.AssetRequestFile(repositoryRoot, arguments.RequirementIdentifier, arguments.AssetIdentifier);
+            if (!File.Exists(requestFile))
+            {
+                return CommandResult.Failure($"资产请求文件不存在：{requestFile}");
+            }
+
+            var request = AssetRequest.Read(requestFile);
+
+            string metricsPath;
+            try
+            {
+                metricsPath = Path.GetFullPath(arguments.MetricsPath);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 MetricsPath 无法解析为绝对路径：{exception.Message}");
+            }
+
+            if (!File.Exists(metricsPath))
+            {
+                return CommandResult.Failure($"模型度量由加工站产出，先跑加工站再机检：{metricsPath}");
+            }
+
+            ModelMetrics metrics;
+            try
+            {
+                metrics = ModelMetrics.LoadFromFile(metricsPath);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return CommandResult.Failure(exception.Message);
+            }
+
+            var findings = ModelInspector.Inspect(repositoryRoot, request, metrics, arguments.ModuleName ?? "");
+            if (findings.Count == 0)
+            {
+                return CommandResult.Success("模型机检通过（五项全过）");
+            }
+
+            return CommandResult.Failure(
+                $"模型机检未通过，问题 {findings.Count} 条",
+                findings.Select(finding => finding.ToDisplayText()).ToList());
+        }
+
+        /// <summary>加工计划落盘路径：给了 OutputPath 用它，否则落 _Tasks/&lt;需求id&gt;/30-产物/&lt;资产id&gt;/加工计划.json。</summary>
+        private static string ResolvePlanOutputPath(string repositoryRoot, ArtPlanArguments arguments)
+        {
+            if (!string.IsNullOrWhiteSpace(arguments.OutputPath))
+            {
+                return Path.GetFullPath(arguments.OutputPath);
+            }
+
+            return Path.Combine(
+                repositoryRoot,
+                "_Tasks",
+                arguments.RequirementIdentifier,
+                "30-产物",
+                arguments.AssetIdentifier,
+                "加工计划.json");
         }
 
         /// <summary>把绝对路径转成相对仓库根的路径；无法相对化时原样返回。</summary>
