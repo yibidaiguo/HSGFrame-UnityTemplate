@@ -434,6 +434,21 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <summary>按换行分隔的字段 diff 命中的需求字段名文本。</summary>
         [Summary("按换行分隔的字段 diff 命中的需求字段名文本")]
         public string ChangedFieldsText { get; set; }
+
+        /// <summary>是否真的落地（快照 + 标脏 + 回方案关）；不给就是只出计划。</summary>
+        [Summary("是否真的落地（快照 + 标脏 + 回方案关）；不给就是只出计划")]
+        [DefaultValue(false)]
+        public bool Apply { get; set; }
+
+        /// <summary>人改权威文件时人的确认标志；不确认就落地会被拒绝。</summary>
+        [Summary("人改权威文件时人的确认标志；不确认就落地会被拒绝")]
+        [DefaultValue(false)]
+        public bool HumanConfirmed { get; set; }
+
+        /// <summary>需求原文的路径；Apply 为 true 时必填，快照要写的是需求原文。</summary>
+        [Summary("需求原文的路径；Apply 为 true 时必填，快照要写的是需求原文")]
+        [DefaultValue("")]
+        public string RequirementFile { get; set; }
     }
 
     /// <summary>专项认领入站命令 pool.claimpull 的参数。</summary>
@@ -1116,7 +1131,8 @@ namespace Template.Toolkit.CommandHost.Commands
         }
 
         /// <summary>
-        /// 打断重规划：算脏项、净项与要问人的地方。重规划算完不算失败——它是一份计划，不是判决。
+        /// 打断重规划：算脏项、净项与要问人的地方；带 --Apply 时把计划真的落地
+        /// （需求快照成新基准 + 脏项标脏 + 回方案关）。重规划算完不算失败——它是一份计划，不是判决。
         /// </summary>
         /// <param name="arguments">打断重规划命令参数。</param>
         [EditorCommand("task.replan")]
@@ -1168,7 +1184,63 @@ namespace Template.Toolkit.CommandHost.Commands
                 lines.Add($"注意：{graph.LoadFailureReason}");
             }
 
-            return CommandResult.Success("重规划完成（计划，不是判决）", lines);
+            if (!arguments.Apply)
+            {
+                return CommandResult.Success("重规划完成（计划，不是判决）", lines);
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.RequirementFile))
+            {
+                return CommandResult.Failure("落地需要 RequirementFile：快照要写的是需求原文");
+            }
+
+            string requirementJsonText;
+            try
+            {
+                requirementJsonText = File.ReadAllText(Path.GetFullPath(arguments.RequirementFile));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return CommandResult.Failure($"需求原文读不了：{exception.Message}");
+            }
+
+            ReplanLandingResult landing;
+            try
+            {
+                landing = ReplanLanding.Apply(
+                    repositoryRoot,
+                    arguments.RequirementIdentifier,
+                    result,
+                    graph,
+                    requirementJsonText,
+                    arguments.HumanConfirmed);
+            }
+            catch (Exception exception) when (exception is InvalidOperationException || exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return CommandResult.Failure($"重规划落地失败：{exception.Message}");
+            }
+
+            if (!landing.Applied)
+            {
+                // 零脏项 / 有执行中 / 要人确认：都是「该停下」而不是命令失败，走 Success 但结论行明说没落地。
+                lines.Add($"重规划未落地：{landing.RefusalReason}");
+                return CommandResult.Success("重规划未落地", lines);
+            }
+
+            lines.Add(
+                $"重规划已落地：新基准 00-需求.v{landing.SnapshotVersion}.json，"
+                + $"标脏 {landing.MarkedDirty.Count} 项，保留 {landing.KeptClean.Count} 项，已回方案关");
+            foreach (var identifier in landing.MarkedDirty)
+            {
+                lines.Add($"标脏：{identifier}");
+            }
+
+            foreach (var finding in landing.Findings)
+            {
+                lines.Add($"注意：{finding}");
+            }
+
+            return CommandResult.Success("重规划已落地", lines);
         }
 
         /// <summary>该条目是否算未销账：状态=未决 或 选择=强制推送。</summary>

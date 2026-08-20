@@ -57,5 +57,22 @@ namespace Template.Toolkit.CreationPipeline
         {
             return Path.Combine(repositoryRoot, "Config", "创作管线", "同步水位.json");
         }
+
+        /// <summary>某需求某版次的需求快照：_Tasks/&lt;需求id&gt;/00-需求.v&lt;N&gt;.json。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="requirementIdentifier">需求 id，如「REQ-0042」。</param>
+        /// <param name="version">快照版次，从 1 起。</param>
+        public static string RequirementSnapshotFile(string repositoryRoot, string requirementIdentifier, int version)
+        {
+            return Path.Combine(repositoryRoot, "_Tasks", requirementIdentifier, $"00-需求.v{version}.json");
+        }
+
+        /// <summary>变更影响文档：_Tasks/&lt;需求id&gt;/05-变更影响.md。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="requirementIdentifier">需求 id，如「REQ-0042」。</param>
+        public static string ChangeImpactFile(string repositoryRoot, string requirementIdentifier)
+        {
+            return Path.Combine(repositoryRoot, "_Tasks", requirementIdentifier, "05-变更影响.md");
+        }
     }
 }
