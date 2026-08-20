@@ -83,6 +83,7 @@
     "Solutions/CreationPipeline.Tests/ReviewPackageBuilderTests.cs": "35aebafa288cbb8764724d050fca5d0fa3b21c493813441753edb96180bef233",
     "Solutions/CreationPipeline.Tests/RiskGraderTests.cs": "2d87b7e5e7f828fef206a5c790f92749976c00520a73971b85b0fe3090b7001b",
     "Solutions/CreationPipeline.Tests/SchemaExtensionValidatorTests.cs": "1ea427783e325229a0a416eeff3fab98cd020571c661be481c55e48df895246c",
+    "Solutions/CreationPipeline.Tests/SeedPassThroughTests.cs": "23f774ad66be4753a90f6c09edfb5e9781b179c00ff25e4d22d5139776721f47",
     "Solutions/CreationPipeline.Tests/SelectionCardBuilderTests.cs": "41c4f43da696feca98d362414c36d413bd3d207af88c206de7e66d1d29cc5631",
     "Solutions/CreationPipeline.Tests/SingleInstanceLockTests.cs": "d2d437e0e26b84654cbff9acd1d386fad1b17516544d0b34aa3e5b214f589dd1",
     "Solutions/CreationPipeline.Tests/SpotCheckSelectorTests.cs": "4109231a645dd1c830ccaf5633807fa50fababb7f7463abf0155dff00ea73cc0",

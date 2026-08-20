@@ -108,6 +108,157 @@ namespace Template.Bridges.Comfyui
         }
 
         /// <summary>
+        /// 纯函数：读资产请求 → 按配方映射填参数覆盖 → 解析种子（给了就用给的，没给才随机）→
+        /// 翻译成下游 API 形状。测试与 RunGenerate 共用这一条路径，保证测的就是真跑的。
+        /// </summary>
+        /// <param name="workflow">workflow.json 的顶层对象。</param>
+        /// <param name="recipe">配方定义。</param>
+        /// <param name="assetRequest">资产请求。</param>
+        /// <param name="providedSeedText">载荷里给的种子；空串 = 桥自己产随机种。</param>
+        /// <param name="seedText">实际用的种子文本（边车「随机种」写的就是它）。</param>
+        /// <param name="reason">失败原因；成功时空串。</param>
+        /// <returns>下游 API 形状的翻译结果；失败返回 null。</returns>
+        public static JsonObject BuildGenerateWorkflow(
+            JsonObject workflow,
+            RecipeDefinition recipe,
+            JsonElement assetRequest,
+            string providedSeedText,
+            out string seedText,
+            out string reason)
+        {
+            var overrides = BuildOverrides(recipe, workflow, assetRequest, providedSeedText, out reason, out seedText);
+            if (overrides == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                return WorkflowTranslator.Translate(workflow, overrides);
+            }
+            catch (InvalidOperationException exception)
+            {
+                reason = $"翻译配方失败：{exception.Message}";
+                return null;
+            }
+        }
+
+        /// <summary>按映射把资产请求的字段填成参数覆盖；缺 KSampler 的 seed 时补一个种子（给了就用给的，没给才随机）。</summary>
+        private static Dictionary<string, IReadOnlyDictionary<string, JsonNode>> BuildOverrides(
+            RecipeDefinition recipe,
+            JsonObject workflow,
+            JsonElement assetRequest,
+            string providedSeedText,
+            out string reason,
+            out string seedText)
+        {
+            reason = "";
+            seedText = "";
+
+            var overrides = new Dictionary<string, IReadOnlyDictionary<string, JsonNode>>(StringComparer.Ordinal);
+            foreach (var entry in recipe.MappingEntries)
+            {
+                if (!TryResolveRequestField(assetRequest, entry.RequestField, out var value))
+                {
+                    reason = $"资产请求里找不到映射字段「{entry.RequestField}」（映射到节点 {entry.NodeIdentifier} 的 {entry.ParameterName}）";
+                    return null;
+                }
+
+                GetNodeOverrides(overrides, entry.NodeIdentifier)[entry.ParameterName] = value;
+            }
+
+            if (assetRequest.TryGetProperty("变体数", out var variantCountElement)
+                && variantCountElement.ValueKind == JsonValueKind.Number)
+            {
+                try
+                {
+                    if (variantCountElement.GetInt32() <= 0)
+                    {
+                        reason = "资产请求的「变体数」必须大于 0";
+                        return null;
+                    }
+                }
+                catch (Exception exception) when (exception is FormatException || exception is InvalidOperationException || exception is OverflowException)
+                {
+                }
+            }
+
+            // 映射没覆盖 seed 时补种子：给了（非空）就用给的，没给才随机。
+            // batch 多张共用一个 seed，边车要写它。给了种子时绝不加偏移（决策 26：重生成的前提）。
+            seedText = string.IsNullOrEmpty(providedSeedText)
+                ? Random.Shared.Next().ToString(CultureInfo.InvariantCulture)
+                : providedSeedText;
+
+            if (!ulong.TryParse(seedText, NumberStyles.None, CultureInfo.InvariantCulture, out var seedNumber))
+            {
+                reason = $"种子「{seedText}」不是合法的 64 位无符号整数";
+                return null;
+            }
+
+            foreach (var nodeProperty in workflow)
+            {
+                if (nodeProperty.Value is not JsonObject nodeObject
+                    || !nodeObject.TryGetPropertyValue("类型", out var typeNode)
+                    || typeNode is not JsonValue typeValue
+                    || !typeValue.TryGetValue<string>(out var typeName)
+                    || !string.Equals(typeName, "KSampler", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var nodeOverrides = GetNodeOverrides(overrides, nodeProperty.Key);
+                if (!nodeOverrides.ContainsKey("seed"))
+                {
+                    nodeOverrides["seed"] = JsonValue.Create(seedNumber);
+                }
+            }
+
+            return overrides;
+        }
+
+        /// <summary>从资产请求按请求字段取值（支持 规格. / 风格锚点. 的对象路径）；取不到返回 false。</summary>
+        private static bool TryResolveRequestField(JsonElement assetRequest, string requestField, out JsonNode value)
+        {
+            value = null;
+            var dotIndex = requestField.IndexOf('.');
+            if (dotIndex > 0)
+            {
+                var containerName = requestField.Substring(0, dotIndex);
+                var memberName = requestField.Substring(dotIndex + 1);
+                if (assetRequest.ValueKind == JsonValueKind.Object
+                    && assetRequest.TryGetProperty(containerName, out var container)
+                    && container.ValueKind == JsonValueKind.Object
+                    && container.TryGetProperty(memberName, out var member))
+                {
+                    value = JsonNode.Parse(member.GetRawText());
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (assetRequest.ValueKind != JsonValueKind.Object || !assetRequest.TryGetProperty(requestField, out var element))
+            {
+                return false;
+            }
+
+            value = JsonNode.Parse(element.GetRawText());
+            return true;
+        }
+
+        /// <summary>取某节点的参数覆盖字典；没有就建一个。存进去的总是可变 Dictionary，取出来原样返回。</summary>
+        private static Dictionary<string, JsonNode> GetNodeOverrides(Dictionary<string, IReadOnlyDictionary<string, JsonNode>> overrides, string nodeIdentifier)
+        {
+            if (!overrides.TryGetValue(nodeIdentifier, out var nodeOverrides))
+            {
+                nodeOverrides = new Dictionary<string, JsonNode>(StringComparer.Ordinal);
+                overrides[nodeIdentifier] = nodeOverrides;
+            }
+
+            return (Dictionary<string, JsonNode>)nodeOverrides;
+        }
+
+        /// <summary>
         /// 两个动作的编排：caps 与 generate。所有下游失败都转成协议失败响应，
         /// 错误码与人话照 <see cref="ComfyClientException"/> 原样带出。
         /// </summary>
@@ -191,20 +342,12 @@ namespace Template.Bridges.Comfyui
                     return FailureResponse($"读配方失败：{exception.Message}");
                 }
 
-                var overrides = BuildOverrides(recipe, workflow, assetRequestElement, out var overrideReason, out var seedText);
-                if (overrides == null)
+                // 载荷里的可选「种子」：给了（非空）就用它，没给才随机（决策 26）。
+                var providedSeedText = ReadOptionalSeed(request);
+                var translated = BuildGenerateWorkflow(workflow, recipe, assetRequestElement, providedSeedText, out var seedText, out var generateReason);
+                if (translated == null)
                 {
-                    return FailureResponse(overrideReason);
-                }
-
-                JsonObject translated;
-                try
-                {
-                    translated = WorkflowTranslator.Translate(workflow, overrides);
-                }
-                catch (InvalidOperationException exception)
-                {
-                    return FailureResponse($"翻译配方失败：{exception.Message}");
+                    return FailureResponse(generateReason);
                 }
 
                 var timeoutSeconds = Math.Max(ReadConfigurationInt(request, "超时秒", DefaultTimeoutSeconds), 1);
@@ -234,69 +377,6 @@ namespace Template.Bridges.Comfyui
                         return BridgeResponse.Failure(ContractVersion, exception.ErrorCode, exception.Message, exception.Retryable);
                     }
                 }
-            }
-
-            /// <summary>按映射把资产请求的字段填成参数覆盖；缺 KSampler 的 seed 时补一个随机种。</summary>
-            private static Dictionary<string, IReadOnlyDictionary<string, JsonNode>> BuildOverrides(
-                RecipeDefinition recipe,
-                JsonObject workflow,
-                JsonElement assetRequest,
-                out string reason,
-                out string seedText)
-            {
-                reason = "";
-                seedText = "";
-
-                var overrides = new Dictionary<string, IReadOnlyDictionary<string, JsonNode>>(StringComparer.Ordinal);
-                foreach (var entry in recipe.MappingEntries)
-                {
-                    if (!TryResolveRequestField(assetRequest, entry.RequestField, out var value))
-                    {
-                        reason = $"资产请求里找不到映射字段「{entry.RequestField}」（映射到节点 {entry.NodeIdentifier} 的 {entry.ParameterName}）";
-                        return null;
-                    }
-
-                    GetNodeOverrides(overrides, entry.NodeIdentifier)[entry.ParameterName] = value;
-                }
-
-                if (assetRequest.TryGetProperty("变体数", out var variantCountElement)
-                    && variantCountElement.ValueKind == JsonValueKind.Number)
-                {
-                    try
-                    {
-                        if (variantCountElement.GetInt32() <= 0)
-                        {
-                            reason = "资产请求的「变体数」必须大于 0";
-                            return null;
-                        }
-                    }
-                    catch (Exception exception) when (exception is FormatException || exception is InvalidOperationException || exception is OverflowException)
-                    {
-                    }
-                }
-
-                // 映射没覆盖 seed 时补随机种：batch 多张共用一个 seed，边车要写它。
-                var seed = Random.Shared.Next();
-                seedText = seed.ToString(CultureInfo.InvariantCulture);
-                foreach (var nodeProperty in workflow)
-                {
-                    if (nodeProperty.Value is not JsonObject nodeObject
-                        || !nodeObject.TryGetPropertyValue("类型", out var typeNode)
-                        || typeNode is not JsonValue typeValue
-                        || !typeValue.TryGetValue<string>(out var typeName)
-                        || !string.Equals(typeName, "KSampler", StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
-                    var nodeOverrides = GetNodeOverrides(overrides, nodeProperty.Key);
-                    if (!nodeOverrides.ContainsKey("seed"))
-                    {
-                        nodeOverrides["seed"] = seed;
-                    }
-                }
-
-                return overrides;
             }
 
             /// <summary>下载全部图 → 临时目录写盘 → 成功后移进变体目录并写边车；任何失败都不落最终盘。</summary>
@@ -420,46 +500,17 @@ namespace Template.Bridges.Comfyui
                 return array;
             }
 
-            /// <summary>从资产请求按请求字段取值（支持 规格. / 风格锚点. 的对象路径）；取不到返回 false。</summary>
-            private static bool TryResolveRequestField(JsonElement assetRequest, string requestField, out JsonNode value)
+            /// <summary>读载荷里的可选「种子」：缺失、空串、非字符串都当没给（返回空串，桥自己产随机种）。</summary>
+            private static string ReadOptionalSeed(BridgeRequest request)
             {
-                value = null;
-                var dotIndex = requestField.IndexOf('.');
-                if (dotIndex > 0)
+                if (request.Payload.ValueKind == JsonValueKind.Object
+                    && request.Payload.TryGetProperty("种子", out var element)
+                    && element.ValueKind == JsonValueKind.String)
                 {
-                    var containerName = requestField.Substring(0, dotIndex);
-                    var memberName = requestField.Substring(dotIndex + 1);
-                    if (assetRequest.ValueKind == JsonValueKind.Object
-                        && assetRequest.TryGetProperty(containerName, out var container)
-                        && container.ValueKind == JsonValueKind.Object
-                        && container.TryGetProperty(memberName, out var member))
-                    {
-                        value = JsonNode.Parse(member.GetRawText());
-                        return true;
-                    }
-
-                    return false;
+                    return element.GetString() ?? "";
                 }
 
-                if (assetRequest.ValueKind != JsonValueKind.Object || !assetRequest.TryGetProperty(requestField, out var element))
-                {
-                    return false;
-                }
-
-                value = JsonNode.Parse(element.GetRawText());
-                return true;
-            }
-
-            /// <summary>取某节点的参数覆盖字典；没有就建一个。存进去的总是可变 Dictionary，取出来原样返回。</summary>
-            private static Dictionary<string, JsonNode> GetNodeOverrides(Dictionary<string, IReadOnlyDictionary<string, JsonNode>> overrides, string nodeIdentifier)
-            {
-                if (!overrides.TryGetValue(nodeIdentifier, out var nodeOverrides))
-                {
-                    nodeOverrides = new Dictionary<string, JsonNode>(StringComparer.Ordinal);
-                    overrides[nodeIdentifier] = nodeOverrides;
-                }
-
-                return (Dictionary<string, JsonNode>)nodeOverrides;
+                return "";
             }
 
             /// <summary>读载荷里的字符串键。</summary>

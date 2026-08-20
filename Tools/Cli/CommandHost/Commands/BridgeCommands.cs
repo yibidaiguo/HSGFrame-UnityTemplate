@@ -116,6 +116,11 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("变体与溯源边车的输出目录（变体落其下「变体/」子目录）")]
         public string OutputDirectory { get; set; }
 
+        /// <summary>生成种子；空串让桥自己产随机种。种子是 64 位无符号量，用 string 接避免边界悄悄变号（决策 26 重生成的前提）。</summary>
+        [Summary("生成种子；空串让桥自己产随机种")]
+        [DefaultValue("")]
+        public string Seed { get; set; }
+
         /// <summary>仓库根目录，相对当前工作目录。</summary>
         [Summary("仓库根目录，相对当前工作目录")]
         [DefaultValue(".")]
@@ -516,12 +521,21 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure($"资产请求文件顶层必须是对象：{requestPath}");
             }
 
-            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            var payloadObject = new JsonObject
             {
                 ["资产请求"] = requestNode,
                 ["配方名"] = arguments.RecipeName,
                 ["输出目录"] = outputDirectory
-            });
+            };
+
+            // 给了种子就原样透传进载荷「种子」字段；空串 = 桥自己产随机种（保持原行为）。
+            // 用 string 不用 long：种子是 64 位无符号量，有符号整数会在边界悄悄变号（决策 26）。
+            if (!string.IsNullOrEmpty(arguments.Seed))
+            {
+                payloadObject["种子"] = arguments.Seed;
+            }
+
+            var payload = JsonSerializer.SerializeToElement(payloadObject);
 
             var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "generate", payload, arguments.TimeoutSeconds);
             if (!result.Succeeded)
