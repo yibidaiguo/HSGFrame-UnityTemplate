@@ -23,7 +23,7 @@
 | `LevelRepository` | `Data/` | 按关卡 id 取关卡定义 |
 | `LevelEntityResourceMap` / `LevelEntityCatalog` | `Data/` | 上面两个契约的纯 C# 实现，可在纯 dotnet 下跑测试 |
 | `LogicEntityMarker` / `EntityParameterEntry` | `View/` | 场景里标记「这个物体是哪个逻辑实体、带什么参数」的 MonoBehaviour，同时实现 `ILevelEntityView` |
-| `LevelEntityResourceMapAsset` | `View/` | 映射的事实源资产（`Settings/Level/实体资源映射.asset`） |
+| `LevelEntityResourceMapAsset` | `View/` | 映射的事实源资产（`Settings/Level/EntityResourceMap.asset`） |
 | `LevelEntitySpawner` | `View/` | 运行时装配器：按类别查地址、加载预制体、挂到标记下，再发布名录 |
 
 `Contracts/` 与 `Data/` 归 `Game.Logic`；`View/` 靠 `Game.View.asmref` 归并进 `Game.View`。

@@ -483,7 +483,7 @@ GameObject:
   - component: {fileID: 1530080722}
   - component: {fileID: 1530080721}
   m_Layer: 0
-  m_Name: "\u542F\u52A8\u88C5\u914D"
+  m_Name: "Boot\u88C5\u914D"
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -501,7 +501,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: efa43e57c3a8d5f4c8db74447236f010, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Boot::Template.Boot.GameBootstrap
-  _firstWorldSceneName: "\u6751\u5E84"
+  _firstWorldSceneName: "Village"
   _packageName: DefaultPackage
   _resourcePlayMode: 0
   _remoteBaseUrl: http://127.0.0.1:8123/

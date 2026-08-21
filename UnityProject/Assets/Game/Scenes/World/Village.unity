@@ -928,7 +928,7 @@ MonoBehaviour:
   - Key: "\u534A\u5F84"
     Value: 6.5
   - Key: "\u4E8B\u4EF6"
-    Value: "\u79BB\u5F00\u6751\u5E84"
+    Value: "\u79BB\u5F00Village"
 --- !u!1 &1470464403
 GameObject:
   m_ObjectHideFlags: 0
@@ -977,7 +977,7 @@ MonoBehaviour:
   _entityKind: "\u4F20\u9001\u70B9"
   _parameters:
   - Key: "\u76EE\u6807\u5173\u5361"
-    Value: "\u6751\u5E84"
+    Value: "Village"
   - Key: "\u76EE\u6807\u533A\u5757"
     Value: "\u533A\u5757_\u6751\u53E3"
 --- !u!1 &1478576112
@@ -1134,7 +1134,7 @@ MonoBehaviour:
   - Key: "\u534A\u5F84"
     Value: 6.5
   - Key: "\u4E8B\u4EF6"
-    Value: "\u8FDB\u5165\u6751\u5E84"
+    Value: "\u8FDB\u5165Village"
 --- !u!1 &1707285990
 GameObject:
   m_ObjectHideFlags: 0
@@ -1302,7 +1302,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1907584177}
   m_Layer: 0
-  m_Name: "\u6751\u5E84"
+  m_Name: "Village"
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

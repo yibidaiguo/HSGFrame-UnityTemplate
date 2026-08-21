@@ -68,8 +68,8 @@
     "Logs",
     "_Scratch"
   ],
-  "_pathAsciiMode说明": "全仓路径 ASCII 门禁的模式：warn 只列不判红（迁移期），block 判红。存量清完（待办 1 的 f 批）再改成 block。",
-  "pathAsciiMode": "warn",
+  "_pathAsciiMode说明": "全仓路径 ASCII 门禁的模式：warn 只列不判红，block 判红。存量已清零（待办 1 的 f 批），现在是 block。",
+  "pathAsciiMode": "block",
   "_pathAsciiExemptPrefixes说明": "存量欠账名单，改一块删一条，名单燃尽即规矩完全落地；不是「这里永远可以用中文」的许可。",
   "pathAsciiExemptPrefixes": [],
   "genericNameExemptPaths": [

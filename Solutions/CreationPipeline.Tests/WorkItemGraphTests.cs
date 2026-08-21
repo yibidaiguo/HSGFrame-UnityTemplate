@@ -90,7 +90,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
         private static string WorkItemDirectory(string repositoryRoot, string requirementIdentifier)
         {
-            return Path.Combine(repositoryRoot, "_Tasks", requirementIdentifier, "20-工作项");
+            return Path.Combine(repositoryRoot, "_Tasks", requirementIdentifier, "20-work-items");
         }
 
         private static void WriteWorkItem(

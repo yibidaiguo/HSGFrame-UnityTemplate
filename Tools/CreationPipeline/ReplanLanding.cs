@@ -301,14 +301,14 @@ namespace Template.Toolkit.CreationPipeline
             return MarkOutcome.Marked;
         }
 
-        /// <summary>工作项文件路径：_Tasks/&lt;需求id&gt;/20-工作项/&lt;id&gt;.json。</summary>
+        /// <summary>工作项文件路径：_Tasks/&lt;需求id&gt;/20-work-items/&lt;id&gt;.json。</summary>
         private static string WorkItemFilePath(string repositoryRoot, string requirementIdentifier, string workItemIdentifier)
         {
-            return Path.Combine(repositoryRoot, "_Tasks", requirementIdentifier, "20-工作项", workItemIdentifier + ".json");
+            return Path.Combine(repositoryRoot, "_Tasks", requirementIdentifier, "20-work-items", workItemIdentifier + ".json");
         }
 
         /// <summary>
-        /// 写变更影响文档：_Tasks/&lt;需求id&gt;/05-变更影响.md，每次落地整份重写。
+        /// 写变更影响文档：_Tasks/&lt;需求id&gt;/05-change-impact.md，每次落地整份重写。
         /// 七个小节标题固定，没有内容就写「- 无」，不许省掉整节。
         /// </summary>
         private static void WriteChangeImpactDocument(

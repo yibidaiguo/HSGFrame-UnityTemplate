@@ -75,13 +75,13 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var graph = BuildChainGraph(workspace);
             var files = new Dictionary<string, IReadOnlyList<string>>
             {
-                ["WI-0001-03"] = new[] { "30-产物/金币袋.png" }
+                ["WI-0001-03"] = new[] { "30-outputs/金币袋.png" }
             };
 
             var result = ReplanPlanner.Plan(graph, new[] { "玩法" }, files);
 
             Assert.True(result.MustAskHuman);
-            Assert.Contains("30-产物/金币袋.png", result.AuthoritativeFilesInDirtySet);
+            Assert.Contains("30-outputs/金币袋.png", result.AuthoritativeFilesInDirtySet);
         }
 
         /// <summary>changedRequirementFields 为空 → 全部为空 + 一条 finding。</summary>
@@ -106,7 +106,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void CyclicGraphStillPlansWithFinding()
         {
             using var workspace = new PoolTestWorkspace();
-            var directory = Path.Combine(workspace.Root, "_Tasks", "REQ-0002", "20-工作项");
+            var directory = Path.Combine(workspace.Root, "_Tasks", "REQ-0002", "20-work-items");
             Directory.CreateDirectory(directory);
             WriteWorkItem(directory, "WI-0002-01", new[] { "玩法" }, new[] { "WI-0002-02" });
             WriteWorkItem(directory, "WI-0002-02", new[] { "目标" }, new[] { "WI-0002-01" });
@@ -123,7 +123,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         /// <summary>建 A ← B ← C 的链加独立 D 的图。</summary>
         private static WorkItemGraph BuildChainGraph(PoolTestWorkspace workspace)
         {
-            var directory = Path.Combine(workspace.Root, "_Tasks", "REQ-0001", "20-工作项");
+            var directory = Path.Combine(workspace.Root, "_Tasks", "REQ-0001", "20-work-items");
             Directory.CreateDirectory(directory);
             WriteWorkItem(directory, "WI-0001-01", new[] { "玩法" }, Array.Empty<string>());
             WriteWorkItem(directory, "WI-0001-02", new[] { "玩法" }, new[] { "WI-0001-01" });

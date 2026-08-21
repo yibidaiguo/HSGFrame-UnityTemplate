@@ -47,7 +47,7 @@ namespace Template.Level.Data
                     if (_addressByKind.ContainsKey(entry.Key))
                     {
                         throw new ArgumentException(
-                            $"位置：LevelEntityResourceMap 构造函数；原因：实体类别「{entry.Key}」登记了两次；修复：一个类别只留一条映射；参考：Assets/Game/Settings/Level/实体资源映射.asset",
+                            $"位置：LevelEntityResourceMap 构造函数；原因：实体类别「{entry.Key}」登记了两次；修复：一个类别只留一条映射；参考：Assets/Game/Settings/Level/EntityResourceMap.asset",
                             nameof(entries));
                     }
 

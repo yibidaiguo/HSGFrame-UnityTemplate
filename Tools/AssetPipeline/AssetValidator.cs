@@ -71,7 +71,7 @@ namespace Template.Toolkit.AssetPipeline
                     var coveredName = fileName.Substring(0, fileName.Length - ".meta".Length);
 
                     // 管线自己的配置文件不算资产，那它们的 .meta 也不该被拿去比对——
-                    // 否则「导入规则.json.meta」会被当成孤儿 .meta 报出来。
+                    // 否则「import-rules.json.meta」会被当成孤儿 .meta 报出来。
                     if (!AssetNameNormalizer.IsPipelineConfigurationFile(coveredName))
                     {
                         metaNames.Add(coveredName);

@@ -38,8 +38,8 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 把执行后端的影响评估结果合并写进 <c>_Tasks/&lt;需求id&gt;/05-变更影响.md</c>
-    /// （子文档 03 §三：未命中项由执行后端评估一轮，**合并写** 05-变更影响.md）。
+    /// 把执行后端的影响评估结果合并写进 <c>_Tasks/&lt;需求id&gt;/05-change-impact.md</c>
+    /// （子文档 03 §三：未命中项由执行后端评估一轮，**合并写** 05-change-impact.md）。
     ///
     /// 三条硬规矩：
     /// 1. **只加一节，不动别的节。** 那份文档的前几节是重规划算出来的确定性结论，

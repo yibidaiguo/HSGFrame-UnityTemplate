@@ -156,8 +156,8 @@ namespace Template.Toolkit.CommandHost.Commands
         [DefaultValue("")]
         public string ModuleName { get; set; }
 
-        /// <summary>加工计划落盘路径；缺省落 _Tasks/&lt;需求id&gt;/30-产物/&lt;资产id&gt;/加工计划.json。</summary>
-        [Summary("加工计划落盘路径；缺省落 _Tasks/<需求id>/30-产物/<资产id>/加工计划.json")]
+        /// <summary>加工计划落盘路径；缺省落 _Tasks/&lt;需求id&gt;/30-outputs/&lt;资产id&gt;/加工计划.json。</summary>
+        [Summary("加工计划落盘路径；缺省落 _Tasks/<需求id>/30-outputs/<资产id>/加工计划.json")]
         [DefaultValue("")]
         public string OutputPath { get; set; }
     }
@@ -285,7 +285,7 @@ namespace Template.Toolkit.CommandHost.Commands
             PoolSchema schema;
             try
             {
-                schema = PoolSchemaLoader.Load(poolRoot, "资产请求");
+                schema = PoolSchemaLoader.Load(poolRoot, "asset-requests");
             }
             catch (FileNotFoundException exception)
             {
@@ -402,7 +402,7 @@ namespace Template.Toolkit.CommandHost.Commands
             PoolSchema sidecarSchema;
             try
             {
-                requestSchema = PoolSchemaLoader.Load(poolRoot, "资产请求");
+                requestSchema = PoolSchemaLoader.Load(poolRoot, "asset-requests");
                 sidecarSchema = PoolSchemaLoader.Load(poolRoot, "溯源");
             }
             catch (FileNotFoundException exception)
@@ -429,7 +429,7 @@ namespace Template.Toolkit.CommandHost.Commands
                         continue;
                     }
 
-                    foreach (var sidecarFile in Directory.EnumerateFiles(variantDirectory, "*.溯源.json", SearchOption.TopDirectoryOnly))
+                    foreach (var sidecarFile in Directory.EnumerateFiles(variantDirectory, "*.provenance.json", SearchOption.TopDirectoryOnly))
                     {
                         sidecarCount++;
                         findings.AddRange(EntityDocumentValidator.Validate(sidecarFile, sidecarSchema));
@@ -1041,7 +1041,7 @@ namespace Template.Toolkit.CommandHost.Commands
             return value.ToString("0.0000", CultureInfo.InvariantCulture);
         }
 
-        /// <summary>加工计划落盘路径：给了 OutputPath 用它，否则落 _Tasks/&lt;需求id&gt;/30-产物/&lt;资产id&gt;/加工计划.json。</summary>
+        /// <summary>加工计划落盘路径：给了 OutputPath 用它，否则落 _Tasks/&lt;需求id&gt;/30-outputs/&lt;资产id&gt;/加工计划.json。</summary>
         private static string ResolvePlanOutputPath(string repositoryRoot, ArtPlanArguments arguments)
         {
             if (!string.IsNullOrWhiteSpace(arguments.OutputPath))
@@ -1053,7 +1053,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 repositoryRoot,
                 "_Tasks",
                 arguments.RequirementIdentifier,
-                "30-产物",
+                "30-outputs",
                 arguments.AssetIdentifier,
                 "加工计划.json");
         }

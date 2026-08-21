@@ -63,7 +63,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             using var workspace = new PoolTestWorkspace();
             var sidecar = FullSidecar();
-            var filePath = Path.Combine(workspace.Root, "变体", "v2.png.溯源.json");
+            var filePath = Path.Combine(workspace.Root, "variants", "v2.png.provenance.json");
 
             sidecar.WriteTo(filePath);
             var read = ProvenanceSidecar.Read(filePath);
@@ -106,7 +106,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void ForManualProductionMarksChosenAndManual()
         {
             using var workspace = new PoolTestWorkspace();
-            var variantPath = Path.Combine(workspace.Root, "变体", "人工", "v1.png");
+            var variantPath = Path.Combine(workspace.Root, "variants", "manual", "v1.png");
             Directory.CreateDirectory(Path.GetDirectoryName(variantPath));
             File.WriteAllText(variantPath, "manual-art");
 
@@ -127,7 +127,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             using var workspace = new PoolTestWorkspace();
             var schema = LoadSidecarSchema(workspace);
-            var variantPath = Path.Combine(workspace.Root, "变体", "v1.png");
+            var variantPath = Path.Combine(workspace.Root, "variants", "v1.png");
             Directory.CreateDirectory(Path.GetDirectoryName(variantPath));
             File.WriteAllText(variantPath, "manual-art");
 

@@ -73,8 +73,8 @@ namespace Template.Toolkit.DashboardTests
                   "需求id": "REQ-0001"
                 }
                 """);
-            WriteFile(Path.Combine(_repositoryRoot, "_Tasks", "REQ-0001", "30-产物", "ASSET-0001-01", "弃", "bad1.png"), "x");
-            WriteFile(Path.Combine(_repositoryRoot, "_Tasks", "REQ-0001", "30-产物", "ASSET-0001-01", "弃", "bad2.jpg"), "x");
+            WriteFile(Path.Combine(_repositoryRoot, "_Tasks", "REQ-0001", "30-outputs", "ASSET-0001-01", "discarded", "bad1.png"), "x");
+            WriteFile(Path.Combine(_repositoryRoot, "_Tasks", "REQ-0001", "30-outputs", "ASSET-0001-01", "discarded", "bad2.jpg"), "x");
 
             var rows = CreationPanelReader.ReadAssets(_repositoryRoot, _poolRoot);
 

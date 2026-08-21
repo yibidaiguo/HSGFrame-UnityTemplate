@@ -17,7 +17,7 @@ namespace Template.View
     /// </summary>
     /// <remarks>
     /// 工程走的是**新版 Input System**（`activeInputHandler: 1`，旧输入管理器已停用），
-    /// 绑定的唯一事实源是 <c>Assets/Game/Settings/Input/IA_默认输入.inputactions</c>——
+    /// 绑定的唯一事实源是 <c>Assets/Game/Settings/Input/IA_DefaultInput.inputactions</c>——
     /// 改键、手柄、重映射全部由那份资产负责，本类型不认识任何一个具体按键。
     /// 留这一层的意义在于业务侧读到的仍然是「前进」这样的动作名与
     /// <see cref="InputActionPhase"/> 这样的纯 C# 相位：相位判定留在
@@ -97,14 +97,14 @@ namespace Template.View
         {
             if (_actionAsset == null)
             {
-                LoggerHub.Shared.Warning("位置：InputDriverBehaviour；原因：没挂输入动作资产，本组件不会产生任何输入；修复：把 Assets/Game/Settings/Input/IA_默认输入.inputactions 拖到本组件上；参考：《结构规范-资源》第五节");
+                LoggerHub.Shared.Warning("位置：InputDriverBehaviour；原因：没挂输入动作资产，本组件不会产生任何输入；修复：把 Assets/Game/Settings/Input/IA_DefaultInput.inputactions 拖到本组件上；参考：《结构规范-资源》第五节");
                 return null;
             }
 
             var map = _actionAsset.FindActionMap(_actionMapName, throwIfNotFound: false);
             if (map == null)
             {
-                LoggerHub.Shared.Error($"位置：{_actionAsset.name}；原因：找不到名为「{_actionMapName}」的 Action Map，本组件不会产生任何输入；修复：把组件上的 Action Map 名改成资产里真有的那个；参考：Assets/Game/Settings/Input/IA_默认输入.inputactions");
+                LoggerHub.Shared.Error($"位置：{_actionAsset.name}；原因：找不到名为「{_actionMapName}」的 Action Map，本组件不会产生任何输入；修复：把组件上的 Action Map 名改成资产里真有的那个；参考：Assets/Game/Settings/Input/IA_DefaultInput.inputactions");
             }
 
             return map;

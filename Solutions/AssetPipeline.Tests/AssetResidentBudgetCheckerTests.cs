@@ -71,7 +71,7 @@ namespace Template.Toolkit.AssetPipeline.Tests
             }
         }
 
-        /// <summary>.meta 与各目录的「导入规则.json」是管线配置、不进包，不能算进常驻字节。</summary>
+        /// <summary>.meta 与各目录的「import-rules.json」是管线配置、不进包，不能算进常驻字节。</summary>
         [Fact]
         public void MetaAndImportRuleFilesAreNotCounted()
         {
@@ -79,7 +79,7 @@ namespace Template.Toolkit.AssetPipeline.Tests
             try
             {
                 WriteFile(assetsRoot, "Game/ResourceArt/Ui/T_通用.png.meta", new string('a', 200));
-                WriteFile(assetsRoot, "Game/ResourceArt/Ui/导入规则.json", new string('a', 200));
+                WriteFile(assetsRoot, "Game/ResourceArt/Ui/import-rules.json", new string('a', 200));
                 var ruleSet = BuildRuleSet(("资源-常驻通用件", "Game/ResourceArt/Ui/", "常驻"));
 
                 var violations = AssetResidentBudgetChecker.Check(assetsRoot, ruleSet, 100);

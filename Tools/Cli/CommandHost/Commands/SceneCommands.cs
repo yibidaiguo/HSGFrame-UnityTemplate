@@ -125,7 +125,7 @@ namespace Template.Toolkit.CommandHost.Commands
                     "参数 ScenePath",
                     "场景路径为空",
                     "在参数里填一个 UnityProject 下的场景路径",
-                    "Assets/Game/Scenes/World/村庄.unity"));
+                    "Assets/Game/Scenes/World/Village.unity"));
             }
 
             if (string.IsNullOrWhiteSpace(arguments.OutputDirectory))
@@ -145,7 +145,7 @@ namespace Template.Toolkit.CommandHost.Commands
                     scenePath,
                     "场景文件不存在",
                     "确认场景路径相对 UnityProject 存在",
-                    "Assets/Game/Scenes/World/村庄.unity"));
+                    "Assets/Game/Scenes/World/Village.unity"));
             }
 
             var timeoutProblem = SceneCommandSupport.CheckTimeout(arguments.TimeoutMinutes);

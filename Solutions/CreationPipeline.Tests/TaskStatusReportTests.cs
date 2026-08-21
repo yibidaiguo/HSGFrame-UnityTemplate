@@ -23,7 +23,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
           "当前工作项": "WI-0001-03",
           "关卡待审": null,
           "预算": { "llm上限": 500000, "llm已用": 132000, "生图上限": 60, "生图已用": 18 },
-          "产物哈希": { "10-方案.md": "abc", "30-产物/金币袋.png": "def" }
+          "产物哈希": { "10-方案.md": "abc", "30-outputs/金币袋.png": "def" }
         }
         """;
 

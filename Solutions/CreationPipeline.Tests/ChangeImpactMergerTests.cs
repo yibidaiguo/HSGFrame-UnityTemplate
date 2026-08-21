@@ -7,7 +7,7 @@ using Xunit;
 namespace Template.Toolkit.CreationPipeline.Tests
 {
     /// <summary>
-    /// 影响评估合并写进 05-变更影响.md 的测试（子文档 03 §三）。
+    /// 影响评估合并写进 05-change-impact.md 的测试（子文档 03 §三）。
     /// 三条要点：只加一节不动别的节；重复跑覆盖不堆叠；没判成时**不许**写成「全净」。
     /// </summary>
     public class ChangeImpactMergerTests

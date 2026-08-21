@@ -47,7 +47,7 @@ namespace Template.Toolkit.CreationPipeline
                 ["记录id"] = envelope.RecordIdentifier,
                 ["修订"] = envelope.Revision,
                 ["时间"] = moment.ToString("o"),
-                ["结论"] = "拒收",
+                ["结论"] = "rejected",
                 ["人话"] = $"这条需求有 {findings.Count} 处不合格，改完保存会自动重走入库。",
                 ["理由"] = reasons
             };

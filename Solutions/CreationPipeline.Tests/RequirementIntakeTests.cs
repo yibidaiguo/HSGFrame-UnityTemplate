@@ -138,7 +138,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var outcome = Assert.Single(RequirementIntake.Run(workspace.RepositoryRoot, workspace.Root, schema, FixedMoment));
 
             Assert.Equal(IntakeDecision.Rejected, outcome.Decision);
-            var noticePath = Path.Combine(workspace.RepositoryRoot, "_Generated", "拒收", "feishu-recABC123-3.json");
+            var noticePath = Path.Combine(workspace.RepositoryRoot, "_Generated", "rejected", "feishu-recABC123-3.json");
             Assert.True(File.Exists(noticePath));
             var notice = JsonNode.Parse(File.ReadAllText(noticePath)) as JsonObject;
             Assert.NotEmpty(notice["理由"] as JsonArray);
@@ -157,7 +157,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             RequirementIntake.Run(workspace.RepositoryRoot, workspace.Root, schema, FixedMoment);
 
-            var noticePath = Path.Combine(workspace.RepositoryRoot, "_Generated", "拒收", "feishu-recABC123-3.json");
+            var noticePath = Path.Combine(workspace.RepositoryRoot, "_Generated", "rejected", "feishu-recABC123-3.json");
             var text = File.ReadAllText(noticePath);
             Assert.Contains("原因", text);
             Assert.DoesNotContain("\\u", text);
@@ -226,11 +226,11 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.True(after["锁定"].GetValue<bool>());
 
             // 变更目录下有固定时刻对应的时间戳文件与累积.json。
-            var changeDirectory = Path.Combine(workspace.RepositoryRoot, "_Tasks", "REQ-0001", "变更");
+            var changeDirectory = Path.Combine(workspace.RepositoryRoot, "_Tasks", "REQ-0001", "changes");
             Assert.True(File.Exists(Path.Combine(changeDirectory, "20260818-100000.json")));
-            Assert.True(File.Exists(Path.Combine(changeDirectory, "累积.json")));
+            Assert.True(File.Exists(Path.Combine(changeDirectory, "accumulated.json")));
 
-            var accumulated = JsonNode.Parse(File.ReadAllText(Path.Combine(changeDirectory, "累积.json"))) as JsonObject;
+            var accumulated = JsonNode.Parse(File.ReadAllText(Path.Combine(changeDirectory, "accumulated.json"))) as JsonObject;
             var fieldChanges = accumulated["字段改动"] as JsonObject;
             Assert.NotNull(fieldChanges["标题"]);
         }

@@ -63,16 +63,16 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 引擎轮次账本：&lt;仓库根&gt;/_Tasks/引擎轮次.jsonl，一行一条 JSON 追加写。
+    /// 引擎轮次账本：&lt;仓库根&gt;/_Tasks/engine-ticks.jsonl，一行一条 JSON 追加写。
     /// 空账本（文件不存在）是正常状态不是错误（决策 77）；坏行跳过但计数。
     /// </summary>
     public static class DaemonTickLedger
     {
-        /// <summary>账本文件路径：&lt;仓库根&gt;/_Tasks/引擎轮次.jsonl。</summary>
+        /// <summary>账本文件路径：&lt;仓库根&gt;/_Tasks/engine-ticks.jsonl。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         public static string LedgerFile(string repositoryRoot)
         {
-            return Path.Combine(repositoryRoot, "_Tasks", "引擎轮次.jsonl");
+            return Path.Combine(repositoryRoot, "_Tasks", "engine-ticks.jsonl");
         }
 
         /// <summary>最近一次 Read 跳过的坏行数；Read 每跑一次重置。</summary>

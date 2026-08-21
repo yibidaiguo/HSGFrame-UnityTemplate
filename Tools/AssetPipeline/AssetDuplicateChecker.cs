@@ -35,7 +35,7 @@ namespace Template.Toolkit.AssetPipeline
 
                 var fileName = Path.GetFileName(filePath);
                 if (fileName.EndsWith(".meta", StringComparison.Ordinal)
-                    || string.Equals(fileName, "导入规则.json", StringComparison.Ordinal))
+                    || string.Equals(fileName, "import-rules.json", StringComparison.Ordinal))
                 {
                     continue;
                 }

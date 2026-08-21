@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 
 namespace Template.Toolkit.AssetPipeline
 {
-    /// <summary>一个目录的资产导入规则，从「导入规则.json」读取。</summary>
+    /// <summary>一个目录的资产导入规则，从「import-rules.json」读取。</summary>
     public sealed class AssetImportRule
     {
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
@@ -40,7 +40,7 @@ namespace Template.Toolkit.AssetPipeline
         [JsonPropertyName("图集")]
         public string Atlas { get; set; }
 
-        /// <summary>从「导入规则.json」读回一条导入规则。</summary>
+        /// <summary>从「import-rules.json」读回一条导入规则。</summary>
         /// <param name="path">规则文件路径。</param>
         public static AssetImportRule LoadFromFile(string path)
         {

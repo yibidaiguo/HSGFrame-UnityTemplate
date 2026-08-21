@@ -27,7 +27,7 @@ namespace Template.Toolkit.Editor
                 throw new InvalidOperationException(
                     $"位置：{scenePath}；原因：场景根物体数量是 {levelRootObjects.Length}，导出要求恰好 1 个关卡根物体；" +
                     "修复：把场景整理成「一个关卡根物体，区块挂在它下面」的结构；" +
-                    "参考：Assets/Game/Scenes/World/村庄.unity");
+                    "参考：Assets/Game/Scenes/World/Village.unity");
             }
 
             var levelRoot = levelRootObjects[0];

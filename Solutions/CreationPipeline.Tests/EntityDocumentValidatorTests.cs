@@ -34,8 +34,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
         /// <summary>把仓库里的真实基线 schema 内容写进临时池子并加载。</summary>
         private static PoolSchema LoadRequestSchema(PoolTestWorkspace workspace)
         {
-            workspace.WriteBaselineSchema("资产请求", BaselineText("asset-request.schema.json"));
-            return PoolSchemaLoader.Load(workspace.Root, "资产请求");
+            workspace.WriteBaselineSchema("asset-requests", BaselineText("asset-request.schema.json"));
+            return PoolSchemaLoader.Load(workspace.Root, "asset-requests");
         }
 
         /// <summary>读仓库 Pools/Schema/Baseline/ 下的真实文件内容。</summary>

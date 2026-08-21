@@ -6,10 +6,10 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: "Assets/Game/Scenes/Boot/\u542F\u52A8.unity"
+    path: Assets/Game/Scenes/Boot/Boot.unity
     guid: 18d8e4588e2e73c4cbc154f02cd58d9d
   - enabled: 1
-    path: "Assets/Game/Scenes/World/\u6751\u5E84.unity"
+    path: Assets/Game/Scenes/World/Village.unity
     guid: 6906ea9f737e2e64cad7f9f4398dc4b7
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

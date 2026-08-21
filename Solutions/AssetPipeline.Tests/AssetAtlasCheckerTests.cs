@@ -14,7 +14,7 @@ namespace Template.Toolkit.AssetPipeline.Tests
             var assetsRoot = CreateTempDirectory();
             try
             {
-                WriteImportRule(assetsRoot, "Game/Art/Texture/Ui/导入规则.json", "SA_Inventory");
+                WriteImportRule(assetsRoot, "Game/Art/Texture/Ui/import-rules.json", "SA_Inventory");
                 Directory.CreateDirectory(Path.Combine(assetsRoot, "Game/Settings/Atlas"));
 
                 var violations = AssetAtlasChecker.Check(assetsRoot);
@@ -34,7 +34,7 @@ namespace Template.Toolkit.AssetPipeline.Tests
             var assetsRoot = CreateTempDirectory();
             try
             {
-                WriteImportRule(assetsRoot, "Game/Art/Texture/Ui/导入规则.json", "SA_Inventory");
+                WriteImportRule(assetsRoot, "Game/Art/Texture/Ui/import-rules.json", "SA_Inventory");
                 WriteFile(assetsRoot, "Game/Art/Texture/Ui.meta", "fileFormatVersion: 2\nguid: abc123def456\n");
                 WriteFile(assetsRoot, "Game/Settings/Atlas/SA_Inventory.spriteatlas", "%YAML 1.1\n--- !u!687078895\n");
 
@@ -55,7 +55,7 @@ namespace Template.Toolkit.AssetPipeline.Tests
             var assetsRoot = CreateTempDirectory();
             try
             {
-                WriteImportRule(assetsRoot, "Game/Art/Texture/Ui/导入规则.json", "SA_Inventory");
+                WriteImportRule(assetsRoot, "Game/Art/Texture/Ui/import-rules.json", "SA_Inventory");
                 WriteFile(assetsRoot, "Game/Art/Texture/Ui.meta", "fileFormatVersion: 2\nguid: abc123def456\n");
                 WriteFile(assetsRoot, "Game/Settings/Atlas/SA_Inventory.spriteatlas", "{fileID: 102900000, guid: abc123def456, type: 3}");
 
@@ -75,12 +75,12 @@ namespace Template.Toolkit.AssetPipeline.Tests
             var assetsRoot = CreateTempDirectory();
             try
             {
-                WriteImportRule(assetsRoot, "Game/Art/Texture/Ui/导入规则.json", "Inventory");
+                WriteImportRule(assetsRoot, "Game/Art/Texture/Ui/import-rules.json", "Inventory");
 
                 var violations = AssetAtlasChecker.Check(assetsRoot);
 
                 var violation = Assert.Single(violations);
-                Assert.Equal("Game/Art/Texture/Ui/导入规则.json", violation.AssetPath);
+                Assert.Equal("Game/Art/Texture/Ui/import-rules.json", violation.AssetPath);
             }
             finally
             {
@@ -96,7 +96,7 @@ namespace Template.Toolkit.AssetPipeline.Tests
             {
                 WriteFile(
                     assetsRoot,
-                    "Game/Art/Texture/Ui/导入规则.json",
+                    "Game/Art/Texture/Ui/import-rules.json",
                     "{\"目录用途\":\"贴图-UI\",\"文件名前缀\":\"T_\",\"允许扩展名\":[\".png\"],\"命名风格\":\"PascalCase\",\"最大文件字节\":8388608}");
 
                 var violations = AssetAtlasChecker.Check(assetsRoot);

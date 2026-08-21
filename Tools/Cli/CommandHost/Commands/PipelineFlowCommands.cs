@@ -885,7 +885,7 @@ namespace Template.Toolkit.CommandHost.Commands
         /// 报告是产物不是判定（决策 89）：命令返回值永远是 Success，哪怕报告里全是「脏」。
         /// 模型漏答的项进「漏判的工作项」，绝不默认成「净」（决策 42）。
         /// 按判定键缓存（决策 90）：同输入同模型同提示词版本不重判，命中标「来自缓存」。
-        /// 报告落盘之后**合并写进 05-变更影响.md**（子文档 03 §三）：只加「执行后端评估（建议，不是判定）」
+        /// 报告落盘之后**合并写进 05-change-impact.md**（子文档 03 §三）：只加「执行后端评估（建议，不是判定）」
         /// 那一节，不动重规划算出来的那几节；重复跑覆盖上一次，不越堆越多。
         /// 那份文档不存在时不新建，只如实报一句——没有它说明还没重规划过。
         /// driver 名只走运行时数据（路由表解析），本文件不出现任何 driver 名字面量。
@@ -1949,7 +1949,7 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             lines.Add(
-                $"重规划已落地：新基准 00-需求.v{landing.SnapshotVersion}.json，"
+                $"重规划已落地：新基准 00-requirement.v{landing.SnapshotVersion}.json，"
                 + $"标脏 {landing.MarkedDirty.Count} 项，保留 {landing.KeptClean.Count} 项，已回方案关");
             foreach (var identifier in landing.MarkedDirty)
             {

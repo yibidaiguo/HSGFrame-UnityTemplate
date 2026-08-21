@@ -5,7 +5,7 @@ using System.IO;
 namespace Template.Toolkit.AssetPipeline
 {
     /// <summary>
-    /// 导入规则覆盖校验：放了资产的目录必须能解析到一份「导入规则.json」——
+    /// 导入规则覆盖校验：放了资产的目录必须能解析到一份「import-rules.json」——
     /// 自己有，或者从最近的祖先继承。解析不到就等于那里的命名、扩展名与大小没人管。
     /// </summary>
     public static class AssetRuleCoverageChecker
@@ -64,8 +64,8 @@ namespace Template.Toolkit.AssetPipeline
                 {
                     violations.Add(new AssetBundleGroupViolation(
                         relativePath,
-                        $"目录里有 {assetCount} 个资产，却解析不到「导入规则.json」（自己没有，向上也继承不到）",
-                        "在这个目录或它的某级父目录放一份「导入规则.json」，或把它加进规则覆盖范围的豁免目录",
+                        $"目录里有 {assetCount} 个资产，却解析不到「import-rules.json」（自己没有，向上也继承不到）",
+                        "在这个目录或它的某级父目录放一份「import-rules.json」，或把它加进规则覆盖范围的豁免目录",
                         "Tools/AssetPipeline/Config/rule-coverage.json"));
                 }
             }

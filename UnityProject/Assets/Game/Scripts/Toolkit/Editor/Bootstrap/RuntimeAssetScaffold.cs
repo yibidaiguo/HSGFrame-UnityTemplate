@@ -28,7 +28,7 @@ namespace Template.Toolkit.Editor
         private const string LevelSettingsDirectory = "Assets/Game/Settings/Level";
         private const string InputSettingsDirectory = "Assets/Game/Settings/Input";
 
-        // 与 IA_默认输入.inputactions 里那张 map 同名；改名要两边一起改。
+        // 与 IA_DefaultInput.inputactions 里那张 map 同名；改名要两边一起改。
         private const string DefaultActionMapName = "游戏";
         private const string BootSceneDirectory = "Assets/Game/Scenes/Boot";
         private const string EntityPrefabDirectory = "Assets/Game/ResourceArt/Level";
@@ -37,22 +37,22 @@ namespace Template.Toolkit.Editor
         // 这条分界是《结构规范-资源》第二节的硬规矩，而且 ResourceArt/Level 的导入规则只放行 .prefab。
         private const string EntityMaterialDirectory = "Assets/Game/Art/Material/Level";
 
-        private const string ThemeAssetPath = UiSettingsDirectory + "/默认主题.tss";
-        private const string PanelSettingsAssetPath = UiSettingsDirectory + "/主面板设置.asset";
-        private const string ResourceMapAssetPath = LevelSettingsDirectory + "/实体资源映射.asset";
-        private const string InputActionsAssetPath = InputSettingsDirectory + "/IA_默认输入.inputactions";
-        private const string BootScenePath = BootSceneDirectory + "/启动.unity";
+        private const string ThemeAssetPath = UiSettingsDirectory + "/DefaultTheme.tss";
+        private const string PanelSettingsAssetPath = UiSettingsDirectory + "/MainPanelSettings.asset";
+        private const string ResourceMapAssetPath = LevelSettingsDirectory + "/EntityResourceMap.asset";
+        private const string InputActionsAssetPath = InputSettingsDirectory + "/IA_DefaultInput.inputactions";
+        private const string BootScenePath = BootSceneDirectory + "/Boot.unity";
 
         // 六个类别取自 Levels/Village/block-*.json 里「类别」字段的实际取值。地址就是预制体文件名
         //（收集器用 AddressByFileName），所以这张表同时也是「有哪些预制体」的清单。
         private static readonly (string EntityKind, string ResourceAddress, PrimitiveType Shape, Color Color)[] EntityKinds =
         {
             ("NPC", "P_Npc", PrimitiveType.Capsule, new Color(0.30f, 0.65f, 0.95f)),
-            ("可交互物", "P_可交互物", PrimitiveType.Cube, new Color(0.95f, 0.78f, 0.30f)),
-            ("传送点", "P_传送点", PrimitiveType.Cylinder, new Color(0.55f, 0.40f, 0.95f)),
-            ("刷怪点", "P_刷怪点", PrimitiveType.Sphere, new Color(0.90f, 0.35f, 0.35f)),
-            ("触发器", "P_触发器", PrimitiveType.Cube, new Color(0.40f, 0.90f, 0.55f)),
-            ("任务物件", "P_任务物件", PrimitiveType.Sphere, new Color(0.95f, 0.55f, 0.80f)),
+            ("可交互物", "P_Interactable", PrimitiveType.Cube, new Color(0.95f, 0.78f, 0.30f)),
+            ("传送点", "P_Teleporter", PrimitiveType.Cylinder, new Color(0.55f, 0.40f, 0.95f)),
+            ("刷怪点", "P_SpawnPoint", PrimitiveType.Sphere, new Color(0.90f, 0.35f, 0.35f)),
+            ("触发器", "P_Trigger", PrimitiveType.Cube, new Color(0.40f, 0.90f, 0.55f)),
+            ("任务物件", "P_QuestItem", PrimitiveType.Sphere, new Color(0.95f, 0.55f, 0.80f)),
         };
 
         /// <summary>把全部运行时资产落一遍，返回逐行中文摘要。</summary>
@@ -205,7 +205,7 @@ namespace Template.Toolkit.Editor
         /// <summary>确认工程级输入动作资产就位。</summary>
         /// <remarks>
         /// 这一步**不再从代码生成绑定**：工程走新版 Input System 之后，绑定的唯一事实源是
-        /// 随仓库提交的 <c>IA_默认输入.inputactions</c>，由 Unity 的 Input Actions 编辑器维护。
+        /// 随仓库提交的 <c>IA_DefaultInput.inputactions</c>，由 Unity 的 Input Actions 编辑器维护。
         /// 再让脚手架按代码里的一张默认表生成一次，就是把事实源变回两个。
         /// 所以这里只保证目录与导入规则在，并如实报告资产在不在。
         /// </remarks>
@@ -334,7 +334,7 @@ namespace Template.Toolkit.Editor
         // 每个正式资产目录都要被一份导入规则覆盖，否则 R5 会红（《结构规范-资源》第六节）。
         private static void EnsureImportRule(string assetDirectory, string purpose, IReadOnlyList<string> extensions)
         {
-            var rulePath = ToAbsolutePath(assetDirectory + "/导入规则.json");
+            var rulePath = ToAbsolutePath(assetDirectory + "/import-rules.json");
             if (File.Exists(rulePath))
             {
                 return;

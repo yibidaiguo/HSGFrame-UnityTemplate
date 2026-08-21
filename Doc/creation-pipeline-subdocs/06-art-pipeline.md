@@ -24,7 +24,7 @@
 ## 二、生图链路(逐步)
 
 1. **配方**:`Bridges/comfyui/recipes/icon@v5/` = workflow.json + mapping.json(请求字段 → workflow 节点参数)+ 锚点槽(参考图输入节点、LoRA 加载节点)。云变体 `Bridges/云生图/配方/图标@v2/` = prompt模板 + 参数;同名配方跨 driver **共享同一套锚点**。
-2. **生成**:`art.generate` 装配 → 调 driver → N 变体落 `30-产物/ASSET-xxx/变体/`,每张配溯源边车。
+2. **生成**:`art.generate` 装配 → 调 driver → N 变体落 `30-outputs/ASSET-xxx/变体/`,每张配溯源边车。
 3. **机检预筛**:尺寸/透明/命名/格式;不合格移 `弃/` 并记原因,人眼只看合格品。
 4. **contact sheet**:合格变体拼九宫格带序号 → 选片卡片(按钮:[1..N] / [换一批] / [我自己来])。
 5. **换一批**:反馈词追加进 prompt(记入边车),预算计数;第 3 轮起卡片附提示「已 3 轮,考虑接管或调锚点」。

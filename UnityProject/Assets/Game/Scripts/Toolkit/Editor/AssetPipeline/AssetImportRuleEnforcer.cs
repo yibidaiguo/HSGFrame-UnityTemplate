@@ -6,10 +6,10 @@ using UnityEngine;
 
 namespace Template.Toolkit.Editor
 {
-    /// <summary>导入期的规则执行器：资产一进工程就按所在目录的「导入规则.json」把导入设置调好，并对停在收件箱里的资产提个醒。</summary>
+    /// <summary>导入期的规则执行器：资产一进工程就按所在目录的「import-rules.json」把导入设置调好，并对停在收件箱里的资产提个醒。</summary>
     public sealed class AssetImportRuleEnforcer : AssetPostprocessor
     {
-        private const string ImportRuleFileName = "导入规则.json";
+        private const string ImportRuleFileName = "import-rules.json";
         private const string InboxDirectoryName = "_Inbox";
         private const string LogPrefix = "[资产管线] ";
 
@@ -84,7 +84,7 @@ namespace Template.Toolkit.Editor
             }
         }
 
-        // 从资产所在目录逐级向上找 导入规则.json，找不到返回 null。
+        // 从资产所在目录逐级向上找 import-rules.json，找不到返回 null。
         // 这与命令层 AssetImportRuleSet.LoadForDirectory 是同一套查找语义，两侧对同一个资产得出同一条规则。
         private static AssetImportRuleView LoadRuleForAsset(string assetPath)
         {
@@ -128,7 +128,7 @@ namespace Template.Toolkit.Editor
         {
             var fileName = Path.GetFileName(assetPath);
             return string.Equals(fileName, ImportRuleFileName, StringComparison.Ordinal)
-                || string.Equals(fileName, "归档路由.json", StringComparison.Ordinal);
+                || string.Equals(fileName, "archive-routes.json", StringComparison.Ordinal);
         }
     }
 

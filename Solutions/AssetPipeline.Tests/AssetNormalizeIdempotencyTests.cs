@@ -69,8 +69,8 @@ namespace Template.Toolkit.AssetPipeline.Tests
         [Fact]
         public void RoutingTableFileIsTreatedAsAPipelineConfigurationFile()
         {
-            Assert.True(AssetNameNormalizer.IsPipelineConfigurationFile("归档路由.json"));
-            Assert.True(AssetNameNormalizer.IsPipelineConfigurationFile("导入规则.json"));
+            Assert.True(AssetNameNormalizer.IsPipelineConfigurationFile("archive-routes.json"));
+            Assert.True(AssetNameNormalizer.IsPipelineConfigurationFile("import-rules.json"));
             Assert.False(AssetNameNormalizer.IsPipelineConfigurationFile("T_HeroIdle_01.png"));
         }
 
@@ -82,10 +82,10 @@ namespace Template.Toolkit.AssetPipeline.Tests
             var directory = CreateTempDirectory();
             try
             {
-                File.WriteAllText(Path.Combine(directory, "导入规则.json"), "{}");
-                File.WriteAllText(Path.Combine(directory, "导入规则.json.meta"), "guid: 0");
-                File.WriteAllText(Path.Combine(directory, "归档路由.json"), "{}");
-                File.WriteAllText(Path.Combine(directory, "归档路由.json.meta"), "guid: 1");
+                File.WriteAllText(Path.Combine(directory, "import-rules.json"), "{}");
+                File.WriteAllText(Path.Combine(directory, "import-rules.json.meta"), "guid: 0");
+                File.WriteAllText(Path.Combine(directory, "archive-routes.json"), "{}");
+                File.WriteAllText(Path.Combine(directory, "archive-routes.json.meta"), "guid: 1");
 
                 var findings = AssetValidator.Validate(directory, CreateTextureRule(), Array.Empty<string>());
 

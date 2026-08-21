@@ -36,7 +36,7 @@ namespace Template.Toolkit.AssetPipeline
         [JsonPropertyName("路由")]
         public IReadOnlyList<AssetRoutingEntry> Entries { get; set; } = Array.Empty<AssetRoutingEntry>();
 
-        /// <summary>从「归档路由.json」读回一张路由表，文件缺失或格式不对时抛 AssetRoutingException。</summary>
+        /// <summary>从「archive-routes.json」读回一张路由表，文件缺失或格式不对时抛 AssetRoutingException。</summary>
         /// <param name="path">路由文件路径。</param>
         public static AssetRoutingTable LoadFromFile(string path)
         {
@@ -47,7 +47,7 @@ namespace Template.Toolkit.AssetPipeline
                 if (table == null)
                 {
                     throw new AssetRoutingException(
-                        $"位置：{path}；原因：路由表反序列化结果为空；修复：核对「归档路由.json」内容；参考：路由表按扩展名把资产分派到正式目录");
+                        $"位置：{path}；原因：路由表反序列化结果为空；修复：核对「archive-routes.json」内容；参考：路由表按扩展名把资产分派到正式目录");
                 }
 
                 return table;
@@ -55,7 +55,7 @@ namespace Template.Toolkit.AssetPipeline
             catch (JsonException exception)
             {
                 throw new AssetRoutingException(
-                    $"位置：{path}；原因：路由表格式错误（{exception.Message}）；修复：把「归档路由.json」改成合法 JSON；参考：路由表按扩展名把资产分派到正式目录",
+                    $"位置：{path}；原因：路由表格式错误（{exception.Message}）；修复：把「archive-routes.json」改成合法 JSON；参考：路由表按扩展名把资产分派到正式目录",
                     exception);
             }
             catch (IOException exception)

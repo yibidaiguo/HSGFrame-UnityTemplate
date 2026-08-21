@@ -33,7 +33,7 @@ namespace Template.Toolkit.CreationPipeline
             var findings = new List<PoolFinding>();
             var catalog = AssetSpecCatalog.Load(repositoryRoot, moduleName ?? "");
             var spec = catalog.Find(request.AssetType);
-            var requestIdentifier = string.IsNullOrWhiteSpace(request.Identifier) ? "资产请求" : request.Identifier;
+            var requestIdentifier = string.IsNullOrWhiteSpace(request.Identifier) ? "asset-requests" : request.Identifier;
 
             var fatal = false;
             if (spec == null)

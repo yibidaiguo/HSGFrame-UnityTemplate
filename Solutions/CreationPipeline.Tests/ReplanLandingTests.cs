@@ -60,7 +60,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var graph = WorkItemGraph.Load(workspace.RepositoryRoot, "REQ-0001");
             var files = new Dictionary<string, IReadOnlyList<string>>
             {
-                ["WI-0001-01"] = new[] { "30-产物/金币袋.png" }
+                ["WI-0001-01"] = new[] { "30-outputs/金币袋.png" }
             };
             var plan = ReplanPlanner.Plan(graph, new[] { "玩法" }, files);
             Assert.True(plan.MustAskHuman);
@@ -68,7 +68,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var result = ReplanLanding.Apply(workspace.RepositoryRoot, "REQ-0001", plan, graph, "{}", false);
 
             Assert.False(result.Applied);
-            Assert.Contains("30-产物/金币袋.png", result.RefusalReason);
+            Assert.Contains("30-outputs/金币袋.png", result.RefusalReason);
             AssertNoLandingFiles(workspace);
             Assert.Equal(before, File.ReadAllText(Path.Combine(directory, "WI-0001-01.json")));
         }
@@ -85,7 +85,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var graph = WorkItemGraph.Load(workspace.RepositoryRoot, "REQ-0001");
             var files = new Dictionary<string, IReadOnlyList<string>>
             {
-                ["WI-0001-01"] = new[] { "30-产物/金币袋.png" }
+                ["WI-0001-01"] = new[] { "30-outputs/金币袋.png" }
             };
             var plan = ReplanPlanner.Plan(graph, new[] { "玩法" }, files);
             Assert.True(plan.MustAskHuman);
@@ -103,7 +103,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         }
 
         /// <summary>
-        /// 正常落地：快照 v1 写出来、05-变更影响.md 写出来且七个小节标题都在、
+        /// 正常落地：快照 v1 写出来、05-change-impact.md 写出来且七个小节标题都在、
         /// 脏项的 状态 变成 标脏、净项文件内容逐字节未变、
         /// 状态.json 阶段是 方案、子状态是 停在关卡、关卡待审是 方案，预算一字未变（不清账）。
         /// </summary>
@@ -141,7 +141,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.True(File.Exists(snapshotPath));
             Assert.Equal(requirementJsonText, File.ReadAllText(snapshotPath));
 
-            // 05-变更影响.md：七个小节标题都在。
+            // 05-change-impact.md：七个小节标题都在。
             var impactPath = PipelinePaths.ChangeImpactFile(workspace.RepositoryRoot, "REQ-0001");
             Assert.True(File.Exists(impactPath));
             var impactText = File.ReadAllText(impactPath);
@@ -277,7 +277,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
         private static string WorkItemDirectory(string repositoryRoot, string requirementIdentifier)
         {
-            return Path.Combine(repositoryRoot, "_Tasks", requirementIdentifier, "20-工作项");
+            return Path.Combine(repositoryRoot, "_Tasks", requirementIdentifier, "20-work-items");
         }
 
         /// <summary>写一个工作项 JSON（ASCII 化的键值集合），返回写盘前的原文。</summary>
@@ -319,7 +319,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 ["依赖"] = new JsonArray(),
                 ["验收点"] = "三连能翻",
                 ["引用需求字段"] = ToJsonArray(new[] { "玩法", "目标" }),
-                ["产物"] = ToJsonArray(new[] { "30-产物/金币袋.png" }),
+                ["产物"] = ToJsonArray(new[] { "30-outputs/金币袋.png" }),
                 ["消耗"] = new JsonObject { ["llm"] = 100 },
                 ["人工产出"] = new JsonObject { ["说明"] = "手绘" }
             };

@@ -19,7 +19,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal(0, RequirementSnapshotStore.CurrentVersion(workspace.RepositoryRoot, "REQ-0001"));
         }
 
-        /// <summary>Capture 一次 → 文件 00-需求.v1.json 存在，内容与传入的原文逐字节相等。</summary>
+        /// <summary>Capture 一次 → 文件 00-requirement.v1.json 存在，内容与传入的原文逐字节相等。</summary>
         [Fact]
         public void CaptureWritesOriginalBytesToVersionOne()
         {

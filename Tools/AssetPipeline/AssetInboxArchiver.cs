@@ -56,7 +56,7 @@ namespace Template.Toolkit.AssetPipeline
                 if (rule == null)
                 {
                     throw new AssetRoutingException(
-                        $"位置：{targetDirectory}；原因：目标目录及其上级都没有「导入规则.json」；修复：为目标目录补上导入规则.json；参考：归档时按目标目录自己的规则重命名");
+                        $"位置：{targetDirectory}；原因：目标目录及其上级都没有「import-rules.json」；修复：为目标目录补上import-rules.json；参考：归档时按目标目录自己的规则重命名");
                 }
 
                 if (!occupiedNamesByDirectory.TryGetValue(targetDirectory, out var occupiedNames))
@@ -114,8 +114,8 @@ namespace Template.Toolkit.AssetPipeline
         private static bool ShouldSkip(string fileName)
         {
             return fileName.EndsWith(".meta", StringComparison.Ordinal)
-                || string.Equals(fileName, "导入规则.json", StringComparison.Ordinal)
-                || string.Equals(fileName, "归档路由.json", StringComparison.Ordinal);
+                || string.Equals(fileName, "import-rules.json", StringComparison.Ordinal)
+                || string.Equals(fileName, "archive-routes.json", StringComparison.Ordinal);
         }
 
         private static HashSet<string> LoadOccupiedNames(string targetDirectory)

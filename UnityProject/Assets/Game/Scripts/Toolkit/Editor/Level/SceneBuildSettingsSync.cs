@@ -67,7 +67,7 @@ namespace Template.Toolkit.Editor
             }
 
             // 拼回相对子路径而不是只取文件名：场景分区之后，Boot/ 与 World/ 下的场景
-            // 只取文件名会拼出 Assets/Game/Scenes/村庄.unity 这种不存在的路径，构建设置里就成了死条目。
+            // 只取文件名会拼出 Assets/Game/Scenes/Village.unity 这种不存在的路径，构建设置里就成了死条目。
             return Directory.GetFiles(absoluteDirectory, "*.unity", SearchOption.AllDirectories)
                 .Select(path => SceneDirectory + "/"
                     + Path.GetRelativePath(absoluteDirectory, path).Replace('\\', '/'))

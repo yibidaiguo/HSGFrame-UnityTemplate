@@ -48,7 +48,7 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 工作项依赖图：从 _Tasks/&lt;需求id&gt;/20-工作项/ 逐文件加载，支持沿依赖边的脏传播与环检测。
+    /// 工作项依赖图：从 _Tasks/&lt;需求id&gt;/20-work-items/ 逐文件加载，支持沿依赖边的脏传播与环检测。
     /// 目录不存在返回空图不抛；单个坏文件跳过并累加原因。
     /// </summary>
     public sealed class WorkItemGraph
@@ -76,14 +76,14 @@ namespace Template.Toolkit.CreationPipeline
         public string LoadFailureReason { get; }
 
         /// <summary>
-        /// 加载某需求的全部工作项：目录为 _Tasks/&lt;需求id&gt;/20-工作项/，一项一文件。
+        /// 加载某需求的全部工作项：目录为 _Tasks/&lt;需求id&gt;/20-work-items/，一项一文件。
         /// 读不到目录返回空图不抛；单个坏文件跳过并累加原因到 LoadFailureReason。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="requirementIdentifier">需求 id，如「REQ-0042」。</param>
         public static WorkItemGraph Load(string repositoryRoot, string requirementIdentifier)
         {
-            var directory = Path.Combine(repositoryRoot, "_Tasks", requirementIdentifier, "20-工作项");
+            var directory = Path.Combine(repositoryRoot, "_Tasks", requirementIdentifier, "20-work-items");
             if (!Directory.Exists(directory))
             {
                 return new WorkItemGraph(Array.Empty<WorkItemNode>(), "");

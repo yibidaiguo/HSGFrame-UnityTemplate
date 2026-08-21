@@ -139,7 +139,7 @@ namespace Template.Toolkit.AssetPipeline.Tests
         {
             WriteFile(
                 root,
-                Path.Combine(relativeDirectory, "导入规则.json"),
+                Path.Combine(relativeDirectory, "import-rules.json"),
                 "{\"目录用途\":\"贴图\",\"文件名前缀\":\"T_\",\"允许扩展名\":[\".png\"],\"命名风格\":\"PascalCase\",\"最大文件字节\":8388608}");
         }
 

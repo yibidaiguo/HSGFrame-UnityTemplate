@@ -76,11 +76,11 @@ namespace Template.Toolkit.CreationPipeline
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
 
-        /// <summary>助手发出去的草稿留底目录：&lt;仓库根&gt;/_Tasks/会话/草稿。</summary>
+        /// <summary>助手发出去的草稿留底目录：&lt;仓库根&gt;/_Tasks/conversations/drafts。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         public static string DraftDirectory(string repositoryRoot)
         {
-            return Path.Combine(repositoryRoot, "_Tasks", "会话", "草稿");
+            return Path.Combine(repositoryRoot, "_Tasks", "conversations", "drafts");
         }
 
         /// <summary>
@@ -221,7 +221,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 把发出去的草稿留底：&lt;仓库根&gt;/_Tasks/会话/草稿/&lt;id&gt;.json。
+        /// 把发出去的草稿留底：&lt;仓库根&gt;/_Tasks/conversations/drafts/&lt;id&gt;.json。
         /// 这份留底同时是发号台账——<see cref="AllocateIdentifier"/> 靠它避开撞号。
         /// 写失败返回空串、不抛。
         /// </summary>

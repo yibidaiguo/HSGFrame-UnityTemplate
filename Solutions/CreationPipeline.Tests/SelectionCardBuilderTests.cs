@@ -69,10 +69,10 @@ namespace Template.Toolkit.CreationPipeline.Tests
             using var workspace = new PoolTestWorkspace();
             WriteVariant(workspace.Root, "v1.png");
             WriteSidecar(workspace.Root, "v1.png");
-            var manualDirectory = Path.Combine(VariantDirectory(workspace.Root), "人工");
+            var manualDirectory = Path.Combine(VariantDirectory(workspace.Root), "manual");
             Directory.CreateDirectory(manualDirectory);
             File.WriteAllText(Path.Combine(manualDirectory, "hand.png"), "placeholder");
-            File.WriteAllText(Path.Combine(manualDirectory, "hand.png.溯源.json"), SidecarContent);
+            File.WriteAllText(Path.Combine(manualDirectory, "hand.png.provenance.json"), SidecarContent);
 
             var result = SelectionCardBuilder.Build(workspace.Root, Requirement, Asset, 1);
 

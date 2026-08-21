@@ -12,7 +12,7 @@ namespace Template.Toolkit.AssetPipeline
     {
         private const string ResidentLoadGroup = "常驻";
         private const string MetaExtension = ".meta";
-        private const string ImportRuleFileName = "导入规则.json";
+        private const string ImportRuleFileName = "import-rules.json";
         private const string TotalAssetPath = "Game/";
 
         /// <summary>检查常驻分组的字节总和是否超过预算，返回全部违规。</summary>
@@ -81,7 +81,7 @@ namespace Template.Toolkit.AssetPipeline
             return violations;
         }
 
-        // 算一个分组前缀下全部文件的字节总和；.meta 与「导入规则.json」是管线配置、不进包，不计入。
+        // 算一个分组前缀下全部文件的字节总和；.meta 与「import-rules.json」是管线配置、不进包，不计入。
         private static long CountGroupBytes(string assetsRoot, string pathPrefix)
         {
             var normalizedPrefix = pathPrefix.Replace('\\', '/');

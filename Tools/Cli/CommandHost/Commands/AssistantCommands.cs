@@ -372,14 +372,14 @@ namespace Template.Toolkit.CommandHost.Commands
                 : $"回话失败（{call.ErrorCode}）：{call.HumanText}");
         }
 
-        /// <summary>把一轮记进会话流水：&lt;仓库根&gt;/_Tasks/会话/流水.jsonl，一行一条，只追加。</summary>
+        /// <summary>把一轮记进会话流水：&lt;仓库根&gt;/_Tasks/conversations/ledger.jsonl，一行一条，只追加。</summary>
         private static void AppendLedger(string repositoryRoot, JsonObject record)
         {
             try
             {
-                var directory = Path.Combine(repositoryRoot, "_Tasks", "会话");
+                var directory = Path.Combine(repositoryRoot, "_Tasks", "conversations");
                 Directory.CreateDirectory(directory);
-                var filePath = Path.Combine(directory, "流水.jsonl");
+                var filePath = Path.Combine(directory, "ledger.jsonl");
                 File.AppendAllText(filePath, record.ToJsonString(WriteOptions) + Environment.NewLine, new UTF8Encoding(false));
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)

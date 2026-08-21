@@ -57,14 +57,14 @@ _Scratch/*
 
 # 生图/建模的变体本体不进仓库，边车进——变体可由边车重生成，算力换体积
 # （创作管线子文档 06 §二 第 8 步）。目录要放行，否则 git 不会往里走。
-_Tasks/*/30-产物/*/变体/**
-!_Tasks/*/30-产物/*/变体/**/
-!_Tasks/*/30-产物/*/变体/**/*.溯源.json
+_Tasks/*/30-outputs/*/变体/**
+!_Tasks/*/30-outputs/*/变体/**/
+!_Tasks/*/30-outputs/*/变体/**/*.provenance.json
 
 # 引擎守护的运行时状态跟机器走，不跟仓库走（创作管线锁定决策 81、82）：
 # 轮次账本是这台机器跑了什么的流水，锁文件带的是本机进程号，
 # 唤醒信号与它的归档是这台机器收到过什么。进 git 只会让两台机器互相打架。
-_Tasks/引擎轮次.jsonl
+_Tasks/engine-ticks.jsonl
 _Tasks/.prereview-cache/
 
 # 能力探测结果是「这台机器上装了什么」，跟机器走不跟仓库走，所以不进 git。
@@ -73,10 +73,10 @@ _Tasks/.prereview-cache/
 # 探测结果混进去会让它判红（P8 批次 8 真踩过）。
 _Generated/Probes/
 _Tasks/.engine.lock
-_Tasks/唤醒/
+_Tasks/wake/
 # 助手常驻会话的运行时状态同理：收到的消息、发出去的草稿留底与会话流水都是
 # 「这台机器上发生过什么」，跟机器走不跟仓库走（决策 95）。
-_Tasks/会话/
+_Tasks/conversations/
 
 # 下游的密钥配置永不入库（创作管线锁定决策 5）。共享的 downstream.json 只存密钥「名」，
 # 可以进 git；local.json 存的是值，一进 git 就是决策 5 要防的那件事。

@@ -116,10 +116,10 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <summary>
         /// 变体与溯源边车的输出目录（绝对或相对路径，变体落其下「变体/」子目录）。
         /// **留空就按资产请求里的「需求id」与「id」算正式落点**
-        /// （<c>_Tasks/&lt;需求id&gt;/30-产物/&lt;资产id&gt;/</c>）——真跑业务流程时就该落那儿，
+        /// （<c>_Tasks/&lt;需求id&gt;/30-outputs/&lt;资产id&gt;/</c>）——真跑业务流程时就该落那儿，
         /// 而不是每次由调用方现编一个目录（P8 批次 4 留的缺口）。
         /// </summary>
-        [Summary("输出目录；留空按资产请求算正式落点 _Tasks/<需求id>/30-产物/<资产id>/")]
+        [Summary("输出目录；留空按资产请求算正式落点 _Tasks/<需求id>/30-outputs/<资产id>/")]
         [DefaultValue("")]
         public string OutputDirectory { get; set; }
 
@@ -611,7 +611,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
             // 输出目录：给了就用给的（验证、试跑常这么干）；
             // **留空按资产请求算正式落点**——真跑业务流程时变体就该落
-            // _Tasks/<需求id>/30-产物/<资产id>/，不该每次现编一个目录（P8 批次 4 的缺口）。
+            // _Tasks/<需求id>/30-outputs/<资产id>/，不该每次现编一个目录（P8 批次 4 的缺口）。
             string outputDirectory;
             if (!string.IsNullOrWhiteSpace(arguments.OutputDirectory))
             {
@@ -641,7 +641,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var payloadObject = new JsonObject
             {
-                ["资产请求"] = requestNode,
+                ["asset-requests"] = requestNode,
                 ["配方名"] = arguments.RecipeName,
                 ["输出目录"] = outputDirectory
             };
@@ -685,11 +685,11 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             var lines = new List<string>();
-            var variantCount = ReadArrayLength(result.Payload, "变体");
+            var variantCount = ReadArrayLength(result.Payload, "variants");
             lines.Add($"共出 {variantCount} 张图");
             lines.Add($"prompt id：{ReadString(result.Payload, "prompt_id")}");
 
-            if (result.Payload.TryGetProperty("变体", out var variants) && variants.ValueKind == JsonValueKind.Array)
+            if (result.Payload.TryGetProperty("variants", out var variants) && variants.ValueKind == JsonValueKind.Array)
             {
                 foreach (var variant in variants.EnumerateArray())
                 {

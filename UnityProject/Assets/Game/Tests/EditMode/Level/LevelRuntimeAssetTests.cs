@@ -17,7 +17,7 @@ namespace Template.Level.Tests.EditMode
     /// </remarks>
     public class LevelRuntimeAssetTests
     {
-        private const string ResourceMapAssetPath = "Assets/Game/Settings/Level/实体资源映射.asset";
+        private const string ResourceMapAssetPath = "Assets/Game/Settings/Level/EntityResourceMap.asset";
         private const string EntityPrefabDirectory = "Assets/Game/ResourceArt/Level";
 
         // 六个类别取自 Levels/Village/block-*.json 里「类别」字段的实际取值。

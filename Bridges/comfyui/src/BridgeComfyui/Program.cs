@@ -364,7 +364,7 @@ namespace Template.Bridges.Comfyui
             /// </summary>
             public static BridgeResponse RunGenerate(BridgeRequest request)
             {
-                if (!TryGetPayloadObject(request, "资产请求", out var assetRequestElement, out var reason))
+                if (!TryGetPayloadObject(request, "asset-requests", out var assetRequestElement, out var reason))
                 {
                     return FailureResponse("载荷缺「资产请求」或它不是对象：" + reason);
                 }
@@ -448,7 +448,7 @@ namespace Template.Bridges.Comfyui
                         var payload = new JsonObject
                         {
                             ["prompt_id"] = promptId,
-                            ["变体"] = new JsonArray(variants.ToArray())
+                            ["variants"] = new JsonArray(variants.ToArray())
                         };
                         return BridgeResponse.Success(ContractVersion, JsonSerializer.SerializeToElement(payload));
                     }
@@ -497,7 +497,7 @@ namespace Template.Bridges.Comfyui
                         stagedFiles.Add((sourcePath, fileName));
                     }
 
-                    var variantDirectory = Path.Combine(outputDirectory, "变体");
+                    var variantDirectory = Path.Combine(outputDirectory, "variants");
                     Directory.CreateDirectory(variantDirectory);
 
                     var variants = new List<JsonObject>();
@@ -509,7 +509,7 @@ namespace Template.Bridges.Comfyui
                         File.Move(sourcePath, destinationPath);
 
                         var sidecar = BuildSidecar(assetRequest, variantIndex, recipe, destinationPath, seedText, promptId, anchorValues);
-                        sidecar.WriteTo(destinationPath + ".溯源.json");
+                        sidecar.WriteTo(destinationPath + ".provenance.json");
 
                         var (width, height) = ReadPngDimensions(File.ReadAllBytes(destinationPath));
                         variants.Add(new JsonObject

@@ -14,7 +14,7 @@ namespace Template.Toolkit.Editor
     {
         /// <summary>构建一个关卡的场景并保存到指定路径，返回一行中文摘要。</summary>
         /// <param name="levelDirectory">关卡目录，里面放 level.json 与各区块 json。</param>
-        /// <param name="scenePath">场景保存路径，相对 Unity 工程根写，例 Assets/Game/Scenes/World/村庄.unity。</param>
+        /// <param name="scenePath">场景保存路径，相对 Unity 工程根写，例 Assets/Game/Scenes/World/Village.unity。</param>
         public static string Build(string levelDirectory, string scenePath)
         {
             var repository = new LevelRepository(levelDirectory);

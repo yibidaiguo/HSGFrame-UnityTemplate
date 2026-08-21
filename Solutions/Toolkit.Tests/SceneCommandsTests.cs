@@ -112,7 +112,7 @@ namespace Template.Toolkit.Tests
         {
             var result = SceneExportCommand.Execute(new SceneExportArguments
             {
-                ScenePath = "Assets/Game/Scenes/World/村庄.unity",
+                ScenePath = "Assets/Game/Scenes/World/Village.unity",
                 OutputDirectory = null,
             });
 

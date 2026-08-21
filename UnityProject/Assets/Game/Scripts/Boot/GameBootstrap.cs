@@ -206,7 +206,7 @@ namespace Template.Boot
                     FileSystemParameters.CreateDefaultEditorFileSystemParameters(buildResult.PackageRootDirectory),
             };
 #else
-            logger.Error("位置：GameBootstrap；原因：真包里选了编辑器模拟模式，这个模式只在编辑器里成立；修复：把运行模式改成离线或联机再出包；参考：Assets/Game/Scenes/Boot/启动.unity");
+            logger.Error("位置：GameBootstrap；原因：真包里选了编辑器模拟模式，这个模式只在编辑器里成立；修复：把运行模式改成离线或联机再出包；参考：Assets/Game/Scenes/Boot/Boot.unity");
             return null;
 #endif
         }

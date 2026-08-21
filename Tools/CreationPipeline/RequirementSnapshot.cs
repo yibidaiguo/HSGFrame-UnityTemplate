@@ -33,7 +33,7 @@ namespace Template.Toolkit.CreationPipeline
     public static class RequirementSnapshotStore
     {
         /// <summary>
-        /// 扫任务目录里所有 00-需求.v&lt;N&gt;.json（N 是一位以上数字），返回最大的 N；
+        /// 扫任务目录里所有 00-requirement.v&lt;N&gt;.json（N 是一位以上数字），返回最大的 N；
         /// 一个都没有返回 0，目录不存在也返回 0。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
@@ -47,7 +47,7 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             var maxVersion = 0;
-            foreach (var fileName in Directory.EnumerateFiles(directory, "00-需求.v*.json", SearchOption.TopDirectoryOnly))
+            foreach (var fileName in Directory.EnumerateFiles(directory, "00-requirement.v*.json", SearchOption.TopDirectoryOnly))
             {
                 var match = SnapshotFilePattern.Match(Path.GetFileName(fileName));
                 if (match.Success && int.TryParse(match.Groups[1].Value, out var version) && version > maxVersion)
@@ -86,7 +86,7 @@ namespace Template.Toolkit.CreationPipeline
             return new RequirementSnapshot(newVersion, filePath);
         }
 
-        /// <summary>快照文件名：00-需求.v&lt;N&gt;.json，N 是一位以上数字。</summary>
-        private static readonly Regex SnapshotFilePattern = new Regex(@"^00-需求\.v(\d+)\.json$", RegexOptions.Compiled);
+        /// <summary>快照文件名：00-requirement.v&lt;N&gt;.json，N 是一位以上数字。</summary>
+        private static readonly Regex SnapshotFilePattern = new Regex(@"^00-requirement\.v(\d+)\.json$", RegexOptions.Compiled);
     }
 }

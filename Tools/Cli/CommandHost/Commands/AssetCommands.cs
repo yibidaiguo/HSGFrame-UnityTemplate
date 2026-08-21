@@ -40,8 +40,8 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("Assets 根目录，路由表里的目标目录相对它解析")]
         public string AssetsRootDirectory { get; set; }
 
-        /// <summary>路由表路径，留空时取收件箱目录下的 归档路由.json。</summary>
-        [Summary("路由表路径，留空时取收件箱目录下的 归档路由.json")]
+        /// <summary>路由表路径，留空时取收件箱目录下的 archive-routes.json。</summary>
+        [Summary("路由表路径，留空时取收件箱目录下的 archive-routes.json")]
         [DefaultValue("")]
         public string RoutingTablePath { get; set; }
 
@@ -68,7 +68,7 @@ namespace Template.Toolkit.CommandHost.Commands
             var rule = AssetImportRuleSet.LoadForDirectory(arguments.AssetDirectory);
             if (rule == null)
             {
-                return CommandResult.Failure($"目录及其上级都没有导入规则.json：{arguments.AssetDirectory}");
+                return CommandResult.Failure($"目录及其上级都没有import-rules.json：{arguments.AssetDirectory}");
             }
 
             var plans = AssetNameNormalizer.PlanDirectory(arguments.AssetDirectory, rule);
@@ -119,7 +119,7 @@ namespace Template.Toolkit.CommandHost.Commands
             var rule = AssetImportRuleSet.LoadForDirectory(arguments.AssetDirectory);
             if (rule == null)
             {
-                return CommandResult.Failure($"目录及其上级都没有导入规则.json：{arguments.AssetDirectory}");
+                return CommandResult.Failure($"目录及其上级都没有import-rules.json：{arguments.AssetDirectory}");
             }
 
             var findings = AssetValidator.Validate(arguments.AssetDirectory, rule, Array.Empty<string>());
@@ -159,7 +159,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
             // [DefaultValue] 只让命令框架把参数判成选填，不会把默认值填进参数对象，这里自己兜底。
             var routingTablePath = string.IsNullOrWhiteSpace(arguments.RoutingTablePath)
-                ? Path.Combine(arguments.InboxDirectory, "归档路由.json")
+                ? Path.Combine(arguments.InboxDirectory, "archive-routes.json")
                 : arguments.RoutingTablePath;
 
             AssetRoutingTable routingTable;

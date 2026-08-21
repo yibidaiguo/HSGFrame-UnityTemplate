@@ -14,7 +14,7 @@ namespace Template.Tests
             var map = new LevelEntityResourceMap(new[]
             {
                 new KeyValuePair<string, string>("NPC", "P_Npc"),
-                new KeyValuePair<string, string>("传送点", "P_传送点"),
+                new KeyValuePair<string, string>("传送点", "P_Teleporter"),
             });
 
             Assert.True(map.TryGetResourceAddress("NPC", out var address));
@@ -65,9 +65,9 @@ namespace Template.Tests
         {
             var map = new LevelEntityResourceMap(new[]
             {
-                new KeyValuePair<string, string>("触发器", "P_触发器"),
+                new KeyValuePair<string, string>("触发器", "P_Trigger"),
                 new KeyValuePair<string, string>("NPC", "P_Npc"),
-                new KeyValuePair<string, string>("传送点", "P_传送点"),
+                new KeyValuePair<string, string>("传送点", "P_Teleporter"),
             });
 
             Assert.Equal(new[] { "NPC", "传送点", "触发器" }, map.EntityKinds);

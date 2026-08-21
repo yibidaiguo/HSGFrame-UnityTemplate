@@ -1,4 +1,4 @@
-"""飞书长连接旁路：收事件 → 往 _Tasks/唤醒/ 丢信号文件。
+"""飞书长连接旁路：收事件 → 往 _Tasks/wake/ 丢信号文件。
 
 为什么是 Python 旁路而不是 C#：飞书的「长连接」收事件没有官方 .NET SDK，
 自己实现那套私有 WebSocket 协议不划算，而**旁路的输出接口就是一个文件**——
@@ -21,8 +21,8 @@ import lark_oapi as lark
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 LOCAL_CONFIG = REPOSITORY_ROOT / "Tools" / "CreationPipeline" / "Config" / "local.json"
-WAKE_DIRECTORY = REPOSITORY_ROOT / "_Tasks" / "唤醒"
-CONVERSATION_DIRECTORY = REPOSITORY_ROOT / "_Tasks" / "会话"
+WAKE_DIRECTORY = REPOSITORY_ROOT / "_Tasks" / "wake"
+CONVERSATION_DIRECTORY = REPOSITORY_ROOT / "_Tasks" / "conversations"
 
 
 def log(message):
@@ -44,6 +44,13 @@ def read_credentials():
     return app_id, app_secret
 
 
+EVENT_SLUGS = {
+    "收到消息": "message",
+    "多维表格记录变更": "bitable-record-changed",
+    "机器人菜单": "bot-menu",
+}
+
+
 def write_signal(directory, event_kind, payload, conversation=None):
     """
     落一个信号文件。文件名带毫秒时间戳与事件类型，保证同一秒多个事件不互相覆盖。
@@ -56,8 +63,11 @@ def write_signal(directory, event_kind, payload, conversation=None):
     引擎只读归一块，换一个消息下游，引擎侧一个字都不用改。
     """
     directory.mkdir(parents=True, exist_ok=True)
+    event_slug = EVENT_SLUGS.get(event_kind, "event")
     stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime()) + f"-{int(time.time() * 1000) % 1000:03d}"
-    target = directory / f"{stamp}-{event_kind}.json"
+    # 文件名不放事件名的中文：事件名在文件内容里（「事件」字段），
+    # 文件名只要能排序与不撞名就够了（决策 1：路径全 ASCII）。
+    target = directory / f"{stamp}-{event_slug}.json"
     body = {
         "来源": "feishu-长连接",
         "事件": event_kind,
@@ -72,7 +82,7 @@ def write_signal(directory, event_kind, payload, conversation=None):
 
 
 def write_wake_signal(event_kind, payload):
-    """唤醒引擎的信号，落 _Tasks/唤醒/。"""
+    """唤醒引擎的信号，落 _Tasks/wake/。"""
     return write_signal(WAKE_DIRECTORY, event_kind, payload)
 
 

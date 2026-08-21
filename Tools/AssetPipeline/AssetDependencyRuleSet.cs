@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 
 namespace Template.Toolkit.AssetPipeline
 {
-    /// <summary>一条依赖方向规则在 JSON 里的写法，键名与「导入规则.json」一样用中文。</summary>
+    /// <summary>一条依赖方向规则在 JSON 里的写法，键名与「import-rules.json」一样用中文。</summary>
     public sealed class AssetDependencyRuleDefinition
     {
         /// <summary>引用方目录前缀，相对 Assets 根；空串表示任意目录。</summary>

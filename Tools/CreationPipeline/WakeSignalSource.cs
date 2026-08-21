@@ -34,24 +34,24 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 文件投递式唤醒事件源：&lt;仓库根&gt;/_Tasks/唤醒 下的 *.json 即唤醒信号。
+    /// 文件投递式唤醒事件源：&lt;仓库根&gt;/_Tasks/wake 下的 *.json 即唤醒信号。
     /// 信号只移动归档、绝不删除（决策 7：处理后不删，留证据）；事件只当「提前唤醒」，
     /// 判定逻辑仍与轮询同一条（决策 56：处理逻辑与轮询同一条，防漏）。
     /// </summary>
     public static class WakeSignalSource
     {
-        /// <summary>唤醒信号目录：&lt;仓库根&gt;/_Tasks/唤醒。</summary>
+        /// <summary>唤醒信号目录：&lt;仓库根&gt;/_Tasks/wake。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         public static string SignalDirectory(string repositoryRoot)
         {
-            return Path.Combine(repositoryRoot, "_Tasks", "唤醒");
+            return Path.Combine(repositoryRoot, "_Tasks", "wake");
         }
 
-        /// <summary>已处理信号归档目录：&lt;仓库根&gt;/_Tasks/唤醒/已处理。</summary>
+        /// <summary>已处理信号归档目录：&lt;仓库根&gt;/_Tasks/wake/processed。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         public static string ArchiveDirectory(string repositoryRoot)
         {
-            return Path.Combine(repositoryRoot, "_Tasks", "唤醒", "已处理");
+            return Path.Combine(repositoryRoot, "_Tasks", "wake", "processed");
         }
 
         /// <summary>
@@ -97,7 +97,9 @@ namespace Template.Toolkit.CreationPipeline
                 var directory = SignalDirectory(repositoryRoot);
                 Directory.CreateDirectory(directory);
 
-                var safeKind = SanitizeForFileName(string.IsNullOrWhiteSpace(eventKind) ? "信号" : eventKind);
+                // 文件名只留 ASCII（决策 1）：事件名的中文进文件内容的「事件」字段，
+                // 名字里只放一个 ASCII 槽位，认不出来的事件一律叫 event。
+                var safeKind = SanitizeForFileName(EventSlug(eventKind));
                 var stamp = now.ToUniversalTime().ToString("yyyyMMdd'T'HHmmss'-'fff");
                 var candidate = Path.Combine(directory, $"{stamp}-{safeKind}.json");
                 var suffix = 2;
@@ -130,6 +132,20 @@ namespace Template.Toolkit.CreationPipeline
                 || exception is NotSupportedException)
             {
                 return "";
+            }
+        }
+
+        /// <summary>事件名 → 文件名里的 ASCII 槽位；认不出来的一律 event。</summary>
+        /// <param name="eventKind">事件名。</param>
+        private static string EventSlug(string eventKind)
+        {
+            switch (eventKind)
+            {
+                case "助手产出草稿": return "assistant-draft";
+                case "收到消息": return "message";
+                case "多维表格记录变更": return "bitable-record-changed";
+                case "机器人菜单": return "bot-menu";
+                default: return "event";
             }
         }
 

@@ -204,7 +204,7 @@ namespace Template.Toolkit.CreationPipeline
             {
                 new EventMapping("待验收", "待验收", new Dictionary<string, string> { ["状态"] = "待验收" }),
                 new EventMapping("已完成", "完成", new Dictionary<string, string> { ["状态"] = "已完成" }),
-                new EventMapping("拒收", "冲突", new Dictionary<string, string>()),
+                new EventMapping("rejected", "冲突", new Dictionary<string, string>()),
                 new EventMapping("冲突", "冲突", new Dictionary<string, string>()),
                 new EventMapping("停等", "喊人", new Dictionary<string, string>())
             };

@@ -52,7 +52,7 @@ namespace Template.Level.View
         {
             if (_resourceMapAsset == null)
             {
-                Logger.Error("位置：LevelEntitySpawner；原因：没挂实体资源映射资产；修复：把 Assets/Game/Settings/Level/实体资源映射.asset 拖到本组件上；参考：《结构规范-资源》第五节");
+                Logger.Error("位置：LevelEntitySpawner；原因：没挂实体资源映射资产；修复：把 Assets/Game/Settings/Level/EntityResourceMap.asset 拖到本组件上；参考：《结构规范-资源》第五节");
                 yield break;
             }
 
@@ -138,7 +138,7 @@ namespace Template.Level.View
 
             foreach (var kind in missingKinds)
             {
-                Logger.Warning($"位置：LevelEntitySpawner；原因：实体类别「{kind}」没有登记资源地址，这类实体保持空物体；修复：在实体资源映射资产里补一条；参考：Assets/Game/Settings/Level/实体资源映射.asset");
+                Logger.Warning($"位置：LevelEntitySpawner；原因：实体类别「{kind}」没有登记资源地址，这类实体保持空物体；修复：在实体资源映射资产里补一条；参考：Assets/Game/Settings/Level/EntityResourceMap.asset");
             }
 
             LevelEntityCatalogRegistry.Publish(new LevelEntityCatalog(markers));

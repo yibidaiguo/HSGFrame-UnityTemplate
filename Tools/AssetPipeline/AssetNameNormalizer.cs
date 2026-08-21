@@ -122,8 +122,8 @@ namespace Template.Toolkit.AssetPipeline
         /// <param name="fileName">文件名。</param>
         public static bool IsPipelineConfigurationFile(string fileName)
         {
-            return string.Equals(fileName, "导入规则.json", StringComparison.Ordinal)
-                || string.Equals(fileName, "归档路由.json", StringComparison.Ordinal);
+            return string.Equals(fileName, "import-rules.json", StringComparison.Ordinal)
+                || string.Equals(fileName, "archive-routes.json", StringComparison.Ordinal);
         }
 
         // 撞车去重：两个乱名可能归一后同名（例如「a b.png」与「a_b.png」都归一成 AB.png），

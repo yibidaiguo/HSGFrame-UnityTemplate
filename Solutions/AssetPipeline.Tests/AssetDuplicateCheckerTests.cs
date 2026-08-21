@@ -76,8 +76,8 @@ namespace Template.Toolkit.AssetPipeline.Tests
             var assetsRoot = CreateTempDirectory();
             try
             {
-                WriteFile(assetsRoot, "Game/Art/Texture/导入规则.json", "{\"目录用途\":\"贴图\"}");
-                WriteFile(assetsRoot, "Game/ResourceArt/Level/导入规则.json", "{\"目录用途\":\"贴图\"}");
+                WriteFile(assetsRoot, "Game/Art/Texture/import-rules.json", "{\"目录用途\":\"贴图\"}");
+                WriteFile(assetsRoot, "Game/ResourceArt/Level/import-rules.json", "{\"目录用途\":\"贴图\"}");
 
                 var violations = AssetDuplicateChecker.Check(assetsRoot);
 

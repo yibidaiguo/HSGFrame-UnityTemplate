@@ -23,7 +23,7 @@ namespace Template.Toolkit.CreationPipeline
                 ["需求"] = "requirement",
                 ["工作项"] = "work-item",
                 ["设计记录"] = "design-record",
-                ["资产请求"] = "asset-request",
+                ["asset-requests"] = "asset-request",
                 ["溯源"] = "provenance"
             };
 

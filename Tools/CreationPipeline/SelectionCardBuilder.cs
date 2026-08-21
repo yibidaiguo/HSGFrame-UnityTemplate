@@ -69,7 +69,7 @@ namespace Template.Toolkit.CreationPipeline
                 findings.Add(new PoolFinding(
                     variantDirectory,
                     $"变体目录不存在：{variantDirectory}",
-                    "先跑生图把变体落进 30-产物/<资产id>/变体/",
+                    "先跑生图把变体落进 30-outputs/<资产id>/变体/",
                     "Doc/creation-pipeline-subdocs/06-art-pipeline.md"));
                 return new SelectionCardBuildResult(null, findings);
             }
@@ -80,7 +80,7 @@ namespace Template.Toolkit.CreationPipeline
                 var fileName = Path.GetFileName(filePath);
                 if (!IsImageFile(fileName))
                 {
-                    // 「*.溯源.json」不是变体，后缀过滤自然排除，这里只是明确写出这条规则。
+                    // 「*.provenance.json」不是变体，后缀过滤自然排除，这里只是明确写出这条规则。
                     continue;
                 }
 
@@ -90,7 +90,7 @@ namespace Template.Toolkit.CreationPipeline
                     findings.Add(new PoolFinding(
                         filePath,
                         $"变体「{fileName}」没有溯源边车，来路不明，不算合格变体",
-                        "给这张图补 <变体文件名>.溯源.json 边车",
+                        "给这张图补 <变体文件名>.provenance.json 边车",
                         ReferenceSchemaPath));
                     continue;
                 }

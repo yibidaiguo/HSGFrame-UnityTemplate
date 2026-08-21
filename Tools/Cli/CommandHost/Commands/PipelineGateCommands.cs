@@ -462,7 +462,7 @@ namespace Template.Toolkit.CommandHost.Commands
             {
                 foreach (var requirementDirectory in Directory.EnumerateDirectories(tasksDirectory))
                 {
-                    var requestDirectory = Path.Combine(requirementDirectory, "资产请求");
+                    var requestDirectory = Path.Combine(requirementDirectory, "asset-requests");
                     if (!Directory.Exists(requestDirectory))
                     {
                         continue;

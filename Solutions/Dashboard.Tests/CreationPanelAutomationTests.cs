@@ -129,7 +129,7 @@ namespace Template.Toolkit.DashboardTests
 
         private string WorkItemDirectory(string requirementIdentifier)
         {
-            return Path.Combine(_repositoryRoot, "_Tasks", requirementIdentifier, "20-工作项");
+            return Path.Combine(_repositoryRoot, "_Tasks", requirementIdentifier, "20-work-items");
         }
 
         private void WriteWorkItem(string directory, string identifier, IReadOnlyList<string> dependencies)

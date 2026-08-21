@@ -56,7 +56,7 @@ namespace Template.Toolkit.AssetPipelineTests
             fixture.WriteRoutingTable();
             fixture.WriteRule("Game/Art/Texture", "T_", new[] { ".png", ".tga" });
             fixture.WriteAsset("hero.png");
-            File.WriteAllText(Path.Combine(fixture.Inbox, "导入规则.json"), "{}");
+            File.WriteAllText(Path.Combine(fixture.Inbox, "import-rules.json"), "{}");
 
             var plans = AssetInboxArchiver.Plan(fixture.Inbox, fixture.Assets, fixture.LoadRouting());
 
@@ -280,14 +280,14 @@ namespace Template.Toolkit.AssetPipelineTests
 
             public void WriteRoutingTable()
             {
-                File.WriteAllText(Path.Combine(Inbox, "归档路由.json"), RoutingJson);
+                File.WriteAllText(Path.Combine(Inbox, "archive-routes.json"), RoutingJson);
             }
 
             public void WriteRule(string relativeDirectory, string prefix, string[] extensions)
             {
                 var directory = Path.Combine(Assets, relativeDirectory);
                 Directory.CreateDirectory(directory);
-                File.WriteAllText(Path.Combine(directory, "导入规则.json"), RuleJson(prefix, extensions));
+                File.WriteAllText(Path.Combine(directory, "import-rules.json"), RuleJson(prefix, extensions));
             }
 
             public void WriteAsset(string fileName)
@@ -303,7 +303,7 @@ namespace Template.Toolkit.AssetPipelineTests
 
             public AssetRoutingTable LoadRouting()
             {
-                return AssetRoutingTable.LoadFromFile(Path.Combine(Inbox, "归档路由.json"));
+                return AssetRoutingTable.LoadFromFile(Path.Combine(Inbox, "archive-routes.json"));
             }
 
             public void Dispose()

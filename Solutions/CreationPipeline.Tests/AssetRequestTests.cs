@@ -11,8 +11,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
         /// <summary>把仓库里的真实「资产请求」基线 schema 内容写进临时池子并加载。</summary>
         private static PoolSchema LoadRequestSchema(PoolTestWorkspace workspace)
         {
-            workspace.WriteBaselineSchema("资产请求", BaselineText("asset-request.schema.json"));
-            return PoolSchemaLoader.Load(workspace.Root, "资产请求");
+            workspace.WriteBaselineSchema("asset-requests", BaselineText("asset-request.schema.json"));
+            return PoolSchemaLoader.Load(workspace.Root, "asset-requests");
         }
 
         /// <summary>读仓库 Pools/Schema/Baseline/ 下的真实文件内容。</summary>
@@ -65,7 +65,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             using var workspace = new PoolTestWorkspace();
             var request = FullRequest();
-            var filePath = Path.Combine(workspace.Root, "资产请求", "ASSET-0042-01.json");
+            var filePath = Path.Combine(workspace.Root, "asset-requests", "ASSET-0042-01.json");
 
             request.WriteTo(filePath);
             var read = AssetRequest.Read(filePath);
@@ -133,7 +133,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             using var workspace = new PoolTestWorkspace();
             var schema = LoadRequestSchema(workspace);
-            var filePath = Path.Combine(workspace.Root, "资产请求", "ASSET-0042-01.json");
+            var filePath = Path.Combine(workspace.Root, "asset-requests", "ASSET-0042-01.json");
 
             FullRequest().WriteTo(filePath);
             var findings = EntityDocumentValidator.Validate(filePath, schema);

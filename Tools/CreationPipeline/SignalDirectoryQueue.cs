@@ -104,25 +104,25 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 会话事件源：&lt;仓库根&gt;/_Tasks/会话 下的 *.json 即一条待回话的消息。
+    /// 会话事件源：&lt;仓库根&gt;/_Tasks/conversations 下的 *.json 即一条待回话的消息。
     /// **与唤醒目录刻意分开两个目录**（决策 95）：唤醒信号的消费者是引擎守护，
     /// 会话消息的消费者是助手常驻会话，两个消费者盯同一个目录必然互相抢信号。
     /// 助手写完需求草稿之后**自己往唤醒目录投一个信号**，链路仍然接得上。
     /// </summary>
     public static class ConversationSignalSource
     {
-        /// <summary>会话信号目录：&lt;仓库根&gt;/_Tasks/会话。</summary>
+        /// <summary>会话信号目录：&lt;仓库根&gt;/_Tasks/conversations。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         public static string SignalDirectory(string repositoryRoot)
         {
-            return Path.Combine(repositoryRoot, "_Tasks", "会话");
+            return Path.Combine(repositoryRoot, "_Tasks", "conversations");
         }
 
-        /// <summary>已处理会话归档目录：&lt;仓库根&gt;/_Tasks/会话/已处理。</summary>
+        /// <summary>已处理会话归档目录：&lt;仓库根&gt;/_Tasks/conversations/processed。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         public static string ArchiveDirectory(string repositoryRoot)
         {
-            return Path.Combine(repositoryRoot, "_Tasks", "会话", "已处理");
+            return Path.Combine(repositoryRoot, "_Tasks", "conversations", "processed");
         }
 
         /// <summary>扫一遍会话目录，取文件名序数序第一个。</summary>

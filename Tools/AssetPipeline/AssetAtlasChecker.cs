@@ -22,7 +22,7 @@ namespace Template.Toolkit.AssetPipeline
             var assetsRoot = Path.GetFullPath(assetsRootDirectory);
             var violations = new List<AssetBundleGroupViolation>();
 
-            foreach (var ruleFilePath in Directory.EnumerateFiles(assetsRoot, "导入规则.json", SearchOption.AllDirectories))
+            foreach (var ruleFilePath in Directory.EnumerateFiles(assetsRoot, "import-rules.json", SearchOption.AllDirectories))
             {
                 var ruleRelativePath = Path.GetRelativePath(assetsRoot, ruleFilePath).Replace('\\', '/');
                 if (!ruleRelativePath.StartsWith("Game/", StringComparison.Ordinal))
@@ -43,7 +43,7 @@ namespace Template.Toolkit.AssetPipeline
                 if (!atlasName.StartsWith("SA_", StringComparison.Ordinal))
                 {
                     violations.Add(new AssetBundleGroupViolation(
-                        directory + "/导入规则.json",
+                        directory + "/import-rules.json",
                         $"图集名「{atlasName}」不是 SA_ 前缀",
                         "图集资产按前缀表用 SA_ 打头",
                         "Specifications/structure-assets.md 第五节"));
