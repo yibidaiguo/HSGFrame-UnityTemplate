@@ -42,15 +42,25 @@ namespace Template.Toolkit.CommandHost.Commands
             "HotfixShip",
         };
 
+        // 只在仓库根跳过的目录：运行时状态与可重建产物，是每棵树各自的私事。
+        // 不进 SkippedSegments 是因为那张表按名字全树匹配，「Index」这类词在资产树里撞名的风险太高。
+        private static readonly string[] RootOnlySkippedSegments =
+        {
+            "_Tasks", "Index", "tmp"
+        };
+
         // 按需取的第三方工具目录靠这个脚本名认出来。
         private const string ToolFetchScriptName = "fetch-tool.ps1";
 
         // 这些文件每个仓库各有一份自己的内容，同步过去只会把来源仓库的情况按到去向仓库头上：
         // gate-config.host.json 里是白名单前缀与编辑器自有目录（模板根本不该知道宿主的目录叫什么），
         // test-baseline.json 里是本仓库自己的用例数（两棵树的测试集本来就不一样）。
+        // local.json 与 sync-watermark.json 更要命：前者装着真实密钥（App Secret / API Key），
+        // 后者是本机的同步水位——这两样同步出去等于把密钥推进模板仓库。
         private static readonly string[] HostOwnedFileNames =
         {
             "gate-config.host.json", "test-baseline.json",
+            "local.json", "sync-watermark.json",
         };
 
         /// <summary>把来源树单向同步到模板仓库，默认只列计划。</summary>
@@ -136,8 +146,13 @@ namespace Template.Toolkit.CommandHost.Commands
         private static bool ContainsSkippedSegment(string path, string root)
         {
             var relative = path.Substring(root.Length).Replace('\\', '/');
-            if (relative.Split('/', StringSplitOptions.RemoveEmptyEntries)
-                .Any(segment => SkippedSegments.Contains(segment, StringComparer.OrdinalIgnoreCase)))
+            var segments = relative.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Any(segment => SkippedSegments.Contains(segment, StringComparer.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+
+            if (segments.Length > 0 && RootOnlySkippedSegments.Contains(segments[0], StringComparer.OrdinalIgnoreCase))
             {
                 return true;
             }

@@ -19,6 +19,22 @@ namespace Template.Toolkit.Scaffold
             "bin", "obj", "Logs", "Build", ".git", "Library", "Temp", "MemoryCaptures", "HybridCLRData", "Bundles"
         };
 
+        // 只在模板根跳过的目录：全是本仓库的运行时状态或可重建产物，新项目必须空着起步。
+        // _Tasks 装着会话流水、旁路锁与唤醒信号，_Scratch 装着派活任务书，
+        // Index 是资产索引（index.rebuild 一跑就有），tmp 是执行后端沙箱映射出来的垃圾场。
+        // 不进 SkipSegments 是因为那张表按名字全树匹配，「Index」这类词在资产树里撞名的风险太高。
+        private static readonly string[] SkipRootSegments =
+        {
+            "_Tasks", "_Scratch", "Index", "tmp"
+        };
+
+        // 按文件名全树跳过：这些文件装着密钥或本机状态，复制进新项目等于把模板机的身份连密钥一起送出去。
+        // local.json 是创作管线的密钥落点（App Secret / API Key），sync-watermark.json 是本机的同步水位。
+        private static readonly string[] SkipFileNames =
+        {
+            "local.json", "sync-watermark.json"
+        };
+
         // 凡是可能写着模板身份的文本格式都要列进来。
         // 漏掉 .scriban 会让生成出来的代码引用错命名空间（模板里写着 using <模板身份>.Toolkit.*）。
         private static readonly string[] TextExtensions =
@@ -117,7 +133,7 @@ namespace Template.Toolkit.Scaffold
             // 源模板自己的目录名也要换掉：它是「上一个宿主」的名字，
             // 留在配置与文档里就成了新项目身上的一处旧身份。
             var sourceIdentifierName = new DirectoryInfo(Path.GetFullPath(options.TemplateRoot)).Name;
-            CopyTree(options.TemplateRoot, targetPath, options.ProjectName, sourceIdentifierName, ref copiedFileCount);
+            CopyTree(options.TemplateRoot, targetPath, options.ProjectName, sourceIdentifierName, ref copiedFileCount, atTemplateRoot: true);
 
             RewriteGateWhitelist(targetPath, options.ProjectName);
             WriteHostGateConfiguration(targetPath, options.ProjectName);
@@ -132,7 +148,7 @@ namespace Template.Toolkit.Scaffold
             return ProjectCreationResult.Success(targetPath, copiedFileCount, $"已生成新项目到 {targetPath}");
         }
 
-        private static void CopyTree(string sourceRoot, string targetRoot, string projectName, string sourceIdentifierName, ref int copiedFileCount)
+        private static void CopyTree(string sourceRoot, string targetRoot, string projectName, string sourceIdentifierName, ref int copiedFileCount, bool atTemplateRoot)
         {
             Directory.CreateDirectory(targetRoot);
 
@@ -144,13 +160,23 @@ namespace Template.Toolkit.Scaffold
                     continue;
                 }
 
+                if (atTemplateRoot && SkipRootSegments.Any(segment => string.Equals(segment, name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
                 if (Directory.Exists(entry))
                 {
                     var targetDirectoryName = RenameDirectory(name, projectName);
-                    CopyTree(entry, Path.Combine(targetRoot, targetDirectoryName), projectName, sourceIdentifierName, ref copiedFileCount);
+                    CopyTree(entry, Path.Combine(targetRoot, targetDirectoryName), projectName, sourceIdentifierName, ref copiedFileCount, atTemplateRoot: false);
                 }
                 else
                 {
+                    if (SkipFileNames.Any(fileName => string.Equals(fileName, name, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        continue;
+                    }
+
                     CopyFile(entry, Path.Combine(targetRoot, RenameDirectory(name, projectName)), projectName, sourceIdentifierName);
                     copiedFileCount++;
                 }
