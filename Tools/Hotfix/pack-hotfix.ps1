@@ -15,7 +15,8 @@ param(
     [string]$PackageDirectory,
     [string]$OutputManifest,
     [switch]$SkipUnity,
-    [string]$UnityExecutable = 'D:/Unity/Editor/6000.3.11f1/Unity.exe'
+    # 缺省交给 unity-cmd.ps1 按 ProjectVersion.txt 推；只有装在别处才需要显式指。
+    [string]$UnityExecutable = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -49,15 +50,23 @@ if ($SkipUnity) {
     Write-Host '[pack-hotfix] 收到 -SkipUnity，跳过编译，直接用打包目录里现有的 dll'
     $unitySkipped = $true
 }
-elseif (-not (Test-Path $UnityExecutable)) {
+elseif ($UnityExecutable -and -not (Test-Path $UnityExecutable)) {
     Write-Host "[pack-hotfix] 本机没有编辑器（$UnityExecutable），跳过编译，直接用打包目录里现有的 dll"
     $unitySkipped = $true
 }
 else {
-    & (Join-Path $PSScriptRoot '../Cli/unity-cmd.ps1') `
-        -ExecuteMethod 'HSGFrame.Hotfix.Editor.HotfixBuildEntry.CompileFromCommandLine' `
-        -TimeoutMinutes 20 | Out-Host
-    if ($LASTEXITCODE -ne 0) {
+    # 编辑器路径交给 unity-cmd.ps1 统一解析（它按 ProjectVersion.txt 推）；显式给了才透传。
+    $unityCommandArguments = @{
+        ExecuteMethod  = 'HSGFrame.Hotfix.Editor.HotfixBuildEntry.CompileFromCommandLine'
+        TimeoutMinutes = 20
+    }
+    if ($UnityExecutable) { $unityCommandArguments.UnityExecutable = $UnityExecutable }
+    & (Join-Path $PSScriptRoot '../Cli/unity-cmd.ps1') @unityCommandArguments | Out-Host
+    if ($LASTEXITCODE -eq 2) {
+        Write-Host '[pack-hotfix] 本机找不到工程要求的编辑器，跳过编译，直接用打包目录里现有的 dll'
+        $unitySkipped = $true
+    }
+    elseif ($LASTEXITCODE -ne 0) {
         Write-Host "[pack-hotfix] 热更程序集编译失败（退出码 $LASTEXITCODE）"
         exit 1
     }
