@@ -28,10 +28,13 @@ dotnet run --project Tools/Cli/CommandHost/CommandHost.csproj -- run project.cre
 {
   "TemplateRoot": ".",
   "TargetDirectory": "D:/Projects/Unity",
-  "ProjectName": "我的游戏",
-  "PackagePrefix": "com.mystudio."
+  "ProjectName": "MyGameName"
 }
 ```
+
+> `ProjectName` 只认 ASCII（`^[A-Za-z][A-Za-z0-9_.]*$`），中文名会被拒。
+> 框架包前缀 `com.hsgframe.*` 不跟项目改名，没有「包前缀」参数。
+> 密钥文件（`local.json`）与运行时状态（`_Tasks/` 等）不会被复制进新项目。
 
 生成完 Unity Hub → **Add project from disk** → 选 `D:/Projects/Unity/我的游戏/UnityProject/`。
 
@@ -71,12 +74,27 @@ dotnet run --project Tools/Cli/CommandHost/CommandHost.csproj -- run project.cre
 ## 装完之后确认环境是好的
 
 ```powershell
-./Tools/Gates/gate.ps1          # 十三道门禁：测试 / 编译 / 命名 / 模块边界 / 裸日志 / 装配对账 /
-                                #   可选功能引用范围 / 通用性 / 测试基线 / 白名单 / 文档 / 生成物幂等 / Agent 镜像
-./Tools/Gates/gate-unity.ps1    # 分钟级：Unity 真编译 / EditMode 测试 / .meta 完整性，约 25 秒
+./Tools/Gates/gate.ps1          # 全量门禁：测试 / 编译 + 二十多道专项检查（命名 / 边界 / 基线 /
+                                #   池子 / 供给 / 生成物幂等 / Agent 镜像……），跑完落 _Generated/gate-report.json
+./Tools/Gates/gate-unity.ps1    # 分钟级：Unity 真编译 / EditMode 测试 / .meta 完整性
 ```
 
 两条都 PASS 就说明这份工程在你机器上是通的。
+
+## 日常起服务：一键启停
+
+```powershell
+./Tools/start.ps1               # 编译一次 → 影子拷贝 → 起面板 + 飞书助手
+./Tools/start.ps1 -NoAssistant  # 没配飞书密钥就只起面板
+./Tools/stop.ps1                # 全停
+```
+
+面板默认在 `http://localhost:8766/panel`。服务从影子拷贝里跑，
+**开着服务照样能 `dotnet build` / 跑门禁**，不会再把 bin 里的 DLL 锁死。
+
+**Claude Code 用户**：仓库根的 `.mcp.json` 已注册项目 MCP 服务，
+命令层全部命令（`asset_*` / `gate_*` / `task_*`……）在 Claude Code 里直接可用；
+第一次要先跑一遍 `dotnet build Solutions/Template.sln` 把服务编出来。
 
 ## 版本对照
 

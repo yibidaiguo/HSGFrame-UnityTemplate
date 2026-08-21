@@ -10,8 +10,10 @@
 你只要**往里面加**，不用重建。用记事本打开就行：
 
 ```
-notepad "D:\Projects\Unity\GameTemplate\Config\创作管线\local.json"
+notepad "Tools\CreationPipeline\Config\local.json"
 ```
+
+（在仓库根目录下打开；这个文件已进 `.gitignore`，不会被提交。）
 
 三条注意，每条都踩过：
 
@@ -51,7 +53,7 @@ notepad "D:\Projects\Unity\GameTemplate\Config\创作管线\local.json"
       "多维表格标识": "粘贴 bascn 那一段",
       "超时秒": 60
     },
-    "tripo": { "地址": "https://api.tripo3d.ai/v2/openapi", "超时秒": 600 },
+    "tripo": { "地址": "https://openapi.tripo3d.ai/v3", "超时秒": 600 },
     "oaicompat": { "地址": "https://api.deepseek.com/v1", "模型": "deepseek-chat", "超时秒": 120 }
   }
 }

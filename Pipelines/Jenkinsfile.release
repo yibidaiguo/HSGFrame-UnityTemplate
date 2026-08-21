@@ -2,7 +2,7 @@
 // 触发时机：手动，按需打版本号。
 // 失败意味着：发布产物不完整或归档失败，不能对外发版，需修复后重跑。
 //
-// 步骤与 Pipelines/流水线定义.json 里的「发布」逐条对应。
+// 步骤与 Pipelines/pipelines.json 里的「发布」逐条对应。
 // 出包入口方法名是每个项目自己的东西，同一个值也记在 gate-config.json 的 playerBuildEntryMethod。
 
 pipeline {
@@ -13,7 +13,7 @@ pipeline {
                 bat 'dotnet build Solutions/Template.sln --nologo'
             }
         }
-        stage('七道门禁') {
+        stage('全量门禁') {
             steps {
                 bat 'pwsh -NoProfile -File Tools/Gates/gate.ps1'
             }

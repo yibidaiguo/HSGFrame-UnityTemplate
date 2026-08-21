@@ -2,7 +2,7 @@
 // 触发时机：AI 每改一次代码都跑；CI 里每次 push 也重跑同一套检查。
 // 失败意味着：本次改动引入了编译错误或既有测试回归，必须立刻修，不该进入后续流水线。
 //
-// 步骤与 Pipelines/流水线定义.json 里的「秒级门禁」逐条对应。
+// 步骤与 Pipelines/pipelines.json 里的「秒级门禁」逐条对应。
 // 没有 Jenkins 的机器上跑同一套步骤：toolkit-cmd.ps1 run pipeline.run（见那份定义文件）。
 
 pipeline {

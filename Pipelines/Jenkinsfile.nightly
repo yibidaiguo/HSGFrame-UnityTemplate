@@ -2,7 +2,7 @@
 // 触发时机：每晚定时（如凌晨），产出完整包并做冒烟。
 // 失败意味着：夜间编译或冒烟挂了，第二天早上必须有人处理，否则影响后续开发。
 //
-// 步骤与 Pipelines/流水线定义.json 里的「夜间构建」逐条对应。
+// 步骤与 Pipelines/pipelines.json 里的「夜间构建」逐条对应。
 // Unity 那一步要求编辑器没有占着同一个工程（Unity 会锁目录）。
 
 pipeline {
@@ -13,7 +13,7 @@ pipeline {
                 bat 'dotnet build Solutions/Template.sln --nologo'
             }
         }
-        stage('七道门禁') {
+        stage('全量门禁') {
             steps {
                 bat 'pwsh -NoProfile -File Tools/Gates/gate.ps1'
             }
