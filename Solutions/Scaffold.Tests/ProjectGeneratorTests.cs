@@ -398,6 +398,74 @@ namespace Template.Toolkit.ScaffoldTests
             }
         }
 
+        /// <summary>密钥与本机状态文件（local.json / sync-watermark.json）不进新项目，同目录的样例文件照常复制。</summary>
+        [Fact]
+        public void CreateSkipsSecretAndMachineStateFiles()
+        {
+            var templateRoot = CreateTemplateTree();
+            var targetDirectory = CreateTargetDirectory();
+            try
+            {
+                var pipelineConfigDirectory = Path.Combine(templateRoot, "Tools", "CreationPipeline", "Config");
+                Directory.CreateDirectory(pipelineConfigDirectory);
+                File.WriteAllText(Path.Combine(pipelineConfigDirectory, "local.json"), "{ \"secret\": \"real-key\" }");
+                File.WriteAllText(Path.Combine(pipelineConfigDirectory, "local.example.json"), "{ \"secret\": \"placeholder\" }");
+                File.WriteAllText(Path.Combine(pipelineConfigDirectory, "sync-watermark.json"), "{ \"watermark\": 42 }");
+
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
+
+                Assert.True(result.IsSuccess, result.Message);
+                var targetConfigDirectory = Path.Combine(result.TargetPath, "Tools", "CreationPipeline", "Config");
+                Assert.False(File.Exists(Path.Combine(targetConfigDirectory, "local.json")), "密钥文件被复制进了新项目");
+                Assert.False(File.Exists(Path.Combine(targetConfigDirectory, "sync-watermark.json")), "本机同步水位被复制进了新项目");
+                Assert.True(File.Exists(Path.Combine(targetConfigDirectory, "local.example.json")), "样例配置应当照常复制");
+            }
+            finally
+            {
+                Directory.Delete(templateRoot, true);
+                Directory.Delete(targetDirectory, true);
+            }
+        }
+
+        /// <summary>模板根的运行时状态目录（_Tasks / _Scratch / Index / tmp）不进新项目；深层同名目录不受影响。</summary>
+        [Fact]
+        public void CreateSkipsRuntimeStateDirectoriesOnlyAtRoot()
+        {
+            var templateRoot = CreateTemplateTree();
+            var targetDirectory = CreateTargetDirectory();
+            try
+            {
+                var conversationsDirectory = Path.Combine(templateRoot, "_Tasks", "conversations");
+                Directory.CreateDirectory(conversationsDirectory);
+                File.WriteAllText(Path.Combine(conversationsDirectory, "ledger.jsonl"), "{}");
+                Directory.CreateDirectory(Path.Combine(templateRoot, "Index"));
+                File.WriteAllText(Path.Combine(templateRoot, "Index", "asset-index.json"), "{}");
+                Directory.CreateDirectory(Path.Combine(templateRoot, "tmp"));
+                File.WriteAllText(Path.Combine(templateRoot, "tmp", "leftover.txt"), "junk");
+                Directory.CreateDirectory(Path.Combine(templateRoot, "_Scratch"));
+                File.WriteAllText(Path.Combine(templateRoot, "_Scratch", "old-task.md"), "stale task");
+
+                // 深层同名目录是业务资产，必须照常复制——根级跳过不许伤到它。
+                var nestedIndexDirectory = Path.Combine(templateRoot, "UnityProject", "Assets", "Index");
+                Directory.CreateDirectory(nestedIndexDirectory);
+                File.WriteAllText(Path.Combine(nestedIndexDirectory, "detail.txt"), "asset data");
+
+                var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
+
+                Assert.True(result.IsSuccess, result.Message);
+                Assert.False(Directory.Exists(Path.Combine(result.TargetPath, "_Tasks")), "运行时任务状态被复制进了新项目");
+                Assert.False(Directory.Exists(Path.Combine(result.TargetPath, "Index")), "资产索引产物被复制进了新项目");
+                Assert.False(Directory.Exists(Path.Combine(result.TargetPath, "tmp")), "沙箱垃圾目录被复制进了新项目");
+                Assert.False(File.Exists(Path.Combine(result.TargetPath, "_Scratch", "old-task.md")), "模板的派活任务书被复制进了新项目");
+                Assert.True(File.Exists(Path.Combine(result.TargetPath, "UnityProject", "Assets", "Index", "detail.txt")), "深层同名目录被根级跳过误伤");
+            }
+            finally
+            {
+                Directory.Delete(templateRoot, true);
+                Directory.Delete(targetDirectory, true);
+            }
+        }
+
         private static ProjectCreationResult RunGenerator(string templateRoot, string targetDirectory, string projectName)
         {
             return ProjectGenerator.Create(new ProjectCreationOptions
