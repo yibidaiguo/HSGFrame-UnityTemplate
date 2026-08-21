@@ -295,10 +295,11 @@ namespace Template.Toolkit.Gates
             var codeLines = new string[lines.Length];
             var inBlockComment = false;
             var inVerbatimString = false;
+            var rawStringFenceLength = 0;
 
             for (var index = 0; index < lines.Length; index++)
             {
-                codeLines[index] = StripNonCode(lines[index], ref inBlockComment, ref inVerbatimString);
+                codeLines[index] = StripNonCode(lines[index], ref inBlockComment, ref inVerbatimString, ref rawStringFenceLength);
             }
 
             return codeLines;
@@ -388,11 +389,66 @@ namespace Template.Toolkit.Gates
         /// <param name="inVerbatimString">进入本行时是否处在逐字字符串里，返回时更新为出本行时的状态。</param>
         public static string StripNonCode(string line, ref bool inBlockComment, ref bool inVerbatimString)
         {
+            var rawStringFenceLength = 0;
+            return StripNonCode(line, ref inBlockComment, ref inVerbatimString, ref rawStringFenceLength);
+        }
+
+        /// <summary>
+        /// 同上，外加原始字符串字面量（C# 11 的 <c>"""…"""</c>）的跨行状态。
+        ///
+        /// 没有这一路时，扫描器把 <c>"""</c> 看成「一个空串加一个开引号」，
+        /// 于是原始串里**没被引号裹住**的中文（markdown 正文、样例文档）会被当成标识符报出来——
+        /// 一份合法的测试样例换来几十条假红。装样例的原始串正是测试最该用的东西，
+        /// 所以这一路必须认。
+        /// </summary>
+        /// <param name="line">要处理的一行源码。</param>
+        /// <param name="inBlockComment">进入本行时是否处在块注释里，返回时更新为出本行时的状态。</param>
+        /// <param name="inVerbatimString">进入本行时是否处在逐字字符串里，返回时更新为出本行时的状态。</param>
+        /// <param name="rawStringFenceLength">
+        /// 进入本行时所处原始字符串的引号栅栏长度（0 表示不在原始字符串里），返回时更新为出本行时的状态。
+        /// </param>
+        public static string StripNonCode(
+            string line,
+            ref bool inBlockComment,
+            ref bool inVerbatimString,
+            ref int rawStringFenceLength)
+        {
             var builder = new StringBuilder(line.Length);
             var index = 0;
 
             while (index < line.Length)
             {
+                // 原始字符串里：整行抹平，直到遇上一段不短于开栅栏的引号。
+                if (rawStringFenceLength > 0)
+                {
+                    var closing = CountQuoteRun(line, index);
+                    if (closing >= rawStringFenceLength)
+                    {
+                        builder.Append(' ', closing);
+                        index += closing;
+                        rawStringFenceLength = 0;
+                        continue;
+                    }
+
+                    builder.Append(' ');
+                    index++;
+                    continue;
+                }
+
+                // 开栅栏：三个及以上连续引号，前面可以带 $ 或 $$（插值原始串）。
+                var prefixLength = CountRawStringPrefix(line, index);
+                if (prefixLength >= 0)
+                {
+                    var fence = CountQuoteRun(line, index + prefixLength);
+                    if (fence >= 3)
+                    {
+                        builder.Append(' ', prefixLength + fence);
+                        index += prefixLength + fence;
+                        rawStringFenceLength = fence;
+                        continue;
+                    }
+                }
+
                 // 逐字字符串（@"..."）能跨行，测试里的样例源码就装在里面，
                 // 不摘掉它会把样例里故意写坏的名字当成本文件的违规报出来。
                 if (inVerbatimString)
@@ -555,6 +611,32 @@ namespace Template.Toolkit.Gates
             }
 
             return builder.ToString();
+        }
+
+        /// <summary>数从 start 起有几个连续的引号。</summary>
+        private static int CountQuoteRun(string line, int start)
+        {
+            var count = 0;
+            while (start + count < line.Length && line[start + count] == '"')
+            {
+                count++;
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// 原始字符串开头那几个 $ 的个数：0 表示没有前缀（普通原始串），-1 表示这里根本不是原始串开头。
+        /// </summary>
+        private static int CountRawStringPrefix(string line, int index)
+        {
+            var dollars = 0;
+            while (index + dollars < line.Length && line[index + dollars] == '$')
+            {
+                dollars++;
+            }
+
+            return index + dollars < line.Length && line[index + dollars] == '"' ? dollars : -1;
         }
 
         private static bool ContainsAnySegment(string path, string[] segments)

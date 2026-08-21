@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -116,11 +116,12 @@ namespace Template.Toolkit.Gates
 
             var inBlockComment = false;
             var inVerbatimString = false;
+            var rawStringFenceLength = 0;
             for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++)
             {
                 // 注释与字符串里出现的限定名不是引用。复用命名检查器那份剥离逻辑，
                 // 免得两处各写一份、行为悄悄分叉。
-                var code = NamingChecker.StripNonCode(lines[lineIndex], ref inBlockComment, ref inVerbatimString);
+                var code = NamingChecker.StripNonCode(lines[lineIndex], ref inBlockComment, ref inVerbatimString, ref rawStringFenceLength);
                 foreach (var pair in patterns)
                 {
                     if (string.Equals(pair.Key, owner, StringComparison.Ordinal))
