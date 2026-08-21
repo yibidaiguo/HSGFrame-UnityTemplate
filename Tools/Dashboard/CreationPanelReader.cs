@@ -470,7 +470,7 @@ namespace Template.Toolkit.Dashboard
         public IReadOnlyList<string> ReferenceImages { get; }
     }
 
-    /// <summary>下游页里一个配置字段：名称、类型、必填与是否密钥。</summary>
+    /// <summary>下游页里一个配置字段：名称、类型、必填与配没配状态（密钥与非密钥字段都报「已配 / 未配」，值一律不显示）。</summary>
     public sealed class PanelBridgeFieldRow
     {
         /// <summary>
@@ -480,8 +480,9 @@ namespace Template.Toolkit.Dashboard
         /// <param name="fieldType">控件类型：string / number / bool / enum / secret。</param>
         /// <param name="isRequired">是否必填。</param>
         /// <param name="options">enum 的可选值；其他类型是空列表。</param>
-        /// <param name="isSecret">是不是密钥字段。密钥的值永不读取、永不输出。</param>
-        /// <param name="secretState">密钥配没配：已配 / 未配；非密钥字段是空串。</param>
+        /// <param name="isSecret">是不是密钥字段。密钥的值永不读取、永不输出（决策 5）。</param>
+        /// <param name="secretState">该字段配没配：已配 / 未配。密钥字段只判本机配置里键在不在；
+        /// 非密钥字段判「下游配置.&lt;driver&gt;.&lt;字段名&gt;」键在不在且非空串。值一律不显示。</param>
         public PanelBridgeFieldRow(
             string name,
             string fieldType,
@@ -496,6 +497,7 @@ namespace Template.Toolkit.Dashboard
             Options = options ?? Array.Empty<string>();
             IsSecret = isSecret;
             SecretState = secretState ?? "";
+            State = secretState ?? "";
         }
 
         /// <summary>字段名。</summary>
@@ -514,13 +516,17 @@ namespace Template.Toolkit.Dashboard
         [JsonPropertyName("选项")]
         public IReadOnlyList<string> Options { get; }
 
-        /// <summary>是不是密钥字段。密钥的值永不读取、永不输出。</summary>
+        /// <summary>是不是密钥字段。密钥的值永不读取、永不输出（决策 5）。</summary>
         [JsonPropertyName("密钥")]
         public bool IsSecret { get; }
 
-        /// <summary>密钥配没配：已配 / 未配；非密钥字段是空串。</summary>
+        /// <summary>该字段配没配：已配 / 未配。密钥与非密钥字段都填；值一律不显示。</summary>
         [JsonPropertyName("密钥状态")]
         public string SecretState { get; }
+
+        /// <summary>该字段配没配：已配 / 未配。密钥与非密钥字段都填；值一律不显示（与「密钥状态」同值，页面统一读这个）。</summary>
+        [JsonPropertyName("状态")]
+        public string State { get; }
     }
 
     /// <summary>下游页里的一个 driver。</summary>
@@ -542,6 +548,7 @@ namespace Template.Toolkit.Dashboard
         /// <param name="capabilityMeasured">能力对账跑成了没有。</param>
         /// <param name="capabilityNotes">能力对账没跑成的原因，或逐条发现的文案。</param>
         /// <param name="loadFailureReason">driver.json 读不动时的原因；正常为空串。</param>
+        /// <param name="localConfigNote">本机配置文件缺失时的说明；正常为空串。文件不存在与没填是两支，必须分开说（决策 42、77）。</param>
         public PanelBridgeRow(
             string driverName,
             string shape,
@@ -555,7 +562,8 @@ namespace Template.Toolkit.Dashboard
             int satisfiedCount,
             bool capabilityMeasured,
             IReadOnlyList<string> capabilityNotes,
-            string loadFailureReason)
+            string loadFailureReason,
+            string localConfigNote)
         {
             DriverName = driverName ?? "";
             Shape = shape ?? "";
@@ -570,6 +578,7 @@ namespace Template.Toolkit.Dashboard
             CapabilityMeasured = capabilityMeasured;
             CapabilityNotes = capabilityNotes ?? Array.Empty<string>();
             LoadFailureReason = loadFailureReason ?? "";
+            LocalConfigNote = localConfigNote ?? "";
         }
 
         /// <summary>driver 名称。</summary>
@@ -623,6 +632,10 @@ namespace Template.Toolkit.Dashboard
         /// <summary>driver.json 读不动时的原因；正常为空串。该行仍然产出。</summary>
         [JsonPropertyName("读失败")]
         public string LoadFailureReason { get; }
+
+        /// <summary>本机配置文件缺失时的说明；正常为空串。「文件不存在」与「文件有但这项没填」是两支（决策 42、77）。</summary>
+        [JsonPropertyName("本机配置说明")]
+        public string LocalConfigNote { get; }
     }
 
     /// <summary>一条资产的离风格结果，供面板按需拉取。</summary>
@@ -2528,7 +2541,8 @@ namespace Template.Toolkit.Dashboard
                 // 决策 43：烂在库里的必须让人看见——这一行仍然产出，只给名称与原因。
                 return new PanelBridgeRow(
                     driverName, "", "", "", "", "",
-                    Array.Empty<PanelBridgeFieldRow>(), false, -1, -1, false, Array.Empty<string>(), exception.Message);
+                    Array.Empty<PanelBridgeFieldRow>(), false, -1, -1, false, Array.Empty<string>(), exception.Message,
+                    LocalConfigNoteOf(repositoryRoot));
             }
 
             var (fields, probeCommand) = ReadBridgeFields(repositoryRoot, driverName, descriptor);
@@ -2543,20 +2557,22 @@ namespace Template.Toolkit.Dashboard
 
                 return new PanelBridgeRow(
                     driverName, descriptor.Form, descriptor.ContractRange, descriptor.ImplementationName,
-                    descriptor.TrialCommand, probeCommand, fields, isProvisioned, -1, -1, false, notes, "");
+                    descriptor.TrialCommand, probeCommand, fields, isProvisioned, -1, -1, false, notes, "",
+                    LocalConfigNoteOf(repositoryRoot));
             }
 
             try
             {
                 var manifest = DependencyManifest.Load(repositoryRoot, driverName);
-                var probePath = Path.Combine(ProvisionPaths.GeneratedBridgeDirectory(repositoryRoot, driverName), "探测结果.json");
+                var probePath = ProvisionPaths.ProbeResultFile(repositoryRoot, driverName);
                 var probeResult = CapabilityProbeResult.LoadFromFile(probePath);
                 var report = CapabilityReconciler.Reconcile(driverName, manifest, probeResult);
                 var notes = report.Findings.Select(finding => finding.ToDisplayText()).ToList();
                 return new PanelBridgeRow(
                     driverName, descriptor.Form, descriptor.ContractRange, descriptor.ImplementationName,
                     descriptor.TrialCommand, probeCommand, fields, isProvisioned,
-                    report.DependencyCount, report.SatisfiedCount, true, notes, "");
+                    report.DependencyCount, report.SatisfiedCount, true, notes, "",
+                    LocalConfigNoteOf(repositoryRoot));
             }
             catch (InvalidOperationException exception)
             {
@@ -2565,8 +2581,20 @@ namespace Template.Toolkit.Dashboard
                 return new PanelBridgeRow(
                     driverName, descriptor.Form, descriptor.ContractRange, descriptor.ImplementationName,
                     descriptor.TrialCommand, probeCommand, fields, isProvisioned, -1, -1, false,
-                    new List<string> { exception.Message }, "");
+                    new List<string> { exception.Message }, "",
+                    LocalConfigNoteOf(repositoryRoot));
             }
+        }
+
+        /// <summary>
+        /// 本机配置文件缺失时的说明；文件在就给空串。「文件不存在」与「文件有但这项没填」是两支，
+        /// 页面必须能区分（决策 42、77）：字段级判据统一把「文件不存在」当未配，但这一行说明告诉人原因。
+        /// </summary>
+        private static string LocalConfigNoteOf(string repositoryRoot)
+        {
+            return File.Exists(LocalConfigFilePath(repositoryRoot))
+                ? ""
+                : "本机配置文件不存在：Config/创作管线/本机.json（本行字段全部按「未配」处理）";
         }
 
         /// <summary>
@@ -2636,7 +2664,7 @@ namespace Template.Toolkit.Dashboard
                             isRequired,
                             options,
                             isSecret,
-                            isSecret ? SecretStateOf(repositoryRoot, name) : ""));
+                            isSecret ? SecretStateOf(repositoryRoot, name) : NonSecretFieldStateOf(repositoryRoot, driverName, name)));
                     }
                 }
             }
@@ -2648,10 +2676,16 @@ namespace Template.Toolkit.Dashboard
             return (fields, probeCommand);
         }
 
-        /// <summary>判一个密钥字段在 Config/创作管线/本机.json 里配没配。只判键在不在，一次都不取它的值（决策 5）。</summary>
+        /// <summary>本机配置文件路径：Config/创作管线/本机.json（密钥与非密钥字段都从这里读）。</summary>
+        private static string LocalConfigFilePath(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "Config", "创作管线", "本机.json");
+        }
+
+        /// <summary>判一个密钥字段在 Config/创作管线/本机.json 里配没配。只判键在不在，一次都不取它的值（决策 5、78）。</summary>
         private static string SecretStateOf(string repositoryRoot, string secretFieldName)
         {
-            var localFilePath = Path.Combine(repositoryRoot, "Config", "创作管线", "本机.json");
+            var localFilePath = LocalConfigFilePath(repositoryRoot);
             if (!File.Exists(localFilePath))
             {
                 return "未配";
@@ -2669,6 +2703,52 @@ namespace Template.Toolkit.Dashboard
 
                     // out _ 就是只判存在：密钥的值永远不落进任何返回、日志或文案。
                     return root.TryGetProperty(secretFieldName, out _) ? "已配" : "未配";
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return "未配";
+            }
+        }
+
+        /// <summary>
+        /// 判一个非密钥字段在 Config/创作管线/本机.json 的「下游配置.&lt;driver&gt;.&lt;字段名&gt;」里配没配。
+        /// 判据是「键在不在、且不是空串」：缺失、空串、文件不存在统一算「未配」（决策 78 的精神——
+        /// 非密钥字段也只报配没配，值不显示、不出现在任何返回字段）。「文件不存在」与「没填」两支
+        /// 由 LocalConfigNoteOf 的说明行区分，这里不合并成同一个原因。
+        /// </summary>
+        private static string NonSecretFieldStateOf(string repositoryRoot, string driverName, string fieldName)
+        {
+            var localFilePath = LocalConfigFilePath(repositoryRoot);
+            if (!File.Exists(localFilePath))
+            {
+                return "未配";
+            }
+
+            try
+            {
+                using (var document = JsonDocument.Parse(File.ReadAllText(localFilePath)))
+                {
+                    var root = document.RootElement;
+                    if (root.ValueKind != JsonValueKind.Object
+                        || !root.TryGetProperty("下游配置", out var downstream) || downstream.ValueKind != JsonValueKind.Object
+                        || !downstream.TryGetProperty(driverName, out var driver) || driver.ValueKind != JsonValueKind.Object
+                        || !driver.TryGetProperty(fieldName, out var value))
+                    {
+                        return "未配";
+                    }
+
+                    // 值只判「非空串」：数字/布尔转成字符串判，空串与键缺失同判「未配」。
+                    // 判完即弃，值本身绝不放进任何返回、日志或文案。
+                    var text = value.ValueKind switch
+                    {
+                        JsonValueKind.String => value.GetString() ?? "",
+                        JsonValueKind.Number => value.ToString(),
+                        JsonValueKind.True => "true",
+                        JsonValueKind.False => "false",
+                        _ => ""
+                    };
+                    return string.IsNullOrEmpty(text) ? "未配" : "已配";
                 }
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)

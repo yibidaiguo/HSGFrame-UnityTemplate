@@ -62,6 +62,12 @@ _Tasks/*/30-产物/*/变体/**
 # 唤醒信号与它的归档是这台机器收到过什么。进 git 只会让两台机器互相打架。
 _Tasks/引擎轮次.jsonl
 _Tasks/.prereview-cache/
+
+# 能力探测结果是「这台机器上装了什么」，跟机器走不跟仓库走，所以不进 git。
+# 与 _Generated/Bridges/（供给产物，进 git 供对账——决策 12）刻意分开两个目录：
+# gate.provision 靠 _Generated/Bridges/<driver>/ 在不在判断该 driver 声称已供给，
+# 探测结果混进去会让它判红（P8 批次 8 真踩过）。
+_Generated/Probes/
 _Tasks/.engine.lock
 _Tasks/唤醒/
 

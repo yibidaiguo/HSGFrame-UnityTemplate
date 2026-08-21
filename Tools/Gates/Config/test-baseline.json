@@ -98,6 +98,7 @@
     "Solutions/CreationPipeline.Tests/WakeSignalSourceTests.cs": "0109b04f2f58956075cdc97eef6fca66708f482d352fdc26b9491fa6d0e1b25c",
     "Solutions/CreationPipeline.Tests/WorkItemGraphTests.cs": "7084c2c5a454e996d296a16170863a73f276f86fc61a0c38b1915964e654ae04",
     "Solutions/CreationPipeline.Tests/WorkflowTranslatorTests.cs": "29b6f1223ce0c768601a0c7350e7bb73f225191d3bdd8f7c742518bafb528ee2",
+    "Solutions/Dashboard.Tests/BridgeFieldStateTests.cs": "ec2bd9d37722f46d0db4e185b2336930c9ff4e4ad7db0b6cffdec7f43f87ed80",
     "Solutions/Dashboard.Tests/CreationPanelAssetsTests.cs": "fcf4368939ba514929c4226ee3e23c8f30ec55b9d9e5af61e184674e0935ab1d",
     "Solutions/Dashboard.Tests/CreationPanelAutomationTests.cs": "8f0704e0fc10556142e24241bd7705e7d145bbc739a25ac4ba03b429449d52bb",
     "Solutions/Dashboard.Tests/CreationPanelBridgeTests.cs": "f2df636a363966022ca95b728b90d39b82739b1c674b21a5ec67efbd3e4ef16f",

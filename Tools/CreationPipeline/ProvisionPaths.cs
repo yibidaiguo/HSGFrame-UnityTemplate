@@ -48,6 +48,21 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(GeneratedBridgeDirectory(repositoryRoot, driverName), "指纹.json");
         }
 
+        /// <summary>
+        /// 能力探测结果文件：<c>_Generated/Probes/&lt;driver&gt;/探测结果.json</c>。
+        /// **刻意不落 `_Generated/Bridges/&lt;driver&gt;/`**，那里是供给产物的地盘：
+        /// `gate.provision` 靠「那个目录在不在」判断这个 driver 声称已供给，
+        /// 探测结果一写进去，那个 driver 就被当成「已供给却缺一堆产物」而判红（P8 批次 8 真踩过）。
+        /// 两者本来就是反方向的东西——**供给产物是推给下游的、进 git 供对账（决策 12）；
+        /// 探测结果是从下游读回来的、跟机器走、不进 git**。目录分开，语义才不打架。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        public static string ProbeResultFile(string repositoryRoot, string driverName)
+        {
+            return Path.Combine(repositoryRoot, "_Generated", "Probes", driverName, "探测结果.json");
+        }
+
         /// <summary>助手配置包目录：_Generated/Bridges/&lt;driver&gt;/助手配置包。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="driverName">driver 名称。</param>

@@ -52,8 +52,9 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("要探测的下游 driver 名，对应 Bridges/<名>/ 目录")]
         public string Driver { get; set; }
 
-        /// <summary>探测输出文件的路径（绝对或相对路径，跑完 CapabilityProbeResult 要能读它）。</summary>
-        [Summary("探测输出文件的路径（绝对或相对路径，跑完 CapabilityProbeResult 要能读它）")]
+        /// <summary>探测输出文件的路径（绝对或相对路径，跑完 CapabilityProbeResult 要能读它）；空串时用默认位置 _Generated/Bridges/&lt;driver&gt;/探测结果.json 并自动建目录。</summary>
+        [Summary("探测输出文件的路径（绝对或相对路径，跑完 CapabilityProbeResult 要能读它）；空串用默认位置并自动建目录")]
+        [DefaultValue("")]
         public string OutputPath { get; set; }
 
         /// <summary>仓库根目录，相对当前工作目录。</summary>
@@ -305,11 +306,6 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
             }
 
-            if (string.IsNullOrWhiteSpace(arguments.OutputPath))
-            {
-                return CommandResult.Failure("必须指定 --output-path");
-            }
-
             string repositoryRoot;
             try
             {
@@ -323,7 +319,20 @@ namespace Template.Toolkit.CommandHost.Commands
             string outputPath;
             try
             {
-                outputPath = Path.GetFullPath(arguments.OutputPath);
+                if (string.IsNullOrWhiteSpace(arguments.OutputPath))
+                {
+                    // 默认落到面板下游页找的位置：_Generated/Bridges/<driver>/探测结果.json，并自动建目录。
+                    outputPath = ProvisionPaths.ProbeResultFile(repositoryRoot, arguments.Driver);
+                    var directory = Path.GetDirectoryName(outputPath);
+                    if (!string.IsNullOrEmpty(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+                }
+                else
+                {
+                    outputPath = Path.GetFullPath(arguments.OutputPath);
+                }
             }
             catch (Exception exception)
             {
