@@ -92,7 +92,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="poolRoot">池子根目录。</param>
         public static string AllocateIdentifier(string repositoryRoot, string poolRoot)
         {
-            var fromPool = IdentifierAllocator.Next(PoolPaths.RequirementsDirectory(poolRoot), "REQ-", 4);
+            var fromPool = IdentifierAllocator.NextByDirectoryName(PoolPaths.RequirementsDirectory(poolRoot), "REQ-", 4);
             var fromDrafts = IdentifierAllocator.Next(DraftDirectory(repositoryRoot), "REQ-", 4);
             return NumberOf(fromDrafts) > NumberOf(fromPool) ? fromDrafts : fromPool;
         }
@@ -195,15 +195,19 @@ namespace Template.Toolkit.CreationPipeline
         /// 校验器报的位置是临时路径，对提需求的人没意义——所以调用方只用 Reason 与 FixAction。
         /// </summary>
         /// <param name="draft">补全后的草稿。</param>
-        /// <param name="identifier">需求 id，决定临时文件名（校验器按文件名核 id）。</param>
+        /// <param name="identifier">需求 id，决定临时目录名（校验器按**所在目录名**核 id）。</param>
         /// <param name="schema">合并后的需求 schema。</param>
         public static IReadOnlyList<PoolFinding> Validate(JsonObject draft, string identifier, PoolSchema schema)
         {
             var tempRoot = Path.Combine(Path.GetTempPath(), "助手会话校验-" + Guid.NewGuid().ToString("N"));
             try
             {
-                Directory.CreateDirectory(tempRoot);
-                var tempFilePath = Path.Combine(tempRoot, identifier + ".json");
+                // 临时候选要摆成与池子里一样的形状（<id>/requirement.json）：
+                // 校验器判的是所在目录名，摆成平铺文件的话每条草稿都会白报一条「id 与目录名不一致」，
+                // 于是助手永远判「校验没过」、永远不写下游——而单测里那份草稿明明是合法的。
+                var tempRequirementDirectory = Path.Combine(tempRoot, identifier);
+                Directory.CreateDirectory(tempRequirementDirectory);
+                var tempFilePath = Path.Combine(tempRequirementDirectory, PoolPaths.RequirementFileName);
                 File.WriteAllText(tempFilePath, draft.ToJsonString(WriteOptions), new UTF8Encoding(false));
                 return RequirementValidator.CheckFile(tempFilePath, schema);
             }

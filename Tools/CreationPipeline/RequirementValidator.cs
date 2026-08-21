@@ -40,9 +40,13 @@ namespace Template.Toolkit.CreationPipeline
             using (document)
             {
                 var root = document.RootElement;
-                var fileName = Path.GetFileNameWithoutExtension(filePath);
 
-                CheckIdentifier(root, filePath, fileName, schema, findings);
+                // 判据是**所在目录名**，不是文件名——一条需求现在是一个目录
+                // （Requirements/REQ-0042/requirement.json），文件名对每条需求都一样，
+                // 拿它当 id 判据等于不判（决策 99）。
+                var directoryName = Path.GetFileName(Path.GetDirectoryName(filePath) ?? "");
+
+                CheckIdentifier(root, filePath, directoryName, schema, findings);
                 CheckRequiredFields(root, filePath, schema, findings);
                 CheckEnumValues(root, filePath, schema, findings);
                 CheckArrays(root, filePath, schema, findings);
@@ -55,9 +59,13 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 校验目录下全部需求 JSON 文件（不递归），汇总各文件的违规发现；目录不存在时返回空列表。
+        /// 校验需求根目录下全部需求，汇总违规发现；目录不存在时返回空列表。
+        ///
+        /// 一条需求 = 一个子目录 + 里面的 requirement.json。
+        /// **目录在而骨架缺要当场报**，不许静默跳过——静默跳过的后果是
+        /// 一条需求凭空从池子里消失，而每一道门禁都是绿的（决策 42 那一类假象）。
         /// </summary>
-        /// <param name="requirementsDirectory">需求文件所在目录。</param>
+        /// <param name="requirementsDirectory">需求根目录（Requirements）。</param>
         /// <param name="schema">合并后的需求 schema。</param>
         public static IReadOnlyList<PoolFinding> CheckDirectory(string requirementsDirectory, PoolSchema schema)
         {
@@ -67,15 +75,26 @@ namespace Template.Toolkit.CreationPipeline
                 return findings;
             }
 
-            foreach (var filePath in Directory.EnumerateFiles(requirementsDirectory, "*.json", SearchOption.TopDirectoryOnly))
+            foreach (var directoryPath in Directory.EnumerateDirectories(requirementsDirectory, "*", SearchOption.TopDirectoryOnly))
             {
+                var filePath = Path.Combine(directoryPath, PoolPaths.RequirementFileName);
+                if (!File.Exists(filePath))
+                {
+                    findings.Add(new PoolFinding(
+                        directoryPath,
+                        ValidationMessageCatalog.Format("需求.骨架缺失", Path.GetFileName(directoryPath)),
+                        ValidationMessageCatalog.FormatFix("需求.骨架缺失"),
+                        ReferencePath));
+                    continue;
+                }
+
                 findings.AddRange(CheckFile(filePath, schema));
             }
 
             return findings;
         }
 
-        private static void CheckIdentifier(JsonElement root, string filePath, string fileName, PoolSchema schema, List<PoolFinding> findings)
+        private static void CheckIdentifier(JsonElement root, string filePath, string directoryName, PoolSchema schema, List<PoolFinding> findings)
         {
             if (!root.TryGetProperty("id", out var idElement) || idElement.ValueKind != JsonValueKind.String)
             {
@@ -98,12 +117,12 @@ namespace Template.Toolkit.CreationPipeline
                     ReferencePath));
             }
 
-            if (!string.Equals(id, fileName, StringComparison.Ordinal))
+            if (!string.Equals(id, directoryName, StringComparison.Ordinal))
             {
                 findings.Add(new PoolFinding(
                     filePath,
-                    ValidationMessageCatalog.Format("需求.id与文件名", id, fileName),
-                    ValidationMessageCatalog.FormatFix("需求.id与文件名"),
+                    ValidationMessageCatalog.Format("需求.id与目录名", id, directoryName),
+                    ValidationMessageCatalog.FormatFix("需求.id与目录名"),
                     ReferencePath));
             }
         }

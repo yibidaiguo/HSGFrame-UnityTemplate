@@ -1399,12 +1399,16 @@ namespace Template.Toolkit.Dashboard
                 return Array.Empty<PanelRequirementRow>();
             }
 
-            var files = Directory.GetFiles(requirementsDirectory, "*.json").ToList();
-            files.Sort(StringComparer.Ordinal);
-
             var rows = new List<PanelRequirementRow>();
-            foreach (var filePath in files)
+            foreach (var identifier in PoolPaths.EnumerateRequirementIdentifiers(poolRoot))
             {
+                var filePath = PoolPaths.RequirementFile(poolRoot, identifier);
+                if (!File.Exists(filePath))
+                {
+                    // 目录在而骨架缺：这是 pool.validate 要报的违规，面板只管别把它渲染成一行空白。
+                    continue;
+                }
+
                 var row = TryReadRequirement(filePath);
                 if (row != null)
                 {
@@ -2958,10 +2962,10 @@ namespace Template.Toolkit.Dashboard
             }
         }
 
-        /// <summary>从 Pools/Requirements/&lt;id&gt;.json 读「标题」，取不到留空串。</summary>
+        /// <summary>从 Pools/Requirements/&lt;id&gt;/requirement.json 读「标题」，取不到留空串。</summary>
         private static string ReadRequirementTitle(string poolRoot, string requirementIdentifier)
         {
-            var filePath = Path.Combine(PoolPaths.RequirementsDirectory(poolRoot), $"{requirementIdentifier}.json");
+            var filePath = PoolPaths.RequirementFile(poolRoot, requirementIdentifier);
             if (!File.Exists(filePath))
             {
                 return "";

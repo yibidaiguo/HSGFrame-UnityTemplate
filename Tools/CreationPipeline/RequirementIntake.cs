@@ -146,7 +146,7 @@ namespace Template.Toolkit.CreationPipeline
             JsonObject candidate;
             if (isNew)
             {
-                requirementIdentifier = IdentifierAllocator.Next(PoolPaths.RequirementsDirectory(poolRoot), RequirementPrefix, IdentifierDigits);
+                requirementIdentifier = IdentifierAllocator.NextByDirectoryName(PoolPaths.RequirementsDirectory(poolRoot), RequirementPrefix, IdentifierDigits);
                 candidate = new JsonObject();
                 foreach (var pair in contentFields)
                 {
@@ -186,7 +186,11 @@ namespace Template.Toolkit.CreationPipeline
             Directory.CreateDirectory(tempRoot);
             try
             {
-                var tempFilePath = Path.Combine(tempRoot, requirementIdentifier + ".json");
+                // 临时候选摆成与池子里一样的形状（<id>/requirement.json）：
+                // 校验器判的是**所在目录名**，摆成平铺文件的话每条候选都会白报一条「id 与目录名不一致」。
+                var tempRequirementDirectory = Path.Combine(tempRoot, requirementIdentifier);
+                Directory.CreateDirectory(tempRequirementDirectory);
+                var tempFilePath = Path.Combine(tempRequirementDirectory, PoolPaths.RequirementFileName);
                 File.WriteAllText(tempFilePath, candidate.ToJsonString(WriteOptions), new UTF8Encoding(false));
 
                 // 校验器报的位置是那份临时候选文件，但拒收单要回贴给策划看——
@@ -211,9 +215,8 @@ namespace Template.Toolkit.CreationPipeline
                         findings);
                 }
 
-                var requirementsDirectory = PoolPaths.RequirementsDirectory(poolRoot);
-                Directory.CreateDirectory(requirementsDirectory);
-                var targetPath = Path.Combine(requirementsDirectory, requirementIdentifier + ".json");
+                Directory.CreateDirectory(PoolPaths.RequirementDirectory(poolRoot, requirementIdentifier));
+                var targetPath = PoolPaths.RequirementFile(poolRoot, requirementIdentifier);
                 File.WriteAllText(targetPath, candidate.ToJsonString(WriteOptions), new UTF8Encoding(false));
 
                 index[key] = new IndexEntry
@@ -246,8 +249,14 @@ namespace Template.Toolkit.CreationPipeline
                 return index;
             }
 
-            foreach (var filePath in Directory.EnumerateFiles(requirementsDirectory, "*.json", SearchOption.TopDirectoryOnly))
+            foreach (var identifier in PoolPaths.EnumerateRequirementIdentifiers(poolRoot))
             {
+                var filePath = PoolPaths.RequirementFile(poolRoot, identifier);
+                if (!File.Exists(filePath))
+                {
+                    continue;
+                }
+
                 JsonDocument document;
                 try
                 {

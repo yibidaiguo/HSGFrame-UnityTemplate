@@ -22,7 +22,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="requirementIdentifier">需求 id，如「REQ-0042」。</param>
         public static string RenderOne(string repositoryRoot, string poolRoot, string requirementIdentifier)
         {
-            var requirementPath = Path.Combine(PoolPaths.RequirementsDirectory(poolRoot), $"{requirementIdentifier}.json");
+            var requirementPath = PoolPaths.RequirementFile(poolRoot, requirementIdentifier);
             if (!File.Exists(requirementPath))
             {
                 return $"{requirementIdentifier} 需求文件不存在";

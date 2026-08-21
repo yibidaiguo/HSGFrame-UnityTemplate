@@ -86,7 +86,7 @@ namespace Template.Toolkit.CreationPipeline
             string eventName,
             DateTimeOffset moment)
         {
-            var requirementFilePath = Path.Combine(PoolPaths.RequirementsDirectory(poolRoot), requirementIdentifier + ".json");
+            var requirementFilePath = PoolPaths.RequirementFile(poolRoot, requirementIdentifier);
             if (!File.Exists(requirementFilePath))
             {
                 return Failed($"需求文件不存在：{requirementFilePath}");

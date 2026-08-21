@@ -10,6 +10,8 @@
     "feishu": {
       "应用标识": "cli_xxxxxxxxxxxxxxxx",
       "多维表格标识": "多维表格的 app_token，形如 bascnXXXXXXXXXXXX",
+      "知识空间标识": "需求文档落脚的知识库空间 space_id，一串纯数字。用 wiki/v2/spaces/get_node 拿：地址栏里 /wiki/ 后面那串是节点 token，不是 space_id",
+      "需求文档父节点": "需求文档挂在哪个节点下面，形如 GVZhwXXXXXXXXXXXX；留空表示挂成一级节点",
       "超时秒": 60
     },
     "comfyui": {

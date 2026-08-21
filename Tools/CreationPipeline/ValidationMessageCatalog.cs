@@ -65,9 +65,13 @@ namespace Template.Toolkit.CreationPipeline
                 "字段「id」的值「{0}」不匹配 id 模式「{1}」",
                 "把 id 改成匹配 id 模式的格式"),
             new ValidationMessageEntry(
-                "需求.id与文件名",
-                "字段「id」的值「{0}」与文件名「{1}」不一致",
-                "让文件名的 id 与字段 id 保持一致"),
+                "需求.id与目录名",
+                "字段「id」的值「{0}」与所在目录名「{1}」不一致",
+                "让目录名与字段 id 保持一致"),
+            new ValidationMessageEntry(
+                "需求.骨架缺失",
+                "需求目录「{0}」里没有 requirement.json",
+                "补上 requirement.json，或把这个不是需求的目录挪走"),
             new ValidationMessageEntry(
                 "需求.必填缺失",
                 "必填字段「{0}」缺失或为 null",

@@ -61,10 +61,88 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(poolRoot, "Inbox", "Epics");
         }
 
-        /// <summary>需求目录：Requirements。</summary>
+        /// <summary>需求根目录：Requirements。一条需求是这底下的**一个目录**，不是一个文件。</summary>
         public static string RequirementsDirectory(string poolRoot)
         {
             return Path.Combine(poolRoot, "Requirements");
+        }
+
+        /// <summary>
+        /// 一条需求自己的目录：Requirements/REQ-0042。
+        ///
+        /// **这一族访问器存在的理由**：需求从「一个文件」改成「一个目录」那次迁移，
+        /// 全仓有 8 处在各自 `Path.Combine(RequirementsDirectory(root), id + ".json")`。
+        /// 散着拼的后果不是改起来累，而是**下次再加一份随需求走的东西**
+        /// （文档、媒体、快照都是这次加的）时，你没有任何办法知道还漏了谁。
+        /// 所以路径一律经这里，调用方不许再自己拼（决策 99）。
+        /// </summary>
+        /// <param name="poolRoot">池根目录。</param>
+        /// <param name="requirementIdentifier">需求 id，如「REQ-0042」。</param>
+        public static string RequirementDirectory(string poolRoot, string requirementIdentifier)
+        {
+            return Path.Combine(RequirementsDirectory(poolRoot), requirementIdentifier ?? "");
+        }
+
+        /// <summary>需求骨架 JSON：Requirements/REQ-0042/requirement.json。</summary>
+        /// <param name="poolRoot">池根目录。</param>
+        /// <param name="requirementIdentifier">需求 id。</param>
+        public static string RequirementFile(string poolRoot, string requirementIdentifier)
+        {
+            return Path.Combine(RequirementDirectory(poolRoot, requirementIdentifier), RequirementFileName);
+        }
+
+        /// <summary>需求文档正文：Requirements/REQ-0042/index.md。</summary>
+        /// <param name="poolRoot">池根目录。</param>
+        /// <param name="requirementIdentifier">需求 id。</param>
+        public static string RequirementDocument(string poolRoot, string requirementIdentifier)
+        {
+            return Path.Combine(RequirementDirectory(poolRoot, requirementIdentifier), RequirementDocumentFileName);
+        }
+
+        /// <summary>需求媒体目录：Requirements/REQ-0042/media。图片与视频本体落这里。</summary>
+        /// <param name="poolRoot">池根目录。</param>
+        /// <param name="requirementIdentifier">需求 id。</param>
+        public static string RequirementMediaDirectory(string poolRoot, string requirementIdentifier)
+        {
+            return Path.Combine(RequirementDirectory(poolRoot, requirementIdentifier), "media");
+        }
+
+        /// <summary>需求文档快照目录：Requirements/REQ-0042/snapshots。覆盖对侧内容前的留底（决策 101）。</summary>
+        /// <param name="poolRoot">池根目录。</param>
+        /// <param name="requirementIdentifier">需求 id。</param>
+        public static string RequirementSnapshotsDirectory(string poolRoot, string requirementIdentifier)
+        {
+            return Path.Combine(RequirementDirectory(poolRoot, requirementIdentifier), "snapshots");
+        }
+
+        /// <summary>需求骨架 JSON 的固定文件名。</summary>
+        public const string RequirementFileName = "requirement.json";
+
+        /// <summary>需求文档正文的固定文件名。</summary>
+        public const string RequirementDocumentFileName = "index.md";
+
+        /// <summary>
+        /// 枚举池子里现存的全部需求 id（Requirements 下的一级子目录名，按序排）。
+        /// 目录不存在返回空序列；**不看目录里有没有 requirement.json**——
+        /// 「目录在而骨架缺」是校验器要报的违规，不是枚举器该悄悄跳过的东西。
+        /// </summary>
+        /// <param name="poolRoot">池根目录。</param>
+        public static IReadOnlyList<string> EnumerateRequirementIdentifiers(string poolRoot)
+        {
+            var directory = RequirementsDirectory(poolRoot);
+            if (!Directory.Exists(directory))
+            {
+                return Array.Empty<string>();
+            }
+
+            var identifiers = new List<string>();
+            foreach (var path in Directory.EnumerateDirectories(directory, "*", SearchOption.TopDirectoryOnly))
+            {
+                identifiers.Add(Path.GetFileName(path));
+            }
+
+            identifiers.Sort(StringComparer.Ordinal);
+            return identifiers;
         }
 
         /// <summary>专项目录：专项。</summary>

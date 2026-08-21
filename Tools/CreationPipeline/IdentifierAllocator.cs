@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Template.Toolkit.CreationPipeline
@@ -20,16 +21,51 @@ namespace Template.Toolkit.CreationPipeline
                 return Format(prefix, 1, digits);
             }
 
-            var maxNumber = 0;
+            var names = new List<string>();
             foreach (var filePath in Directory.EnumerateFiles(directory, "*.json", SearchOption.TopDirectoryOnly))
             {
-                var fileName = Path.GetFileNameWithoutExtension(filePath);
-                if (!fileName.StartsWith(prefix, StringComparison.Ordinal))
+                names.Add(Path.GetFileNameWithoutExtension(filePath));
+            }
+
+            return NextFromNames(names, prefix, digits);
+        }
+
+        /// <summary>
+        /// 同上，但扫的是**子目录名**而不是文件名。
+        /// 需求从「一个文件」改成「一个目录」之后要用这一支（决策 99）；
+        /// 别的实体仍是一实体一文件，继续用 <see cref="Next"/>。
+        /// </summary>
+        /// <param name="directory">存放实体目录的父目录。</param>
+        /// <param name="prefix">编号前缀，如「REQ-」。</param>
+        /// <param name="digits">编号数字部分的位数。</param>
+        public static string NextByDirectoryName(string directory, string prefix, int digits)
+        {
+            if (!Directory.Exists(directory))
+            {
+                return Format(prefix, 1, digits);
+            }
+
+            var names = new List<string>();
+            foreach (var path in Directory.EnumerateDirectories(directory, "*", SearchOption.TopDirectoryOnly))
+            {
+                names.Add(Path.GetFileName(path));
+            }
+
+            return NextFromNames(names, prefix, digits);
+        }
+
+        /// <summary>从一批名字里挑出「前缀 + 纯数字」的，取最大编号加一。</summary>
+        private static string NextFromNames(IEnumerable<string> names, string prefix, int digits)
+        {
+            var maxNumber = 0;
+            foreach (var name in names)
+            {
+                if (name == null || !name.StartsWith(prefix, StringComparison.Ordinal))
                 {
                     continue;
                 }
 
-                var numberPart = fileName.Substring(prefix.Length);
+                var numberPart = name.Substring(prefix.Length);
                 if (!IsAllDigits(numberPart))
                 {
                     continue;

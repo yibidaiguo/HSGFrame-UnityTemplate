@@ -84,9 +84,16 @@ namespace Template.Toolkit.CreationPipeline
             RequirementData newRequirement = null;
             var requirements = new List<RequirementData>();
             var failures = new List<string>();
-            foreach (var filePath in Directory.EnumerateFiles(requirementsDirectory, "REQ-*.json", SearchOption.TopDirectoryOnly))
+            foreach (var identifier in PoolPaths.EnumerateRequirementIdentifiers(poolRoot))
             {
-                if (!TryReadRequirement(filePath, out var requirement, out var failureReason))
+                var filePath = PoolPaths.RequirementFile(poolRoot, identifier);
+                if (!File.Exists(filePath))
+                {
+                    failures.Add($"需求目录「{identifier}」里没有 {PoolPaths.RequirementFileName}");
+                    continue;
+                }
+
+                if (!TryReadRequirement(filePath, identifier, out var requirement, out var failureReason))
                 {
                     failures.Add(failureReason);
                     continue;
@@ -325,7 +332,13 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>读一份需求文件；JSON 解析不了或缺 id 返回 false 并给原因，其余字段宽松读。</summary>
-        private static bool TryReadRequirement(string filePath, out RequirementData requirement, out string failureReason)
+        /// <summary>
+        /// 读一份需求；读不动时给一句**带得出是哪一条**的原因。
+        ///
+        /// 文案里点名的是需求 id 而不是文件名：需求目录化之后每一条的文件名都叫
+        /// requirement.json，拿文件名报错等于告诉人「有一条坏了，自己找去」。
+        /// </summary>
+        private static bool TryReadRequirement(string filePath, string directoryIdentifier, out RequirementData requirement, out string failureReason)
         {
             requirement = null;
             failureReason = "";
@@ -334,13 +347,13 @@ namespace Template.Toolkit.CreationPipeline
                 var root = JsonNode.Parse(File.ReadAllText(filePath));
                 if (root is not JsonObject obj)
                 {
-                    failureReason = $"{Path.GetFileName(filePath)}：顶层不是对象，已跳过";
+                    failureReason = $"{directoryIdentifier}：顶层不是对象，已跳过";
                     return false;
                 }
 
                 if (!TryReadString(obj, "id", out var identifier) || identifier.Length == 0)
                 {
-                    failureReason = $"{Path.GetFileName(filePath)}：缺少 id，已跳过";
+                    failureReason = $"{directoryIdentifier}：缺少 id，已跳过";
                     return false;
                 }
 
@@ -356,7 +369,7 @@ namespace Template.Toolkit.CreationPipeline
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
             {
-                failureReason = $"{Path.GetFileName(filePath)}：{exception.Message}，已跳过";
+                failureReason = $"{directoryIdentifier}：{exception.Message}，已跳过";
                 return false;
             }
         }

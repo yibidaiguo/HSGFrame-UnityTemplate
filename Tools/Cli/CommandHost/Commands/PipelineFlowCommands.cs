@@ -1289,7 +1289,7 @@ namespace Template.Toolkit.CommandHost.Commands
             return builder.ToString();
         }
 
-        /// <summary>读存量需求：&lt;池根&gt;/Requirements/REQ-*.json 按文件名序数序，每份 JSON 原文一节；目录不存在给空列表。</summary>
+        /// <summary>读存量需求：&lt;池根&gt;/Requirements/&lt;id&gt;/requirement.json 按 id 序，每份 JSON 原文一节；目录不存在给空列表。</summary>
         /// <param name="poolRoot">池子根目录。</param>
         private static IReadOnlyList<string> ReadExistingRequirements(string poolRoot)
         {
@@ -1300,12 +1300,15 @@ namespace Template.Toolkit.CommandHost.Commands
                 return result;
             }
 
-            var files = Directory.GetFiles(directory, "REQ-*.json").ToList();
-            files.Sort(StringComparer.Ordinal);
-            foreach (var file in files)
+            foreach (var identifier in PoolPaths.EnumerateRequirementIdentifiers(poolRoot))
             {
-                var fileName = Path.GetFileName(file);
-                result.Add("### 需求：" + fileName + Environment.NewLine + File.ReadAllText(file, Encoding.UTF8));
+                var file = PoolPaths.RequirementFile(poolRoot, identifier);
+                if (!File.Exists(file))
+                {
+                    continue;
+                }
+
+                result.Add("### 需求：" + identifier + Environment.NewLine + File.ReadAllText(file, Encoding.UTF8));
             }
 
             return result;
