@@ -8,6 +8,7 @@ using Xunit;
 namespace Template.Toolkit.CodeGen.Tests
 {
     /// <summary>配置表管线 Luban 实现的测试：defines 投影、类型映射、多主键、真实跑 Luban 与失败消息。</summary>
+    [Collection(RealTemplateRootCollection.Name)]
     public class LubanTablePipelineTests
     {
         [Fact]

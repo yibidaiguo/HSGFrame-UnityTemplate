@@ -8,6 +8,7 @@ using Xunit;
 namespace Template.Toolkit.CodeGen.Tests
 {
     /// <summary>配置表管线可替换面的实现测试：转发、生成访问代码与运行时数据。</summary>
+    [Collection(RealTemplateRootCollection.Name)]
     public class ScribanTablePipelineTests
     {
         [Fact]

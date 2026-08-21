@@ -17,16 +17,26 @@ namespace Template.Toolkit.Gates
     /// **与命名门禁的分工**：那一道只作用于「含 .cs 的目录」，管不到 `Doc/` 与 `Pools/`；
     /// 这一道扫全仓，只查一件事——路径里有没有非 ASCII 字符。
     ///
-    /// **迁移期用 warn 模式**：照样逐条列出来，但不判红。存量清完再翻成 block（待办 1 的 f 批）。
+    /// **模式由配置里的 `pathAsciiMode` 决定**：`warn` 只列不判红，`block` 判红。
+    /// 迁移期（待办 1 的 a 批）是 warn，存量清零之后（f 批）已经翻成 **block**。
+    /// 新项目从模板生成出来时就是 block——这条规矩从第一天起就成立，不留迁移期。
     /// </summary>
     public static class PathAsciiChecker
     {
-        /// <summary>不扫的目录名：第三方、生成物、机器状态，跟这道规矩无关。</summary>
+        /// <summary>
+        /// 不扫的目录名：第三方、生成物、机器状态，跟这道规矩无关。
+        ///
+        /// **这份名单每加一条都是在门禁上开一个洞**，所以只许放三类：
+        /// 别人的东西（`PackageCache` / `node_modules`）、机器现产的东西
+        /// （`bin` / `obj` / `Library` / `Logs`）、明确不进 git 的试验区（`_Scratch`）。
+        /// **仓库自己的内容一律不许进这份名单**——`Memory/` 一度被误加进来过，
+        /// 而它是两份真文档，那等于那两份文档永远不受这道门禁管。
+        /// </summary>
         private static readonly string[] SkipSegments =
         {
             ".git", ".claude", ".idea", ".vs", "bin", "obj", "Library", "Temp", "Logs",
             "Build", "Builds", "Bundles", "PackageCache", "HybridCLRData", "HybridCLRGenerate",
-            "node_modules", "MemoryCaptures", "_Scratch", "tmp", "Memory"
+            "node_modules", "MemoryCaptures", "_Scratch"
         };
 
         /// <summary>
