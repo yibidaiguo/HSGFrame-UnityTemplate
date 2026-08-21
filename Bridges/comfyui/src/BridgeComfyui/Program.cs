@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -35,6 +35,10 @@ namespace Template.Bridges.Comfyui
         /// <param name="args">命令行参数，本桥不消费。</param>
         public static int Main(string[] args)
         {
+            // 三条流先钉成 UTF-8，再碰 stdin 一个字节——协议 JSON 的键是中文，
+            // 编码没对上时收回来就是乱码，而报错完全指不到编码上。
+            BridgeProtocolConsole.PinUtf8();
+
             try
             {
                 var input = Console.In.ReadToEnd();

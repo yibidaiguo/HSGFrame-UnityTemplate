@@ -135,12 +135,32 @@ namespace Template.Toolkit.CreationPipeline
                 "会话目录不存在");
         }
 
+        /// <summary>
+        /// 回不出话的会话隔离目录：&lt;仓库根&gt;/_Tasks/conversations/failed。
+        /// **与 processed 分开**：processed 的语义是「这条消息真回过了」，
+        /// 回话没送出去却混进 processed，等于账面上说回过了而用户那头什么都没收到。
+        /// 想重投就把文件从这里挪回上一级目录。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static string FailedDirectory(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "_Tasks", "conversations", "failed");
+        }
+
         /// <summary>消费一条会话消息：移动到归档目录，不删除。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="signalFilePath">要消费的信号文件绝对路径。</param>
         public static string Consume(string repositoryRoot, string signalFilePath)
         {
             return SignalDirectoryQueue.Consume(ArchiveDirectory(repositoryRoot), signalFilePath);
+        }
+
+        /// <summary>隔离一条回不出话的会话消息：移动到 failed 目录，不删除。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="signalFilePath">要隔离的信号文件绝对路径。</param>
+        public static string Quarantine(string repositoryRoot, string signalFilePath)
+        {
+            return SignalDirectoryQueue.Consume(FailedDirectory(repositoryRoot), signalFilePath);
         }
     }
 }

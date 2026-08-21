@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -73,6 +73,9 @@ namespace Template.Toolkit.CommandHost.Commands
     /// </summary>
     public static class AssistantCommands
     {
+        /// <summary>同一条会话信号最多试着回几次；超了就隔离，不许把循环堵死。</summary>
+        private const int MaxReplyAttempts = 3;
+
         /// <summary>写 JSON 的选项：本机是 .NET 10 preview SDK，必须从 Default 复制着构造。</summary>
         private static readonly JsonSerializerOptions WriteOptions = new JsonSerializerOptions(JsonSerializerOptions.Default)
         {
@@ -138,8 +141,14 @@ namespace Template.Toolkit.CommandHost.Commands
             var lines = new List<string>();
             var handledCount = 0;
             var writtenCount = 0;
+            var failedCount = 0;
             var round = 0;
             var stopReason = "跑满轮数";
+
+            // 同一条信号在本进程里重试了几次。回话失败且可重试时把信号留在原地，
+            // 但不许无限留——留到第 MaxReplyAttempts 次还送不出去就隔离，
+            // 否则一条发不出去的消息会把常驻循环永远堵在这里。
+            var attemptsBySignal = new Dictionary<string, int>(StringComparer.Ordinal);
 
             while (arguments.MaxRounds <= 0 || round < arguments.MaxRounds)
             {
@@ -162,6 +171,11 @@ namespace Template.Toolkit.CommandHost.Commands
                     continue;
                 }
 
+                var signalName = Path.GetFileName(poll.SignalFilePath);
+                attemptsBySignal.TryGetValue(signalName, out var attempts);
+                attempts++;
+                attemptsBySignal[signalName] = attempts;
+
                 var turnLines = RunOneTurn(
                     repositoryRoot,
                     poolRoot,
@@ -170,7 +184,9 @@ namespace Template.Toolkit.CommandHost.Commands
                     schema,
                     poll.SignalFilePath,
                     arguments,
-                    out var wroteDownstream);
+                    out var wroteDownstream,
+                    out var replyDelivered,
+                    out var replyRetryable);
                 handledCount++;
                 if (wroteDownstream)
                 {
@@ -182,14 +198,39 @@ namespace Template.Toolkit.CommandHost.Commands
                     lines.Add($"轮次 {round}　{line}");
                 }
 
-                // 判定全跑完才消费信号（决策 82）。
-                var archived = ConversationSignalSource.Consume(repositoryRoot, poll.SignalFilePath);
-                lines.Add($"轮次 {round}　信号归档：{(archived.Length == 0 ? "移动失败，信号留在原地下一轮还会取到" : archived)}");
+                // 判定全跑完才消费信号（决策 82）。三路处置，依据是**回话到底送没送出去**：
+                // 送到了才算「已处理」；没送到就绝不许进 processed——那等于账面上说回过了，
+                // 而用户那头一个字都没收到。
+                if (replyDelivered)
+                {
+                    var archived = ConversationSignalSource.Consume(repositoryRoot, poll.SignalFilePath);
+                    lines.Add($"轮次 {round}　信号归档：{(archived.Length == 0 ? "移动失败，信号留在原地下一轮还会取到" : archived)}");
+                }
+                else if (replyRetryable && attempts < MaxReplyAttempts)
+                {
+                    failedCount++;
+                    lines.Add($"轮次 {round}　回话没送出去（第 {attempts}/{MaxReplyAttempts} 次），信号留在原地，下一轮重试");
+                    if (arguments.MaxRounds <= 0 || round < arguments.MaxRounds)
+                    {
+                        Thread.Sleep(Math.Max(0, arguments.RoundDelayMilliseconds));
+                    }
+                }
+                else
+                {
+                    failedCount++;
+                    var quarantined = ConversationSignalSource.Quarantine(repositoryRoot, poll.SignalFilePath);
+                    var why = replyRetryable ? $"重试 {attempts} 次仍失败" : "不可重试";
+                    lines.Add($"轮次 {round}　回话没送出去（{why}），信号隔离：{(quarantined.Length == 0 ? "移动失败" : quarantined)}");
+                }
             }
 
-            return CommandResult.Success(
-                $"助手会话跑了 {round} 轮（处理消息 {handledCount} 条，写下游草稿 {writtenCount} 条）；停止原因：{stopReason}",
-                lines);
+            var summary = $"助手会话跑了 {round} 轮（处理消息 {handledCount} 条，写下游草稿 {writtenCount} 条，回话失败 {failedCount} 次）；停止原因：{stopReason}";
+
+            // 回话失败过就不许报「成功」——这条链路的产出就是「用户收到了回复」，
+            // 没收到而账上是绿的，正是这次翻车的根因。
+            return failedCount > 0
+                ? CommandResult.Failure(summary, lines)
+                : CommandResult.Success(summary, lines);
         }
 
         /// <summary>
@@ -204,9 +245,15 @@ namespace Template.Toolkit.CommandHost.Commands
             PoolSchema schema,
             string signalFilePath,
             AssistantServeArguments arguments,
-            out bool wroteDownstream)
+            out bool wroteDownstream,
+            out bool replyDelivered,
+            out bool replyRetryable)
         {
             wroteDownstream = false;
+            // 默认「没送出去、可重试」：任何一条没走到回话那一步就返回的路径，
+            // 都不该被当成「回过了」而归档进 processed。
+            replyDelivered = false;
+            replyRetryable = true;
             var lines = new List<string>();
 
             if (!AssistantConversationMessage.TryReadFile(signalFilePath, out var message, out var readReason))
@@ -219,6 +266,8 @@ namespace Template.Toolkit.CommandHost.Commands
                     ["结果"] = "读不了",
                     ["原因"] = readReason
                 });
+                // 读不动的信号重投多少次都还是读不动，判成不可重试，直接进隔离目录。
+                replyRetryable = false;
                 return lines;
             }
 
@@ -228,7 +277,9 @@ namespace Template.Toolkit.CommandHost.Commands
             {
                 var text = "我这边现在只认文字消息，这一条是「" + (message.MessageKind.Length == 0 ? "未知类型" : message.MessageKind) + "」，没法处理。";
                 lines.Add("不是可处理的文字消息，回一句说明");
-                SendReply(repositoryRoot, assistantDriver, message, text, arguments, lines);
+                var kindReply = SendReply(repositoryRoot, assistantDriver, message, text, arguments, lines);
+                replyDelivered = kindReply.Delivered;
+                replyRetryable = kindReply.Retryable;
                 AppendLedger(repositoryRoot, new JsonObject
                 {
                     ["时间"] = DateTimeOffset.Now.ToString("o"),
@@ -249,6 +300,7 @@ namespace Template.Toolkit.CommandHost.Commands
             if (arguments.DryRun)
             {
                 lines.Add("干跑：没有调执行后端、没有回话、没有写下游");
+                replyDelivered = true;
                 return lines;
             }
 
@@ -263,7 +315,9 @@ namespace Template.Toolkit.CommandHost.Commands
             {
                 var text = "我这边调执行后端失败了（" + call.ErrorCode + "），这一轮没建任何东西。原因：" + call.HumanText;
                 lines.Add($"执行后端调用失败（{call.ErrorCode}）：{call.HumanText}");
-                SendReply(repositoryRoot, assistantDriver, message, text, arguments, lines);
+                var backendReply = SendReply(repositoryRoot, assistantDriver, message, text, arguments, lines);
+                replyDelivered = backendReply.Delivered;
+                replyRetryable = backendReply.Retryable;
                 AppendLedger(repositoryRoot, new JsonObject
                 {
                     ["时间"] = DateTimeOffset.Now.ToString("o"),
@@ -327,12 +381,15 @@ namespace Template.Toolkit.CommandHost.Commands
                 lines.Add($"校验通过但没开写表开关（--write-downstream false），草稿 {outcome.RequirementIdentifier} 只在回话里说了");
             }
 
-            SendReply(repositoryRoot, assistantDriver, message, outcome.ReplyText, arguments, lines);
+            var finalReply = SendReply(repositoryRoot, assistantDriver, message, outcome.ReplyText, arguments, lines);
+            replyDelivered = finalReply.Delivered;
+            replyRetryable = finalReply.Retryable;
             AppendLedger(repositoryRoot, new JsonObject
             {
                 ["时间"] = DateTimeOffset.Now.ToString("o"),
                 ["信号"] = Path.GetFileName(signalFilePath),
                 ["结果"] = outcome.ShouldWriteDownstream ? "校验通过" : "没建需求",
+                ["回话送出"] = finalReply.Delivered,
                 ["需求id"] = outcome.RequirementIdentifier,
                 ["模型"] = modelName,
                 ["提示词版本"] = prompt.PromptVersion,
@@ -344,8 +401,30 @@ namespace Template.Toolkit.CommandHost.Commands
             return lines;
         }
 
+        /// <summary>
+        /// 一次回话的结果：送没送出去、失败的话值不值得重试。
+        /// 这个返回值是**信号处置的依据**——回不出话的消息不许当成「已处理」归档。
+        /// </summary>
+        private sealed class ReplyOutcome
+        {
+            /// <summary>构造一次回话结果。</summary>
+            /// <param name="delivered">回话是否真送出去了；干跑视为送到（干跑本就不发）。</param>
+            /// <param name="retryable">没送出去时，这个失败值不值得下一轮再试。</param>
+            public ReplyOutcome(bool delivered, bool retryable)
+            {
+                Delivered = delivered;
+                Retryable = retryable;
+            }
+
+            /// <summary>回话是否真送出去了。</summary>
+            public bool Delivered { get; }
+
+            /// <summary>没送出去时，这个失败值不值得重试。</summary>
+            public bool Retryable { get; }
+        }
+
         /// <summary>回一句话：干跑时只打印，真跑时经助手 driver 的 reply 动作发出去。</summary>
-        private static void SendReply(
+        private static ReplyOutcome SendReply(
             string repositoryRoot,
             string assistantDriver,
             AssistantConversationMessage message,
@@ -356,7 +435,7 @@ namespace Template.Toolkit.CommandHost.Commands
             if (arguments.DryRun)
             {
                 lines.Add("干跑：本该回的话是「" + Shorten(text) + "」");
-                return;
+                return new ReplyOutcome(true, false);
             }
 
             var payload = JsonSerializer.SerializeToElement(new JsonObject
@@ -370,6 +449,7 @@ namespace Template.Toolkit.CommandHost.Commands
             lines.Add(call.Succeeded
                 ? "已回话：" + Shorten(text)
                 : $"回话失败（{call.ErrorCode}）：{call.HumanText}");
+            return new ReplyOutcome(call.Succeeded, call.Retryable);
         }
 
         /// <summary>把一轮记进会话流水：&lt;仓库根&gt;/_Tasks/conversations/ledger.jsonl，一行一条，只追加。</summary>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -157,6 +157,9 @@ namespace Template.Toolkit.CreationPipeline
             return JsonSerializer.SerializeToElement(configuration);
         }
 
+        /// <summary>桥协议的流编码：UTF-8 无 BOM。三条流共用一份，别各写各的。</summary>
+        private static readonly Encoding ProtocolEncoding = new UTF8Encoding(false);
+
         /// <summary>起子进程、写 stdin、异步读 stdout/stderr、超时必杀，返回协议结果。</summary>
         private static BridgeCallResult RunSubprocess(
             string repositoryRoot,
@@ -172,7 +175,17 @@ namespace Template.Toolkit.CreationPipeline
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
-                WorkingDirectory = repositoryRoot
+                WorkingDirectory = repositoryRoot,
+
+                // 三条流的编码**必须钉死 UTF-8**，不许跟着宿主控制台的当前代码页走。
+                // 协议 JSON 的键全是中文（「契约版本」「成功」「错误」），代码页一旦不是 UTF-8，
+                // 收回来的就是乱码，整次调用被判「响应不合协议」——回话直接发不出去。
+                // 这个坑最阴的地方是它跟**谁启动的宿主**有关：交互式 pwsh 里跑得好好的，
+                // 换成后台常驻/计划任务起来就必挂，而两边跑的是同一份代码。
+                // 不带 BOM：BOM 会变成 JSON 正文第一个字符，一样解析不了。
+                StandardOutputEncoding = ProtocolEncoding,
+                StandardErrorEncoding = ProtocolEncoding,
+                StandardInputEncoding = ProtocolEncoding
             };
 
             foreach (var argument in arguments)

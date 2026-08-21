@@ -726,6 +726,7 @@ namespace Template.Bridges.Feishu
         /// <param name="name">字段名，如「标题」。</param>
         /// <param name="downstreamType">下游类型名，如 文本 / 多行文本 / 单选 / 复选框。</param>
         /// <param name="enumValues">单选/多选的选项列表；其余类型给空列表。</param>
+        /// <param name="logicalType">这一列在 schema 里原本是什么逻辑类型（如 数组 / 对象）；空串表示与下游类型一致。</param>
         public FieldSchema(string name, string downstreamType, IReadOnlyList<string> enumValues, string logicalType = "")
         {
             Name = name;

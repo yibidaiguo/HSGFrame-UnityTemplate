@@ -24,6 +24,20 @@ LOCAL_CONFIG = REPOSITORY_ROOT / "Tools" / "CreationPipeline" / "Config" / "loca
 WAKE_DIRECTORY = REPOSITORY_ROOT / "_Tasks" / "wake"
 CONVERSATION_DIRECTORY = REPOSITORY_ROOT / "_Tasks" / "conversations"
 
+# 旁路自己的状态目录。**刻意不放进 conversations/**：那个目录里的每个直属 *.json
+# 都会被助手当成一条待回的消息取走，状态文件搁那儿等于凭空多出一条假消息。
+SIDECAR_DIRECTORY = REPOSITORY_ROOT / "_Tasks" / "sidecar"
+LOCK_FILE = SIDECAR_DIRECTORY / "wake_sidecar.lock"
+SEEN_EVENTS_FILE = SIDECAR_DIRECTORY / "seen-events.json"
+
+# 记住多少个已见事件标识。飞书重投与本机重启都在这个窗口里，
+# 留太多只是白占内存——按每天几百条算，2000 够用一周。
+SEEN_EVENTS_CAPACITY = 2000
+
+# 已见事件标识：list 管淘汰顺序，set 管 O(1) 查。两个一起改，别只改一个。
+SEEN_EVENT_LIST = []
+SEEN_EVENT_SET = set()
+
 
 def log(message):
     """日志一律走 stderr——stdout 留给别的用途，且绝不打印密钥。"""
@@ -49,6 +63,82 @@ EVENT_SLUGS = {
     "多维表格记录变更": "bitable-record-changed",
     "机器人菜单": "bot-menu",
 }
+
+
+def acquire_single_instance_lock():
+    """
+    抢单实例锁，抢不到就退出。
+
+    为什么必须有：旁路跑两份的时候，同一条消息会落两个会话文件，助手就会**把同一个需求建两遍**
+    （REQ-0003 与 REQ-0004 就是这么来的）。靠「记得别启动两次」防不住，得让第二份自己起不来。
+
+    用的是操作系统级的文件锁而不是 PID 文件：进程被 kill -9 时锁由内核自动释放，
+    不会留下一个谁都不敢删的僵尸锁文件。
+    """
+    SIDECAR_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    handle = os.open(str(LOCK_FILE), os.O_RDWR | os.O_CREAT)
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(handle, msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        os.close(handle)
+        log(f"已经有一份旁路在跑了（锁：{LOCK_FILE}），这一份退出——两份同时收事件会把消息收两遍。")
+        sys.exit(3)
+
+    os.write(handle, str(os.getpid()).encode("ascii"))
+    # 句柄**故意不关**：锁的生命周期就是这个进程的生命周期。
+    return handle
+
+
+def load_seen_events():
+    """读已见事件标识。文件坏了就当空的重来——去重是优化，不许因为它启动不了。"""
+    if not SEEN_EVENTS_FILE.exists():
+        return []
+    try:
+        data = json.loads(SEEN_EVENTS_FILE.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        log("已见事件表读不动，按空表重来")
+        return []
+    return [str(item) for item in data] if isinstance(data, list) else []
+
+
+def remember_event(seen_list, seen_set, event_id):
+    """记下一个事件标识并落盘，超容量就把最老的挤掉。"""
+    seen_list.append(event_id)
+    seen_set.add(event_id)
+    while len(seen_list) > SEEN_EVENTS_CAPACITY:
+        seen_set.discard(seen_list.pop(0))
+    try:
+        SIDECAR_DIRECTORY.mkdir(parents=True, exist_ok=True)
+        # 先写临时文件再替换：写到一半断电也不会留下一个半截的表。
+        temporary = SEEN_EVENTS_FILE.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(seen_list, ensure_ascii=False), encoding="utf-8")
+        os.replace(str(temporary), str(SEEN_EVENTS_FILE))
+    except OSError as error:
+        log(f"已见事件表写不下去（{error}），这一条不影响处理")
+
+
+def read_event_identifier(payload):
+    """取事件标识。取不到给空串——空串一律不去重，宁可重一条也不许漏一条。"""
+    return ((payload or {}).get("header", {}) or {}).get("event_id", "") or ""
+
+
+def is_duplicate(payload):
+    """这条事件是不是已经收过了。顺带把它记下来。"""
+    event_id = read_event_identifier(payload)
+    if not event_id:
+        log("事件里没有 event_id，这一条不做去重")
+        return False
+    if event_id in SEEN_EVENT_SET:
+        return True
+    remember_event(SEEN_EVENT_LIST, SEEN_EVENT_SET, event_id)
+    return False
 
 
 def write_signal(directory, event_kind, payload, conversation=None):
@@ -81,11 +171,6 @@ def write_signal(directory, event_kind, payload, conversation=None):
     return target
 
 
-def write_wake_signal(event_kind, payload):
-    """唤醒引擎的信号，落 _Tasks/wake/。"""
-    return write_signal(WAKE_DIRECTORY, event_kind, payload)
-
-
 def normalize_message(payload):
     """
     把 im.message.receive_v1 的载荷翻成归一的「会话」块。
@@ -116,9 +201,23 @@ def normalize_message(payload):
     }
 
 
+def handle_event(event_kind, data, directory=None, normalize=None):
+    """
+    所有事件的统一入口：先去重，再落信号。
+
+    去重放在**落盘之前**：一旦落了盘，下游就分不清「用户真发了两遍」与「同一条被投了两遍」了。
+    """
+    payload = json.loads(lark.JSON.marshal(data))
+    if is_duplicate(payload):
+        log(f"事件 {read_event_identifier(payload)} 收过了，丢弃（{event_kind}）")
+        return
+    conversation = normalize(payload) if normalize is not None else None
+    write_signal(directory or WAKE_DIRECTORY, event_kind, payload, conversation)
+
+
 def on_bitable_record_changed(data) -> None:
     """多维表格记录变更——需求编辑端有人改了东西，该唤醒引擎拉一次。"""
-    write_wake_signal("多维表格记录变更", json.loads(lark.JSON.marshal(data)))
+    handle_event("多维表格记录变更", data)
 
 
 def on_message_received(data) -> None:
@@ -129,15 +228,20 @@ def on_message_received(data) -> None:
     两个消费者盯同一个目录必然互相抢信号——谁先归档谁赢，另一个永远收不到。
     助手写完需求草稿之后会自己往唤醒目录投一个信号，链路仍然接得上。
     """
-    payload = json.loads(lark.JSON.marshal(data))
-    write_signal(CONVERSATION_DIRECTORY, "收到消息", payload, normalize_message(payload))
+    handle_event("收到消息", data, CONVERSATION_DIRECTORY, normalize_message)
 
 
 def main():
+    # 锁要在读密钥之前抢：第二份进程连密钥都不该去读。
+    acquire_single_instance_lock()
+    SEEN_EVENT_LIST.extend(load_seen_events())
+    SEEN_EVENT_SET.update(SEEN_EVENT_LIST)
+    log(f"已见事件表载入 {len(SEEN_EVENT_LIST)} 条")
+
     app_id, app_secret = read_credentials()
     handler = (
         lark.EventDispatcherHandler.builder("", "")
-        .register_p2_application_bot_menu_v6(lambda data: write_wake_signal("机器人菜单", json.loads(lark.JSON.marshal(data))))
+        .register_p2_application_bot_menu_v6(lambda data: handle_event("机器人菜单", data))
         .register_p2_im_message_receive_v1(on_message_received)
         .register_p2_drive_file_bitable_record_changed_v1(on_bitable_record_changed)
         .build()
