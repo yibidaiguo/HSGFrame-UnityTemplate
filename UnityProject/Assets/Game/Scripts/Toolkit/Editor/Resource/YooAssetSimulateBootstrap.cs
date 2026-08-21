@@ -20,7 +20,7 @@ namespace Template.Toolkit.Editor
         /// <summary>热更玩法场景的采集根，相对 Unity 工程写。</summary>
         public const string WorldSceneCollectRoot = "Assets/Game/Scenes/World";
 
-        // 组名必须与 Tools/AssetPipeline/Config/打包分组规则.json 里写了「加载分组」的分组条目逐字相同，
+        // 组名必须与 Tools/AssetPipeline/Config/bundle-group-rules.json 里写了「加载分组」的分组条目逐字相同，
         // 收集路径必须等于 "Assets/" + 该条目的路径前缀——两边由 asset.loadgroups 的第三条子检查对账。
         private const string LevelResourceGroupName = "资源-关卡实体";
         private const string WorldSceneGroupName = "场景-世界";

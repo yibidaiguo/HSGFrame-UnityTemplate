@@ -84,7 +84,7 @@ namespace Template.Toolkit.AssetPipeline
                     pair.Key,
                     $"被 {pair.Value.Count} 个打包分组引用（{string.Join("、", sortedGroupNames)}），自己却不在共享组里",
                     "把它移进共享组的目录，或在打包分组规则里给它所在目录加一个「是共享组」为 true 的分组",
-                    "Tools/AssetPipeline/Config/打包分组规则.json"));
+                    "Tools/AssetPipeline/Config/bundle-group-rules.json"));
             }
 
             // 未分组资产：开关打开时，引用图里出现过的每个资产（引用方与被引用方都算）
@@ -121,7 +121,7 @@ namespace Template.Toolkit.AssetPipeline
                 assetPath,
                 "不落在任何打包分组里",
                 "在打包分组规则里给它所在目录补一个分组，或把它移进已有分组的目录",
-                "Tools/AssetPipeline/Config/打包分组规则.json"));
+                "Tools/AssetPipeline/Config/bundle-group-rules.json"));
         }
 
         private static int CompareViolations(AssetBundleGroupViolation left, AssetBundleGroupViolation right)

@@ -72,7 +72,7 @@ namespace Template.Toolkit.AssetPipeline
                         group.PathPrefix,
                         $"分组「{group.GroupName}」落在动态收集根下，却没写「加载分组」",
                         "在这个分组条目上补「加载分组」，取值 常驻 / 按需 / 随场景 三选一",
-                        "Tools/AssetPipeline/Config/打包分组规则.json"));
+                        "Tools/AssetPipeline/Config/bundle-group-rules.json"));
                     continue;
                 }
 
@@ -82,7 +82,7 @@ namespace Template.Toolkit.AssetPipeline
                         group.PathPrefix,
                         $"分组「{group.GroupName}」的「加载分组」写成了「{group.LoadGroup}」，不是三个合法值之一",
                         "改成 常驻 / 按需 / 随场景 三选一",
-                        "Tools/AssetPipeline/Config/打包分组规则.json"));
+                        "Tools/AssetPipeline/Config/bundle-group-rules.json"));
                 }
             }
         }
@@ -157,7 +157,7 @@ namespace Template.Toolkit.AssetPipeline
                         collectorGroup.CollectPaths.Count > 0 ? collectorGroup.CollectPaths[0] : collectorGroup.GroupName,
                         $"收集器 group「{collectorGroup.GroupName}」在打包分组规则里找不到同名的分组条目",
                         "给它在打包分组规则里补一条带「加载分组」的条目，或从收集器里删掉这个 group",
-                        "Tools/AssetPipeline/Config/打包分组规则.json"));
+                        "Tools/AssetPipeline/Config/bundle-group-rules.json"));
                     continue;
                 }
 
@@ -178,7 +178,7 @@ namespace Template.Toolkit.AssetPipeline
                         expectedPath,
                         $"收集器 group「{collectorGroup.GroupName}」的收集路径是「{actualPath}」，与分组条目算出来的「{expectedPath}」对不上",
                         "两边改成一致：收集路径 = Assets/ + 分组条目的路径前缀",
-                        "Tools/AssetPipeline/Config/打包分组规则.json"));
+                        "Tools/AssetPipeline/Config/bundle-group-rules.json"));
                 }
             }
 

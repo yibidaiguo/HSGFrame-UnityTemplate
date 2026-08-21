@@ -107,7 +107,7 @@ namespace Template.Toolkit.CodeGen
             {
                 throw new InvalidOperationException(
                     $"位置：{_lubanToolPath}；原因：Luban 可执行文件缺失；" +
-                    "修复：跑 Tools/Luban/取工具.ps1 现取；参考：Tools/Luban/来源说明.md。");
+                    "修复：跑 Tools/Luban/fetch-tool.ps1 现取；参考：Tools/Luban/SOURCE.md。");
             }
 
             // 模板根可能是相对路径（命令层传的就是相对路径），而进程工作目录与命令宿主不同，

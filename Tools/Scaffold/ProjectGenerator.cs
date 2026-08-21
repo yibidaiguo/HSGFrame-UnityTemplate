@@ -39,7 +39,7 @@ namespace Template.Toolkit.Scaffold
         public const string ScratchDirectoryName = "_Scratch";
 
         /// <summary>试验区说明的模板文件名，住在 Tools/Scaffold/Templates/ 下。</summary>
-        public const string ScratchNoticeTemplateName = "试验区说明.md";
+        public const string ScratchNoticeTemplateName = "scratch-readme.md";
 
         private static readonly Regex MirrorNamesPattern = new Regex(
             @"\$mirrorNames\s*=\s*@\(([^)]*)\)", RegexOptions.Compiled);
@@ -248,7 +248,7 @@ namespace Template.Toolkit.Scaffold
 
             var scratchDirectory = Path.Combine(targetRoot, ScratchDirectoryName);
             Directory.CreateDirectory(scratchDirectory);
-            WriteUtf8(Path.Combine(scratchDirectory, "说明.md"), ReadUtf8Text(noticePath), hasBom: false);
+            WriteUtf8(Path.Combine(scratchDirectory, "README.md"), ReadUtf8Text(noticePath), hasBom: false);
         }
 
         private static void RebuildTestBaseline(string targetRoot)
@@ -331,7 +331,7 @@ namespace Template.Toolkit.Scaffold
 
         private static void AppendTemplateNotice(string targetRoot, string templateRoot, string projectName)
         {
-            var templatePath = Path.Combine(templateRoot, "Tools", "Scaffold", "Templates", "新项目说明.md");
+            var templatePath = Path.Combine(templateRoot, "Tools", "Scaffold", "Templates", "new-project-readme.md");
             var template = File.Exists(templatePath) ? ReadUtf8Text(templatePath) : FallbackTemplateNotice;
 
             var notice = template.Replace("{{项目名}}", projectName, StringComparison.Ordinal);

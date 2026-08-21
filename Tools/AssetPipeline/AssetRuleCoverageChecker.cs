@@ -66,7 +66,7 @@ namespace Template.Toolkit.AssetPipeline
                         relativePath,
                         $"目录里有 {assetCount} 个资产，却解析不到「导入规则.json」（自己没有，向上也继承不到）",
                         "在这个目录或它的某级父目录放一份「导入规则.json」，或把它加进规则覆盖范围的豁免目录",
-                        "Tools/AssetPipeline/Config/规则覆盖范围.json"));
+                        "Tools/AssetPipeline/Config/rule-coverage.json"));
                 }
             }
 

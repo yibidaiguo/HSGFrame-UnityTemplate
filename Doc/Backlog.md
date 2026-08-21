@@ -155,7 +155,7 @@ git 在不同 `core.quotepath` 设置下显示不一致、CI 容器的 locale �
 
 - `Config/` **只留业务数据**（`Tables/` `Schema/` `Mirror/`），回到总纲给它的定义。
 - `Tools/CreationPipeline/Config/` → **`Tools/CreationPipeline/Config/`**（顺带去中文，与第 1 条同批）。
-- `Config/Luban/` → **`Tools/Luban/Config/`**。
+- `Tools/Luban/Config/` → **`Tools/Luban/Config/`**。
 
 不发明新概念，新工具以后也知道该放哪。
 
@@ -168,7 +168,7 @@ git 在不同 `core.quotepath` 设置下显示不一致、CI 容器的 locale �
 3. `Tools/Gates/Config/` 的 `changedPathWhitelist` 有 `Config/` 前缀，要跟着改。
    那两个配置文件在 `reasonix.toml` 的 deny 里，**只能 Claude 改**。
 4. 路径常量：`PipelinePaths` / `ProvisionPaths` 等拼 `Tools/CreationPipeline/Config` 的地方。
-5. `Config/Luban/` 挪动要确认 `luban.conf` 里的相对路径与 `gen.sh` 跟着走。
+5. `Tools/Luban/Config/` 挪动要确认 `luban.conf` 里的相对路径与 `gen.sh` 跟着走。
 6. **改完补一条门禁**：`Config/` 下只许出现业务数据目录，
    出现工具链配置即红——否则下次又混回去。
 

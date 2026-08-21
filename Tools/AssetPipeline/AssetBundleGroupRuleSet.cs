@@ -27,7 +27,7 @@ namespace Template.Toolkit.AssetPipeline
         public string LoadGroup { get; set; }
     }
 
-    /// <summary>「打包分组规则.json」的整份内容。</summary>
+    /// <summary>「bundle-group-rules.json」的整份内容。</summary>
     public sealed class AssetBundleGroupRuleSet
     {
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
@@ -44,7 +44,7 @@ namespace Template.Toolkit.AssetPipeline
         [JsonPropertyName("未分组资产是否报错")]
         public bool ReportUngroupedAssets { get; set; } = true;
 
-        /// <summary>从「打包分组规则.json」读回分组规则；文件不存在或内容为空时返回一组不报未分组资产的空规则，不抛异常。</summary>
+        /// <summary>从「bundle-group-rules.json」读回分组规则；文件不存在或内容为空时返回一组不报未分组资产的空规则，不抛异常。</summary>
         /// <param name="path">规则文件路径。</param>
         public static AssetBundleGroupRuleSet LoadFromFile(string path)
         {

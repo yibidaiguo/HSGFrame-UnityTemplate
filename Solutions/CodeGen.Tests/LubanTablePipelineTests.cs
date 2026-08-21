@@ -120,7 +120,7 @@ namespace Template.Toolkit.CodeGen.Tests
             {
                 Directory.CreateDirectory(Path.Combine(templateRoot, "Config", "Schema"));
 
-                var written = LubanDefinitionWriter.Write(templateRoot, Path.Combine(templateRoot, "Config", "Luban"));
+                var written = LubanDefinitionWriter.Write(templateRoot, Path.Combine(templateRoot, "Tools", "Luban", "Config"));
 
                 Assert.Empty(written);
             }

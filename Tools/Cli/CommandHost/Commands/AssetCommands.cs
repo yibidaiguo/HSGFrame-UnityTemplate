@@ -336,8 +336,8 @@ namespace Template.Toolkit.CommandHost.Commands
         public string AssetsRootDirectory { get; set; }
 
         /// <summary>依赖方向规则文件路径，缺省时用模板自带的那份。</summary>
-        [Summary("依赖方向规则文件路径，缺省时用 Tools/AssetPipeline/Config/依赖方向规则.json")]
-        [DefaultValue("Tools/AssetPipeline/Config/依赖方向规则.json")]
+        [Summary("依赖方向规则文件路径，缺省时用 Tools/AssetPipeline/Config/dependency-direction-rules.json")]
+        [DefaultValue("Tools/AssetPipeline/Config/dependency-direction-rules.json")]
         public string RulesPath { get; set; }
     }
 
@@ -361,7 +361,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
             // [DefaultValue] 只让框架把参数判成选填，并不会把默认值填进参数对象，所以这里自己兜底。
             var rulesPath = string.IsNullOrWhiteSpace(arguments.RulesPath)
-                ? Path.Combine("Tools", "AssetPipeline", "Config", "依赖方向规则.json")
+                ? Path.Combine("Tools", "AssetPipeline", "Config", "dependency-direction-rules.json")
                 : arguments.RulesPath;
 
             if (!File.Exists(rulesPath))
@@ -369,7 +369,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure(
                     $"位置：{rulesPath}；原因：依赖方向规则文件不存在；" +
                     "修复：把 RulesPath 指向规则文件，或在模板里补一份；" +
-                    "参考：Tools/AssetPipeline/Config/依赖方向规则.json");
+                    "参考：Tools/AssetPipeline/Config/dependency-direction-rules.json");
             }
 
             var rules = AssetDependencyRuleSet.LoadFromFile(rulesPath);
@@ -393,8 +393,8 @@ namespace Template.Toolkit.CommandHost.Commands
         public string AssetsRootDirectory { get; set; }
 
         /// <summary>打包分组规则文件路径，缺省时用模板自带的那份。</summary>
-        [Summary("打包分组规则文件路径，缺省时用 Tools/AssetPipeline/Config/打包分组规则.json")]
-        [DefaultValue("Tools/AssetPipeline/Config/打包分组规则.json")]
+        [Summary("打包分组规则文件路径，缺省时用 Tools/AssetPipeline/Config/bundle-group-rules.json")]
+        [DefaultValue("Tools/AssetPipeline/Config/bundle-group-rules.json")]
         public string RulesPath { get; set; }
     }
 
@@ -419,7 +419,7 @@ namespace Template.Toolkit.CommandHost.Commands
             // 框架会把 [DefaultValue] 的值填进参数对象（CommandArgumentBinder.ApplyDefaults），
             // 这句兜底只兜「显式传了空串」的情况。
             var rulesPath = string.IsNullOrWhiteSpace(arguments.RulesPath)
-                ? Path.Combine("Tools", "AssetPipeline", "Config", "打包分组规则.json")
+                ? Path.Combine("Tools", "AssetPipeline", "Config", "bundle-group-rules.json")
                 : arguments.RulesPath;
 
             if (!File.Exists(rulesPath))
@@ -427,7 +427,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure(
                     $"位置：{rulesPath}；原因：打包分组规则文件不存在；" +
                     "修复：把 RulesPath 指向规则文件，或在模板里补一份；" +
-                    "参考：Tools/AssetPipeline/Config/打包分组规则.json");
+                    "参考：Tools/AssetPipeline/Config/bundle-group-rules.json");
             }
 
             var ruleSet = AssetBundleGroupRuleSet.LoadFromFile(rulesPath);
@@ -452,8 +452,8 @@ namespace Template.Toolkit.CommandHost.Commands
         public string AssetsRootDirectory { get; set; }
 
         /// <summary>打包分组规则文件路径，缺省时用模板自带的那份；加载分组字段就写在它的分组条目上。</summary>
-        [Summary("打包分组规则文件路径，缺省时用 Tools/AssetPipeline/Config/打包分组规则.json")]
-        [DefaultValue("Tools/AssetPipeline/Config/打包分组规则.json")]
+        [Summary("打包分组规则文件路径，缺省时用 Tools/AssetPipeline/Config/bundle-group-rules.json")]
+        [DefaultValue("Tools/AssetPipeline/Config/bundle-group-rules.json")]
         public string RulesPath { get; set; }
 
         /// <summary>YooAsset 收集器配置路径，缺省时用工程里的那份。</summary>
@@ -481,7 +481,7 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             var rulesPath = string.IsNullOrWhiteSpace(arguments.RulesPath)
-                ? Path.Combine("Tools", "AssetPipeline", "Config", "打包分组规则.json")
+                ? Path.Combine("Tools", "AssetPipeline", "Config", "bundle-group-rules.json")
                 : arguments.RulesPath;
 
             if (!File.Exists(rulesPath))
@@ -489,7 +489,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure(
                     $"位置：{rulesPath}；原因：打包分组规则文件不存在；" +
                     "修复：把 RulesPath 指向规则文件，或在模板里补一份；" +
-                    "参考：Tools/AssetPipeline/Config/打包分组规则.json");
+                    "参考：Tools/AssetPipeline/Config/bundle-group-rules.json");
             }
 
             var collectorSettingPath = string.IsNullOrWhiteSpace(arguments.CollectorSettingPath)
@@ -518,8 +518,8 @@ namespace Template.Toolkit.CommandHost.Commands
         public string AssetsRootDirectory { get; set; }
 
         /// <summary>覆盖范围配置路径，缺省时用模板自带的那份。</summary>
-        [Summary("覆盖范围配置路径，缺省时用 Tools/AssetPipeline/Config/规则覆盖范围.json")]
-        [DefaultValue("Tools/AssetPipeline/Config/规则覆盖范围.json")]
+        [Summary("覆盖范围配置路径，缺省时用 Tools/AssetPipeline/Config/rule-coverage.json")]
+        [DefaultValue("Tools/AssetPipeline/Config/rule-coverage.json")]
         public string SettingsPath { get; set; }
     }
 
@@ -544,7 +544,7 @@ namespace Template.Toolkit.CommandHost.Commands
             // 框架会把 [DefaultValue] 的值填进参数对象（CommandArgumentBinder.ApplyDefaults），
             // 这句兜底只兜「显式传了空串」的情况。
             var settingsPath = string.IsNullOrWhiteSpace(arguments.SettingsPath)
-                ? Path.Combine("Tools", "AssetPipeline", "Config", "规则覆盖范围.json")
+                ? Path.Combine("Tools", "AssetPipeline", "Config", "rule-coverage.json")
                 : arguments.SettingsPath;
 
             if (!File.Exists(settingsPath))
@@ -552,7 +552,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure(
                     $"位置：{settingsPath}；原因：规则覆盖范围配置不存在；" +
                     "修复：把 SettingsPath 指向配置文件，或在模板里补一份；" +
-                    "参考：Tools/AssetPipeline/Config/规则覆盖范围.json");
+                    "参考：Tools/AssetPipeline/Config/rule-coverage.json");
             }
 
             var settings = AssetRuleCoverageSettings.LoadFromFile(settingsPath);
@@ -651,8 +651,8 @@ namespace Template.Toolkit.CommandHost.Commands
         public string AssetsRootDirectory { get; set; }
 
         /// <summary>打包分组规则文件路径，加载分组字段写在它的分组条目上。</summary>
-        [Summary("打包分组规则文件路径，缺省时用 Tools/AssetPipeline/Config/打包分组规则.json")]
-        [DefaultValue("Tools/AssetPipeline/Config/打包分组规则.json")]
+        [Summary("打包分组规则文件路径，缺省时用 Tools/AssetPipeline/Config/bundle-group-rules.json")]
+        [DefaultValue("Tools/AssetPipeline/Config/bundle-group-rules.json")]
         public string RulesPath { get; set; }
 
         /// <summary>门禁配置文件路径，预算值从它的 residentBudgetBytes 取。</summary>
@@ -680,7 +680,7 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             var rulesPath = string.IsNullOrWhiteSpace(arguments.RulesPath)
-                ? Path.Combine("Tools", "AssetPipeline", "Config", "打包分组规则.json")
+                ? Path.Combine("Tools", "AssetPipeline", "Config", "bundle-group-rules.json")
                 : arguments.RulesPath;
 
             if (!File.Exists(rulesPath))
@@ -688,7 +688,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure(
                     $"位置：{rulesPath}；原因：打包分组规则文件不存在；" +
                     "修复：把 RulesPath 指向规则文件，或在模板里补一份；" +
-                    "参考：Tools/AssetPipeline/Config/打包分组规则.json");
+                    "参考：Tools/AssetPipeline/Config/bundle-group-rules.json");
             }
 
             var configuration = Template.Toolkit.Gates.GateConfiguration.LoadFromFile(arguments.ConfigurationPath);

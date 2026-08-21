@@ -152,7 +152,7 @@ namespace Template.Toolkit.Scaffold.Tests
             var root = CreateTree();
             WriteText(
                 root,
-                "Tools/SourceGenerators/HotfixProbe/来源说明.md",
+                "Tools/SourceGenerators/HotfixProbe/SOURCE.md",
                 string.Join("\n", "抬头", BeginMarker, "这一段随目录一起走", EndMarker, string.Empty));
 
             var result = FeatureRemover.Remove(root, "hotfix");

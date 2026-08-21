@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 
 namespace Template.Toolkit.AssetPipeline
 {
-    /// <summary>「规则覆盖范围.json」的整份内容：查哪些树、放行哪些目录。</summary>
+    /// <summary>「rule-coverage.json」的整份内容：查哪些树、放行哪些目录。</summary>
     public sealed class AssetRuleCoverageSettings
     {
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
@@ -24,7 +24,7 @@ namespace Template.Toolkit.AssetPipeline
         [JsonPropertyName("豁免目录")]
         public IReadOnlyList<string> ExemptDirectories { get; set; } = Array.Empty<string>();
 
-        /// <summary>从「规则覆盖范围.json」读回覆盖范围配置；文件不存在或内容为空时返回两项都为空的实例，不抛异常。</summary>
+        /// <summary>从「rule-coverage.json」读回覆盖范围配置；文件不存在或内容为空时返回两项都为空的实例，不抛异常。</summary>
         /// <param name="path">配置文件路径。</param>
         public static AssetRuleCoverageSettings LoadFromFile(string path)
         {

@@ -9,7 +9,7 @@
 | 版本 | v4.11.0 |
 | 上游 | https://github.com/focus-creative-games/luban |
 | 发布物 | `Luban.7z`（官方只发 7z，Windows 自带的 tar 解不了它） |
-| 取它 | `pwsh -NoProfile -File ./取工具.ps1` |
+| 取它 | `pwsh -NoProfile -File ./fetch-tool.ps1` |
 
 取完之后 `Tools/Luban/Luban.dll` 就位，用这一条自检：
 

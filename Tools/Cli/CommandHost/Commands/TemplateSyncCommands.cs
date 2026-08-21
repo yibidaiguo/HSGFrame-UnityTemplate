@@ -43,7 +43,7 @@ namespace Template.Toolkit.CommandHost.Commands
         };
 
         // 按需取的第三方工具目录靠这个脚本名认出来。
-        private const string ToolFetchScriptName = "取工具.ps1";
+        private const string ToolFetchScriptName = "fetch-tool.ps1";
 
         // 这些文件每个仓库各有一份自己的内容，同步过去只会把来源仓库的情况按到去向仓库头上：
         // gate-config.host.json 里是白名单前缀与编辑器自有目录（模板根本不该知道宿主的目录叫什么），
@@ -162,7 +162,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var fileName = Path.GetFileName(path);
             return !string.Equals(fileName, ToolFetchScriptName, StringComparison.Ordinal)
-                && !string.Equals(fileName, "来源说明.md", StringComparison.Ordinal);
+                && !string.Equals(fileName, "SOURCE.md", StringComparison.Ordinal);
         }
 
         // 按内容哈希比而不是按时间戳：复制过一次之后时间戳必然不同，用时间戳会让每次同步都是全量。

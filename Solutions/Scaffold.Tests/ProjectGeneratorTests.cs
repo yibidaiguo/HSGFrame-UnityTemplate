@@ -318,7 +318,7 @@ namespace Template.Toolkit.ScaffoldTests
             }
         }
 
-        /// <summary>新项目自带试验区：_Scratch/说明.md 从模板里那份说明原样落地。</summary>
+        /// <summary>新项目自带试验区：_Scratch/README.md 从模板里那份说明原样落地。</summary>
         [Fact]
         public void CreateWritesScratchAreaNotice()
         {
@@ -336,7 +336,7 @@ namespace Template.Toolkit.ScaffoldTests
 
                 Assert.True(result.IsSuccess, result.Message);
                 var noticePath = Path.Combine(
-                    result.TargetPath, ProjectGenerator.ScratchDirectoryName, "说明.md");
+                    result.TargetPath, ProjectGenerator.ScratchDirectoryName, "README.md");
                 Assert.True(File.Exists(noticePath), "新项目里没有铺出试验区说明");
                 Assert.Equal(noticeText, File.ReadAllText(noticePath));
             }
@@ -434,7 +434,7 @@ namespace Template.Toolkit.ScaffoldTests
 
             var scaffoldTemplatesDirectory = Path.Combine(root, "Tools", "Scaffold", "Templates");
             Directory.CreateDirectory(scaffoldTemplatesDirectory);
-            File.WriteAllText(Path.Combine(scaffoldTemplatesDirectory, "新项目说明.md"),
+            File.WriteAllText(Path.Combine(scaffoldTemplatesDirectory, "new-project-readme.md"),
                 "## 本项目由通用 Unity 模板生成\n\n- 项目名：{{项目名}}\n");
 
             var pipelinesDirectory = Path.Combine(root, "Pipelines");

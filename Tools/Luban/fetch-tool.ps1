@@ -2,7 +2,7 @@
   取 Luban 命令行工具。它约 6 MB / 197 个文件，按 .gitignore 的约定不进仓库，用这个脚本现取。
 
   用法：
-    pwsh -NoProfile -File ./取工具.ps1 [-Version v4.11.0]
+    pwsh -NoProfile -File ./fetch-tool.ps1 [-Version v4.11.0]
 
   退出码：0 已就位，1 取失败。
 #>

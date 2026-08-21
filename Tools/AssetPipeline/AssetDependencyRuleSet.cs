@@ -23,7 +23,7 @@ namespace Template.Toolkit.AssetPipeline
         public string Reason { get; set; }
     }
 
-    /// <summary>「依赖方向规则.json」的整份内容。</summary>
+    /// <summary>「dependency-direction-rules.json」的整份内容。</summary>
     public sealed class AssetDependencyRuleSet
     {
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
@@ -36,7 +36,7 @@ namespace Template.Toolkit.AssetPipeline
         [JsonPropertyName("依赖方向规则")]
         public IReadOnlyList<AssetDependencyRuleDefinition> Rules { get; set; } = Array.Empty<AssetDependencyRuleDefinition>();
 
-        /// <summary>从「依赖方向规则.json」读回规则；文件不存在时返回空集合。</summary>
+        /// <summary>从「dependency-direction-rules.json」读回规则；文件不存在时返回空集合。</summary>
         /// <param name="path">规则文件路径。</param>
         public static IReadOnlyList<AssetDependencyRule> LoadFromFile(string path)
         {

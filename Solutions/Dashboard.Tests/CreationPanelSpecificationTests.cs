@@ -179,7 +179,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void MarkdownRuleCountIsMinusOne()
         {
-            WriteSpecFile("Baseline", "说明.md", "# 说明");
+            WriteSpecFile("Baseline", "README.md", "# 说明");
 
             var rows = CreationPanelReader.ReadSpecifications(_repositoryRoot);
 
@@ -215,7 +215,7 @@ namespace Template.Toolkit.DashboardTests
                   "规则": [{ "id": "a" }]
                 }
                 """);
-            WriteSpecFile("Baseline", "说明.md", "# 说明");
+            WriteSpecFile("Baseline", "README.md", "# 说明");
             WriteSpecFile(Path.Combine("Business", "模块"), "模块规则.json", """
                 [ { "id": "m" } ]
                 """);
