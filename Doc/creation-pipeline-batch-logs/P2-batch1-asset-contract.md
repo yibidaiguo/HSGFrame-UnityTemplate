@@ -42,7 +42,7 @@ P2 是生图链路，但它的一半挂在 ComfyUI 上——那东西没装、�
     `CommandRegistry.ScanAssemblies` 遇到重名**直接抛异常、整个命令宿主起不来**。
     `art.*` 也正是子文档 06 的命令族（`art.generate` / `art.import` / `art.explore` / `art.regenerate`）。
 26. **变体本体 gitignore，边车全部进 git。** 变体可由边车重生成。
-    规则要写成「排除 `变体/**` + 放行 `变体/**/` 目录 + 放行 `**/*.溯源.json`」三条——
+    规则要写成「排除 `变体/**` + 放行 `变体/**/` 目录 + 放行 `**/*.provenance.json`」三条——
     只写排除的话 git 根本不会走进那棵子树，边车也就跟着丢了。
 
 ## 验收记录（全部由 Claude 亲自复跑，不采信执行后端的自述）
@@ -74,8 +74,8 @@ P2 是生图链路，但它的一半挂在 ComfyUI 上——那东西没装、�
 |---|---|
 | `变体/v1.png` | 被忽略 ✓ |
 | `变体/人工/mine.png` | 被忽略 ✓ |
-| `变体/v1.png.溯源.json` | 进仓库 ✓ |
-| `变体/人工/mine.png.溯源.json` | 进仓库 ✓ |
+| `变体/v1.png.provenance.json` | 进仓库 ✓ |
+| `变体/人工/mine.png.provenance.json` | 进仓库 ✓ |
 
 ## 执行后端这一轮报上来的三件事（都属实）
 

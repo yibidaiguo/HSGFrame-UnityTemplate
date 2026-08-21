@@ -47,7 +47,7 @@
    - 资产：同内容全仓只一份（R4 哈希查重）；复用走引用，预制体定制走 Prefab Variant，不复制资产改副本
    - 依赖版本：`Packages/manifest.json` 唯一
    - 加载分组：`bundle-group-rules.json` 的分组条目上「加载分组」字段唯一，收集器配置与它对账（R5）。
-     它是目录级的事，不写进文件级的 `导入规则.json`——理由见《结构规范-资源》第三节
+     它是目录级的事，不写进文件级的 `import-rules.json`——理由见《结构规范-资源》第三节
 <!-- feature:hotfix 开始 -->
    - 热更程序集清单：HybridCLR 设置唯一，命令校验
 <!-- feature:hotfix 结束 -->

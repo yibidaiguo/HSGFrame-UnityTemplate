@@ -19,7 +19,7 @@
 ## 二、怎么接的：两条队列，一个消费者
 
 ```
-飞书消息 → 长连接旁路（归一成「会话」块）→ _Tasks/会话/*.json
+飞书消息 → 长连接旁路（归一成「会话」块）→ _Tasks/conversations/*.json
    → assist.serve 一轮：读消息 → 执行后端 → 补齐工程字段 → req.validate
    → 回话（bridge reply）→ 校验过且开了开关才写下游 → 投唤醒信号 → 引擎醒
 ```
@@ -71,7 +71,7 @@
 
 ```
 会话信号 → 执行后端（deepseek-v4-flash）→ 补齐工程字段 → req.validate 通过
-  → 草稿留底 _Tasks/会话/草稿/REQ-0004.json
+  → 草稿留底 _Tasks/conversations/drafts/REQ-0004.json
   → 真写进飞书「需求」表   → 投唤醒信号 20260821T023804-892-助手产出草稿.json
   → 真回话（用户飞书里能看到）
 ```

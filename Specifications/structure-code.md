@@ -116,6 +116,6 @@ R2 查的正是这批命名空间，改完没人守就会立刻开始漂。
 - 业务代码打日志走 `HSGFrame.Logging` 的接口，不写裸 `UnityEngine.Debug.Log`。
   **R7 查 `Modules/`、`Shared/`、`View/` 三棵子树**；`Boot/` 与 `Toolkit/` 不查（启动装配与工具链
   本来就直接对着引擎说话）。唯一的永久豁免是日志落点自己（`View/UnityConsoleLogSink.cs`）。
-- 每个模块根放一份 ≤40 行的 `模块说明.md`：一句话职责、公开面清单、依赖了谁的事件。
+- 每个模块根放一份 ≤40 行的 `README.md`：一句话职责、公开面清单、依赖了谁的事件。
   说明里的命令与路径要能直接复制执行。
 - `Update` 类逐帧逻辑集中经 `HSGFrame.MonoDriver` 驱动，业务 MonoBehaviour 数量克制——性能维度的代码侧。

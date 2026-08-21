@@ -16,8 +16,8 @@
 
 | 文件 | 内容 |
 |---|---|
-| `Tools/CreationPipeline/WakeSignalSource.cs` | 文件投递式唤醒源：扫 `_Tasks/唤醒/*.json`，按文件名序数序取第一个，消费后**移动**到 `已处理/`（撞名追加 `-2`） |
-| `Tools/CreationPipeline/DaemonTickRecord.cs` | 轮次记录 + `_Tasks/引擎轮次.jsonl` 追加写账本；`Read` 坏行跳过并计数 |
+| `Tools/CreationPipeline/WakeSignalSource.cs` | 文件投递式唤醒源：扫 `_Tasks/wake/*.json`，按文件名序数序取第一个，消费后**移动**到 `已处理/`（撞名追加 `-2`） |
+| `Tools/CreationPipeline/DaemonTickRecord.cs` | 轮次记录 + `_Tasks/engine-ticks.jsonl` 追加写账本；`Read` 坏行跳过并计数 |
 | `Tools/CreationPipeline/PollingDaemon.cs` | 循环外壳：拿锁 → 查停止 → 查唤醒 → 判定 → 记账 → 查轮数 → sleep |
 | `Tools/Cli/CommandHost/Commands/PipelineFlowCommands.cs` | `engine.daemon` 命令 + 参数类 |
 | `Solutions/CreationPipeline.Tests/{PollingDaemon,WakeSignalSource}Tests.cs` | 10 条测试 |
@@ -45,8 +45,8 @@
    但 `engine.tick` / `engine.wake` / `engine.mode` / `engine.queue` 四条命令
    全都收 `PoolRoot` 参数。守护写死会让同一台机器上两条命令看的是两个队列，
    **而谁都不会发现**。补成「显式给了就用，留空退化成 `Pools`」。
-2. **运行时状态进了 git 的视野。** `_Tasks/引擎轮次.jsonl` 是这台机器跑了什么的流水、
-   `.engine.lock` 里存的是本机进程号、`_Tasks/唤醒/` 是这台机器收到过什么。
+2. **运行时状态进了 git 的视野。** `_Tasks/engine-ticks.jsonl` 是这台机器跑了什么的流水、
+   `.engine.lock` 里存的是本机进程号、`_Tasks/wake/` 是这台机器收到过什么。
    三样都补进 `.gitignore`——进 git 只会让两台机器互相打架。
 
 ## 五、已知缺口

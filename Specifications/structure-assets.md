@@ -54,7 +54,7 @@ Assets/
   - `按需`：随模块生命周期加载与释放（角色、道具、界面）。
   - `随场景`：跟 `Scenes/World/` 的场景走，场景卸载即释放。
 - 两份配置各管一层，不重叠：`bundle-group-rules.json` 管**目录级**（分组名、路径前缀、是否共享组、加载分组），
-  各目录 `导入规则.json` 管**文件级**（前缀、扩展名、大小、命名风格、图集）。
+  各目录 `import-rules.json` 管**文件级**（前缀、扩展名、大小、命名风格、图集）。
 - **同一个包不许跨生命周期**：一个分组的加载分组只有一个值——一半常驻一半按需正是分包要避免的。
   现成的 `asset.bundlegroups` 已在查「共享资产未落共享组」，加载分组一致性与收集器对账由 R5 续上。
 - UI 贴图按 `Art/Texture/Ui/<模块>/` 建同名图集（`SA_` 前缀，图集资产放 `Settings/Atlas/`），
@@ -94,7 +94,7 @@ Assets/
 1. `Packages/manifest.json` 加 `com.unity.render-pipelines.universal`；
 2. 按 `RP_` 前缀在 `Game/Settings/Rendering/` 建管线资产，挂进 Graphics 与 Quality 设置；
 3. 把现有材质的 Shader 从 `Standard` 换成 `URP/Lit`（Unity 自带的升级器能过一遍）；
-4. 引入贴图时连带配 `Art/Texture/<功能>/导入规则.json`，过 R4 重复检查与 R8 图集对齐。
+4. 引入贴图时连带配 `Art/Texture/<功能>/import-rules.json`，过 R4 重复检查与 R8 图集对齐。
 
 **别两套并行**：一旦上了 SRP，就把内置管线的材质与 Shader 全部换掉，不留「一半一半」的中间态。
 
@@ -104,14 +104,14 @@ Assets/
 写 `UnityEngine.Input.GetKey` 这类旧 API 会在运行时抛异常，不是编译期报错，格外要留意。
 
 绑定的**唯一事实源**是 `Game/Settings/Input/` 下按 `IA_` 前缀命名的 InputActions 资产
-（现为 `IA_默认输入.inputactions`）。改键、手柄、重映射都改它，
+（现为 `IA_DefaultInput.inputactions`）。改键、手柄、重映射都改它，
 **不要再另建一张按键映射表**——两套并行正是这条要消除的东西。
 
 业务侧读的是**动作名**（「前进」）与 `InputActionPhase` 这样的纯 C# 相位，
 不是按键：引擎那一半隔在 `Scripts/View/InputDriverBehaviour.cs` 之内，
 相位判定留在 `HSGFrame.Input` 里，能在 `dotnet test` 秒级验。
 
-## 六、`导入规则.json` v2（每个正式资产目录一份）
+## 六、`import-rules.json` v2（每个正式资产目录一份）
 
 ```json
 {

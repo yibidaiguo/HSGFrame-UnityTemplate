@@ -13,40 +13,40 @@
       "lastWriteTimeUtcTicks": 639223794127372648
     },
     {
-      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_任务物件.prefab",
-      "fileName": "P_任务物件.prefab",
+      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_QuestItem.prefab",
+      "fileName": "P_QuestItem.prefab",
       "assetGuid": "6160fab29d032fe4196d7911c127f461",
       "fileHash": "c9639e231aeb19e64190b529cd368829b9a79879f34bfc2d195fb172061571b9",
       "fileLength": 1525,
       "lastWriteTimeUtcTicks": 639223794129074502
     },
     {
-      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_传送点.prefab",
-      "fileName": "P_传送点.prefab",
+      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_Teleporter.prefab",
+      "fileName": "P_Teleporter.prefab",
       "assetGuid": "3bb0cc38f8f93364488840fc0d28047f",
       "fileHash": "8131e77110f5fc7e76a387b27f30d17ae3868b61ff8bbac212362fdc4d29ae7b",
       "fileLength": 1504,
       "lastWriteTimeUtcTicks": 639223794128727887
     },
     {
-      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_刷怪点.prefab",
-      "fileName": "P_刷怪点.prefab",
+      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_SpawnPoint.prefab",
+      "fileName": "P_SpawnPoint.prefab",
       "assetGuid": "ddc9422d82e0ca74596eaa1264d6400e",
       "fileHash": "b8277b48d80a9367856f46421c6a7b5762da85df3e64baef83acbf12e1c87646",
       "fileLength": 1507,
       "lastWriteTimeUtcTicks": 639223794128012510
     },
     {
-      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_可交互物.prefab",
-      "fileName": "P_可交互物.prefab",
+      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_Interactable.prefab",
+      "fileName": "P_Interactable.prefab",
       "assetGuid": "e09fbf9fa8cc8dc4fa0f6d2a48dd7f9b",
       "fileHash": "03d27d5cff42dd8b4ece08c9a271b84b5a3cdcf0e626f20593b0d24218abb648",
       "fileLength": 1523,
       "lastWriteTimeUtcTicks": 639223794128391671
     },
     {
-      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_触发器.prefab",
-      "fileName": "P_触发器.prefab",
+      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_Trigger.prefab",
+      "fileName": "P_Trigger.prefab",
       "assetGuid": "6332c70aa59ce7f498f0e92bbf0e254c",
       "fileHash": "88a65c6bff696276c9043e59bf876f6dd785719853565fe4f79b158951d587be",
       "fileLength": 1505,

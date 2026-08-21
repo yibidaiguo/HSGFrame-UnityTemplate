@@ -27,7 +27,7 @@
 第 3 轮起挂提示语）、`SelectionCardBuilder`（扫变体目录装配）、
 `SelectionOutboundPlanner`（包成出站意图信封）、命令 `art.select`。
 
-**合格变体的判定**：顶层图片文件（`.png` `.jpg` `.jpeg` `.webp`）**且有同名 `.溯源.json` 边车**。
+**合格变体的判定**：顶层图片文件（`.png` `.jpg` `.jpeg` `.webp`）**且有同名 `.provenance.json` 边车**。
 没边车的不算合格变体并出一条 finding——这是子文档 06 §二 第 3 步「机检预筛」的最低一档：
 **边车缺失说明这张图来路不明**。尺寸 / 格式 / 命名的机检不在这一批，那是
 `AssetSpecInspector` 的活，等真资产文件落地再接。
