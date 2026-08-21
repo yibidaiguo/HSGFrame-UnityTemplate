@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -195,6 +197,78 @@ namespace Template.Bridges.Comfyui
             }
 
             throw new ComfyClientException("下游报错", "下游返回了响应但没有 prompt_id", retryable: false);
+        }
+
+        /// <summary>
+        /// 把一张本地图片上传进下游的 input 目录，返回下游认的图片名（带子目录前缀，如果有）。
+        ///
+        /// **图生图为什么必须先上传**：`LoadImage` 节点收的是「下游 input 目录里的一个名字」，
+        /// 不是本机路径——下游可能根本不在同一台机器上。所以本地文件要先过一次
+        /// `POST /upload/image`（multipart，字段名 `image`），下游回
+        /// `{"name":…, "subfolder":…, "type":"input"}`，把 name（有子目录就带上前缀）填进
+        /// `LoadImage.image` 才是它认识的形状。
+        ///
+        /// `overwrite=true` 是刻意的：同名重传就该覆盖，否则下游会给出
+        /// `xxx (1).png` 这种自动改名，而调用方拿着旧名字继续跑——那是一张**上一次的图**，
+        /// 比报错糟得多。
+        /// </summary>
+        /// <param name="localImagePath">本机图片路径。</param>
+        /// <returns>下游认的图片名。</returns>
+        /// <exception cref="ComfyClientException">文件读不了、连不上或响应里没有 name 时抛出。</exception>
+        public string UploadImage(string localImagePath)
+        {
+            byte[] bytes;
+            try
+            {
+                bytes = File.ReadAllBytes(localImagePath);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is ArgumentException)
+            {
+                throw new ComfyClientException("请求不合协议", $"参考图读不了（{localImagePath}）：{exception.Message}", retryable: false);
+            }
+
+            try
+            {
+                using var form = new MultipartFormDataContent();
+                using var fileContent = new ByteArrayContent(bytes);
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                form.Add(fileContent, "image", Path.GetFileName(localImagePath));
+                form.Add(new StringContent("true"), "overwrite");
+
+                var response = _httpClient.PostAsync("/upload/image", form).GetAwaiter().GetResult();
+                var text = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new ComfyClientException("下游报错", $"上传参考图失败，下游返回 HTTP {(int)response.StatusCode}：{Truncate(text, 300)}", retryable: false);
+                }
+
+                if (JsonNode.Parse(text) is not JsonObject root
+                    || !root.TryGetPropertyValue("name", out var nameNode)
+                    || nameNode is not JsonValue nameValue
+                    || !nameValue.TryGetValue<string>(out var name)
+                    || string.IsNullOrWhiteSpace(name))
+                {
+                    throw new ComfyClientException("下游报错", "上传参考图后下游没回 name，没法把它填进 LoadImage", retryable: false);
+                }
+
+                var subfolder = "";
+                if (root.TryGetPropertyValue("subfolder", out var subfolderNode)
+                    && subfolderNode is JsonValue subfolderValue
+                    && subfolderValue.TryGetValue<string>(out var subfolderText))
+                {
+                    subfolder = subfolderText ?? "";
+                }
+
+                return subfolder.Length == 0 ? name : subfolder.TrimEnd('/') + "/" + name;
+            }
+            catch (ComfyClientException)
+            {
+                throw;
+            }
+            catch (Exception exception) when (exception is HttpRequestException || exception is TaskCanceledException || exception is UriFormatException)
+            {
+                throw new ComfyClientException("下游不可达", $"上传参考图时连不上下游（{_httpClient.BaseAddress}）：{exception.Message}", retryable: true);
+            }
         }
 
         /// <summary>

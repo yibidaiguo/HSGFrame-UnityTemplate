@@ -82,7 +82,8 @@ Python 实现进不了秒级门禁、测试基线锁也管不到它，等于在�
 | P8-11 | 面板全面重做：十六页按职责分六组、总览换 KPI 与图、正文挪出 C# 字符串 | P8-8 | **已完成**（另一会话，未提交） |
 | P8-12 | 助手 B 形态 `serve`：常驻会话真回话、现场校验、真写草稿 | P8-7、P8-9 | **已完成** |
 | P8-13 | 补漏一批：各批次日志「已知缺口」里能自己做完的全部 | 各批 | **已完成** |
-| P8-14 | 总账：把进度文档第六节按实际结果重写 | 全部 | 待 |
+| P8-14 | 图生图接线 + 变体正式落点（补 P8-4 的缺口） | P8-4 | **已完成** |
+| P8-15 | 总账：把进度文档第六节按实际结果重写 | 全部 | 待 |
 
 P8-1 与 P8-2 互不依赖、也不依赖别的，所以并行起跑。
 P8-3 起串行——它定下的调用协议形状是后面四批共用的，拆开派会拿到四套不一致的实现。
@@ -128,3 +129,4 @@ P8-3 起串行——它定下的调用协议形状是后面四批共用的，拆
 | P8 批次 11 面板全面重做 | [P8-batch11-dashboard-rebuild.md](creation-pipeline-batch-logs/P8-batch11-dashboard-rebuild.md) |
 | P8 批次 12 助手常驻会话 | [P8-batch12-assistant-serve.md](creation-pipeline-batch-logs/P8-batch12-assistant-serve.md) |
 | P8 批次 13 补漏一批 | [P8-batch13-gap-sweep.md](creation-pipeline-batch-logs/P8-batch13-gap-sweep.md) |
+| P8 批次 14 图生图 | [P8-batch14-img2img.md](creation-pipeline-batch-logs/P8-batch14-img2img.md) |

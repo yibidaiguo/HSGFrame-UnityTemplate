@@ -1,0 +1,107 @@
+{
+  "1": {
+    "类型": "CheckpointLoaderSimple",
+    "参数": {
+      "ckpt_name": "sd_xl_base_1.0.safetensors"
+    }
+  },
+  "2": {
+    "类型": "CLIPTextEncode",
+    "参数": {
+      "text": ""
+    },
+    "连线": {
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "4": {
+    "类型": "SaveImage",
+    "参数": {
+      "filename_prefix": ""
+    },
+    "连线": {
+      "images": [
+        "8",
+        0
+      ]
+    }
+  },
+  "5": {
+    "类型": "LoadImage",
+    "参数": {
+      "image": ""
+    }
+  },
+  "6": {
+    "类型": "CLIPTextEncode",
+    "参数": {
+      "text": "text, watermark, logo, signature, low quality, blurry, jpeg artifacts"
+    },
+    "连线": {
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "7": {
+    "类型": "KSampler",
+    "参数": {
+      "seed": 0,
+      "steps": 30,
+      "cfg": 7.0,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.6
+    },
+    "连线": {
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "2",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "9",
+        0
+      ]
+    }
+  },
+  "8": {
+    "类型": "VAEDecode",
+    "参数": {},
+    "连线": {
+      "samples": [
+        "7",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    }
+  },
+  "9": {
+    "类型": "VAEEncode",
+    "参数": {},
+    "连线": {
+      "pixels": [
+        "5",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    }
+  }
+}

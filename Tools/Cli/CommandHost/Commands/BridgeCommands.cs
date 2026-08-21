@@ -113,9 +113,20 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("配方名，对应 Bridges/<driver>/recipes/<配方名>/")]
         public string RecipeName { get; set; }
 
-        /// <summary>变体与溯源边车的输出目录（绝对或相对路径，变体落其下「变体/」子目录）。</summary>
-        [Summary("变体与溯源边车的输出目录（变体落其下「变体/」子目录）")]
+        /// <summary>
+        /// 变体与溯源边车的输出目录（绝对或相对路径，变体落其下「变体/」子目录）。
+        /// **留空就按资产请求里的「需求id」与「id」算正式落点**
+        /// （<c>_Tasks/&lt;需求id&gt;/30-产物/&lt;资产id&gt;/</c>）——真跑业务流程时就该落那儿，
+        /// 而不是每次由调用方现编一个目录（P8 批次 4 留的缺口）。
+        /// </summary>
+        [Summary("输出目录；留空按资产请求算正式落点 _Tasks/<需求id>/30-产物/<资产id>/")]
+        [DefaultValue("")]
         public string OutputDirectory { get; set; }
+
+        /// <summary>参考图路径（本机文件）：给了就走图生图——桥会先把它传进下游的 input 目录，再填进配方的「参考图」锚点槽。</summary>
+        [Summary("参考图路径（本机文件）：给了就走图生图；配方必须有「参考图」锚点槽")]
+        [DefaultValue("")]
+        public string ReferenceImagePath { get; set; }
 
         /// <summary>生成种子；空串让桥自己产随机种。种子是 64 位无符号量，用 string 接避免边界悄悄变号（决策 26 重生成的前提）。</summary>
         [Summary("生成种子；空串让桥自己产随机种")]
@@ -558,11 +569,6 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure("必须指定 --recipe-name");
             }
 
-            if (string.IsNullOrWhiteSpace(arguments.OutputDirectory))
-            {
-                return CommandResult.Failure("必须指定 --output-directory");
-            }
-
             string repositoryRoot;
             try
             {
@@ -574,11 +580,9 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             string requestPath;
-            string outputDirectory;
             try
             {
                 requestPath = Path.GetFullPath(arguments.RequestPath);
-                outputDirectory = Path.GetFullPath(arguments.OutputDirectory);
             }
             catch (Exception exception)
             {
@@ -600,9 +604,39 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure($"资产请求文件不是合法 JSON：{requestPath}：{exception.Message}");
             }
 
-            if (requestNode is not JsonObject)
+            if (requestNode is not JsonObject requestObject)
             {
                 return CommandResult.Failure($"资产请求文件顶层必须是对象：{requestPath}");
+            }
+
+            // 输出目录：给了就用给的（验证、试跑常这么干）；
+            // **留空按资产请求算正式落点**——真跑业务流程时变体就该落
+            // _Tasks/<需求id>/30-产物/<资产id>/，不该每次现编一个目录（P8 批次 4 的缺口）。
+            string outputDirectory;
+            if (!string.IsNullOrWhiteSpace(arguments.OutputDirectory))
+            {
+                try
+                {
+                    outputDirectory = Path.GetFullPath(arguments.OutputDirectory);
+                }
+                catch (Exception exception)
+                {
+                    return CommandResult.Failure($"参数 OutputDirectory 无法解析为绝对路径：{exception.Message}");
+                }
+            }
+            else
+            {
+                var requirementIdentifier = ReadNodeString(requestObject, "需求id");
+                var assetIdentifier = ReadNodeString(requestObject, "id");
+                if (requirementIdentifier.Length == 0 || assetIdentifier.Length == 0)
+                {
+                    return CommandResult.Failure(
+                        "没给 --OutputDirectory，而资产请求里缺「需求id」或「id」，算不出正式落点");
+                }
+
+                // 变体目录是 <落点>/变体，桥自己会拼「变体」这一层，所以这里给它的是上一层。
+                outputDirectory = Path.GetDirectoryName(
+                    AssetPaths.VariantDirectory(repositoryRoot, requirementIdentifier, assetIdentifier));
             }
 
             var payloadObject = new JsonObject
@@ -617,6 +651,29 @@ namespace Template.Toolkit.CommandHost.Commands
             if (!string.IsNullOrEmpty(arguments.Seed))
             {
                 payloadObject["种子"] = arguments.Seed;
+            }
+
+            // 参考图给了就走图生图。路径**先在这里查存在性**：桥那边也会查，
+            // 但在命令层查能给出更早、更贴近调用方的报错（少起一次子进程）。
+            var referenceImagePath = (arguments.ReferenceImagePath ?? "").Trim();
+            if (referenceImagePath.Length > 0)
+            {
+                string fullReferencePath;
+                try
+                {
+                    fullReferencePath = Path.GetFullPath(referenceImagePath);
+                }
+                catch (Exception exception)
+                {
+                    return CommandResult.Failure($"参数 ReferenceImagePath 无法解析为绝对路径：{exception.Message}");
+                }
+
+                if (!File.Exists(fullReferencePath))
+                {
+                    return CommandResult.Failure($"参考图不存在：{fullReferencePath}");
+                }
+
+                payloadObject["参考图路径"] = fullReferencePath;
             }
 
             var payload = JsonSerializer.SerializeToElement(payloadObject);
@@ -916,6 +973,20 @@ namespace Template.Toolkit.CommandHost.Commands
             {
                 return -1;
             }
+        }
+
+        /// <summary>读 JSON 对象里字符串键的值；缺失或类型不对给空串。</summary>
+        private static string ReadNodeString(JsonObject node, string propertyName)
+        {
+            if (node != null
+                && node.TryGetPropertyValue(propertyName, out var value)
+                && value is JsonValue jsonValue
+                && jsonValue.TryGetValue<string>(out var text))
+            {
+                return text ?? "";
+            }
+
+            return "";
         }
 
         /// <summary>读响应载荷里字符串键的值；缺失或类型不对给空串。</summary>

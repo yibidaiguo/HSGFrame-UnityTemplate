@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Template.Toolkit.CreationPipeline;
@@ -126,10 +127,60 @@ namespace Template.Bridges.Comfyui
             out string seedText,
             out string reason)
         {
+            return BuildGenerateWorkflow(workflow, recipe, assetRequest, providedSeedText, null, out seedText, out reason);
+        }
+
+        /// <summary>
+        /// 同上，外加**锚点槽取值**：槽名 → 值（图生图把上传后的图片名填进「参考图」那个槽）。
+        ///
+        /// 锚点槽与映射的区别：映射把**资产请求里的字段**填进节点，
+        /// 锚点槽填的是**请求之外的东西**（一张图、一个文件名），由调用方在调用时给。
+        /// 两者最后都落成同一种「参数覆盖」，所以翻译器只有一条路。
+        ///
+        /// 给了值却找不到同名槽 → **报错**，不静默忽略：
+        /// 那说明调用方以为这份配方能收参考图，而它根本不能（P8 批次 4 那个孤立锚点槽就是这么骗人的）。
+        /// </summary>
+        /// <param name="workflow">workflow.json 的顶层对象。</param>
+        /// <param name="recipe">配方定义。</param>
+        /// <param name="assetRequest">资产请求。</param>
+        /// <param name="providedSeedText">载荷里给的种子；空串 = 桥自己产随机种。</param>
+        /// <param name="anchorValues">锚点槽取值：槽名 → 值；null 或空表示不填任何锚点。</param>
+        /// <param name="seedText">实际用的种子文本。</param>
+        /// <param name="reason">失败原因；成功时空串。</param>
+        public static JsonObject BuildGenerateWorkflow(
+            JsonObject workflow,
+            RecipeDefinition recipe,
+            JsonElement assetRequest,
+            string providedSeedText,
+            IReadOnlyDictionary<string, string> anchorValues,
+            out string seedText,
+            out string reason)
+        {
             var overrides = BuildOverrides(recipe, workflow, assetRequest, providedSeedText, out reason, out seedText);
             if (overrides == null)
             {
                 return null;
+            }
+
+            if (anchorValues != null)
+            {
+                foreach (var pair in anchorValues)
+                {
+                    var slot = recipe.AnchorSlots.FirstOrDefault(item => string.Equals(item.SlotName, pair.Key, StringComparison.Ordinal));
+                    if (slot == null)
+                    {
+                        reason = $"配方「{recipe.Name}」没有名叫「{pair.Key}」的锚点槽，填不进去";
+                        return null;
+                    }
+
+                    if (!overrides.TryGetValue(slot.NodeIdentifier, out var nodeOverrides))
+                    {
+                        nodeOverrides = new Dictionary<string, JsonNode>(StringComparer.Ordinal);
+                        overrides[slot.NodeIdentifier] = (IReadOnlyDictionary<string, JsonNode>)nodeOverrides;
+                    }
+
+                    ((Dictionary<string, JsonNode>)nodeOverrides)[slot.ParameterName] = JsonValue.Create(pair.Value);
+                }
             }
 
             try
@@ -344,15 +395,44 @@ namespace Template.Bridges.Comfyui
 
                 // 载荷里的可选「种子」：给了（非空）就用它，没给才随机（决策 26）。
                 var providedSeedText = ReadOptionalSeed(request);
-                var translated = BuildGenerateWorkflow(workflow, recipe, assetRequestElement, providedSeedText, out var seedText, out var generateReason);
-                if (translated == null)
-                {
-                    return FailureResponse(generateReason);
-                }
 
+                // 载荷里的可选「参考图路径」：给了就先上传进下游的 input 目录，
+                // 再把下游认的图片名填进配方的「参考图」锚点槽——图生图那条路就是这么接上的。
+                var referenceImagePath = ReadOptionalPayloadString(request, "参考图路径");
                 var timeoutSeconds = Math.Max(ReadConfigurationInt(request, "超时秒", DefaultTimeoutSeconds), 1);
                 using (var client = new ComfyClient(ReadConfigurationString(request, "地址", DefaultBaseUrl)))
                 {
+                    // 配方声明了「参考图」槽却没给图 → 当场拦下。
+                    // 不拦的话请求会带着一个空槽发到下游，报出来的是下游的话
+                    // （「LoadImage | Permission denied: …\input」），
+                    // 看的人根本对不上「我忘了给参考图」这件事。
+                    var wantsReference = recipe.AnchorSlots.Any(slot => string.Equals(slot.SlotName, "参考图", StringComparison.Ordinal));
+                    if (wantsReference && referenceImagePath.Length == 0)
+                    {
+                        return FailureResponse($"配方「{recipe.Name}」有「参考图」锚点槽，必须给参考图路径（载荷键「参考图路径」）");
+                    }
+
+                    Dictionary<string, string> anchorValues = null;
+                    if (referenceImagePath.Length > 0)
+                    {
+                        try
+                        {
+                            var uploadedName = client.UploadImage(referenceImagePath);
+                            Console.Error.WriteLine("BridgeComfyui 参考图已上传，下游认的名字：" + uploadedName);
+                            anchorValues = new Dictionary<string, string>(StringComparer.Ordinal) { ["参考图"] = uploadedName };
+                        }
+                        catch (ComfyClientException exception)
+                        {
+                            return BridgeResponse.Failure(ContractVersion, exception.ErrorCode, exception.Message, exception.Retryable);
+                        }
+                    }
+
+                    var translated = BuildGenerateWorkflow(workflow, recipe, assetRequestElement, providedSeedText, anchorValues, out var seedText, out var generateReason);
+                    if (translated == null)
+                    {
+                        return FailureResponse(generateReason);
+                    }
+
                     try
                     {
                         var promptId = client.SubmitPrompt(translated);
@@ -364,7 +444,7 @@ namespace Template.Bridges.Comfyui
                             return BridgeResponse.Failure(ContractVersion, "下游报错", $"prompt {promptId} 跑完了但没有产出任何图", retryable: false);
                         }
 
-                        var variants = LandVariants(client, history.Images, recipe, assetRequestElement, outputDirectory, seedText, promptId);
+                        var variants = LandVariants(client, history.Images, recipe, assetRequestElement, outputDirectory, seedText, promptId, anchorValues);
                         var payload = new JsonObject
                         {
                             ["prompt_id"] = promptId,
@@ -387,7 +467,8 @@ namespace Template.Bridges.Comfyui
                 JsonElement assetRequest,
                 string outputDirectory,
                 string seedText,
-                string promptId)
+                string promptId,
+                IReadOnlyDictionary<string, string> anchorValues)
             {
                 // 先把图全下载到内存：任何一张下载失败就整体失败，不落盘。
                 var downloaded = new List<(ComfyOutputImage Image, byte[] Bytes)>();
@@ -427,7 +508,7 @@ namespace Template.Bridges.Comfyui
                         var destinationPath = UniqueDestinationPath(variantDirectory, fileName);
                         File.Move(sourcePath, destinationPath);
 
-                        var sidecar = BuildSidecar(assetRequest, variantIndex, recipe, destinationPath, seedText, promptId);
+                        var sidecar = BuildSidecar(assetRequest, variantIndex, recipe, destinationPath, seedText, promptId, anchorValues);
                         sidecar.WriteTo(destinationPath + ".溯源.json");
 
                         var (width, height) = ReadPngDimensions(File.ReadAllBytes(destinationPath));
@@ -455,7 +536,7 @@ namespace Template.Bridges.Comfyui
             }
 
             /// <summary>按资产请求与配方拼一份溯源边车；prompt_id 没有专列字段，写进「机检结果」自由键值对（任务书要求边车写清哪个 prompt 出的）。</summary>
-            private static ProvenanceSidecar BuildSidecar(JsonElement assetRequest, int variantIndex, RecipeDefinition recipe, string filePath, string seedText, string promptId)
+            private static ProvenanceSidecar BuildSidecar(JsonElement assetRequest, int variantIndex, RecipeDefinition recipe, string filePath, string seedText, string promptId, IReadOnlyDictionary<string, string> anchorValues)
             {
                 var promptLines = ReadString(assetRequest, "描述");
                 var promptLineList = string.IsNullOrEmpty(promptLines)
@@ -475,12 +556,45 @@ namespace Template.Bridges.Comfyui
                     recipe.Name,
                     seedText,
                     promptLineList,
-                    ReadObjectAsRawText(assetRequest, "风格锚点"),
+                    MergeAnchors(ReadObjectAsRawText(assetRequest, "风格锚点"), anchorValues),
                     DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
                     ProvenanceSidecar.ComputeFileHash(filePath),
                     inspectionResults,
                     false,
                     "1.0.0");
+            }
+
+            /// <summary>
+            /// 把「资产请求里声明的风格锚点」与「这一次真正填进去的锚点取值」合并成一份。
+            ///
+            /// **为什么必须合并**：边车的用处是「照着它能把这张图再生成一遍」（决策 26）。
+            /// 图生图那张参考图是决定成品长相的最大变量，边车里不记它，
+            /// 拿着边车也重生成不出来——而边车看上去是齐全的，那是最糟的一种缺。
+            /// </summary>
+            /// <param name="declaredAnchors">资产请求里声明的风格锚点：字段名 → 原始 JSON 文本。</param>
+            /// <param name="appliedAnchors">这一次真正填进去的锚点取值：槽名 → 值。</param>
+            private static IReadOnlyDictionary<string, string> MergeAnchors(
+                IReadOnlyDictionary<string, string> declaredAnchors,
+                IReadOnlyDictionary<string, string> appliedAnchors)
+            {
+                var merged = new Dictionary<string, string>(StringComparer.Ordinal);
+                if (declaredAnchors != null)
+                {
+                    foreach (var pair in declaredAnchors)
+                    {
+                        merged[pair.Key] = pair.Value;
+                    }
+                }
+
+                if (appliedAnchors != null)
+                {
+                    foreach (var pair in appliedAnchors)
+                    {
+                        merged[pair.Key] = JsonSerializer.Serialize(pair.Value);
+                    }
+                }
+
+                return merged;
             }
 
             /// <summary>探测数组：{名, 版本, hash}，版本与 hash 一律空串。</summary>
@@ -501,7 +615,20 @@ namespace Template.Bridges.Comfyui
             }
 
             /// <summary>读载荷里的可选「种子」：缺失、空串、非字符串都当没给（返回空串，桥自己产随机种）。</summary>
-            private static string ReadOptionalSeed(BridgeRequest request)
+            /// <summary>读载荷里的可选字符串键；缺失或类型不对给空串（不算错）。</summary>
+        private static string ReadOptionalPayloadString(BridgeRequest request, string key)
+        {
+            if (request.Payload.ValueKind == JsonValueKind.Object
+                && request.Payload.TryGetProperty(key, out var element)
+                && element.ValueKind == JsonValueKind.String)
+            {
+                return (element.GetString() ?? "").Trim();
+            }
+
+            return "";
+        }
+
+        private static string ReadOptionalSeed(BridgeRequest request)
             {
                 if (request.Payload.ValueKind == JsonValueKind.Object
                     && request.Payload.TryGetProperty("种子", out var element)
