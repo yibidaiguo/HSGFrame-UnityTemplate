@@ -69,9 +69,9 @@ git 在不同 `core.quotepath` 设置下显示不一致、CI 容器的 locale �
 
 **提出人**：Claude 自查发现，2026-08-21（用户给了官方文档链接才查出来）。
 **状态**：**已完成，2026-08-21**。落地与实证见
-[P8 批次 10](创作管线批次日志/P8-batch10-tripo-v3.md) 与
+[P8 批次 10](creation-pipeline-batch-logs/P8-batch10-tripo-v3.md) 与
 [endpoints-verified.md](../Bridges/tripo/endpoints-verified.md)；
-教训已立成[决策 94](创作管线锁定决策P8.md)。
+教训已立成[决策 94](creation-pipeline-decisions-p8.md)。
 **下面这些是当时的分析，留着当账**——真出模型仍卡在账号 API 积分（见第 4 条），
 那一条不是代码问题。
 

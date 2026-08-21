@@ -81,7 +81,7 @@ namespace Template.Toolkit.CreationPipeline
                         filePath,
                         $"专项认领信封无法解析：{failureReason}",
                         "把信封修成 专项id/修订/认领 齐全的 JSON",
-                        "Doc/创作管线子文档/01-池子与需求模型.md"));
+                        "Doc/creation-pipeline-subdocs/01-pools-and-requirements.md"));
                     continue;
                 }
 
@@ -92,7 +92,7 @@ namespace Template.Toolkit.CreationPipeline
                         filePath,
                         $"专项文件不存在：{epicFilePath}；不凭空建专项，专项由策划端创建后再同步认领",
                         "先在策划端创建该专项，再重新同步认领",
-                        "Doc/创作管线子文档/01-池子与需求模型.md"));
+                        "Doc/creation-pipeline-subdocs/01-pools-and-requirements.md"));
                     continue;
                 }
 
@@ -109,7 +109,7 @@ namespace Template.Toolkit.CreationPipeline
                         filePath,
                         $"职责「{invalidDuty}」不是合法职责；合法职责只有 美术、程序、策划",
                         "改回 美术/程序/策划 之一",
-                        "Doc/创作管线子文档/01-池子与需求模型.md"));
+                        "Doc/creation-pipeline-subdocs/01-pools-and-requirements.md"));
                     continue;
                 }
 
@@ -123,7 +123,7 @@ namespace Template.Toolkit.CreationPipeline
                         filePath,
                         $"写入专项文件失败：{exception.Message}",
                         "检查专项文件可写后重新同步",
-                        "Doc/创作管线子文档/01-池子与需求模型.md"));
+                        "Doc/creation-pipeline-subdocs/01-pools-and-requirements.md"));
                     continue;
                 }
 
@@ -135,7 +135,7 @@ namespace Template.Toolkit.CreationPipeline
                         filePath,
                         $"信封里多余的键被忽略：{string.Join("、", envelope.IgnoredFieldNames)}",
                         "认领字段之外的专项字段归策划端，下游不要经这条通道改",
-                        "Doc/创作管线子文档/02-同步与供给.md"));
+                        "Doc/creation-pipeline-subdocs/02-sync-and-provisioning.md"));
                 }
             }
 

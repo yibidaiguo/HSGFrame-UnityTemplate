@@ -259,7 +259,7 @@ namespace Template.Toolkit.CommandHost.Commands
                     : Path.Combine(repositoryRoot, arguments.PoolRoot));
             var ledger = ReleaseLedger.Load(poolRoot);
             var ledgerFile = PoolPaths.ReleaseLedgerFile(poolRoot);
-            var ledgerReference = "Doc/创作管线子文档/03-执行引擎.md";
+            var ledgerReference = "Doc/creation-pipeline-subdocs/03-execution-engine.md";
 
             // 账本读不动：一条 finding 顶上，后面四条不再查——账本都读不动，逐条查没有意义。
             if (ledger.LoadFailureReason.Length > 0)
@@ -529,7 +529,7 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             var conflictFile = PoolPaths.ConflictListFile(poolRoot);
-            var reference = "Doc/创作管线子文档/01-池子与需求模型.md";
+            var reference = "Doc/creation-pipeline-subdocs/01-pools-and-requirements.md";
             var findings = new List<PoolFinding>();
 
             if (list.LoadFailureReason.Length > 0)
@@ -728,7 +728,7 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             var opinionDirectory = PoolPaths.ReviewOpinionDirectory(poolRoot);
-            var reference = "Doc/创作管线子文档/03-执行引擎.md";
+            var reference = "Doc/creation-pipeline-subdocs/03-execution-engine.md";
             var findings = new List<PoolFinding>();
 
             if (book.LoadFailureReason.Length > 0)

@@ -90,7 +90,7 @@ namespace Template.Toolkit.Gates
                                     $"{relativePath}:{lineNumber}",
                                     $"引擎代码里出现了下游 driver 名「{driverName}」——driver 名只能是运行时参数",
                                     "把 driver 名改成参数或配置项；确实要在这里出现就加进 gate-config 的 bridgeBoundaryExemptions",
-                                    "Doc/创作管线子文档/05-下游Driver框架.md"));
+                                    "Doc/creation-pipeline-subdocs/05-driver-framework.md"));
                             }
                         }
                     }

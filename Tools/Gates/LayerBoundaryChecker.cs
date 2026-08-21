@@ -57,7 +57,7 @@ namespace Template.Toolkit.Gates
                         ToRepositoryRelative(repositoryRoot, directoryPath),
                         $"协作/过程数据目录「{directoryName}」出现在 Unity 资产树里",
                         "把它移回仓库根；产品层零协作感知（总纲 §一 三条纪律之一）",
-                        "Doc/策划美术工作流接入方案.md");
+                        "Doc/design-art-workflow-proposal.md");
                 }
             }
         }
@@ -92,7 +92,7 @@ namespace Template.Toolkit.Gates
                                 $"{relativePath}:{lineNumber}",
                                 $"游戏代码里引用了协作层路径「{segment}」",
                                 "产品层不许感知协作数据，删掉这处引用",
-                                "Doc/策划美术工作流接入方案.md");
+                                "Doc/design-art-workflow-proposal.md");
                         }
                     }
                 }

@@ -321,7 +321,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 }
             }
 
-            lines.Add("以上带「→」的说明就是人工导入清单；程序化导入未验证，见 Doc/创作管线批次日志/P1-批次6-Aily导入spike.md");
+            lines.Add("以上带「→」的说明就是人工导入清单；程序化导入未验证，见 Doc/creation-pipeline-batch-logs/P1-batch6-aily-import-spike.md");
 
             if (isNotProvisioned)
             {

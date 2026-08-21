@@ -60,7 +60,7 @@ namespace Template.Toolkit.CreationPipeline
                     "轮次",
                     $"轮次 {round} 小于 1，按第 1 轮处理",
                     "轮次从 1 起传",
-                    "Doc/创作管线子文档/06-美术管线.md"));
+                    "Doc/creation-pipeline-subdocs/06-art-pipeline.md"));
             }
 
             var variantDirectory = AssetPaths.VariantDirectory(repositoryRoot, requirementIdentifier, assetIdentifier);
@@ -70,7 +70,7 @@ namespace Template.Toolkit.CreationPipeline
                     variantDirectory,
                     $"变体目录不存在：{variantDirectory}",
                     "先跑生图把变体落进 30-产物/<资产id>/变体/",
-                    "Doc/创作管线子文档/06-美术管线.md"));
+                    "Doc/creation-pipeline-subdocs/06-art-pipeline.md"));
                 return new SelectionCardBuildResult(null, findings);
             }
 
@@ -113,7 +113,7 @@ namespace Template.Toolkit.CreationPipeline
                     variantDirectory,
                     "没有合格变体，不出选片卡片",
                     "重新生成变体，并保证每张图都有溯源边车",
-                    "Doc/创作管线子文档/06-美术管线.md"));
+                    "Doc/creation-pipeline-subdocs/06-art-pipeline.md"));
                 return new SelectionCardBuildResult(null, findings);
             }
 
