@@ -1,5 +1,8 @@
 {
   "files": {
+    "Solutions/AgentRunner.Tests/AgentDispatchTests.cs": "7f204aee9b01d749a76b2311dd9eb0620e109556ed1128ad43ebf381fb21dcd7",
+    "Solutions/AgentRunner.Tests/AgentLoopTests.cs": "e1738dfc33aec91a19e3c3721d04ed7ad31d8a230e8df0990a8a049dbb50597e",
+    "Solutions/AgentRunner.Tests/AgentPolicyAndToolboxTests.cs": "31248a41478a490e8cf3118dc8a32e94ff9758ee1d3cc5a9c0370a8ca0093023",
     "Solutions/AssetPipeline.Tests/AssetAtlasCheckerTests.cs": "a9380601e8ef2bca56b3d4ebb455e671d5e43b0ac931ddffce43f2c74dbcf152",
     "Solutions/AssetPipeline.Tests/AssetBundleGroupCheckerTests.cs": "0116c4321c45906a32e30882891bcfd4c7f04995cf3e9ddf39a243456cd0ecdc",
     "Solutions/AssetPipeline.Tests/AssetDependencyDirectionCheckerTests.cs": "53fa63fb072a57cfb3d28ab3dc8cae0c58e022fc0a895ac124e188960b2c52b4",
