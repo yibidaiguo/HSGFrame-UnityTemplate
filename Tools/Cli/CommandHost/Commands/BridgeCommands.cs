@@ -332,7 +332,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 }
             }
 
-            lines.Add("以上带「→」的说明就是人工导入清单；程序化导入未验证，见 Doc/creation-pipeline-batch-logs/P1-batch6-aily-import-spike.md");
+            lines.Add("以上带「→」的说明就是人工导入清单；程序化导入至今未验证，见 Doc/Backlog.md 第 4 条");
 
             if (isNotProvisioned)
             {

@@ -23,7 +23,7 @@
 | `Tools/Cli/` | 命令层：`CommandFramework`（特性标记 + 反射扫描 + schema 推导）、`CommandHost`（命令宿主）、`unity-cmd.ps1`（Unity batchmode 入口，带超时必杀）、`toolkit-cmd.ps1`（纯 dotnet 快路径） |
 | `Tools/Deps/` | 依赖快照（`Unity.Mathematics.dll`，取自 Unity 6000.3.11f1） |
 | `UnityProject/` | Unity 工程本体，`Assets/Game/Scripts/` 下按模块优先摆：`Boot/`（AOT 启动）、`Modules/<模块>/`、`Shared/`、`View/`、`Toolkit/Editor/`，四个程序集见《Specifications/结构规范-代码》第三节 |
-| `Doc/` | 方案与账本。三份常用的：[BUG 反馈簿](Doc/Bugs.md)（实际项目踩到的问题写这里，说「修 BUG-XXXX」就走 dev-cycle）、[待办账本](Doc/Backlog.md)（想清楚了但现在做不了的事，每条写清卡在谁手里）、[正式版说明](Doc/release-notes-v1.md)（怎么起、上线检查单、已知边界） |
+| `Doc/` | 活文档，只留还起作用的：[BUG 反馈簿](Doc/Bugs.md)（实际项目踩到的问题写这里，说「修 BUG-XXXX」就走 dev-cycle）、[待办账本](Doc/Backlog.md)（想清楚但现在做不了的事，每条写清卡在谁手里）、[踩坑清单](Doc/pitfalls.md)（动手前扫一眼）、[正式版说明](Doc/release-notes-v1.md)（怎么起、上线检查单、已知边界）、[锁定决策三册](Doc/creation-pipeline-decisions.md)（改任一条要重走设计审查）、[创作管线设计](Doc/design-art-workflow-proposal.md) 与 [七份子文档](Doc/creation-pipeline-subdocs/)（规格正本）。**过程记录不留在这里**——落地细账在 `git log`。 |
 | `Specifications/` | 结构规范三份（总纲/代码/资源），动目录结构、加模块、放资产前先读；宿主的现状差距与迁移账本在仓库根 `Doc/Specifications/` |
 
 ## 常用命令

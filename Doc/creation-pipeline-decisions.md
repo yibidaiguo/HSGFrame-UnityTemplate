@@ -1,10 +1,10 @@
 # 创作管线 · 锁定的设计决策
 
-> 从 [创作管线进度](creation-pipeline-progress.md) 第二节拆出来的——那份总账写到 200 行硬顶了。
+> 创作管线的锁定决策 1–79（80 起在 [P8 那份](creation-pipeline-decisions-p8.md)，
+> 99 起在 [需求文档那份](creation-pipeline-decisions-reqdoc.md)）。
 > **改这里的任何一条都要重新走设计审查。**
 
-
-1. **全仓路径一律 ASCII：目录名与文件名都不许有中文，中文只留在文件内容里**（注释、文案、数据值、JSON 的键都不受限）。2026-08-21 改过一次：原文只管「含 `.cs` 的目录」，还明说中文可以出现在文件名里；实测全仓有 206 个中文路径，而中文路径是一类低频但很贵的故障源（git quotepath、CI locale、MSBuild/Unity 的历史坑）。命名门禁的 `directoryNamePattern` 仍只作用于含 `.cs` 的目录，全仓那一道是新增的 `gate.pathascii`。迁移见 [路径去中文化](ascii-path-migration.md)。
+1. **全仓路径一律 ASCII：目录名与文件名都不许有中文，中文只留在文件内容里**（注释、文案、数据值、JSON 的键都不受限）。2026-08-21 改过一次：原文只管「含 `.cs` 的目录」，还明说中文可以出现在文件名里；实测全仓有 206 个中文路径，而中文路径是一类低频但很贵的故障源（git quotepath、CI locale、MSBuild/Unity 的历史坑）。命名门禁的 `directoryNamePattern` 仍只作用于含 `.cs` 的目录，全仓那一道是新增的 `gate.pathascii`。
 2. **工具链配置落 `Tools/<工具>/Config/`，`Config/` 只留业务数据**（`Tables` `Schema` `Mirror`）。2026-08-21 改过一次：原文写的是「落 `Tools/CreationPipeline/Config/`」，那是当年撞见「`Config/` 已被 Luban 占满」时开子目录绕过去的权宜。真正的规矩仓库里早就有——`Tools/Gates/Config/`、`Tools/AssetPipeline/Config/`、`Tools/CodeGen/Config/`、`Tools/Indexing/Config/` 四个工具都这么放，只有创作管线破了例。现在还这笔账，顺带回到总纲 §四给 `Config/` 的定义。
 3. **schema 用自定义精简格式，不用标准 JSON Schema。** 标准 JSON Schema 表达不了「字段所有权」「锁定后可改」「状态机转换权限」这三样，而它们正是这套机器的核心。
 4. **模板仓库零池子内容。** `Pools/` 下只铺空目录骨架（`.gitkeep`）与**基线 schema**；`Requirements/` `Inbox/` `专项/` `知识/` 一条真实数据都不许进。
