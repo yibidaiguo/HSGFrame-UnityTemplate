@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "project-tools": {
+      "command": "dotnet",
+      "args": [
+        "Tools/Mcp/bin/Debug/net8.0/Toolkit.ProjectMcpServer.dll"
+      ]
+    }
+  }
+}

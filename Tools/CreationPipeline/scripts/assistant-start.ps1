@@ -28,7 +28,11 @@ param(
     [int]$RoundDelayMilliseconds = 2000,
 
     # 跳过编译，直接用现成产物起。快速重启用；**改过代码就别用**，那样起来的是上一版。
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+
+    # 命令宿主 dll 的路径。默认用仓库 bin 里那份；一键启动脚本会传影子拷贝的路径进来——
+    # 常驻进程从 bin 里跑会占住 DLL，门禁与编译全红（老账）。
+    [string]$CommandHostDll = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -37,7 +41,9 @@ $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 $runtimeDirectory = Join-Path $repositoryRoot '_Tasks/sidecar'
 $logDirectory = Join-Path $repositoryRoot 'Logs/assistant'
 $stopFile = Join-Path $runtimeDirectory 'assistant-stop'
-$commandHostDll = Join-Path $repositoryRoot 'Tools/Cli/CommandHost/bin/Debug/net8.0/Toolkit.CommandHost.dll'
+$commandHostDll = if ($CommandHostDll) { $CommandHostDll } else {
+    Join-Path $repositoryRoot 'Tools/Cli/CommandHost/bin/Debug/net8.0/Toolkit.CommandHost.dll'
+}
 $sidecarScript = Join-Path $repositoryRoot 'Bridges/feishu/scripts/wake_sidecar.py'
 
 New-Item -ItemType Directory -Force -Path $runtimeDirectory, $logDirectory | Out-Null

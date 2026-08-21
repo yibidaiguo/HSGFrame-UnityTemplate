@@ -7,8 +7,12 @@ namespace Template.Toolkit.Dashboard
     /// <summary>看板命令行入口：起 HTTP 服务，并把标准输入的每一行当作日志推送给浏览器。</summary>
     public static class Program
     {
-        /// <summary>解析参数、启动服务、逐行转发标准输入，直到标准输入关闭。</summary>
-        /// <param name="args">命令行参数，支持 --port &lt;端口&gt; 与 --repository-root &lt;仓库根&gt;。</param>
+        /// <summary>
+        /// 解析参数、启动服务、逐行转发标准输入，直到标准输入关闭。
+        /// 传 --stop-file 时改走常驻模式：不读标准输入，轮询停止文件，文件出现即退出——
+        /// 后台起服务时没有可挂住的 stdin（管道一 EOF 服务当场退，踩过），停止文件是 assist.serve 已用的惯例。
+        /// </summary>
+        /// <param name="args">命令行参数，支持 --port &lt;端口&gt;、--repository-root &lt;仓库根&gt; 与 --stop-file &lt;路径&gt;。</param>
         public static int Main(string[] args)
         {
             Console.OutputEncoding = Encoding.UTF8;
@@ -34,15 +38,27 @@ namespace Template.Toolkit.Dashboard
                     Console.WriteLine("知会：没找到仓库根（当前目录往上找不到 .git），面板十六页会返回未配置；可用 --repository-root 指定。");
                 }
 
-                string line;
-                while ((line = Console.ReadLine()) != null)
+                var stopFilePath = ReadOption(args, "--stop-file");
+                if (stopFilePath != null)
                 {
-                    if (string.IsNullOrWhiteSpace(line))
+                    Console.WriteLine($"常驻模式：出现停止文件即退出（{stopFilePath}）。");
+                    while (!File.Exists(stopFilePath))
                     {
-                        continue;
+                        System.Threading.Thread.Sleep(1000);
                     }
+                }
+                else
+                {
+                    string line;
+                    while ((line = Console.ReadLine()) != null)
+                    {
+                        if (string.IsNullOrWhiteSpace(line))
+                        {
+                            continue;
+                        }
 
-                    channel.Publish(line);
+                        channel.Publish(line);
+                    }
                 }
             }
 

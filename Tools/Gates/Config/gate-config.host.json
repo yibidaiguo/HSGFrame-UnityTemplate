@@ -23,6 +23,7 @@
     "Proposals/",
     "getting-started.md",
     "reasonix.toml",
+    ".mcp.json",
     ".gitignore",
     ".gitattributes",
     ".editorconfig",
