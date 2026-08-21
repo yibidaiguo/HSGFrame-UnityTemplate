@@ -80,6 +80,19 @@ namespace Template.Toolkit.CommandHost.Commands
         public string ConfigurationPath { get; set; }
     }
 
+    /// <summary>全仓路径 ASCII 门禁命令的参数。</summary>
+    public sealed class GatePathAsciiArguments
+    {
+        /// <summary>仓库根目录。</summary>
+        [Summary("仓库根目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>门禁配置文件路径，默认取仓库内的 gate-config.json。</summary>
+        [Summary("门禁配置文件路径，默认取仓库内的 gate-config.json")]
+        [DefaultValue("Tools/Gates/Config/gate-config.json")]
+        public string ConfigurationPath { get; set; }
+    }
+
     /// <summary>.meta 完整性门禁命令的参数。</summary>
     public sealed class MetaGateArguments
     {
@@ -429,6 +442,46 @@ namespace Template.Toolkit.CommandHost.Commands
                 documentPaths.Distinct(StringComparer.OrdinalIgnoreCase),
                 configuration);
             return GateCommandSupport.ToResult("文档长度门禁", findings);
+        }
+    }
+
+    /// <summary>全仓路径 ASCII 门禁命令：目录名与文件名一律 ASCII，中文只许在文件内容里。</summary>
+    public static class GatePathAsciiCommand
+    {
+        /// <summary>
+        /// 扫全仓路径，列出带非 ASCII 名字的路径。
+        /// **模式由配置决定**：warn 只列不判红（迁移期），block 判红（存量清完之后）。
+        /// warn 模式下照样把每一条列出来——一道看不见存量的规矩等于没有。
+        /// </summary>
+        /// <param name="arguments">路径 ASCII 门禁参数。</param>
+        [EditorCommand("gate.pathascii")]
+        [Summary("全仓路径 ASCII 门禁：目录名与文件名一律 ASCII；中文留在文件内容里")]
+        public static CommandResult Execute(GatePathAsciiArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            var configuration = GateConfiguration.LoadFromFile(
+                GateCommandSupport.ResolveConfigurationPath(arguments.ConfigurationPath, arguments.RepositoryRoot));
+
+            var findings = PathAsciiChecker.Check(arguments.RepositoryRoot, configuration);
+            var isBlocking = string.Equals(configuration.PathAsciiMode, "block", StringComparison.OrdinalIgnoreCase);
+
+            if (findings.Count == 0)
+            {
+                return CommandResult.Success($"路径 ASCII 门禁通过，问题 0 条（模式：{(isBlocking ? "block" : "warn")}）");
+            }
+
+            var lines = findings.Select(finding => finding.ToDisplayText()).ToList();
+            if (isBlocking)
+            {
+                return CommandResult.Failure($"路径 ASCII 门禁失败，问题 {findings.Count} 条", lines);
+            }
+
+            lines.Insert(0, "模式是 warn：以下问题**只列不判红**。存量清完之后把配置里的 pathAsciiMode 改成 block。");
+            return CommandResult.Success($"路径 ASCII 门禁：存量 {findings.Count} 条（warn 模式，不判红）", lines);
         }
     }
 

@@ -160,6 +160,11 @@ if ((Invoke-GateCommand -CommandName 'gate.doc' -CommandArguments @{ RepositoryR
     $failedGateNames += '文档长度'
 }
 
+Write-GateHeader '路径 ASCII'
+if ((Invoke-GateCommand -CommandName 'gate.pathascii' -CommandArguments @{ RepositoryRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
+    $failedGateNames += '路径 ASCII'
+}
+
 # 创作管线门禁：池子校验、扩展合法性、供给对账、下游边界、层边界五道。
 # 前两道管池子数据本身，供给对账管产物与数据的一致性，下游/层边界管引擎与产品层的耦合纪律。
 Write-GateHeader '池子校验'

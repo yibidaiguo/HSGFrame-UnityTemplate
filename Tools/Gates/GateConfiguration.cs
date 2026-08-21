@@ -52,6 +52,20 @@ namespace Template.Toolkit.Gates
         public IReadOnlyList<string> SourceScanSkipSegments { get; set; }
 
         /// <summary>
+        /// 全仓路径 ASCII 门禁的模式：<c>warn</c> 只列不判红，<c>block</c> 判红。
+        /// 迁移期先 warn，把存量清完再翻成 block（待办 1 的 a 批与 f 批）。
+        /// 缺省（空串）按 warn 处理——一道新规矩默认不该把别人的构建弄红。
+        /// </summary>
+        public string PathAsciiMode { get; set; }
+
+        /// <summary>
+        /// 全仓路径 ASCII 门禁的豁免前缀（仓库相对、正斜杠）。
+        /// **这里挂的是存量欠账，改一块删一条，名单燃尽即规矩完全落地**——
+        /// 与下划线豁免名单同一个用法。不许拿它当「这块地方永远可以用中文」的许可。
+        /// </summary>
+        public IReadOnlyList<string> PathAsciiExemptPrefixes { get; set; }
+
+        /// <summary>
         /// 豁免模块边界检查的路径前缀，相对 <c>Assets/Game/Scripts</c>、用正斜杠。
         /// 这里挂两种东西：**欠账**（还没拆干净的越界引用，拆一处删一条），
         /// 以及**结构性例外**——最典型的是装配根：它按定义要构造并接线每一个模块的服务，
