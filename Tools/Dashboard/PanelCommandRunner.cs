@@ -116,6 +116,45 @@ namespace Template.Toolkit.Dashboard
         }
 
         /// <summary>
+        /// 执行一条结构化命令：命令名过同一个白名单，参数 JSON 原样落临时文件喂给宿主。
+        /// 多行文本（描述、验收标准）进不了命令行拆解，走这条通道。
+        /// </summary>
+        /// <param name="commandName">命令名，如 pool.draft。</param>
+        /// <param name="argumentsJson">参数对象的 JSON 文本。</param>
+        public PanelCommandOutcome RunWithArguments(string commandName, string argumentsJson)
+        {
+            if (string.IsNullOrWhiteSpace(_commandHostProjectPath))
+            {
+                return new PanelCommandOutcome(false, -1, "", "未配置命令宿主");
+            }
+
+            if (!PanelCommandWhitelist.IsAllowed(commandName ?? "", out _, out var rejectReason))
+            {
+                return new PanelCommandOutcome(false, -1, "", rejectReason);
+            }
+
+            var argumentsFilePath = Path.Combine(
+                Path.GetTempPath(),
+                "面板命令-" + Guid.NewGuid().ToString("N") + ".json");
+            try
+            {
+                File.WriteAllText(argumentsFilePath, argumentsJson ?? "{}", new UTF8Encoding(false));
+                return RunHost(commandName, argumentsFilePath);
+            }
+            finally
+            {
+                try
+                {
+                    File.Delete(argumentsFilePath);
+                }
+                catch (IOException)
+                {
+                    // 临时参数文件删不掉不影响这次调用的结论，留给系统临时目录自清。
+                }
+            }
+        }
+
+        /// <summary>
         /// 把一整行 &lt;命令名&gt; --键 值 … 拆成命令名与参数 JSON。
         /// 后面不跟值的 --键 视为布尔真；整数与 true/false 按原类型写，其余一律写成字符串。
         /// </summary>

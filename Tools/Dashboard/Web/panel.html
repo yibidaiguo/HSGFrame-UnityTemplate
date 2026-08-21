@@ -305,6 +305,33 @@ kbd {
 #吐司 div.败 { border-left-color: var(--红); }
 @keyframes 浮 { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
+/* ── 需求池看板（泳道） ── */
+.泳道排 { display: flex; gap: 10px; align-items: flex-start; overflow-x: auto; padding-bottom: 8px; }
+.泳道 { flex: 0 0 218px; background: var(--面); border: 1px solid var(--线); border-radius: var(--圆小); padding: 8px; }
+.泳题 { font-size: 12px; font-weight: 700; color: var(--字次); padding: 2px 4px 8px; display: flex; }
+.泳题 .右 { margin-left: auto; color: var(--字弱); font-weight: 400; }
+.泳卡 { background: var(--底); border: 1px solid var(--线亮); border-radius: var(--圆小); padding: 8px 10px; margin-bottom: 8px; cursor: pointer; }
+.泳卡:hover { border-color: var(--主); }
+.泳卡头 { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--字次); }
+.泳卡题 { font-size: 13px; margin: 4px 0 6px; line-height: 1.4; }
+.泳卡脚 { display: flex; gap: 4px; flex-wrap: wrap; }
+.泳空 { color: var(--字弱); text-align: center; font-size: 12px; padding: 10px 0; }
+
+/* ── 表单（建需求等） ── */
+.表单排 { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-end; flex-wrap: wrap; }
+.表单排 label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--字次); min-width: 160px; }
+.表单排 textarea.输 { resize: vertical; font-family: inherit; }
+#建单结果 { white-space: pre-wrap; color: var(--红); margin-top: 6px; }
+
+/* ── 详情页阶段轴 ── */
+.详题 { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
+.阶段轴 { display: flex; align-items: center; gap: 6px; margin: 6px 0 10px; flex-wrap: wrap; }
+.阶 { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--线亮); color: var(--字弱); }
+.阶.past { color: var(--字次); border-color: var(--线); background: var(--面); }
+.阶.今 { color: #fff; background: var(--主); border-color: var(--主); font-weight: 700; }
+.阶线 { flex: 0 0 14px; height: 1px; background: var(--线亮); }
+.验单 { margin: 4px 0 2px 18px; padding: 0; font-size: 13px; line-height: 1.9; }
+
 /* ── 窄屏 ── */
 @media (max-width: 900px) {
     #壳 { flex-direction: column; }
@@ -328,6 +355,16 @@ kbd {
                 <div class="名">创作管线</div>
                 <div class="副">面板 · 现读文件</div>
             </div>
+        </div>
+        <div style="padding:0 10px 6px;">
+            <select class="输" id="工作台选" title="按职责过滤侧栏页签；分的是视图不是权限，随时可切回全部"
+                    style="width:100%;font-size:11.5px;padding:4px 6px;" onchange="换工作台(this.value)">
+                <option value="全部">工作台：全部</option>
+                <option value="策划">工作台：策划</option>
+                <option value="美术">工作台：美术</option>
+                <option value="程序">工作台：程序</option>
+                <option value="管理">工作台：管理</option>
+            </select>
         </div>
         <nav id="导航"></nav>
         <div id="侧栏底">

@@ -122,6 +122,138 @@ namespace Template.Toolkit.Dashboard
         public string CurrentWorkItem { get; }
     }
 
+    /// <summary>详情页的一个工作项：名称与状态。</summary>
+    public sealed class PanelWorkItemRow
+    {
+        /// <summary>
+        /// 构造一个工作项行。
+        /// </summary>
+        /// <param name="name">工作项名称（文件里的 id）。</param>
+        /// <param name="state">工作项状态。</param>
+        public PanelWorkItemRow(string name, string state)
+        {
+            Name = name ?? "";
+            State = state ?? "";
+        }
+
+        /// <summary>工作项名称。</summary>
+        [JsonPropertyName("名称")]
+        public string Name { get; }
+
+        /// <summary>工作项状态。</summary>
+        [JsonPropertyName("状态")]
+        public string State { get; }
+    }
+
+    /// <summary>详情页的完整数据：需求字段 + 验收标准 + 任务状态 + 工作项清单。</summary>
+    public sealed class PanelTaskDetail
+    {
+        /// <summary>
+        /// 构造一份详情。
+        /// </summary>
+        /// <param name="identifier">需求 id。</param>
+        /// <param name="title">标题。</param>
+        /// <param name="requirementType">类型。</param>
+        /// <param name="state">状态。</param>
+        /// <param name="epic">专项。</param>
+        /// <param name="description">描述。</param>
+        /// <param name="isLocked">是否锁定。</param>
+        /// <param name="acceptanceCriteria">验收标准。</param>
+        /// <param name="hasTask">引擎有没有接走它（_Tasks 下有目录）。</param>
+        /// <param name="stage">任务阶段；没任务时空串。</param>
+        /// <param name="subState">任务子状态；没任务时空串。</param>
+        /// <param name="pendingGate">停在的关卡；没有时空串。</param>
+        /// <param name="currentWorkItem">当前工作项；没有时空串。</param>
+        /// <param name="workItems">工作项清单。</param>
+        public PanelTaskDetail(
+            string identifier,
+            string title,
+            string requirementType,
+            string state,
+            string epic,
+            string description,
+            bool isLocked,
+            IReadOnlyList<string> acceptanceCriteria,
+            bool hasTask,
+            string stage,
+            string subState,
+            string pendingGate,
+            string currentWorkItem,
+            IReadOnlyList<PanelWorkItemRow> workItems)
+        {
+            Identifier = identifier ?? "";
+            Title = title ?? "";
+            RequirementType = requirementType ?? "";
+            State = state ?? "";
+            Epic = epic ?? "";
+            Description = description ?? "";
+            IsLocked = isLocked;
+            AcceptanceCriteria = acceptanceCriteria ?? Array.Empty<string>();
+            HasTask = hasTask;
+            Stage = stage ?? "";
+            SubState = subState ?? "";
+            PendingGate = pendingGate ?? "";
+            CurrentWorkItem = currentWorkItem ?? "";
+            WorkItems = workItems ?? Array.Empty<PanelWorkItemRow>();
+        }
+
+        /// <summary>需求 id。</summary>
+        [JsonPropertyName("id")]
+        public string Identifier { get; }
+
+        /// <summary>标题。</summary>
+        [JsonPropertyName("标题")]
+        public string Title { get; }
+
+        /// <summary>类型。</summary>
+        [JsonPropertyName("类型")]
+        public string RequirementType { get; }
+
+        /// <summary>状态。</summary>
+        [JsonPropertyName("状态")]
+        public string State { get; }
+
+        /// <summary>专项。</summary>
+        [JsonPropertyName("专项")]
+        public string Epic { get; }
+
+        /// <summary>描述。</summary>
+        [JsonPropertyName("描述")]
+        public string Description { get; }
+
+        /// <summary>是否锁定。</summary>
+        [JsonPropertyName("锁定")]
+        public bool IsLocked { get; }
+
+        /// <summary>验收标准。</summary>
+        [JsonPropertyName("验收标准")]
+        public IReadOnlyList<string> AcceptanceCriteria { get; }
+
+        /// <summary>引擎有没有接走它。</summary>
+        [JsonPropertyName("有任务")]
+        public bool HasTask { get; }
+
+        /// <summary>任务阶段。</summary>
+        [JsonPropertyName("阶段")]
+        public string Stage { get; }
+
+        /// <summary>任务子状态。</summary>
+        [JsonPropertyName("子状态")]
+        public string SubState { get; }
+
+        /// <summary>停在的关卡。</summary>
+        [JsonPropertyName("停在关卡")]
+        public string PendingGate { get; }
+
+        /// <summary>当前工作项。</summary>
+        [JsonPropertyName("当前工作项")]
+        public string CurrentWorkItem { get; }
+
+        /// <summary>工作项清单。</summary>
+        [JsonPropertyName("工作项")]
+        public IReadOnlyList<PanelWorkItemRow> WorkItems { get; }
+    }
+
     /// <summary>需求池页的一行：id、标题、类型、状态、专项与锁定标记。</summary>
     public sealed class PanelRequirementRow
     {
@@ -2960,6 +3092,101 @@ namespace Template.Toolkit.Dashboard
                     ReadStringOrEmpty(root, "专项"),
                     root.TryGetProperty("锁定", out var lockedElement) && lockedElement.ValueKind == JsonValueKind.True);
             }
+        }
+
+        /// <summary>
+        /// 读单个需求的结构化详情：需求字段 + 验收标准 + 任务状态 + 工作项清单。
+        /// 需求文件不存在时返回 null（路由层据此回 404 文案）；任务目录不存在时「有任务」为 false。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="requirementIdentifier">需求 id。</param>
+        public static PanelTaskDetail ReadTaskDetailData(string repositoryRoot, string poolRoot, string requirementIdentifier)
+        {
+            var filePath = PoolPaths.RequirementFile(poolRoot, requirementIdentifier);
+            if (!File.Exists(filePath))
+            {
+                return null;
+            }
+
+            string title = "", kind = "", status = "", epic = "", description = "";
+            var locked = false;
+            var acceptanceCriteria = new List<string>();
+            try
+            {
+                using var document = JsonDocument.Parse(File.ReadAllText(filePath));
+                var root = document.RootElement;
+                if (root.ValueKind == JsonValueKind.Object)
+                {
+                    title = ReadStringOrEmpty(root, "标题");
+                    kind = ReadStringOrEmpty(root, "类型");
+                    status = ReadStringOrEmpty(root, "状态");
+                    epic = ReadStringOrEmpty(root, "专项");
+                    description = ReadStringOrEmpty(root, "描述");
+                    locked = root.TryGetProperty("锁定", out var lockedElement) && lockedElement.ValueKind == JsonValueKind.True;
+                    if (root.TryGetProperty("验收标准", out var criteria) && criteria.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in criteria.EnumerateArray())
+                        {
+                            if (item.ValueKind == JsonValueKind.String)
+                            {
+                                acceptanceCriteria.Add(item.GetString() ?? "");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return null;
+            }
+
+            var hasTask = TaskState.TryLoad(repositoryRoot, requirementIdentifier, out var state, out _);
+            var workItems = new List<PanelWorkItemRow>();
+            var workItemsDirectory = Path.Combine(repositoryRoot, "_Tasks", requirementIdentifier, "20-work-items");
+            if (Directory.Exists(workItemsDirectory))
+            {
+                foreach (var workItemFile in Directory.GetFiles(workItemsDirectory, "*.json").OrderBy(path => path, StringComparer.Ordinal))
+                {
+                    try
+                    {
+                        using var document = JsonDocument.Parse(File.ReadAllText(workItemFile));
+                        var root = document.RootElement;
+                        if (root.ValueKind != JsonValueKind.Object)
+                        {
+                            continue;
+                        }
+
+                        var name = ReadStringOrEmpty(root, "id");
+                        if (name.Length == 0)
+                        {
+                            name = Path.GetFileNameWithoutExtension(workItemFile);
+                        }
+
+                        workItems.Add(new PanelWorkItemRow(name, ReadStringOrEmpty(root, "状态")));
+                    }
+                    catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+                    {
+                        // 单个工作项文件坏了跳过，别让一份坏文件把整页详情读没。
+                    }
+                }
+            }
+
+            return new PanelTaskDetail(
+                requirementIdentifier,
+                title,
+                kind,
+                status,
+                epic,
+                description,
+                locked,
+                acceptanceCriteria,
+                hasTask,
+                hasTask ? state.Stage : "",
+                hasTask ? state.SubState : "",
+                hasTask ? state.PendingGate ?? "" : "",
+                hasTask ? state.CurrentWorkItem ?? "" : "",
+                workItems);
         }
 
         /// <summary>从 Pools/Requirements/&lt;id&gt;/requirement.json 读「标题」，取不到留空串。</summary>

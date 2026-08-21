@@ -237,6 +237,14 @@ namespace Template.Toolkit.Dashboard
                     case "/api/panel/task":
                         WriteTaskDetail(request, response);
                         break;
+                    case "/api/panel/taskdetail":
+                        {
+                            var detailIdentifier = request.QueryString["id"] ?? "";
+                            WritePanelPage(response, () =>
+                                CreationPanelReader.ReadTaskDetailData(_repositoryRoot, _poolRoot, detailIdentifier)
+                                ?? (object)new Dictionary<string, string> { ["错误"] = $"需求 {detailIdentifier} 不存在或读不出来" });
+                        }
+                        break;
                     case "/cmd":
                         HandleCommand(request, response);
                         break;
@@ -341,8 +349,12 @@ namespace Template.Toolkit.Dashboard
                 return;
             }
 
-            var commandLine = ReadCommandLine(request);
-            var outcome = _commandRunner.Run(commandLine);
+            // 两种请求体：{"命令行": "…"} 走行解析；{"命令": "x.y", "参数": {…}} 走结构化通道——
+            // 多行文本（描述、验收标准）进不了命令行，只能走后者。两条路过同一个白名单。
+            var (commandLine, commandName, argumentsJson) = ReadCommandBody(request);
+            var outcome = commandName != null
+                ? _commandRunner.RunWithArguments(commandName, argumentsJson)
+                : _commandRunner.Run(commandLine);
             WritePanelJson(response, outcome, outcome.IsAllowed ? HttpStatusCode.OK : HttpStatusCode.Forbidden);
         }
 
@@ -364,7 +376,11 @@ namespace Template.Toolkit.Dashboard
         }
 
         /// <summary>从请求体里读顶层「命令行」字符串；请求体不是合法 JSON 时按空命令行处理。</summary>
-        private static string ReadCommandLine(HttpListenerRequest request)
+        /// <summary>
+        /// 读 /cmd 请求体：优先认「命令」+「参数」的结构化形状（返回命令名与参数 JSON 文本），
+        /// 否则取「命令行」。读不了或不是合法 JSON 时按空命令行处理，白名单会以「命令行为空」拒绝。
+        /// </summary>
+        private static (string CommandLine, string CommandName, string ArgumentsJson) ReadCommandBody(HttpListenerRequest request)
         {
             try
             {
@@ -374,11 +390,21 @@ namespace Template.Toolkit.Dashboard
                     using (var document = JsonDocument.Parse(body))
                     {
                         var root = document.RootElement;
-                        if (root.ValueKind == JsonValueKind.Object
-                            && root.TryGetProperty("命令行", out var commandElement)
-                            && commandElement.ValueKind == JsonValueKind.String)
+                        if (root.ValueKind == JsonValueKind.Object)
                         {
-                            return commandElement.GetString() ?? "";
+                            if (root.TryGetProperty("命令", out var nameElement)
+                                && nameElement.ValueKind == JsonValueKind.String
+                                && root.TryGetProperty("参数", out var argumentsElement)
+                                && argumentsElement.ValueKind == JsonValueKind.Object)
+                            {
+                                return ("", nameElement.GetString() ?? "", argumentsElement.GetRawText());
+                            }
+
+                            if (root.TryGetProperty("命令行", out var commandElement)
+                                && commandElement.ValueKind == JsonValueKind.String)
+                            {
+                                return (commandElement.GetString() ?? "", null, null);
+                            }
                         }
                     }
                 }
@@ -388,7 +414,7 @@ namespace Template.Toolkit.Dashboard
                 // 请求体读不了或不是合法 JSON 时按空命令行处理，白名单会以「命令行为空」拒绝。
             }
 
-            return "";
+            return ("", null, null);
         }
 
         /// <summary>把对象序列化成中文原样输出的 JSON 写回响应。</summary>

@@ -47,6 +47,11 @@ var 页面表 = [
         渲染: 渲染任务图, 自备取数: true
     },
     {
+        键: '详情', 别名: 'detail', 组: '需求与调度', 图: '任务', 地址: '/api/panel/taskdetail',
+        说明: '单个需求的全部现状：阶段轴、验收标准、任务状态与工作项清单。从需求池或任务页点 id 跳过来。',
+        渲染: 渲染详情, 自备取数: true
+    },
+    {
         键: '引擎', 别名: 'engine', 组: '需求与调度', 图: '引擎', 地址: '/api/panel/engine',
         说明: '调度引擎的配置与队列：谁能把需求拨到「已确认」、队列里排着谁、各类卡片默认归谁。',
         渲染: 渲染引擎
@@ -332,14 +337,43 @@ function 排序(表头) {
 
 // ── 导航与路由 ──
 
+// 角色工作台：按职责过滤侧栏页签。分的是视图不是权限（决策 18 钉死 localhost）——
+// 「全部」永远可切回全景；这张表只决定「先看见什么」。
+var 工作台表 = {
+    '全部': null,
+    '策划': ['总览', '需求池', '详情', '任务', '任务图', '引擎', '冲突'],
+    '美术': ['总览', '资产', '设计池', '需求池', '详情', '下游'],
+    '程序': ['总览', '任务', '详情', '任务图', '门禁', '审查', '放行流水', '供给对账', '下游'],
+    '管理': ['总览', '审查', '冲突', '放行流水', '规范', '晋升', '提案待批', '引擎']
+};
+
+function 当前工作台() {
+    var 名 = 取('工作台') || '全部';
+    return 工作台表.hasOwnProperty(名) ? 名 : '全部';
+}
+
+function 换工作台(名) {
+    存('工作台', 名);
+    var 许 = 工作台表[当前工作台()];
+    if (许 && 许.indexOf(页面表[当前页].键) < 0) {
+        切换(0);
+        return;
+    }
+    画导航();
+}
+
 function 画导航() {
     var 导航 = 元素('导航');
+    var 许 = 工作台表[当前工作台()];
     var 文本 = '';
     for (var g = 0; g < 分组顺序.length; g++) {
         var 组名 = 分组顺序[g];
         var 本组 = [];
         for (var i = 0; i < 页面表.length; i++) {
-            if (页面表[i].组 === 组名) { 本组.push(i); }
+            if (页面表[i].组 !== 组名) { continue; }
+            // 当前页即使不在工作台清单里也保留，切工作台不打断正在看的页。
+            if (许 && 许.indexOf(页面表[i].键) < 0 && i !== 当前页) { continue; }
+            本组.push(i);
         }
         if (本组.length === 0) { continue; }
         文本 += '<div class="组名">' + 转义(组名) + '</div>';
@@ -707,10 +741,14 @@ function 算总览徽章(桶) {
 
 // ── 需求与调度四页 ──
 
+// 需求池的泳道顺序 = 需求状态机的合法状态顺序（Pools/Schema/Baseline/requirement.schema.json）。
+var 泳道状态 = ['草稿', '已确认', '进行中', '待验收', '已完成', '已作废'];
+
 function 渲染需求池(数据) {
     记徽章('需求池', (数据 || []).length, '');
+    var 建单 = 建需求表单();
     if (!数据 || 数据.length === 0) {
-        return 空态('需求池是空的', '还没有需求进池。用 pool.* 一族命令建需求，或从飞书需求编辑端拉一次。');
+        return 建单 + 空态('需求池是空的', '点上面的「建需求」直接建一条，或从飞书需求编辑端拉一次。');
     }
     var 计 = {};
     for (var i = 0; i < 数据.length; i++) {
@@ -723,20 +761,238 @@ function 渲染需求池(数据) {
     for (var j = 0; j < 键们.length; j++) {
         段.push({ 名: 键们[j], 数: 计[键们[j]], 色: 色轮[j % 色轮.length] });
     }
-    var 文本 = '<div class="板"><div class="板题">状态分布<span class="右">共 ' + 数据.length +
-        ' 条</span></div>' + 堆条(段) + '</div>';
-    return 文本 + 表格('', [
+    var 看板视图 = 取('需求池.视图') !== '表格';
+    var 切换钮 = '<span class="右"><button class="钮 细" onclick="切需求池视图()">' +
+        (看板视图 ? '换表格' : '换看板') + '</button></span>';
+    var 文本 = 建单 + '<div class="板"><div class="板题">状态分布' + 切换钮 +
+        '<span class="右" style="margin-right:10px;">共 ' + 数据.length + ' 条</span></div>' + 堆条(段) + '</div>';
+    return 文本 + (看板视图 ? 需求看板(数据) : 需求表格(数据));
+}
+
+// 泳道看板：一条需求一张卡，列 = 状态机的合法状态。卡片可过滤、点 id 进详情。
+function 需求看板(数据) {
+    var 按状态 = {};
+    var i;
+    for (i = 0; i < 数据.length; i++) {
+        var 状态 = 数据[i]['状态'] || '（无状态）';
+        (按状态[状态] = 按状态[状态] || []).push(数据[i]);
+    }
+    var 列们 = 泳道状态.slice();
+    var 键们 = Object.keys(按状态);
+    for (i = 0; i < 键们.length; i++) {
+        if (列们.indexOf(键们[i]) < 0) { 列们.push(键们[i]); }
+    }
+    var 文本 = '<div class="泳道排">';
+    for (i = 0; i < 列们.length; i++) {
+        var 卡们 = 按状态[列们[i]] || [];
+        文本 += '<div class="泳道"><div class="泳题">' + 转义(列们[i]) +
+            '<span class="右">' + 卡们.length + '</span></div>';
+        for (var k = 0; k < 卡们.length; k++) {
+            var 卡 = 卡们[k];
+            文本 += '<div class="泳卡 可滤" onclick="看详情(\'' + 转义(卡['id']) + '\')" title="点开详情">' +
+                '<div class="泳卡头"><span class="等宽">' + 转义(卡['id']) + '</span>' +
+                (卡['锁定'] ? 态('已锁', '黄') : '') + '</div>' +
+                '<div class="泳卡题">' + 转义(卡['标题'] || '（无标题）') + '</div>' +
+                '<div class="泳卡脚">' + 态(卡['类型'] || '—', '灰') +
+                (卡['专项'] ? ' ' + 态(卡['专项'], '紫') : '') + '</div></div>';
+        }
+        if (卡们.length === 0) { 文本 += '<div class="泳空">—</div>'; }
+        文本 += '</div>';
+    }
+    return 文本 + '</div>';
+}
+
+function 需求表格(数据) {
+    return 表格('', [
         'id', '标题', '类型', '状态', '专项', '锁定'
     ], 数据, function (行) {
         return {
             格: [
-                行['id'], 行['标题'], 行['类型'],
+                原样('<a href="#/detail" onclick="看详情(\'' + 转义(行['id']) + '\')" ' +
+                    'style="color:var(--主);text-decoration:none;">' + 转义(行['id']) + '</a>'),
+                行['标题'], 行['类型'],
                 原样(态(行['状态'] || '—', 状态色(行['状态']))),
                 行['专项'],
                 原样(行['锁定'] ? 态('已锁', '黄') : '<span class="弱">否</span>')
             ]
         };
     });
+}
+
+function 切需求池视图() {
+    存('需求池.视图', 取('需求池.视图') !== '表格' ? '表格' : '看板');
+    刷新();
+}
+
+// ── 建需求表单 ──
+// 提交走 pool.draft：落一份收件箱信封并立刻跑一轮入站，拒收理由原样回显。
+// 分类型附加字段跟着 schema 的分类型必填走：系统→目标/玩法，修改→现状/期望，缺陷→复现步骤/期望/实际。
+
+function 建需求表单() {
+    return '<div class="板"><div class="板题">建需求' +
+        '<span class="右"><button class="钮 细" onclick="开合建单()" id="建单钮">展开</button></span></div>' +
+        '<div id="建单体" style="display:none;">' +
+        '<div class="表单排"><label>标题 *<input class="输" id="建_标题"></label>' +
+        '<label>类型 *<select class="输" id="建_类型" onchange="建单切类型()">' +
+        '<option value="系统">系统</option><option value="修改">修改</option><option value="缺陷">缺陷</option>' +
+        '</select></label><label>专项<input class="输" id="建_专项" placeholder="EP-0001，可空"></label></div>' +
+        '<div class="表单排"><label style="flex:1;">描述<textarea class="输" id="建_描述" rows="2"></textarea></label></div>' +
+        '<div class="表单排" data-类型组="系统"><label>目标 *<input class="输" id="建_目标"></label>' +
+        '<label>玩法 *<input class="输" id="建_玩法"></label></div>' +
+        '<div class="表单排" data-类型组="修改" style="display:none;"><label>现状 *<input class="输" id="建_现状"></label>' +
+        '<label>期望 *<input class="输" id="建_期望"></label></div>' +
+        '<div class="表单排" data-类型组="缺陷" style="display:none;"><label>复现步骤 *<input class="输" id="建_复现步骤"></label>' +
+        '<label>期望 *<input class="输" id="建_缺陷期望"></label><label>实际 *<input class="输" id="建_实际"></label></div>' +
+        '<div class="表单排"><label style="flex:1;">验收标准 *（一行一条，每条要能勾）' +
+        '<textarea class="输" id="建_验收" rows="3" placeholder="例：主界面能打开背包\n例：背包里能看到全部道具"></textarea></label></div>' +
+        '<div class="表单排"><button class="钮 主" onclick="提交建需求()">建进池子</button>' +
+        '<span class="弱 小字">提交人用页头的操作人；建完立刻跑一轮入站，拒收理由会显示在这里。</span></div>' +
+        '<div id="建单结果" class="小字"></div>' +
+        '</div></div>';
+}
+
+function 开合建单() {
+    var 体 = 元素('建单体');
+    var 开 = 体.style.display === 'none';
+    体.style.display = 开 ? '' : 'none';
+    元素('建单钮').textContent = 开 ? '收起' : '展开';
+}
+
+function 建单切类型() {
+    var 类型 = 元素('建_类型').value;
+    var 组们 = 内容区.querySelectorAll('[data-类型组]');
+    for (var i = 0; i < 组们.length; i++) {
+        组们[i].style.display = 组们[i].getAttribute('data-类型组') === 类型 ? '' : 'none';
+    }
+}
+
+function 提交建需求() {
+    var 值 = function (id) { var 节 = document.getElementById(id); return 节 ? 节.value.trim() : ''; };
+    var 标题 = 值('建_标题');
+    var 类型 = 值('建_类型');
+    var 验收 = 值('建_验收');
+    if (!标题 || !验收) {
+        吐司('标题与验收标准是必填的', false);
+        return;
+    }
+    var 参数 = {
+        Title: 标题, Kind: 类型, Description: 值('建_描述'),
+        AcceptanceCriteria: 验收, Epic: 值('建_专项'),
+        Submitter: (元素('操作人').value || '').trim()
+    };
+    if (类型 === '系统') { 参数.Goal = 值('建_目标'); 参数.Gameplay = 值('建_玩法'); }
+    if (类型 === '修改') { 参数.Current = 值('建_现状'); 参数.Expected = 值('建_期望'); }
+    if (类型 === '缺陷') { 参数.ReproSteps = 值('建_复现步骤'); 参数.Expected = 值('建_缺陷期望'); 参数.Actual = 值('建_实际'); }
+    var 结果区 = 元素('建单结果');
+    结果区.textContent = '提交中…';
+    发命令JSON('pool.draft', 参数, function (结果) {
+        if (结果.成功) {
+            结果区.textContent = '';
+            吐司('建进池子了', true);
+            刷新();
+        } else {
+            结果区.textContent = 结果.文本;
+            吐司('没建成，看表单下面的原因', false);
+        }
+    });
+}
+
+// 发结构化命令：走 /cmd 的 JSON 参数通道（多行文本进不了命令行，只能走这条）。
+function 发命令JSON(命令名, 参数, 回调) {
+    fetch('/cmd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({ '命令': 命令名, '参数': 参数 })
+    }).then(function (响应) { return 响应.json(); }).then(function (结果) {
+        if (!结果['允许']) {
+            回调({ 成功: false, 文本: '被白名单拒绝：' + 结果['原因'] });
+            return;
+        }
+        回调({ 成功: 结果['退出码'] === 0, 文本: 结果['输出'] || '' });
+    }).catch(function (错误) {
+        回调({ 成功: false, 文本: '请求失败：' + 错误.message });
+    });
+}
+
+// ── 详情页 ──
+
+function 看详情(需求id) {
+    存('详情.需求id', 需求id);
+    去('详情');
+}
+
+function 渲染详情(忽略, 完成) {
+    var 需求id = 取('详情.需求id') || '';
+    var 头 = '<div class="板"><div class="板题">选一个需求</div>' +
+        '<div style="display:flex;gap:8px;align-items:center;">' +
+        '<input class="输" id="详情id输入" placeholder="需求 id，例如 REQ-0042" style="width:230px;" value="' + 转义(需求id) + '">' +
+        '<button class="钮 主" onclick="查详情()">看详情</button>' +
+        '<span class="弱 小字">从需求池或任务页点 id 也能跳过来。</span></div></div>';
+    if (!需求id) {
+        内容区.innerHTML = 头 + 空态('先填一个需求 id', '详情一次只看一个需求：阶段轴、验收标准、任务状态与工作项。');
+        完成();
+        return;
+    }
+    拉('/api/panel/taskdetail?id=' + encodeURIComponent(需求id)).then(function (数据) {
+        内容区.innerHTML = 头 + 详情正文(数据);
+        完成();
+        应用过滤();
+    }).catch(function (错误) {
+        内容区.innerHTML = 头 + 错态('这个需求的详情读不出来', 错误.message);
+        完成();
+    });
+}
+
+function 查详情() {
+    var 值 = 元素('详情id输入').value.trim();
+    if (!值) { 吐司('先填需求 id', false); return; }
+    存('详情.需求id', 值);
+    刷新();
+}
+
+function 详情正文(数据) {
+    var 文本 = '';
+    // 阶段轴：状态机顺序里高亮当前状态；已作废单独标红。
+    var 状态 = 数据['状态'] || '';
+    var 轴 = '<div class="板"><div class="板题">' + 转义(数据['id'] || '') +
+        '<span class="右">' + (数据['锁定'] ? 态('已锁', '黄') : '') + '</span></div>' +
+        '<div class="详题">' + 转义(数据['标题'] || '（无标题）') + '</div><div class="阶段轴">';
+    var 主线 = 泳道状态.slice(0, 5);
+    var 到过 = true;
+    for (var i = 0; i < 主线.length; i++) {
+        var 当前 = 主线[i] === 状态;
+        if (当前) { 到过 = false; }
+        轴 += '<span class="阶 ' + (当前 ? '今' : (到过 ? 'past' : '')) + '">' + 转义(主线[i]) + '</span>';
+        if (i < 主线.length - 1) { 轴 += '<i class="阶线"></i>'; }
+    }
+    if (状态 === '已作废') { 轴 += ' ' + 态('已作废', '红'); }
+    轴 += '</div><div class="小字 次">类型 ' + 转义(数据['类型'] || '—') +
+        '　专项 ' + 转义(数据['专项'] || '—') + '　描述：' + 转义(数据['描述'] || '—') + '</div></div>';
+    文本 += 轴;
+
+    var 标准 = 数据['验收标准'] || [];
+    var 单 = '<div class="板"><div class="板题">验收标准<span class="右">' + 标准.length + ' 条</span></div><ol class="验单">';
+    for (var k = 0; k < 标准.length; k++) { 单 += '<li>' + 转义(标准[k]) + '</li>'; }
+    单 += '</ol></div>';
+    文本 += 标准.length > 0 ? 单 : '';
+
+    if (数据['有任务']) {
+        文本 += '<div class="格 自适应" style="margin-bottom:16px;">' +
+            指标(数据['阶段'] || '—', '阶段', { 边: '蓝' }) +
+            指标(数据['子状态'] || '—', '子状态') +
+            指标(数据['停在关卡'] || '—', '停在关卡', { 边: 数据['停在关卡'] ? '黄' : '', 色: 数据['停在关卡'] ? '黄' : '' }) +
+            指标(数据['当前工作项'] || '—', '当前工作项') +
+            '</div>';
+        var 项们 = 数据['工作项'] || [];
+        文本 += 表格('工作项', ['名称', '状态'], 项们, function (行) {
+            return { 格: [行['名称'], 原样(态(行['状态'] || '—', 状态色(行['状态'])))] };
+        }, { 空题: '还没有工作项', 空说: '方案阶段过了才会拆出工作项。' });
+        文本 += '<div class="小字 次" style="margin-top:8px;">' +
+            '<a href="#/dag" onclick="看图(\'' + 转义(数据['id']) + '\')" style="color:var(--主);">看它的工作项依赖图 →</a></div>';
+    } else {
+        文本 += 提示态('还没进任务', '这个需求还没被引擎接走（_Tasks/ 下没有它的目录）。要先由确认人拨到「已确认」并进队列。');
+    }
+    return 文本;
 }
 
 // 状态染色：只认得出的几个染色，认不出的一律灰。
@@ -1312,16 +1568,21 @@ function 渲染放行流水(数据) {
     }, { 脚: '标红的行是抽查发现了问题的；灰的是还没抽查——那不是错。' });
 }
 
+// 抽查改成行内两个按钮：结论只有两个合法值，弹窗让人手打字符串纯属考验记性。
 function 抽查(按钮) {
     var 流水id = 按钮.getAttribute('data-流水');
-    var 结论 = window.prompt('抽查结论（合格 / 发现问题）：', '');
-    if (!结论) { return; }
-    if (结论 !== '合格' && 结论 !== '发现问题') {
-        吐司('抽查结论必须是「合格」或「发现问题」', false);
-        return;
-    }
-    发命令('task.spotcheck --RepositoryRoot . --PoolRoot Pools --LedgerIdentifier ' + 流水id +
-        ' --Conclusion ' + 结论);
+    var 格 = 按钮.parentNode;
+    格.innerHTML = '<button class="钮 细" onclick="抽查定(\'' + 转义(流水id) + '\',\'合格\')">合格</button> ' +
+        '<button class="钮 细 危" onclick="抽查定(\'' + 转义(流水id) + '\',\'发现问题\')">发现问题</button>';
+}
+
+function 抽查定(流水id, 结论) {
+    发命令JSON('task.spotcheck', {
+        RepositoryRoot: '.', PoolRoot: 'Pools', LedgerIdentifier: 流水id, Conclusion: 结论
+    }, function (结果) {
+        吐司(结果.成功 ? ('抽查已记：' + 结论) : ('抽查没记上：' + 结果.文本.substring(0, 120)), 结果.成功);
+        刷新();
+    });
 }
 
 // ── 治理与规范三页 ──
@@ -1780,6 +2041,7 @@ function 启动() {
     元素('自刷选').value = 自刷;
     应用自刷(自刷);
     元素('自刷选').onchange = function () { 应用自刷(this.value); };
+    元素('工作台选').value = 当前工作台();
     元素('主题钮').onclick = 切主题;
     元素('刷新钮').onclick = 刷新;
     元素('搜索框').oninput = 应用过滤;
