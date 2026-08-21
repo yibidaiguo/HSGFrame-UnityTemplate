@@ -147,17 +147,17 @@ namespace Template.Toolkit.CodeGen.Tests
 
                 var schemaDirectory = Path.Combine(TemplateRoot, "Config", "Schema");
                 Directory.CreateDirectory(schemaDirectory);
-                File.WriteAllText(Path.Combine(schemaDirectory, "背包.schema.json"), BagSchemaJson);
-                File.WriteAllText(Path.Combine(schemaDirectory, "技能.schema.json"), SkillSchemaJson);
-                File.WriteAllText(Path.Combine(schemaDirectory, "怪物.schema.json"), MonsterSchemaJson);
+                File.WriteAllText(Path.Combine(schemaDirectory, "Bag.schema.json"), BagSchemaJson);
+                File.WriteAllText(Path.Combine(schemaDirectory, "Skill.schema.json"), SkillSchemaJson);
+                File.WriteAllText(Path.Combine(schemaDirectory, "Monster.schema.json"), MonsterSchemaJson);
 
                 Configuration = new CodeGenerationConfiguration
                 {
                     Targets = new List<CodeGenerationTarget>
                     {
-                        new CodeGenerationTarget { TargetName = "背包表访问代码", TargetKind = "TableAccess", InputPath = "Config/Schema/背包.schema.json", OutputPath = "Generated/BagTable.cs" },
-                        new CodeGenerationTarget { TargetName = "技能表访问代码", TargetKind = "TableAccess", InputPath = "Config/Schema/技能.schema.json", OutputPath = "Generated/SkillTable.cs" },
-                        new CodeGenerationTarget { TargetName = "怪物表访问代码", TargetKind = "TableAccess", InputPath = "Config/Schema/怪物.schema.json", OutputPath = "Generated/MonsterTable.cs" },
+                        new CodeGenerationTarget { TargetName = "背包表访问代码", TargetKind = "TableAccess", InputPath = "Config/Schema/Bag.schema.json", OutputPath = "Generated/BagTable.cs" },
+                        new CodeGenerationTarget { TargetName = "技能表访问代码", TargetKind = "TableAccess", InputPath = "Config/Schema/Skill.schema.json", OutputPath = "Generated/SkillTable.cs" },
+                        new CodeGenerationTarget { TargetName = "怪物表访问代码", TargetKind = "TableAccess", InputPath = "Config/Schema/Monster.schema.json", OutputPath = "Generated/MonsterTable.cs" },
                     },
                 };
             }

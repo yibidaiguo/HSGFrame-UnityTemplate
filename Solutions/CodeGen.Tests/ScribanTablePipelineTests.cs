@@ -23,7 +23,7 @@ namespace Template.Toolkit.CodeGen.Tests
         {
             ITablePipeline pipeline = new ScribanTablePipeline(FindTemplateRoot());
 
-            var result = pipeline.Validate("背包");
+            var result = pipeline.Validate("Bag");
 
             Assert.True(result.IsSuccess, result.Message);
         }
@@ -33,7 +33,7 @@ namespace Template.Toolkit.CodeGen.Tests
         {
             ITablePipeline pipeline = new ScribanTablePipeline(FindTemplateRoot());
 
-            var writtenPaths = pipeline.GenerateAccessCode("背包");
+            var writtenPaths = pipeline.GenerateAccessCode("Bag");
 
             Assert.Single(writtenPaths);
             Assert.Contains("BagTable.cs", writtenPaths[0]);
@@ -52,7 +52,7 @@ namespace Template.Toolkit.CodeGen.Tests
         {
             ITablePipeline pipeline = new ScribanTablePipeline(FindTemplateRoot());
 
-            var exported = pipeline.ExportRuntimeData("背包");
+            var exported = pipeline.ExportRuntimeData("Bag");
 
             Assert.Single(exported);
             Assert.True(File.Exists(exported[0]), $"运行时数据文件不存在：{exported[0]}");

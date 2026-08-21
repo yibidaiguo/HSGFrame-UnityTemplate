@@ -1,8 +1,8 @@
 {
   "definitions": [
-    { "indexName": "技能索引",  "sourceRoot": "Config/Mirror", "filePattern": "*.json",   "outputPath": "Index/技能索引.json" },
-    { "indexName": "模型索引",  "sourceRoot": "UnityProject/Assets", "filePattern": "*.fbx", "outputPath": "Index/模型索引.json" },
-    { "indexName": "Prefab索引", "sourceRoot": "UnityProject/Assets", "filePattern": "*.prefab", "outputPath": "Index/Prefab索引.json" },
-    { "indexName": "场景索引",  "sourceRoot": "UnityProject/Assets", "filePattern": "*.unity", "outputPath": "Index/场景索引.json" }
+    { "indexName": "技能索引",  "sourceRoot": "Config/Mirror", "filePattern": "*.json",   "outputPath": "Index/skill-index.json" },
+    { "indexName": "模型索引",  "sourceRoot": "UnityProject/Assets", "filePattern": "*.fbx", "outputPath": "Index/model-index.json" },
+    { "indexName": "Prefab索引", "sourceRoot": "UnityProject/Assets", "filePattern": "*.prefab", "outputPath": "Index/prefab-index.json" },
+    { "indexName": "场景索引",  "sourceRoot": "UnityProject/Assets", "filePattern": "*.unity", "outputPath": "Index/scene-index.json" }
   ]
 }

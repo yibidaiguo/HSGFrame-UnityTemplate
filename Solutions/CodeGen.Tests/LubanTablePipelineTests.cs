@@ -60,7 +60,7 @@ namespace Template.Toolkit.CodeGen.Tests
             var luban = new LubanTablePipeline(FindTemplateRoot());
 
             // Validate 只读，直接比较完整结果。
-            Assert.Equal(scriban.Validate("背包").Message, luban.Validate("背包").Message);
+            Assert.Equal(scriban.Validate("Bag").Message, luban.Validate("Bag").Message);
 
             // Sync / Apply 会落盘（镜像 / xlsx），这里用一个不存在的表名触发失败分支，
             // 只比较两边失败消息一致，不碰真实 xlsx。
@@ -74,7 +74,7 @@ namespace Template.Toolkit.CodeGen.Tests
         {
             ITablePipeline pipeline = new LubanTablePipeline(FindTemplateRoot());
 
-            var writtenPaths = pipeline.GenerateAccessCode("背包");
+            var writtenPaths = pipeline.GenerateAccessCode("Bag");
 
             Assert.NotEmpty(writtenPaths);
             foreach (var path in writtenPaths)
@@ -90,7 +90,7 @@ namespace Template.Toolkit.CodeGen.Tests
         {
             ITablePipeline pipeline = new LubanTablePipeline(FindTemplateRoot());
 
-            var exported = pipeline.ExportRuntimeData("背包");
+            var exported = pipeline.ExportRuntimeData("Bag");
 
             Assert.Single(exported);
             Assert.True(File.Exists(exported[0]), $"运行时数据文件不存在：{exported[0]}");
@@ -103,7 +103,7 @@ namespace Template.Toolkit.CodeGen.Tests
         {
             ITablePipeline pipeline = new LubanTablePipeline(FindTemplateRoot());
 
-            var writtenPaths = pipeline.GenerateAccessCode("背包");
+            var writtenPaths = pipeline.GenerateAccessCode("Bag");
 
             var tablePath = writtenPaths.Single(path => path.EndsWith("TbBag.cs", StringComparison.Ordinal));
             var code = File.ReadAllText(tablePath);
@@ -140,7 +140,7 @@ namespace Template.Toolkit.CodeGen.Tests
 
                 var pipeline = new LubanTablePipeline(templateRoot);
 
-                var exception = Assert.Throws<InvalidOperationException>(() => pipeline.GenerateAccessCode("背包"));
+                var exception = Assert.Throws<InvalidOperationException>(() => pipeline.GenerateAccessCode("Bag"));
 
                 Assert.Contains("位置：", exception.Message);
                 Assert.Contains("原因：", exception.Message);

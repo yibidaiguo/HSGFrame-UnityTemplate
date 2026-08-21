@@ -13,7 +13,7 @@
       "lastWriteTimeUtcTicks": 639223512395714117
     },
     {
-      "relativePath": "Config/Mirror/怪物.json",
+      "relativePath": "Config/Mirror/Monster.json",
       "fileName": "怪物.json",
       "assetGuid": "",
       "fileHash": "415a68af6fa762e57c1d6efcc1ab474cd301bb574f30e1541e2ab4ae0fa6e582",
@@ -21,7 +21,7 @@
       "lastWriteTimeUtcTicks": 639223512395653220
     },
     {
-      "relativePath": "Config/Mirror/技能.json",
+      "relativePath": "Config/Mirror/Skill.json",
       "fileName": "技能.json",
       "assetGuid": "",
       "fileHash": "2ed7d73856ad9069978bc16f81bff2b52f79fbee7ad993e3ec2f3517a41c1105",
@@ -29,7 +29,7 @@
       "lastWriteTimeUtcTicks": 639223499593717462
     },
     {
-      "relativePath": "Config/Mirror/背包.json",
+      "relativePath": "Config/Mirror/Bag.json",
       "fileName": "背包.json",
       "assetGuid": "",
       "fileHash": "b649abc302665dac832a262ccd68283ace774667251230d9c9d676d1462d1249",

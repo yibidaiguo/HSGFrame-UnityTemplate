@@ -93,7 +93,11 @@ namespace Template.Toolkit.CodeGen
 
         private static void RenderTable(StringBuilder builder, TableSchema schema)
         {
-            var input = $"*rows@{schema.TableName}.json";
+            // 镜像文件名跟**标识名**走（Config/Mirror/Bag.json），不跟展示表名走。
+            // 两者从 d2b 批起分开：展示名是给人看的（schema 的 tableName，中文），
+            // 文件名要 ASCII（决策 1）。这里写错的表现是 Luban 报
+            // 「'TbBag' 的 input 文件或目录不存在」——不是编译错，是生成时才炸。
+            var input = $"*rows@{schema.TableIdentifierName}.json";
             var primaryKeys = schema.Fields.Where(field => field.IsPrimaryKey).ToList();
 
             if (primaryKeys.Count == 1)
