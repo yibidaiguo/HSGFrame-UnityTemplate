@@ -21,7 +21,7 @@
       "超时秒": 900
     },
     "tripo": {
-      "地址": "https://api.tripo3d.ai/v2/openapi",
+      "地址": "https://openapi.tripo3d.ai/v3",
       "超时秒": 600
     },
     "oaicompat": {
