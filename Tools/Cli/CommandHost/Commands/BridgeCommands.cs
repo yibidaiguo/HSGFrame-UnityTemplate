@@ -868,6 +868,71 @@ namespace Template.Toolkit.CommandHost.Commands
         public int Round { get; set; }
     }
 
+    /// <summary>下游写记录命令 bridge.push 的参数。</summary>
+    public sealed class BridgePushArguments
+    {
+        /// <summary>要调用的下游 driver 名，对应 Bridges/&lt;名&gt;/ 目录。</summary>
+        [Summary("要调用的下游 driver 名，对应 Bridges/<名>/ 目录")]
+        public string Driver { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>只算不写：列出每条记录将新建还是更新，不发任何写请求。默认 true——真写是写下游的工作区，默认不写。</summary>
+        [Summary("只算不写：列出每条记录将新建还是更新，不发任何写请求。默认 true，要真写显式传 false")]
+        [DefaultValue(true)]
+        public bool DryRun { get; set; }
+
+        /// <summary>子进程超时秒数。</summary>
+        [Summary("子进程超时秒数")]
+        [DefaultValue(120)]
+        public int TimeoutSeconds { get; set; }
+
+        /// <summary>要写的记录：JSON 数组字符串，形如 [{"id":"REQ-TEST-0001","标题":"…","锁定":true}, …]。</summary>
+        [Summary("要写的记录：JSON 数组字符串，形如 [{\"id\":\"REQ-TEST-0001\",\"锁定\":true}]")]
+        public string RecordsJson { get; set; }
+
+        /// <summary>幂等键字段名，按它先查后写（已存在更新、不存在新建）。</summary>
+        [Summary("幂等键字段名，按它先查后写（已存在更新、不存在新建）")]
+        [DefaultValue("id")]
+        public string IdempotencyKeyField { get; set; }
+    }
+
+    /// <summary>下游读记录命令 bridge.pull 的参数。</summary>
+    public sealed class BridgePullArguments
+    {
+        /// <summary>要调用的下游 driver 名，对应 Bridges/&lt;名&gt;/ 目录。</summary>
+        [Summary("要调用的下游 driver 名，对应 Bridges/<名>/ 目录")]
+        public string Driver { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>只算不写：打印将拉取的范围，不发任何请求之外的读操作。默认 true。</summary>
+        [Summary("只算不写：打印将拉取的范围。默认 true")]
+        [DefaultValue(true)]
+        public bool DryRun { get; set; }
+
+        /// <summary>子进程超时秒数。</summary>
+        [Summary("子进程超时秒数")]
+        [DefaultValue(120)]
+        public int TimeoutSeconds { get; set; }
+
+        /// <summary>上次的水位串（ISO 8601 时间），空串 = 全量拉（决策 65）。</summary>
+        [Summary("上次的水位串（ISO 8601 时间），空串 = 全量拉")]
+        [DefaultValue("")]
+        public string Watermark { get; set; }
+
+        /// <summary>入站信封落盘目录；空串时用 {RepositoryRoot}/Pools/Inbox。</summary>
+        [Summary("入站信封落盘目录；空串用 {RepositoryRoot}/Pools/Inbox")]
+        [DefaultValue("")]
+        public string OutputDirectory { get; set; }
+    }
+
     /// <summary>下游供给命令族：bridge.apply（真建表）、bridge.card（真发卡）等。</summary>
     public static class BridgeWriteCommands
     {
@@ -1044,6 +1109,197 @@ namespace Template.Toolkit.CommandHost.Commands
             return CommandResult.Success($"已发送一条选片卡，message_id={messageId}", new[] { $"message_id={messageId}" });
         }
 
+        /// <summary>
+        /// 下游写记录：按幂等键先查后写（已存在更新、不存在新建），真写「需求」表；
+        /// 干跑只列出每条将新建还是更新、不发任何写请求。
+        /// 真写是写下游的工作区，所以 DryRun 默认 true，要真写必须显式传 --dry-run false。
+        /// </summary>
+        /// <param name="arguments">写记录命令参数。</param>
+        [EditorCommand("bridge.push")]
+        [Summary("按幂等键把记录写进下游表（已存在更新、不存在新建）；默认干跑，--dry-run false 才真写")]
+        public static CommandResult Push(BridgePushArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            {
+                return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.RecordsJson))
+            {
+                return CommandResult.Failure("必须指定 --records-json：要写的记录（JSON 数组字符串）");
+            }
+
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            JsonElement recordsArray;
+            try
+            {
+                using var document = JsonDocument.Parse(arguments.RecordsJson);
+                recordsArray = document.RootElement.Clone();
+            }
+            catch (JsonException exception)
+            {
+                return CommandResult.Failure($"参数 RecordsJson 不是合法 JSON：{exception.Message}");
+            }
+
+            if (recordsArray.ValueKind != JsonValueKind.Array)
+            {
+                return CommandResult.Failure("参数 RecordsJson 必须是 JSON 数组，如 [{\"id\":\"REQ-TEST-0001\",\"锁定\":true}]");
+            }
+
+            var idempotencyKeyField = string.IsNullOrWhiteSpace(arguments.IdempotencyKeyField) ? "id" : arguments.IdempotencyKeyField;
+            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["干跑"] = arguments.DryRun,
+                ["记录"] = JsonNode.Parse(recordsArray.GetRawText()),
+                ["幂等键字段"] = idempotencyKeyField
+            });
+
+            var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "push", payload, arguments.TimeoutSeconds);
+            if (!result.Succeeded)
+            {
+                return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
+            }
+
+            var lines = new List<string>();
+            if (arguments.DryRun)
+            {
+                lines.Add("干跑：以下是每条记录的写入计划，没有发任何写请求");
+                foreach (var plan in ReadArray(result.Payload, "计划"))
+                {
+                    if (plan.ValueKind != JsonValueKind.Object)
+                    {
+                        continue;
+                    }
+
+                    var fieldsJson = plan.TryGetProperty("要写的字段", out var fieldsNode) ? fieldsNode.GetRawText() : "{}";
+                    lines.Add($"{ReadString(plan, "id")} → {ReadString(plan, "动作")}（要写的字段：{fieldsJson}）");
+                }
+
+                return CommandResult.Success($"干跑完成，计划 {ReadArray(result.Payload, "计划").Count} 条", lines);
+            }
+
+            foreach (var item in ReadArray(result.Payload, "新建"))
+            {
+                if (item.ValueKind == JsonValueKind.Object)
+                {
+                    lines.Add($"新建：{ReadString(item, "id")}（record_id={ReadString(item, "record_id")}）");
+                }
+            }
+
+            foreach (var item in ReadArray(result.Payload, "更新"))
+            {
+                if (item.ValueKind == JsonValueKind.Object)
+                {
+                    lines.Add($"更新：{ReadString(item, "id")}（record_id={ReadString(item, "record_id")}）");
+                }
+            }
+
+            foreach (var item in ReadArray(result.Payload, "跳过"))
+            {
+                if (item.ValueKind == JsonValueKind.Object)
+                {
+                    lines.Add($"跳过：{ReadString(item, "id")}（{ReadString(item, "原因")}）");
+                }
+            }
+
+            return CommandResult.Success(
+                $"push 完成：新建 {ReadArray(result.Payload, "新建").Count} 条、更新 {ReadArray(result.Payload, "更新").Count} 条、跳过 {ReadArray(result.Payload, "跳过").Count} 条",
+                lines);
+        }
+
+        /// <summary>
+        /// 下游读记录：把「需求」表记录读成入站信封落盘（只读，一个写请求都不发）；
+        /// 干跑只打印将拉取的范围。水位为空 = 全量拉（决策 65）。
+        /// </summary>
+        /// <param name="arguments">读记录命令参数。</param>
+        [EditorCommand("bridge.pull")]
+        [Summary("把下游表记录读成入站信封落盘（只读）；默认干跑打印拉取范围")]
+        public static CommandResult Pull(BridgePullArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            {
+                return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
+            }
+
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            var outputDirectory = string.IsNullOrWhiteSpace(arguments.OutputDirectory)
+                ? Path.Combine(repositoryRoot, "Pools", "Inbox")
+                : Path.GetFullPath(arguments.OutputDirectory);
+
+            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["干跑"] = arguments.DryRun,
+                ["水位"] = arguments.Watermark ?? "",
+                ["输出目录"] = outputDirectory
+            });
+
+            var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "pull", payload, arguments.TimeoutSeconds);
+            if (!result.Succeeded)
+            {
+                return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
+            }
+
+            if (arguments.DryRun)
+            {
+                var lines = new List<string>
+                {
+                    "干跑：以下是将拉取的范围，没有落盘任何文件",
+                    $"表名：{ReadString(result.Payload, "表名")}",
+                    $"水位：{ReadString(result.Payload, "水位")}",
+                    $"将拉到：{ReadInt(result.Payload, "将拉到")} 条",
+                    $"表字段：{string.Join("、", ReadStringArray(result.Payload, "表字段"))}"
+                };
+                return CommandResult.Success("干跑完成，未落盘任何文件", lines);
+            }
+
+            var landed = ReadArray(result.Payload, "落盘");
+            var lines2 = new List<string>
+            {
+                $"拉到 {ReadInt(result.Payload, "拉到")} 条，落盘 {landed.Count} 个文件"
+            };
+            foreach (var path in landed)
+            {
+                if (path.ValueKind == JsonValueKind.String)
+                {
+                    lines2.Add("  " + path.GetString());
+                }
+            }
+
+            var newWatermark = ReadString(result.Payload, "新水位");
+            if (newWatermark.Length > 0)
+            {
+                lines2.Add($"新水位：{newWatermark}");
+            }
+
+            foreach (var skipped in ReadArray(result.Payload, "跳过的"))
+            {
+                if (skipped.ValueKind == JsonValueKind.String)
+                {
+                    lines2.Add("跳过：" + skipped.GetString());
+                }
+            }
+
+            return CommandResult.Success($"pull 完成：拉到 {ReadInt(result.Payload, "拉到")} 条", lines2);
+        }
+
         /// <summary>读响应载荷里数组键的值；缺失或类型不对给空列表。</summary>
         private static List<JsonElement> ReadArray(JsonElement element, string propertyName)
         {
@@ -1055,6 +1311,26 @@ namespace Template.Toolkit.CommandHost.Commands
                 foreach (var item in value.EnumerateArray())
                 {
                     values.Add(item.Clone());
+                }
+            }
+
+            return values;
+        }
+
+        /// <summary>读响应载荷里字符串数组键的值；缺失或类型不对给空列表。</summary>
+        private static List<string> ReadStringArray(JsonElement element, string propertyName)
+        {
+            var values = new List<string>();
+            if (element.ValueKind == JsonValueKind.Object
+                && element.TryGetProperty(propertyName, out var value)
+                && value.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in value.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.String)
+                    {
+                        values.Add(item.GetString() ?? "");
+                    }
                 }
             }
 

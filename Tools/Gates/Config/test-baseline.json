@@ -49,6 +49,7 @@
     "Solutions/CreationPipeline.Tests/EpicClaimWriterTests.cs": "36c9f8da13f1327c460c37267d0632281b1e73a5a20ea4e8ca11680c53ce39aa",
     "Solutions/CreationPipeline.Tests/ExecutionQueueTests.cs": "21eaeac13e3c730aa207c4fc81c853706c001967f8960a637e9a742fad504036",
     "Solutions/CreationPipeline.Tests/FeishuFieldTypeTests.cs": "ef1bfecff9831e588d0a8e7593c71f8f4542990d30680072b33ddbfc5c969171",
+    "Solutions/CreationPipeline.Tests/FeishuRecordMapTests.cs": "d017cd31a0cd776c85b576c784d91b507dcc39d6702dd7b9062bae8e84eb74af",
     "Solutions/CreationPipeline.Tests/IdentifierAllocatorTests.cs": "71b3a55ea19876faa1c08fcd2eca43a3d67d947438ceb033ac8c2eababc08972",
     "Solutions/CreationPipeline.Tests/ImpactAssessTests.cs": "312b6cb7ab81097fb80cc5b725e5afa04f1654ccfa377ee80f4c7a4a109e6039",
     "Solutions/CreationPipeline.Tests/InboxEnvelopeTests.cs": "41a9dee04dc1d3c0dc193938e0f0e0764983133d79bf323e444e47e33111e509",
