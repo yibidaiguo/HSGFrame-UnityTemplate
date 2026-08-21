@@ -115,6 +115,12 @@
 | P7 批次 1 离风格报告 | [P7-batch1-style-deviation.md](creation-pipeline-batch-logs/P7-batch1-style-deviation.md) |
 | P7 批次 2 面板审查与规范页 | [P7-batch2-dashboard-review-and-specs.md](creation-pipeline-batch-logs/P7-batch2-dashboard-review-and-specs.md) |
 | P7 批次 3 面板收尾 | [P7-batch3-dashboard-finish.md](creation-pipeline-batch-logs/P7-batch3-dashboard-finish.md) |
+| 需求文档同步 A 批 需求目录化 | [REQDOC-batchA-requirement-directory.md](creation-pipeline-batch-logs/REQDOC-batchA-requirement-directory.md) |
+| 需求文档同步 B 批 规范与渲染 | [REQDOC-batchB-doc-spec-and-render.md](creation-pipeline-batch-logs/REQDOC-batchB-doc-spec-and-render.md) |
+
+> P8 各批的日志索引在 [创作管线P8计划](creation-pipeline-p8-plan.md) 末尾那张表里。
+> 「需求文档与任务同步」这件事的设计审查见
+> [主文档](requirement-doc-and-task-sync-design.md) 与 [形状细节](requirement-doc-and-task-sync-shapes.md)。
 
 ## 六、P8 之后：那六项现在各是什么状态
 

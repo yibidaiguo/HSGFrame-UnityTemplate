@@ -71,6 +71,20 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(repositoryRoot, "Specifications", "Business", moduleName, "release-policy.json");
         }
 
+        /// <summary>基线需求文档规范：Specifications/Baseline/requirement-doc.baseline.md。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static string BaselineRequirementDocumentFile(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "Specifications", "Baseline", "requirement-doc.baseline.md");
+        }
+
+        /// <summary>项目层需求文档规范追加项：Specifications/Project/requirement-doc.json。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static string ProjectRequirementDocumentFile(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "Specifications", "Project", "requirement-doc.json");
+        }
+
         /// <summary>检查器草案目录：Proposals/Checkers。</summary>
         public static string CheckerDraftDirectory(string repositoryRoot)
         {

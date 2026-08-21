@@ -177,6 +177,11 @@ if ((Invoke-GateCommand -CommandName 'schema.check' -CommandArguments @{ PoolRoo
     $failedGateNames += '扩展合法性'
 }
 
+Write-GateHeader '需求文档'
+if ((Invoke-GateCommand -CommandName 'gate.reqdoc' -CommandArguments @{ RepositoryRoot = $templateRoot; PoolRoot = (Join-Path $templateRoot 'Pools') }) -ne 0) {
+    $failedGateNames += '需求文档'
+}
+
 Write-GateHeader '供给对账'
 if ((Invoke-GateCommand -CommandName 'gate.provision' -CommandArguments @{ RepositoryRoot = $templateRoot; PoolRoot = (Join-Path $templateRoot 'Pools') }) -ne 0) {
     $failedGateNames += '供给对账'
