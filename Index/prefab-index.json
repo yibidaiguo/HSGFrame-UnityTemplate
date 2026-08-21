@@ -1,56 +1,56 @@
 {
   "indexName": "Prefab索引",
   "sourceRoot": "UnityProject/Assets",
-  "sourceHash": "d1e0e08dd1a31b1d0a1c8f4922d3198f2fb1730afaae8aad9044e7444511aed3",
-  "generatedAtUtc": "2026-08-16T06:05:56Z",
+  "sourceHash": "dfda08156f403fecfbba118d07661a470a07087e5e5d80c75e95f3c94d0c8117",
+  "generatedAtUtc": "2026-08-21T15:59:07Z",
   "entries": [
     {
-      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_NPC.prefab",
-      "fileName": "P_NPC.prefab",
+      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_Interactable.prefab",
+      "fileName": "P_Interactable.prefab",
+      "assetGuid": "e09fbf9fa8cc8dc4fa0f6d2a48dd7f9b",
+      "fileHash": "7df086e6677d994520e34fc5ba1416f357150d6dd7320ff2e5d3f64993344e4b",
+      "fileLength": 4159,
+      "lastWriteTimeUtcTicks": 639228839384892824
+    },
+    {
+      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_Npc.prefab",
+      "fileName": "P_Npc.prefab",
       "assetGuid": "0e05f9a148f840940b655be37239041e",
-      "fileHash": "3f2632189252d32320a7dc2d18a7befaefa7845a44da202357518c1a8e36525f",
-      "fileLength": 1458,
-      "lastWriteTimeUtcTicks": 639223794127372648
+      "fileHash": "70d60f6075923a14d392ecbf6acfbb7ad39e5904a887019632ef9810688ccb0a",
+      "fileLength": 4112,
+      "lastWriteTimeUtcTicks": 639225121143320677
     },
     {
       "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_QuestItem.prefab",
       "fileName": "P_QuestItem.prefab",
       "assetGuid": "6160fab29d032fe4196d7911c127f461",
-      "fileHash": "c9639e231aeb19e64190b529cd368829b9a79879f34bfc2d195fb172061571b9",
-      "fileLength": 1525,
-      "lastWriteTimeUtcTicks": 639223794129074502
-    },
-    {
-      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_Teleporter.prefab",
-      "fileName": "P_Teleporter.prefab",
-      "assetGuid": "3bb0cc38f8f93364488840fc0d28047f",
-      "fileHash": "8131e77110f5fc7e76a387b27f30d17ae3868b61ff8bbac212362fdc4d29ae7b",
-      "fileLength": 1504,
-      "lastWriteTimeUtcTicks": 639223794128727887
+      "fileHash": "95ef4bcd9ec2321d8c818d2e1ee6e1cb7069fb271f72ad0075d17bdd9d448db1",
+      "fileLength": 4160,
+      "lastWriteTimeUtcTicks": 639228839384909449
     },
     {
       "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_SpawnPoint.prefab",
       "fileName": "P_SpawnPoint.prefab",
       "assetGuid": "ddc9422d82e0ca74596eaa1264d6400e",
-      "fileHash": "b8277b48d80a9367856f46421c6a7b5762da85df3e64baef83acbf12e1c87646",
-      "fileLength": 1507,
-      "lastWriteTimeUtcTicks": 639223794128012510
+      "fileHash": "27f29d46732b5955ae1ae57e2f9d5c32ad8779e39aee1381e4bc2694550083ab",
+      "fileLength": 4149,
+      "lastWriteTimeUtcTicks": 639228839384919493
     },
     {
-      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_Interactable.prefab",
-      "fileName": "P_Interactable.prefab",
-      "assetGuid": "e09fbf9fa8cc8dc4fa0f6d2a48dd7f9b",
-      "fileHash": "03d27d5cff42dd8b4ece08c9a271b84b5a3cdcf0e626f20593b0d24218abb648",
-      "fileLength": 1523,
-      "lastWriteTimeUtcTicks": 639223794128391671
+      "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_Teleporter.prefab",
+      "fileName": "P_Teleporter.prefab",
+      "assetGuid": "3bb0cc38f8f93364488840fc0d28047f",
+      "fileHash": "7351c2fcd2af011f177b2a7d69cc5114ee6a3b30d3aaa15dc3ffcb650dc02c2a",
+      "fileLength": 4148,
+      "lastWriteTimeUtcTicks": 639228839384929501
     },
     {
       "relativePath": "UnityProject/Assets/Game/ResourceArt/Level/P_Trigger.prefab",
       "fileName": "P_Trigger.prefab",
       "assetGuid": "6332c70aa59ce7f498f0e92bbf0e254c",
-      "fileHash": "88a65c6bff696276c9043e59bf876f6dd785719853565fe4f79b158951d587be",
-      "fileLength": 1505,
-      "lastWriteTimeUtcTicks": 639223794127708980
+      "fileHash": "00e0aa3d90362afdbee0f45656fbaa64d549b40ad02ada2e446083c88d9a4341",
+      "fileLength": 4148,
+      "lastWriteTimeUtcTicks": 639228839384939500
     }
   ]
 }

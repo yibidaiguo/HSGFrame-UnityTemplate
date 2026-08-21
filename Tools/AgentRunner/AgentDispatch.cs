@@ -260,11 +260,12 @@ namespace Template.Toolkit.AgentRunner
         public const string ToolProtocolText =
             "## 你的工具\n"
             + "你通过函数调用使用四个工具，全部以仓库根为基准：\n"
-            + "- read_file{path}：读文件（超长会截头留尾）。\n"
+            + "- read_file{path, start_line?, line_count?}：读文件；大文件按行号分段读，整读只会撞截断。\n"
             + "- write_file{path, content}：整份覆盖写；部分文件在写盘拒绝清单里，被拒了就写进回报，不要绕。\n"
             + "- list_directory{path}：列目录。\n"
-            + "- run_command{command}：跑白名单命令（dotnet test/build、git 只读、门禁脚本）；不在白名单的命令会被拒。\n"
-            + "干完活把最终回报作为纯文本消息返回（不再带工具调用）。回报的形状按你角色档案「返回什么」那节写。";
+            + "- run_command{command}：跑白名单命令（dotnet test/build、git 只读含 git grep、门禁脚本）；不在白名单的命令会被拒。\n"
+            + "干完活把最终回报作为纯文本消息返回（不再带工具调用）。回报的形状按你角色档案「返回什么」那节写；\n"
+            + "回报里不要有过程独白（「让我看看」「Let me…」这类），直接按形状输出。";
 
         private static AgentDispatchResult Failure(string reason)
         {

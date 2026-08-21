@@ -18,9 +18,9 @@ pipeline {
                 bat 'pwsh -NoProfile -File Tools/Gates/gate.ps1'
             }
         }
-        stage('Unity 真编译') {
+        stage('分钟级门禁') {
             steps {
-                bat 'pwsh -NoProfile -File Tools/Cli/unity-cmd.ps1 -ExecuteMethod Template.Toolkit.Editor.CompileCheckEntry.Run -TimeoutMinutes 40'
+                bat 'pwsh -NoProfile -File Tools/Gates/gate-unity.ps1 -TimeoutMinutes 40'
             }
         }
         // 需要 Unity：出 Windows 包。

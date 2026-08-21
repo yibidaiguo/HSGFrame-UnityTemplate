@@ -39,13 +39,15 @@ namespace Template.Toolkit.AgentRunner
         {
             var definitions = new JsonArray
             {
-                FunctionDefinition("read_file", "读一个仓库内文件的文本内容",
+                FunctionDefinition("read_file", "读一个仓库内文件的文本内容；大文件用 start_line/line_count 分段读，别整读",
                     new JsonObject
                     {
                         ["type"] = "object",
                         ["properties"] = new JsonObject
                         {
-                            ["path"] = new JsonObject { ["type"] = "string", ["description"] = "仓库相对路径，正斜杠" }
+                            ["path"] = new JsonObject { ["type"] = "string", ["description"] = "仓库相对路径，正斜杠" },
+                            ["start_line"] = new JsonObject { ["type"] = "integer", ["description"] = "起始行号（1 起），省略从头读" },
+                            ["line_count"] = new JsonObject { ["type"] = "integer", ["description"] = "最多读多少行，省略读到上限" }
                         },
                         ["required"] = new JsonArray { "path" }
                     })
@@ -113,7 +115,7 @@ namespace Template.Toolkit.AgentRunner
             switch (toolName)
             {
                 case "read_file":
-                    return ReadFile(ReadString(arguments, "path"));
+                    return ReadFile(ReadString(arguments, "path"), ReadInt(arguments, "start_line"), ReadInt(arguments, "line_count"));
                 case "write_file":
                     return AllowWrite
                         ? WriteFile(ReadString(arguments, "path"), ReadString(arguments, "content"))
@@ -127,9 +129,11 @@ namespace Template.Toolkit.AgentRunner
             }
         }
 
-        /// <summary>读文件；超出上限截头留尾并注明。</summary>
+        /// <summary>读文件；可按行号范围分段读（大文件整读只会撞截断，白费 token）；超出上限截头留尾并注明。</summary>
         /// <param name="relativePath">仓库相对路径。</param>
-        public string ReadFile(string relativePath)
+        /// <param name="startLine">起始行号（1 起）；0 或负数表示从头读。</param>
+        /// <param name="lineCount">最多读多少行；0 或负数表示不按行数限。</param>
+        public string ReadFile(string relativePath, int startLine = 0, int lineCount = 0)
         {
             if (!TryResolveInsideRepository(relativePath, out var fullPath, out var reason))
             {
@@ -144,7 +148,18 @@ namespace Template.Toolkit.AgentRunner
             string text;
             try
             {
-                text = File.ReadAllText(fullPath);
+                if (startLine > 0 || lineCount > 0)
+                {
+                    var lines = File.ReadAllLines(fullPath);
+                    var skip = Math.Max(0, startLine - 1);
+                    var take = lineCount > 0 ? lineCount : lines.Length;
+                    var slice = lines.Skip(skip).Take(take).ToArray();
+                    text = $"（第 {skip + 1} 行起，共 {slice.Length} 行，全文 {lines.Length} 行）\n" + string.Join("\n", slice);
+                }
+                else
+                {
+                    text = File.ReadAllText(fullPath);
+                }
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
             {
@@ -328,6 +343,14 @@ namespace Template.Toolkit.AgentRunner
                 && value.TryGetValue<string>(out var text)
                 ? text
                 : "";
+        }
+
+        private static int ReadInt(JsonObject arguments, string key)
+        {
+            return arguments.TryGetPropertyValue(key, out var node) && node is JsonValue value
+                && value.TryGetValue<int>(out var number)
+                ? number
+                : 0;
         }
 
         /// <summary>超长文本截头留尾：结论通常在尾部（测试结果、报错摘要都在最后几行）。</summary>

@@ -73,7 +73,59 @@ namespace Template.Toolkit.Gates
                 }
             }
 
+            foreach (var problem in CheckSolutionMembership(repositoryRoot))
+            {
+                findings.Add(new GateFinding(problem, "测试工程不在解决方案里（dotnet test 不会跑它，基线照绿是假绿）", FixActionText, ReferenceExamplePath));
+            }
+
             return findings;
+        }
+
+        /// <summary>
+        /// 对账 Solutions/ 下所有 *.Tests 工程是否都登记进解决方案。
+        /// Solutions/ 不存在、或里面没有 .sln 时返回空清单直接跳过——刚生成的项目和测试的合成目录
+        /// 都没有，跳过而不是报红（与 gate.whitelist 在没有 git 时的降级是同一个哲学）。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static List<string> CheckSolutionMembership(string repositoryRoot)
+        {
+            var problems = new List<string>();
+
+            var solutionsDir = Path.Combine(repositoryRoot, "Solutions");
+            if (!Directory.Exists(solutionsDir))
+            {
+                return problems;
+            }
+
+            var slnFile = Directory.EnumerateFiles(solutionsDir, "*.sln", SearchOption.TopDirectoryOnly)
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .FirstOrDefault();
+            if (slnFile == null)
+            {
+                return problems;
+            }
+
+            var slnText = File.ReadAllText(slnFile);
+
+            foreach (var testsDir in Directory.EnumerateDirectories(solutionsDir))
+            {
+                var directoryName = Path.GetFileName(testsDir);
+                if (!directoryName.EndsWith(".Tests", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                foreach (var csproj in Directory.EnumerateFiles(testsDir, "*.csproj", SearchOption.TopDirectoryOnly))
+                {
+                    var projectFileName = Path.GetFileName(csproj);
+                    if (slnText.IndexOf(projectFileName, StringComparison.Ordinal) < 0)
+                    {
+                        problems.Add($"测试工程不在解决方案里：{ToRepositoryRelative(repositoryRoot, csproj)}（dotnet test 不会跑它，基线照绿是假绿）");
+                    }
+                }
+            }
+
+            return problems;
         }
 
         private static Dictionary<string, string> ComputeCurrent(string repositoryRoot, GateConfiguration configuration)
@@ -136,19 +188,28 @@ namespace Template.Toolkit.Gates
         private static Regex GlobToRegex(string glob)
         {
             var builder = new System.Text.StringBuilder("^");
-            foreach (var character in glob)
+            var segments = glob.Split(new[] { "**" }, StringSplitOptions.None);
+            for (var segmentIndex = 0; segmentIndex < segments.Length; segmentIndex++)
             {
-                switch (character)
+                if (segmentIndex > 0)
                 {
-                    case '*':
-                        builder.Append("[^/]*");
-                        break;
-                    case '?':
-                        builder.Append("[^/]");
-                        break;
-                    default:
-                        builder.Append(Regex.Escape(character.ToString()));
-                        break;
+                    builder.Append(".*");
+                }
+
+                foreach (var character in segments[segmentIndex])
+                {
+                    switch (character)
+                    {
+                        case '*':
+                            builder.Append("[^/]*");
+                            break;
+                        case '?':
+                            builder.Append("[^/]");
+                            break;
+                        default:
+                            builder.Append(Regex.Escape(character.ToString()));
+                            break;
+                    }
                 }
             }
 

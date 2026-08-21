@@ -164,6 +164,27 @@ Invoke-Gate -GateName '文档长度' -CommandName 'gate.doc' -CommandArguments @
 Write-GateHeader '路径 ASCII'
 Invoke-Gate -GateName '路径 ASCII' -CommandName 'gate.pathascii' -CommandArguments @{ RepositoryRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 
+# 配置表校验：按 Config/Tables/*.xlsx 枚举逐表跑 config.validate（镜像 JSON 逐字段过 schema）。
+# 清单动态发现，策划加表不用改脚本；没有表就跳过（新生成的项目可能还没有配置表）。
+Write-GateHeader '配置表校验'
+$tableDirectory = Join-Path $templateRoot 'Config/Tables'
+$tableFiles = @()
+if (Test-Path $tableDirectory) {
+    $tableFiles = @(Get-ChildItem $tableDirectory -Filter '*.xlsx' | Where-Object { -not $_.Name.StartsWith('~') })
+}
+if ($tableFiles.Count -eq 0) {
+    Write-Host '[gate] 知会：Config/Tables 下没有配置表，跳过配置表校验'
+} else {
+    $tableValidateFailed = $false
+    foreach ($tableFile in $tableFiles) {
+        $tableName = [System.IO.Path]::GetFileNameWithoutExtension($tableFile.Name)
+        if ((Invoke-GateCommand -CommandName 'config.validate' -CommandArguments @{ TableName = $tableName; ConfigRoot = (Join-Path $templateRoot 'Config') }) -ne 0) {
+            $tableValidateFailed = $true
+        }
+    }
+    Register-GateResult -GateName '配置表校验' -Succeeded (-not $tableValidateFailed)
+}
+
 # 创作管线门禁：池子校验、扩展合法性、供给对账、下游边界、层边界五道。
 # 前两道管池子数据本身，供给对账管产物与数据的一致性，下游/层边界管引擎与产品层的耦合纪律。
 Write-GateHeader '池子校验'
@@ -254,7 +275,8 @@ if (Test-Path $agentSyncScript) {
 }
 
 # 逐道结果落报告：面板门禁页读这份文件。失败也要写——「红在哪一道」正是面板该显示的。
-$reportDirectory = Join-Path $templateRoot '_Generated'
+# 落在仓库根而不是模板根：面板按仓库根找报告，模板作宿主子目录时两个根不同，写错边面板恒显「未跑」。
+$reportDirectory = Join-Path $RepositoryRoot '_Generated'
 New-Item -ItemType Directory -Force -Path $reportDirectory | Out-Null
 $reportEntries = @()
 foreach ($gateName in $gateResults.Keys) {

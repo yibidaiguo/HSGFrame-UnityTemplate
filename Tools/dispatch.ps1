@@ -40,6 +40,18 @@ if (-not (Test-Path $TaskFile)) {
     exit 2
 }
 
+# 命令宿主从影子拷贝里跑，不占仓库 bin：派活一跑几分钟，期间执行端自己还要
+# dotnet build / dotnet test——宿主锁着 bin 的话，它跑的每次编译都会撞 MSB3027。
+$commandHostProject = Join-Path $repositoryRoot 'Tools/Cli/CommandHost/CommandHost.csproj'
+$binDirectory = Join-Path $repositoryRoot 'Tools/Cli/CommandHost/bin/Debug/net8.0'
+if (-not (Test-Path (Join-Path $binDirectory 'Toolkit.CommandHost.dll'))) {
+    dotnet build $commandHostProject -v q --nologo | Out-Null
+    if ($LASTEXITCODE -ne 0) { Write-Error '命令宿主编译失败'; exit 1 }
+}
+$shadowDirectory = Join-Path $env:LOCALAPPDATA (Join-Path 'HSGFrameRun' (Join-Path (Split-Path -Leaf $repositoryRoot) 'dispatch'))
+robocopy $binDirectory $shadowDirectory /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
+if ($LASTEXITCODE -ge 8) { Write-Error "影子拷贝失败（robocopy 退出码 $LASTEXITCODE）"; exit 1 }
+
 $argumentsPath = Join-Path ([System.IO.Path]::GetTempPath()) ("agent-dispatch-{0}.json" -f $PID)
 [ordered]@{
     Role           = $Role
@@ -51,6 +63,5 @@ $argumentsPath = Join-Path ([System.IO.Path]::GetTempPath()) ("agent-dispatch-{0
     DryRun         = [bool]$DryRun
 } | ConvertTo-Json | Set-Content -Path $argumentsPath -Encoding utf8
 
-& dotnet run --project (Join-Path $repositoryRoot 'Tools/Cli/CommandHost/CommandHost.csproj') --verbosity quiet -- `
-    run agent.dispatch --arguments-file $argumentsPath
+& dotnet (Join-Path $shadowDirectory 'Toolkit.CommandHost.dll') run agent.dispatch --arguments-file $argumentsPath
 exit $LASTEXITCODE

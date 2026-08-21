@@ -20,15 +20,14 @@
     },
     {
       "名称": "夜间构建",
-      "说明": "十秒级门禁两步，再加一步 Unity 真编译",
+      "说明": "十秒级门禁两步，再加分钟级门禁（资产十道 + Unity 真编译 + EditMode + .meta）",
       "步骤": [
         { "名称": "dotnet build", "程序": "dotnet",
           "参数": ["build", "Solutions/Template.sln", "--nologo"], "需要Unity": false },
         { "名称": "门禁脚本", "程序": "pwsh",
           "参数": ["-NoProfile", "-File", "Tools/Gates/gate.ps1"], "需要Unity": false },
-        { "名称": "Unity 真编译", "程序": "pwsh",
-          "参数": ["-NoProfile", "-File", "Tools/Cli/unity-cmd.ps1",
-            "-ExecuteMethod", "Template.Toolkit.Editor.CompileCheckEntry.Run",
+        { "名称": "分钟级门禁", "程序": "pwsh",
+          "参数": ["-NoProfile", "-File", "Tools/Gates/gate-unity.ps1",
             "-TimeoutMinutes", "40"], "需要Unity": true }
       ]
     },
@@ -40,9 +39,8 @@
           "参数": ["build", "Solutions/Template.sln", "--nologo"], "需要Unity": false },
         { "名称": "门禁脚本", "程序": "pwsh",
           "参数": ["-NoProfile", "-File", "Tools/Gates/gate.ps1"], "需要Unity": false },
-        { "名称": "Unity 真编译", "程序": "pwsh",
-          "参数": ["-NoProfile", "-File", "Tools/Cli/unity-cmd.ps1",
-            "-ExecuteMethod", "Template.Toolkit.Editor.CompileCheckEntry.Run",
+        { "名称": "分钟级门禁", "程序": "pwsh",
+          "参数": ["-NoProfile", "-File", "Tools/Gates/gate-unity.ps1",
             "-TimeoutMinutes", "40"], "需要Unity": true },
         { "名称": "出包", "程序": "pwsh",
           "参数": ["-NoProfile", "-File", "Tools/Cli/unity-cmd.ps1",

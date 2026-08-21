@@ -1,8 +1,8 @@
 {
   "indexName": "技能索引",
   "sourceRoot": "Config/Mirror",
-  "sourceHash": "92a9e4e2d3961e4c5c7a557e523a6436d23d2502ffd48a0c788fb069157c854f",
-  "generatedAtUtc": "2026-08-16T06:05:56Z",
+  "sourceHash": "5967e46e8046ce20e59e5d765a5339458f60cfb3e0008f1470d46bf169c90f97",
+  "generatedAtUtc": "2026-08-21T15:59:07Z",
   "entries": [
     {
       "relativePath": "Config/Mirror/.baseline.json",
@@ -13,8 +13,16 @@
       "lastWriteTimeUtcTicks": 639223512395714117
     },
     {
+      "relativePath": "Config/Mirror/Bag.json",
+      "fileName": "Bag.json",
+      "assetGuid": "",
+      "fileHash": "b649abc302665dac832a262ccd68283ace774667251230d9c9d676d1462d1249",
+      "fileLength": 11976,
+      "lastWriteTimeUtcTicks": 639223499563391801
+    },
+    {
       "relativePath": "Config/Mirror/Monster.json",
-      "fileName": "怪物.json",
+      "fileName": "Monster.json",
       "assetGuid": "",
       "fileHash": "415a68af6fa762e57c1d6efcc1ab474cd301bb574f30e1541e2ab4ae0fa6e582",
       "fileLength": 18150,
@@ -22,19 +30,11 @@
     },
     {
       "relativePath": "Config/Mirror/Skill.json",
-      "fileName": "技能.json",
+      "fileName": "Skill.json",
       "assetGuid": "",
       "fileHash": "2ed7d73856ad9069978bc16f81bff2b52f79fbee7ad993e3ec2f3517a41c1105",
       "fileLength": 20544,
       "lastWriteTimeUtcTicks": 639223499593717462
-    },
-    {
-      "relativePath": "Config/Mirror/Bag.json",
-      "fileName": "背包.json",
-      "assetGuid": "",
-      "fileHash": "b649abc302665dac832a262ccd68283ace774667251230d9c9d676d1462d1249",
-      "fileLength": 11976,
-      "lastWriteTimeUtcTicks": 639223499563391801
     }
   ]
 }

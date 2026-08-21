@@ -1,9 +1,11 @@
-// 夜间构建：十秒级门禁两步 + Unity 真编译，每日定时跑，耗时按分钟计。
+// 夜间构建：十秒级门禁两步 + 分钟级门禁（资产十道 + Unity 真编译 + EditMode 测试 + .meta 完整性）。
 // 触发时机：每晚定时（如凌晨），产出完整包并做冒烟。
 // 失败意味着：夜间编译或冒烟挂了，第二天早上必须有人处理，否则影响后续开发。
 //
 // 步骤与 Pipelines/pipelines.json 里的「夜间构建」逐条对应。
-// Unity 那一步要求编辑器没有占着同一个工程（Unity 会锁目录）。
+// gate-unity 那一步要求编辑器没有占着同一个工程（Unity 会锁目录）。
+// 铁律 4 说改到 Unity 侧十秒级的绿是假绿——CI 的兜底就是这一步：
+// 白天没人跑分钟级，夜里也必须有一次真跑 EditMode。
 
 pipeline {
     agent any
@@ -18,10 +20,10 @@ pipeline {
                 bat 'pwsh -NoProfile -File Tools/Gates/gate.ps1'
             }
         }
-        // 需要 Unity：batchmode 冷启动一次并确认工程编译通过。
-        stage('Unity 真编译') {
+        // 需要 Unity：资产门禁 + batchmode 冷启动真编译 + EditMode 测试 + .meta 完整性。
+        stage('分钟级门禁') {
             steps {
-                bat 'pwsh -NoProfile -File Tools/Cli/unity-cmd.ps1 -ExecuteMethod Template.Toolkit.Editor.CompileCheckEntry.Run -TimeoutMinutes 40'
+                bat 'pwsh -NoProfile -File Tools/Gates/gate-unity.ps1 -TimeoutMinutes 40'
             }
         }
     }
