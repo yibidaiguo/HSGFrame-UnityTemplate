@@ -85,6 +85,22 @@ namespace Template.Toolkit.AgentRunnerTests
             Assert.False(File.Exists(Path.Combine(_root, "a.txt")));
         }
 
+        /// <summary>按行号分段读：给起始行与行数就只回那一段，并注明段位与全文行数。</summary>
+        [Fact]
+        public void ReadFileSupportsLineRange()
+        {
+            var toolbox = new AgentToolbox(_root, MakePolicy(), allowWrite: true);
+            File.WriteAllLines(Path.Combine(_root, "lines.txt"), new[] { "one", "two", "three", "four", "five" });
+
+            var result = toolbox.ReadFile("lines.txt", startLine: 2, lineCount: 2);
+
+            Assert.Contains("第 2 行起", result);
+            Assert.Contains("全文 5 行", result);
+            Assert.Contains("two", result);
+            Assert.Contains("three", result);
+            Assert.DoesNotContain("four", result);
+        }
+
         /// <summary>命令白名单：不在前缀清单里的命令被拒且不执行。</summary>
         [Fact]
         public void CommandOutsideWhitelistIsRejected()

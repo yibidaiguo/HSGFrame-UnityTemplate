@@ -2,7 +2,7 @@
   "files": {
     "Solutions/AgentRunner.Tests/AgentDispatchTests.cs": "7f204aee9b01d749a76b2311dd9eb0620e109556ed1128ad43ebf381fb21dcd7",
     "Solutions/AgentRunner.Tests/AgentLoopTests.cs": "e1738dfc33aec91a19e3c3721d04ed7ad31d8a230e8df0990a8a049dbb50597e",
-    "Solutions/AgentRunner.Tests/AgentPolicyAndToolboxTests.cs": "31248a41478a490e8cf3118dc8a32e94ff9758ee1d3cc5a9c0370a8ca0093023",
+    "Solutions/AgentRunner.Tests/AgentPolicyAndToolboxTests.cs": "037a4b9b17b21f13f03a5c9b018cf0c7f436bf4af602566d486c2f65d9489b3e",
     "Solutions/AssetPipeline.Tests/AssetAtlasCheckerTests.cs": "a9380601e8ef2bca56b3d4ebb455e671d5e43b0ac931ddffce43f2c74dbcf152",
     "Solutions/AssetPipeline.Tests/AssetBundleGroupCheckerTests.cs": "0116c4321c45906a32e30882891bcfd4c7f04995cf3e9ddf39a243456cd0ecdc",
     "Solutions/AssetPipeline.Tests/AssetDependencyDirectionCheckerTests.cs": "53fa63fb072a57cfb3d28ab3dc8cae0c58e022fc0a895ac124e188960b2c52b4",
@@ -100,6 +100,7 @@
     "Solutions/CreationPipeline.Tests/SeedPassThroughTests.cs": "23f774ad66be4753a90f6c09edfb5e9781b179c00ff25e4d22d5139776721f47",
     "Solutions/CreationPipeline.Tests/SelectionCardBuilderTests.cs": "83597a80f74f09c31d25f9b934520966dd243866d53801581dff5acfcfebbc38",
     "Solutions/CreationPipeline.Tests/SemanticConflictTests.cs": "c1ef4c0f7fa286793e41eb817e2dd96534df72911216fc5d7731018e1b0bd22d",
+    "Solutions/CreationPipeline.Tests/SetupInspectorTests.cs": "86e2a390dcc75892c1887f9d80e537b46edcedbd0357894941577c6dc93a4c88",
     "Solutions/CreationPipeline.Tests/SingleInstanceLockTests.cs": "d2d437e0e26b84654cbff9acd1d386fad1b17516544d0b34aa3e5b214f589dd1",
     "Solutions/CreationPipeline.Tests/SpotCheckSelectorTests.cs": "4109231a645dd1c830ccaf5633807fa50fababb7f7463abf0155dff00ea73cc0",
     "Solutions/CreationPipeline.Tests/StyleDeviationReportTests.cs": "9117d347b583848ae180c6d3418b9a89089549945bb3e72c7500449c5eb19dc5",
@@ -148,7 +149,7 @@
     "Solutions/Gates.Tests/OptionalFeatureScopeCheckerTests.cs": "054d5ccd9f7d8623c94018b6cc933043e2ba8a63dab098c414e2f59677257f25",
     "Solutions/Gates.Tests/RawStringLiteralStripTests.cs": "563c89dc40615e8cf6d7d03e9504328517c7ffd69576678ee05e578e2b5848ce",
     "Solutions/Gates.Tests/TestBaselineLockBoundaryTests.cs": "f20b7e765545433cf443178c63718bf1bc2dde1f8ff63191557d7069553f63d3",
-    "Solutions/Gates.Tests/TestBaselineLockTests.cs": "49434ac076ae6e62c496289226620e38e04e15c3733f571ad7437abf8be7d3d1",
+    "Solutions/Gates.Tests/TestBaselineLockTests.cs": "cd6d51c82d16f849dd61cdb4d79e3f6277752d27f4e42138bb87b0fe18ad6ae3",
     "Solutions/GraphAdapter.Tests/AuthoringBoundaryTests.cs": "e6868bfe2d52a808615ddf72dccc9c4bb859a37e0657604b5dc4d2f034107e8b",
     "Solutions/GraphAdapter.Tests/GraphExecutorTests.cs": "02126100e828c97b84e19ffa2cab3bdf4b97e77d4a9fb7a47ae69dfac77b9365",
     "Solutions/GraphAdapter.Tests/NodeEditorParityTests.cs": "7082e1fb2e93ed4f4345d91a4852e2d80d442a8536281b37bcc80ed06d316fda",
@@ -158,6 +159,7 @@
     "Solutions/Hotfix.Tests/HotfixLauncherTests.cs": "fc87602fc292ea356f6d2ea1cf9800a160a21b82009fba161e0d0703022413a7",
     "Solutions/Hotfix.Tests/HotfixManifestCodecTests.cs": "3af399d7d156ea7711148e97d92b2c032c8d7eded4097479a38c833a7b2481a2",
     "Solutions/Hotfix.Tests/HotfixVersionTests.cs": "560decf496135312105e76bce500d8584a787aa5367a3bf17d4f0c708df93181",
+    "Solutions/Indexing.Tests/GateWiringCoverageTests.cs": "073680d1b7872128f8c428ad216482b1072eab738d20c0cb277564e4227ac40c",
     "Solutions/Indexing.Tests/IncrementalIndexTests.cs": "7466bb4844852a7d1c44a755cc01192d876053ba5a8e3cb8b6009e7fdb1b316e",
     "Solutions/Indexing.Tests/IndexBoundaryTests.cs": "4e82617d28d0e1ceda9d21d00de808b9e2d5d2bca0091a8db196e86ebdf7fbe8",
     "Solutions/Indexing.Tests/IndexBuilderTests.cs": "f092da971b3e5104f63a3faabab569629a9731f2394c0b0cc7bf4771b340d7dd",
@@ -200,6 +202,14 @@
     "Solutions/UiFramework.Tests/PanelStackTests.cs": "4200f0cc7bd05ee2abab1ef67801226c10cbc073b78536f906fdc2ff008581eb",
     "Solutions/UiFramework.Tests/UiBindingGenerationTests.cs": "c9034d3cce47768233a8b8b3a435333dd7a43bfd7b5dcb02ea33b91c3b09cdce",
     "Solutions/WorldSpaceUI.Tests/WorldAnchorPolicyTests.cs": "06cad0c13a9e28662ee00aceff7e439085b57bed5691f1905c9d76c739adc734",
-    "Solutions/WorldSpaceUI.Tests/WorldAnchorRegistryTests.cs": "617bc833c6c94ae07d7c5118e86cc897f2ba3544026214e00da35c2498110faa"
+    "Solutions/WorldSpaceUI.Tests/WorldAnchorRegistryTests.cs": "617bc833c6c94ae07d7c5118e86cc897f2ba3544026214e00da35c2498110faa",
+    "UnityProject/Assets/Game/Tests/EditMode/GraphAuthoring/GraphAuthoringBoundaryTests.cs": "556ab499b5a9553875274471d35eddc755c33797e0e2588b5afa17b226278f3b",
+    "UnityProject/Assets/Game/Tests/EditMode/Level/LevelRuntimeAssetTests.cs": "6f063a8537f2b2019807f9cc7260644eb7b9f3ab7f329b0dcc3a7c127fa34b01",
+    "UnityProject/Assets/Game/Tests/EditMode/Level/LevelSceneRoundTripTests.cs": "3bddcf07e911cca2ba329a1c430885be75a45baa60a188baf4a45d0c341ede05",
+    "UnityProject/Assets/Game/Tests/EditMode/LogicLayerEditModeTests.cs": "ebd18e4ba56dfb21cfaa5d3889bc05c36ebd9fe8a6e3750eaa4cfcd6798e0bf3",
+    "UnityProject/Assets/Game/Tests/EditMode/UiFramework/UiFrameworkEditModeTests.cs": "6e888d882b186cfcdeb68ede114aab0554380bd67a1180c0c0d832bb649c3aff",
+    "UnityProject/Assets/Game/Tests/PlayMode/FrameworkPlayModeTests.cs": "fb5ef7580b3fdc495c18d8be1d3b21eadf180be53c3b03e5cece9e3a8a96940f",
+    "UnityProject/Assets/Game/Tests/PlayMode/ResourceAndScenePlayModeTests.cs": "42aa10fb88cec4b9bf6e10c7809aa5e5303e736223456bef103292d4ab0530d5",
+    "UnityProject/Assets/Game/Tests/PlayMode/SaveRuntimePlayModeTests.cs": "7376f1d50ac1daea430bae37c5b38af82b3b5ede3f2c0ab026fa5569f24038c0"
   }
 }
