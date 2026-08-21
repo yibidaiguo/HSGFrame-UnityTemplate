@@ -193,7 +193,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 从池根加载晋升提案账本：逐文件读 &lt;池根&gt;/晋升提案/PR-xxxx.json。
+        /// 从池根加载晋升提案账本：逐文件读 &lt;池根&gt;/Promotions/PR-xxxx.json。
         /// 目录不存在返回空账本、原因空串（空账本是正常状态）；单个坏文件跳过并累加原因到
         /// LoadFailureReason，不让一份坏条目把整本账读没。
         /// </summary>

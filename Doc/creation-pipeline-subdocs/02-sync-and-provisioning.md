@@ -32,13 +32,13 @@
 
 产物(`_Generated/Bridges/feishu/`):
 
-1. **建表描述.json**:字段清单(名称/bitable 类型/单选项/必填)+ 分类型三张表单定义。首次建表直接执行;表已存在则输出差异脚本——加列/加选项自动做,**删列只列出来等人确认**。
-2. **助手配置包/**:
-   - `系统提示.md`(角色、schema 摘要、填写指南、冲突提醒职责)
-   - `知识/设计池摘要.md`、`知识/术语表.md`、`知识/正反例.md`、`知识/模块清单.md`
-   - `导入说明.md`(Aily 手工导入步骤)
-   - `指纹.json`:{schema_hash, 设计池汇总_hash, 生成时间}
-3. **校验错误文案.json**:规则 id → 人话提示;pool.pull 拒收与助手提示共用,不会两张皮。
+1. **table-description.json**:字段清单(名称/bitable 类型/单选项/必填)+ 分类型三张表单定义。首次建表直接执行;表已存在则输出差异脚本——加列/加选项自动做,**删列只列出来等人确认**。
+2. **assistant-package/**:
+   - `system-prompt.md`(角色、schema 摘要、填写指南、冲突提醒职责)
+   - `知识/design-digest.md`、`知识/glossary.md`、`知识/examples.md`、`知识/modules.md`
+   - `import-guide.md`(Aily 手工导入步骤)
+   - `fingerprint.json`:{schema_hash, 设计池汇总_hash, 生成时间}
+3. **validation-messages.json**:规则 id → 人话提示;pool.pull 拒收与助手提示共用,不会两张皮。
 4. **专项表**:专项铺成 bitable(一行一专项,每职责一个人员多选「认领」列);认领改动经既有 pull 通道拉回专项文件——**认领零新接口**,后接其他下游软件同理。
 
 对账门禁:重算两个 hash 与指纹比,不一致红 → 提示重跑 provision(+重新导入助手)。

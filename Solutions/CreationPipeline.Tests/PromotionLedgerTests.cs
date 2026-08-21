@@ -132,7 +132,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var first = PromotionLedger.Append(workspace.Root, Proposal("空引用未防"), "2026-08-20T10:00:00+09:00", out _);
 
             var ok = PromotionLedger.UpdateState(
-                workspace.Root, first.Identifier, PromotionRecord.LandedState, "", "", "提案/检查器/空引用未防.md", out var reason);
+                workspace.Root, first.Identifier, PromotionRecord.LandedState, "", "", "Proposals/Checkers/空引用未防.md", out var reason);
 
             Assert.False(ok);
             Assert.Contains("先批准", reason);

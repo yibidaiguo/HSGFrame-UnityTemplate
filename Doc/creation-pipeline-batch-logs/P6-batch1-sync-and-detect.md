@@ -43,7 +43,7 @@
 ## 落地
 
 **数据**：`Tools/CreationPipeline/Config/sync-watermark.json`（按 driver 分键，运行态，仓库里零样例）、
-`Pools/Designs/冲突裁决流水.json`（协作层，只追加）。
+`Pools/Designs/conflict-decisions.json`（协作层，只追加）。
 
 **引擎**：`SyncWatermark`（读/进/退 + 空水位语义）、
 `ConflictCandidate` + `ConflictDetector`（三判据、确定性排序、纯计算）、

@@ -33,8 +33,8 @@ P4 批次 2 做了 `PromotionProposalBuilder`——能从意见库**算出**提�
 
 ## 落地
 
-**数据**：`Pools/晋升提案/PR-xxxx.json`（协作层，一提案一文件）、
-`提案/检查器/<类别>.md`（检查器规格草案）、
+**数据**：`Pools/Promotions/PR-xxxx.json`（协作层，一提案一文件）、
+`Proposals/Checkers/<类别>.md`（检查器规格草案）、
 `Specifications/Project/预审规则.json`（预审规则，合并写）。
 仓库里只铺了两个 `.gitkeep`，**零真实数据**（决策 4）。
 
@@ -67,7 +67,7 @@ P4 批次 2 做了 `PromotionProposalBuilder`——能从意见库**算出**提�
 | `dotnet test Solutions/Template.sln` | 全绿；`CreationPipeline.Tests` **330/330**（315 → 330） |
 | `pwsh Tools/Gates/gate.ps1` 全量 | **PASS**（二十四道） |
 | `gate.baseline --UpdateBaseline` | 新增 2 条、零修改 |
-| 工作区残留 | `Pools/` 与 `提案/` 下**只有 `.gitkeep`**，零真实数据 |
+| 工作区残留 | `Pools/` 与 `Proposals/` 下**只有 `.gitkeep`**，零真实数据 |
 
 **完整闭环真跑**（Claude 亲自起临时仓库，六步走完）：
 
@@ -76,7 +76,7 @@ P4 批次 2 做了 `PromotionProposalBuilder`——能从意见库**算出**提�
 | ① | 三条一模一样的意见 → `task.promotion 入库` | 「入库 1 条」`PR-0001`；提案文件里 `原文引用` **只有 1 条**（去重生效） |
 | ② | 再入库一次 | 「跳过 1 条」，原因写清是 `PR-0001`（状态「待批」）挡的 |
 | ③ | 没批准直接 `落地` | **失败**：「状态是「待批」；只有已批准的提案能落地」 |
-| ④ | `批准` → `落地` | 产物 `提案/检查器/空引用未防.md` 真的写出来了 |
+| ④ | `批准` → `落地` | 产物 `Proposals/Checkers/空引用未防.md` 真的写出来了 |
 | ⑤ | 已落地再 `批准` | **失败**：「已经是终态，当时的状态是「已落地」，裁决人「张三」；终态不许覆盖」 |
 | ⑥ | 已落地之后**同类再入库** | **成功开出新的一条**——终态不挡新提案，闭环没被第一次裁决卡死 |
 

@@ -206,7 +206,7 @@ namespace HSGFrame.GraphAdapter.Tests
 
         private static GraphDocument LoadSampleGraph()
         {
-            var filePath = Path.Combine(FindTemplateRoot(), "Graphs", "示例流程图.json");
+            var filePath = Path.Combine(FindTemplateRoot(), "Graphs", "sample-flow.json");
             return GraphJsonCodec.LoadFromFile(filePath);
         }
 

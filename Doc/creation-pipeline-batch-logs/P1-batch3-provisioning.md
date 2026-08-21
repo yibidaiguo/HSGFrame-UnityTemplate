@@ -5,7 +5,7 @@
 ## 这一批真正做的是什么
 
 把「合并 schema + 设计池 + 校验文案」渲染成下游可用的**离线产物**：建表描述、专项表、
-校验错误文案、助手配置包、指纹。**一行网络调用都没有**（锁定决策 6：飞书 API 不在可验范围）。
+校验错误文案、assistant-package、指纹。**一行网络调用都没有**（锁定决策 6：飞书 API 不在可验范围）。
 `bridge.provision` 产出的是文件，不是接口调用。
 
 ## 实际落地（分三次派活）
@@ -25,10 +25,10 @@
 - `TableDescriptionBuilder`：合并 schema → 建表描述（字段清单 + 分类型三张表单）。
 - `EpicTableBuilder`：职责清单 → 专项表（固定三列 + 每职责一个「认领.<职责>」人员多选列）。
 
-**3C · 助手配置包与编排**
+**3C · assistant-package与编排**
 
 - `ProvisionPaths`：`_Generated/Bridges/<driver>/` 一族路径。
-- `ValidationMessageExporter`：catalog → `校验错误文案.json`。
+- `ValidationMessageExporter`：catalog → `validation-messages.json`。
 - `AssistantPackageBuilder`：系统提示 + 知识四件（设计池摘要 / 术语表 / 正反例 / 模块清单）+ 导入说明。
 - `BridgeProvisioner`：编排，**指纹最后写**——中途失败不会留下一份自称新鲜的指纹。
 - `Tools/Cli/CommandHost/Commands/BridgeCommands.cs`：`bridge.provision --driver <名> [--dry-run]`。
@@ -39,12 +39,12 @@
 | 文件 | 形状要点 |
 |---|---|
 | `Bridges/<名>/driver.json` | 子文档 05 §二那份，**额外加两个键**：`字段类型映射`（逻辑类型 → 下游控件类型）与 `表单分组字段` |
-| `_Generated/Bridges/<名>/建表描述.json` | `{表名, 字段:[{名称,下游类型,必填,单选项,所有权,锁定后可改}], 表单:[{类型,字段}]}` |
-| `_Generated/Bridges/<名>/专项表.json` | 同上结构；列 = `id`/`名称`/`说明` + 每职责一列 `认领.<职责>`，类型固定 `人员多选` |
-| `_Generated/Bridges/<名>/校验错误文案.json` | `{说明, 条目:[{规则id, 文案, 修复建议}]}` |
-| `_Generated/Bridges/<名>/指纹.json` | `{驱动, 契约版本, schema哈希, 设计池汇总哈希, 生成时间}` |
-| `_Generated/Bridges/<名>/助手配置包/` | `系统提示.md` + `知识/`四份 + `导入说明.md`，正文里不出现任何下游平台的名字 |
-| `Pools/知识/` | 助手知识素材的落脚处：`术语表.json` / `正反例.json` / `模块清单.json`，**都可缺失**，缺了渲染成「暂无」 |
+| `_Generated/Bridges/<名>/table-description.json` | `{表名, 字段:[{名称,下游类型,必填,单选项,所有权,锁定后可改}], 表单:[{类型,字段}]}` |
+| `_Generated/Bridges/<名>/epic-table.json` | 同上结构；列 = `id`/`名称`/`说明` + 每职责一列 `认领.<职责>`，类型固定 `人员多选` |
+| `_Generated/Bridges/<名>/validation-messages.json` | `{说明, 条目:[{规则id, 文案, 修复建议}]}` |
+| `_Generated/Bridges/<名>/fingerprint.json` | `{驱动, 契约版本, schema哈希, 设计池汇总哈希, 生成时间}` |
+| `_Generated/Bridges/<名>/assistant-package/` | `system-prompt.md` + `知识/`四份 + `import-guide.md`，正文里不出现任何下游平台的名字 |
+| `Pools/Knowledge/` | 助手知识素材的落脚处：`术语表.json` / `正反例.json` / `模块清单.json`，**都可缺失**，缺了渲染成「暂无」 |
 
 ## 本批新增的锁定决策
 
@@ -82,7 +82,7 @@
 
 ## 已知缺口（不阻塞，记着）
 
-- **正反例与术语表是空的。** `Pools/知识/` 只铺了目录骨架（锁定决策 4：模板仓库零池子内容）。
+- **正反例与术语表是空的。** `Pools/Knowledge/` 只铺了目录骨架（锁定决策 4：模板仓库零池子内容）。
   真实项目要自己填，助手质量直接取决于这两份。
 - **Aily 能否程序化导入没验**——那是批次 6 的 spike，本批只产包 + 写导入说明。
 - **`TableDescription.WriteTo` 不建目录**，靠 `BridgeProvisioner.Run` 在前面兜。

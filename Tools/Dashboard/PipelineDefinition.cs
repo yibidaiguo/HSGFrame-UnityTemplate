@@ -54,7 +54,7 @@ namespace Template.Toolkit.Dashboard
         [JsonPropertyName("流水线")]
         public IReadOnlyList<PipelineDefinition> Pipelines { get; set; }
 
-        /// <summary>从「流水线定义.json」读回全部流水线，格式不对时抛 PipelineDefinitionException。</summary>
+        /// <summary>从「pipelines.json」读回全部流水线，格式不对时抛 PipelineDefinitionException。</summary>
         /// <param name="path">定义文件路径。</param>
         public static PipelineCatalog LoadFromFile(string path)
         {
@@ -66,7 +66,7 @@ namespace Template.Toolkit.Dashboard
             catch (IOException exception)
             {
                 throw new PipelineDefinitionException(
-                    $"位置：{path}；原因：定义文件读取失败：{exception.Message}；修复：确认文件存在且可读；参考：Pipelines/流水线定义.json");
+                    $"位置：{path}；原因：定义文件读取失败：{exception.Message}；修复：确认文件存在且可读；参考：Pipelines/pipelines.json");
             }
 
             try
@@ -75,7 +75,7 @@ namespace Template.Toolkit.Dashboard
                 if (catalog == null)
                 {
                     throw new PipelineDefinitionException(
-                        $"位置：{path}；原因：定义内容为空；修复：填写「流水线」数组；参考：Pipelines/流水线定义.json");
+                        $"位置：{path}；原因：定义内容为空；修复：填写「流水线」数组；参考：Pipelines/pipelines.json");
                 }
 
                 return catalog;
@@ -83,7 +83,7 @@ namespace Template.Toolkit.Dashboard
             catch (JsonException exception)
             {
                 throw new PipelineDefinitionException(
-                    $"位置：{path}；原因：定义格式不合法：{exception.Message}；修复：按报错的行列修正 JSON；参考：Pipelines/流水线定义.json");
+                    $"位置：{path}；原因：定义格式不合法：{exception.Message}；修复：按报错的行列修正 JSON；参考：Pipelines/pipelines.json");
             }
         }
 

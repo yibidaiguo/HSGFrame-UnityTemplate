@@ -46,7 +46,7 @@ namespace Template.Toolkit.CreationPipeline
     {
         /// <summary>
         /// 把一条已批准的提案落地成产物。
-        /// 检查器去向：写 &lt;仓库根&gt;/提案/检查器/&lt;问题类别&gt;.md（五节草案，短于 200 行）；
+        /// 检查器去向：写 &lt;仓库根&gt;/Proposals/Checkers/&lt;问题类别&gt;.md（五节草案，短于 200 行）；
         /// 预审规则去向：往 &lt;仓库根&gt;/Specifications/Project/预审规则.json 合并追加一条 PRR-xxxx 规则，
         /// 同一个来源提案已在里面时不重复追加（幂等跳过，仍算成功）。
         /// </summary>

@@ -71,7 +71,7 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(repositoryRoot, "Specifications", "Business", moduleName, "release-policy.json");
         }
 
-        /// <summary>检查器草案目录：提案/检查器。</summary>
+        /// <summary>检查器草案目录：Proposals/Checkers。</summary>
         public static string CheckerDraftDirectory(string repositoryRoot)
         {
             return Path.Combine(repositoryRoot, "提案", "检查器");

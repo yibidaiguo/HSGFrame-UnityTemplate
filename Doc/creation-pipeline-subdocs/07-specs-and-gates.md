@@ -9,10 +9,10 @@ Specifications/
   基线/(模板级,全仓生效;模板发,hash 锁,project.create 不改名)
     需求骨架.schema.json | 管线模板.基线.json | 命名规则.json | asset-spec.baseline.json | 检查器清单.json | 改名豁免清单.json
   项目/(项目级,全仓生效;项目自由改)
-    需求.扩展.json | 命名前缀表.json | asset-spec.json | 依赖矩阵.json | 域.json | 棘轮基线.json | release-policy.json
+    requirement.extension.json | 命名前缀表.json | asset-spec.json | 依赖矩阵.json | 域.json | 棘轮基线.json | release-policy.json
   业务/(业务级,只对该业务生效)
     钓鱼/ | 签到/ | …(文件与项目级同构:asset-spec.json、release-policy.json 等,键就近覆盖)
-  提案/
+  Proposals/
     P-0003-图标禁背景板.json     ← {规则描述, 依据, 生成的检查器/数据, 命中预览, 状态: 待批/已入层/已拒}
   方向/
     项目方向.md | 框架原则.md    ← 「定成什么样」的顶层文本,进 provision,方案阶段必读
@@ -47,7 +47,7 @@ Specifications/
 | 扩展合法性 | 项目 schema | 骨架完整、无重名、枚举无破坏性变更 |
 | 设计义务 | 已完成需求 × 设计记录 | 系统类型关联非空;「改旧的」义务闭合 |
 | 汇总幂等 | Designs | 重生成无 diff |
-| 供给对账 | 指纹.json | schema hash + 设计池 hash 一致 |
+| 供给对账 | fingerprint.json | schema hash + 设计池 hash 一致 |
 | 基线未手改 | Specifications/Baseline | hash 清单一致 |
 | 资产规格 | 落点资产 × asset-spec.json | 逐项 + 边车存在且合法 |
 | 冲突可见 | 冲突列表 + 验收报告 | 未决冲突全列出、条目字段齐 |
@@ -70,7 +70,7 @@ Specifications/
 
 ## 六、规则来源之一:晋升(自下而上)
 
-返工/评审里同类问题第 N 次(执行后端在验收阶段统计)→ 生成提案进 `提案/` → 面板规范页待批 → 人批准 `spec.promote`:数据入判定层级(项目级/业务级)、按 §三 顺位落执行档;拒绝 → 已拒(不再重复提议同款)。
+返工/评审里同类问题第 N 次(执行后端在验收阶段统计)→ 生成提案进 `Proposals/` → 面板规范页待批 → 人批准 `spec.promote`:数据入判定层级(项目级/业务级)、按 §三 顺位落执行档;拒绝 → 已拒(不再重复提议同款)。
 
 ## 七、规则来源之二:人述生成(自上而下,管理员界面)
 

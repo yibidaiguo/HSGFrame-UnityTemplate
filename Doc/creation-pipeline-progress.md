@@ -14,7 +14,7 @@
 |---|---|---|---|---|
 | P1 | 1 池子地基 | 两层 schema + 合并 + 需求校验器 + 状态机 + 取号 + `pool.validate` / `req.validate` / `schema.check` | — | **已完成** |
 | P1 | 2 同步与路由 | `pool.pull` / `pool.push` + Inbox 幂等 + 拒收理由 + 成员表/卡片路由四步 + 队列 + 值守模式 + `task.status` | 1 | **已完成** |
-| P1 | 3 供给 | `bridge.provision`：建表描述 / 专项表 / 校验错误文案 / 助手配置包 / 指纹 + `Bridges/feishu/driver.json` | 1 | **已完成** |
+| P1 | 3 供给 | `bridge.provision`：建表描述 / 专项表 / 校验错误文案 / assistant-package / 指纹 + `Bridges/feishu/driver.json` | 1 | **已完成** |
 | P1 | 4 门禁 | 池子校验、扩展合法性、供给对账、下游边界、层边界五道 + 接进 `gate.ps1` | 1、3 | **已完成** |
 | P1 | 5 面板骨架 | Dashboard 加总览 / 任务简版 / 需求池 / 门禁 / 引擎 五页，`POST /cmd` 白名单 | 1、2 | **已完成** |
 | P1 | 6 Aily 导入 spike | 配置包能否程序化导入的验证 + 兜底路径落文档 | 3 | **已完成**（结论是「未验证」，见日志） |
@@ -70,7 +70,7 @@
 - **本机是 .NET 10 preview SDK**：写盘的 `JsonSerializerOptions` 要写成 `new JsonSerializerOptions(JsonSerializerOptions.Default) { … }`，裸构造序列化 `JsonArray` 里的字符串元素会抛。
 - **派活的任务书要落进仓库，命令行只给一句短指令。** 长任务书直接当命令行参数传给 `rx.py`，Reasonix 会判成 plan 模式、给子代理套上 `constraint=no-mutation`，表现成跑两分钟、`chars=0`、`exit=1`、磁盘零文件。可用写法：任务书放 `_Scratch/派活/任务-<批次>.md`，命令行写「读 <路径> 这份任务书，逐条落实，然后按它「返回什么」那节回报」。
 - **`Tools/Gates/Config/` 在 `reasonix.toml` 的 deny 里**：`gate-config.json` 与 `test-baseline.json` 执行后端都改不了。派活时**别把这两个文件列进任务书的「改哪些文件」**，配置项由 Claude 自己补。
-- **助手配置包的文件清单有三份**（`PackageFiles` / `ProspectiveFiles` / `AssistantPackageInspector`），
+- **assistant-package的文件清单有三份**（`PackageFiles` / `ProspectiveFiles` / `AssistantPackageInspector`），
   加包文件时三份都要改，只改前两份会让 `gate.provision` 假绿（决策 72，P6 批次 3 踩过）。
 - **`bridge.provision` 的参数名是 `Driver` 不是 `DriverName`**，写错会被参数校验拦下。
 - **`gate.ps1` 的输出重定向到文件时子进程 JSON 日志会丢**（`Invoke-GateCommand` 用 `Out-Host`）。要逐道明细就单跑那条 `gate.*` 命令。

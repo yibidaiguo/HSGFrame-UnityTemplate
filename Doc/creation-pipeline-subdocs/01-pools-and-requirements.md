@@ -7,8 +7,8 @@
 ```
 Pools/
   Schema/
-    基线/需求.schema.json | 工作项.schema.json | 设计记录.schema.json | 定稿.schema.json | 溯源.schema.json
-    项目/需求.扩展.json            ← 项目业务字段(合并语义见子文档 07)
+    基线/requirement.schema.json | work-item.schema.json | design-record.schema.json | 定稿.schema.json | provenance.schema.json
+    项目/requirement.extension.json            ← 项目业务字段(合并语义见子文档 07)
   Inbox/<渠道>-<记录id>-<修订>.json
   Requirements/REQ-0042.json
   专项/EP-0003.json
@@ -17,9 +17,9 @@ Pools/
   Designs/
     记录/DR-0107.json
     汇总/<模块>.md                 ← 生成物,不手改
-    定稿/<名称>@v<N>/(定稿.json + 参考图/ + lora/)
-    冲突列表.json
-  队列.json                        ← 已确认待执行的任务队列
+    定稿/<名称>@v<N>/(final.json + 参考图/ + lora/)
+    conflicts.json
+  queue.json                        ← 已确认待执行的任务队列
 ```
 
 - ID 规则:`REQ-` / `DR-` / `WI-` / `ASSET-` + 四位递增;取号 = 扫描现存最大号 +1(v1 单机串行无并发冲突;并行留 v2 改计数器)。
@@ -44,7 +44,7 @@ Pools/
 | 同步 | object | {最后同步hash, 时间} | 工程 |
 | 冲突 | array | 关联冲突条目 id | 工程 |
 
-业务字段与骨架并列存于同一 JSON,机器不读;`需求.扩展.json` 声明其名称/类型/是否渲染到表单与助手。
+业务字段与骨架并列存于同一 JSON,机器不读;`requirement.extension.json` 声明其名称/类型/是否渲染到表单与助手。
 
 示例:
 
@@ -124,7 +124,7 @@ Pools/
 
 - 只追加不改写;作废 = 在新记录里写 `"作废": "DR-0058"`,旧条目本体不动。
 - 汇总生成:按模块分组取未作废记录、按时间序渲染 `汇总/<模块>.md`;幂等门禁重跑无 diff。
-- 定稿.json:色板(hex 数组)、参考图相对路径、负面清单、LoRA 引用、版本、生效日期。
+- final.json:色板(hex 数组)、参考图相对路径、负面清单、LoRA 引用、版本、生效日期。
 
 冲突列表条目:
 
@@ -148,12 +148,12 @@ Pools/
 }
 ```
 
-- 落点 `Pools/专项/EP-xxxx.json`;状态:规划中 / 进行中 / 已完成 / 已归档。
+- 落点 `Pools/Epics/EP-xxxx.json`;状态:规划中 / 进行中 / 已完成 / 已归档。
 - 制定归策划;认领归成员且**可跨默认职责**(显式认领;首次处理该专项卡片=隐式认领,仅限默认职责内);转手=改认领表。
 - 认领字段 v1 经飞书专项表直接编辑、走既有同步通道对齐(零新接口);Web 面板认领留后期。
 - 作用:卡片路由(子文档 03)、资产请求缺省锚点(子文档 06)、总览页进度汇总。**引擎执行不感知专项**。
 
-组织文件(`Pools/组织/`,协作层——结构随框架,内容归项目):
+组织文件(`Pools/Organization/`,协作层——结构随框架,内容归项目):
 
 ```json
 // 成员.json 条目

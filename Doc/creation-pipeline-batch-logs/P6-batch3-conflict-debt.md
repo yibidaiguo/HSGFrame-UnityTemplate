@@ -28,7 +28,7 @@
 
 ## 验收时抓到的一个假绿（本批最重要的一条）
 
-助手配置包加第七个文件 `知识/冲突清单.md` 之后，`gate.provision` **仍然是绿的**，
+assistant-package加第七个文件 `知识/conflicts.md` 之后，`gate.provision` **仍然是绿的**，
 而 git 里那份 `_Generated/Bridges/feishu/` 根本没有这个文件。
 
 原因：助手包的文件清单**有三份**，不是两份——
@@ -76,13 +76,13 @@
 | `dotnet build Solutions/Template.sln` | 0 警告 0 错误 |
 | `dotnet test Solutions/Template.sln` | 全绿；`CreationPipeline.Tests` **388/388**（368 → 388） |
 | `pwsh Tools/Gates/gate.ps1` 全量 | **PASS** |
-| `gate.provision` 单跑 | 补检查器前**绿（假绿）** → 补后**红，点名缺 `冲突清单.md`** → 重跑供给后**绿** |
+| `gate.provision` 单跑 | 补检查器前**绿（假绿）** → 补后**红，点名缺 `conflicts.md`** → 重跑供给后**绿** |
 | `gate.baseline --UpdateBaseline` | 新增 2 条、**修改 3 条**，与它自述改的既有测试**逐个对得上**，无未申报改动 |
 | 生产调用点核查 | `ReviewPackageBuilder` 全仓**只有定义处**，它说的是真的 |
 
 **三个出口逐个真看过产物**：
 
-- **助手包**：`知识/冲突清单.md` 真的生成了，零未决时写「当前没有未决冲突。」
+- **助手包**：`知识/conflicts.md` 真的生成了，零未决时写「当前没有未决冲突。」
 - **系统提示**：「必须遵守」第 4 条是任务书那句**逐字原文**。
 - **设计汇总**：零未决时**不插**冲突区域那一段（对的，没有账就不该标红）。
 - **审查包第六节**：三支分支的代码逐行读过，`（未查）` 与「无未决冲突」是两条互斥路径。

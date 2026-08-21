@@ -5,10 +5,10 @@
 
 ## 一、落了什么
 
-`Bridges/comfyui/配方/图标@v5/workflow.json` 原本是**骨架**：五个节点只有
+`Bridges/comfyui/recipes/icon@v5/workflow.json` 原本是**骨架**：五个节点只有
 `类型` 与 `参数`，没有任何连线，也缺 KSampler / VAEDecode / 负面提示，
 翻译不出一张能跑的图。按决策 87 补了 `连线` 键与三个新节点（`6`/`7`/`8`），
-**节点 2/3/4/5 的语义一个字没动**——`映射.json` 与 `gate.recipe` 靠它们对上。
+**节点 2/3/4/5 的语义一个字没动**——`mapping.json` 与 `gate.recipe` 靠它们对上。
 
 | 文件 | 内容 |
 |---|---|

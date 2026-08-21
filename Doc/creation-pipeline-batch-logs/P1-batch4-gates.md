@@ -18,7 +18,7 @@
 |---|---|---|---|
 | 池子校验 | `pool.validate` | 需求文件过合并 schema、文件名 = id、分类型必填 | 批次 1 既有 |
 | 扩展合法性 | `schema.check` | 项目层 schema 扩展没破坏骨架 | 批次 1 既有 |
-| 供给对账 | `gate.provision` | 重算两个哈希与 `指纹.json` 比 | `ProvisionReconciler`（管线侧） |
+| 供给对账 | `gate.provision` | 重算两个哈希与 `fingerprint.json` 比 | `ProvisionReconciler`（管线侧） |
 | 下游边界 | `gate.bridgeboundary` | 引擎代码里不许出现 driver 名 | `BridgeBoundaryChecker`（门禁侧） |
 | 层边界 | `gate.layerboundary` | 协作数据不许落 Unity 资产树、游戏代码不许引用池子 | `LayerBoundaryChecker`（门禁侧） |
 
@@ -61,7 +61,7 @@
 
 | 造的违规 | 门禁反应 | 撤销后 |
 |---|---|---|
-| 把 `指纹.json` 的 `schema哈希` 改成 64 个 0 | 失败 1 条，报「指纹里是「000…」，当前算出来是「3a36…」」 | 通过 |
+| 把 `fingerprint.json` 的 `schema哈希` 改成 64 个 0 | 失败 1 条，报「指纹里是「000…」，当前算出来是「3a36…」」 | 通过 |
 | 往 `Tools/CreationPipeline/` 塞一个含 `feishu` 常量的探针 `.cs` | 失败 1 条，位置精确到 `__Probe.cs:2` | 通过 |
 | 在 `UnityProject/Assets/` 下建一个 `Pools` 目录 | 失败 1 条，报「协作/过程数据目录「Pools」出现在 Unity 资产树里」 | 通过 |
 

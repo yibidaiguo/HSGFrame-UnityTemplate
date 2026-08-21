@@ -35,13 +35,13 @@
 ### 一、定稿预览永远显示「还没有定稿」
 
 `ReadDesigns` 只扫 `Designs/<分类>/*.json` 这一层平铺文件。
-但**定稿是一稿一目录**：`Designs/定稿/<名>/定稿.json`——
+但**定稿是一稿一目录**：`Designs/Final/<名>/final.json`——
 子文档 06 §五这么写，P7 批次一的 `FinalPalette.Load` 也是照这个找的。
 
 于是本批新加的色板、定稿版本、参考图三个字段，**挂在一种永远不会出现的行上**。
 我铺了一份真定稿进去开面板看，那一块果然是「还没有定稿」。
 
-修：定稿这一类额外扫一层子目录取 `定稿.json`；名称取**目录名**，
+修：定稿这一类额外扫一层子目录取 `final.json`；名称取**目录名**，
 不取恒为「定稿」的文件名。补了
 `FinalInItsOwnDirectoryIsFoundAndNamedAfterTheDirectory` 盯着。
 
@@ -132,7 +132,7 @@
 
 ## 已知缺口（不阻塞，记着）
 
-- **能力探测输出的路径是执行后端定的**（`_Generated/Bridges/<名>/探测结果.json`），
+- **能力探测输出的路径是执行后端定的**（`_Generated/Bridges/<名>/probe-result.json`），
   CLI 的 `art.caps` 走的是显式 `ProbeResultPath` 参数。两边**没有约定同一个默认值**，
   真要用得先统一。
 - **下游页的配置表单只读**，改配置仍要手工编辑文件（决策 5 的必然结果）。

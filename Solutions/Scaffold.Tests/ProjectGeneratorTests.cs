@@ -282,7 +282,7 @@ namespace Template.Toolkit.ScaffoldTests
             {
                 var result = RunGenerator(templateRoot, targetDirectory, ProjectName);
 
-                var content = File.ReadAllText(Path.Combine(result.TargetPath, "Pipelines", "Jenkinsfile.秒级门禁"));
+                var content = File.ReadAllText(Path.Combine(result.TargetPath, "Pipelines", "Jenkinsfile.fast-gate"));
 
                 Assert.Contains("dotnet test Solutions/" + ProjectName + ".sln", content);
                 Assert.Contains(ProjectName + ".Toolkit.Editor.CompileCheckEntry.Run", content);
@@ -439,7 +439,7 @@ namespace Template.Toolkit.ScaffoldTests
 
             var pipelinesDirectory = Path.Combine(root, "Pipelines");
             Directory.CreateDirectory(pipelinesDirectory);
-            File.WriteAllText(Path.Combine(pipelinesDirectory, "Jenkinsfile.秒级门禁"),
+            File.WriteAllText(Path.Combine(pipelinesDirectory, "Jenkinsfile.fast-gate"),
                 "bat 'dotnet test Solutions/" + TemplateSolutionName + " --nologo'\n"
                 + "bat 'unity-cmd.ps1 -ExecuteMethod " + TemplateNamespaceSample + ".Editor.CompileCheckEntry.Run'\n");
 

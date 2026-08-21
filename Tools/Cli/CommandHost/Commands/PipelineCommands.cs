@@ -14,8 +14,8 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("模板根目录，定义文件路径以它为基准")]
         public string TemplateRoot { get; set; }
 
-        /// <summary>定义文件路径，留空时取模板根下的 Pipelines/流水线定义.json。</summary>
-        [Summary("定义文件路径，留空时取模板根下的 Pipelines/流水线定义.json")]
+        /// <summary>定义文件路径，留空时取模板根下的 Pipelines/pipelines.json。</summary>
+        [Summary("定义文件路径，留空时取模板根下的 Pipelines/pipelines.json")]
         [DefaultValue("")]
         public string DefinitionPath { get; set; }
     }
@@ -36,8 +36,8 @@ namespace Template.Toolkit.CommandHost.Commands
         [DefaultValue(true)]
         public bool? SkipUnitySteps { get; set; }
 
-        /// <summary>定义文件路径，留空时取模板根下的 Pipelines/流水线定义.json。</summary>
-        [Summary("定义文件路径，留空时取模板根下的 Pipelines/流水线定义.json")]
+        /// <summary>定义文件路径，留空时取模板根下的 Pipelines/pipelines.json。</summary>
+        [Summary("定义文件路径，留空时取模板根下的 Pipelines/pipelines.json")]
         [DefaultValue("")]
         public string DefinitionPath { get; set; }
     }
@@ -139,7 +139,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 return definitionPath;
             }
 
-            return Path.Combine(templateRoot, "Pipelines", "流水线定义.json");
+            return Path.Combine(templateRoot, "Pipelines", "pipelines.json");
         }
     }
 }

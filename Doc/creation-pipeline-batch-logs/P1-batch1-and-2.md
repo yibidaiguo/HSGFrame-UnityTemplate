@@ -6,15 +6,15 @@
 
 **目标产物**
 
-- `Pools/Schema/基线/`:`需求.schema.json` `工作项.schema.json` `设计记录.schema.json`
-- `Pools/Schema/项目/需求.扩展.json`(空壳占位,项目层自由改)
-- `Pools/` 空目录骨架:`Inbox/` `Requirements/` `专项/` `组织/` `审查意见/` `Designs/记录/` `Designs/汇总/` `Designs/定稿/`
+- `Pools/Schema/Baseline/`:`requirement.schema.json` `work-item.schema.json` `design-record.schema.json`
+- `Pools/Schema/Project/requirement.extension.json`(空壳占位,项目层自由改)
+- `Pools/` 空目录骨架:`Inbox/` `Requirements/` `专项/` `组织/` `审查意见/` `Designs/Records/` `Designs/Digest/` `Designs/Final/`
 - `Tools/CreationPipeline/`(程序集 `Toolkit.CreationPipeline`,命名空间 `Template.Toolkit.CreationPipeline`):
   `PoolPaths` `PoolSchema` `PoolSchemaLoader`(基线⊕项目合并)`RequirementValidator` `RequirementStateMachine` `SchemaExtensionValidator` `IdentifierAllocator`
 - `Solutions/CreationPipeline.Tests/`:xunit 测试
 - `Tools/Cli/CommandHost/Commands/PoolCommands.cs`:`pool.validate` / `req.validate` / `schema.check`
 
-**实际落地**(与目标一致,`Pools/Schema/基线/` 三份 schema 与目录骨架由 Claude 直接落盘,其余六个文件由执行后端分四次派活完成):
+**实际落地**(与目标一致,`Pools/Schema/Baseline/` 三份 schema 与目录骨架由 Claude 直接落盘,其余六个文件由执行后端分四次派活完成):
 
 `Tools/CreationPipeline/`:`PoolFinding` `PoolPaths` `PoolSchema`(四个模型类)`PoolSchemaLoader` `SchemaExtensionValidator` `RequirementValidator` `RequirementStateMachine` `IdentifierAllocator`,共 1149 行。
 `Solutions/CreationPipeline.Tests/`:`PoolTestWorkspace` 夹具 + 五个测试文件,共 **32 个 `[Fact]`**。
@@ -58,7 +58,7 @@
 | 文件 | 形状要点 |
 |---|---|
 | `Pools/Inbox/<渠道>-<记录id>-<修订>.json` | 信封:`渠道/记录id/修订/提交人/提交时间/关联需求/字段`,`字段` 只装策划端字段 |
-| `Pools/队列.json` | `{ "条目": [{需求id, 入队时间, 理由}] }`,顺序即先进先出 |
+| `Pools/queue.json` | `{ "条目": [{需求id, 入队时间, 理由}] }`,顺序即先进先出 |
 | `_Tasks/<REQ>/状态.json` | 见子文档 03 §二,原样落地 |
 | `_Tasks/<REQ>/变更/<时间戳>.json` + `累积.json` | 锁定后的字段级 diff,累积文件同名字段以最新为准 |
 | `_Generated/拒收/<渠道>-<记录id>-<修订>.json` | 文件名不带时间戳,重跑覆盖同一份,保证幂等 |
@@ -68,7 +68,7 @@
 
 7. **幂等靠已入池需求的 `来源.修订`,不另立账本。** `(渠道, 记录id)` 建索引,信封修订 ≤ 已入池修订即跳过。
    Inbox 文件**处理后不删**——留证据,靠幂等跳过。
-8. **卡片路由的默认表是代码内建值**(`CardRouteTable.Default()`),`Pools/组织/卡片路由.json` 存在才逐键覆盖。
+8. **卡片路由的默认表是代码内建值**(`CardRouteTable.Default()`),`Pools/Organization/卡片路由.json` 存在才逐键覆盖。
    这样锁定决策 4「模板仓库零池子内容」与子文档 01「默认表随基线发」两条同时成立。
 9. **`提出人` 是伪职责**:先查成员表姓名,查不到退化成 `策划`,再走第②③④步。
 10. **值守是默认模式**:`Tools/CreationPipeline/Config/engine.json` 缺失时 `EngineSettings.Load` 返回值守——

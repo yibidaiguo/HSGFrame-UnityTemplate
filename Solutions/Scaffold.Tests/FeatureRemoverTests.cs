@@ -169,7 +169,7 @@ namespace Template.Toolkit.Scaffold.Tests
 
             FeatureRemover.Remove(root, "hotfix");
 
-            var text = File.ReadAllText(Path.Combine(root, "开始使用.md"));
+            var text = File.ReadAllText(Path.Combine(root, "getting-started.md"));
             Assert.DoesNotContain("feature:hotfix", text);
             Assert.DoesNotContain("热更专属的一段", text);
             Assert.Contains("标记之前的一段", text);
@@ -181,8 +181,8 @@ namespace Template.Toolkit.Scaffold.Tests
         public void UnpairedMarkerFailsWithoutTouchingAnything()
         {
             var root = CreateTree();
-            var documentPath = Path.Combine(root, "开始使用.md");
-            WriteText(root, "开始使用.md", "抬头\n" + BeginMarker + "\n热更专属的一段\n");
+            var documentPath = Path.Combine(root, "getting-started.md");
+            WriteText(root, "getting-started.md", "抬头\n" + BeginMarker + "\n热更专属的一段\n");
             var before = File.ReadAllText(documentPath);
 
             var result = FeatureRemover.Remove(root, "hotfix");
@@ -290,7 +290,7 @@ EndGlobal");
   ""documentLineLimit"": 200
 }");
 
-            WriteText(root, "开始使用.md",
+            WriteText(root, "getting-started.md",
                 "标记之前的一段\n" + BeginMarker + "\n热更专属的一段\n" + EndMarker + "\n标记之后的一段\n");
             WriteText(root, "Library/缓存说明.md", BeginMarker + "\n这份在跳过目录里，不该被碰\n");
 

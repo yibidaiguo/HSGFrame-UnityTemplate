@@ -68,7 +68,7 @@ namespace Template.Toolkit.CommandHost.Commands
         public string DocumentDirectory { get; set; }
 
         /// <summary>模板根目录，留空时只扫仓库根下的文档目录。</summary>
-        // 模板自带的 CLAUDE.md / 开始使用.md / 迁移清单.md 不在 Doc/ 下，
+        // 模板自带的 CLAUDE.md / getting-started.md / 迁移清单.md 不在 Doc/ 下，
         // 不把模板根一并扫进来，这几份文档永远逃过文档长度门禁。
         [Summary("模板根目录，留空时只扫仓库根下的文档目录")]
         [DefaultValue("")]

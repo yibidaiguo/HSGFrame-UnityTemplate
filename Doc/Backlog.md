@@ -29,12 +29,12 @@ git 在不同 `core.quotepath` 设置下显示不一致、CI 容器的 locale �
 | `_Generated` | 11 | 产物，重生成即可；但**指纹要重算**（决策 13） |
 | `Tools` | 9 | |
 | `规范` | 8 | 目录名本身就是中文，且写死在 CLAUDE.md 与多份规范文档里 |
-| 其余 | 29 | `Pipelines` / `Solutions` / `Bridges` / `Levels` / `提案` / `开始使用.md` 等 |
+| 其余 | 29 | `Pipelines` / `Solutions` / `Bridges` / `Levels` / `提案` / `getting-started.md` 等 |
 
 ### 动手前必须先解决的
 
 1. **决策 1 要改。** 它现在写的是「C# 一律落 ASCII 目录……中文只许出现在纯数据目录
-   （`Pools/专项/`）与**文件名**里」。新规矩要把「与文件名」那半句删掉，
+   （`Pools/Epics/`）与**文件名**里」。新规矩要把「与文件名」那半句删掉，
    并把适用范围从「含 .cs 的目录」扩到**全仓**。**改决策要重走设计审查。**
 2. **路径常量是硬编码的中文字面量**：`PoolPaths` / `PipelinePaths` / `ProvisionPaths` /
    `RecipePaths` / `SpecificationPaths` / `AssetPaths` 都在 `Path.Combine` 里拼中文段。

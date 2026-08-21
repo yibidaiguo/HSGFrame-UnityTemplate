@@ -14,9 +14,9 @@ P2 是生图链路，但它的一半挂在 ComfyUI 上——那东西没装、�
 
 **两份基线契约**（Claude 直接落盘，属设计不外派）
 
-- `Pools/Schema/基线/资产请求.schema.json`：15 字段，id 模式 `^ASSET-\d{4}-\d{2}$`，
+- `Pools/Schema/Baseline/asset-request.schema.json`：15 字段，id 模式 `^ASSET-\d{4}-\d{2}$`，
   形状照子文档 06 §一那段 JSON。
-- `Pools/Schema/基线/溯源.schema.json`：13 字段，含 `随机种` / `配方` / `提示词` / `文件哈希` /
+- `Pools/Schema/Baseline/provenance.schema.json`：13 字段，含 `随机种` / `配方` / `提示词` / `文件哈希` /
   `当选`——子文档 06 §七 要的「边车齐全 ⇒ 任何历史资产可复现」全靠这几个字段。
 
 **引擎与命令**（派活）
@@ -24,7 +24,7 @@ P2 是生图链路，但它的一半挂在 ComfyUI 上——那东西没装、�
 - `AssetPaths`：资产请求 / 变体 / 人工变体 / 边车 / 弃 / 预览六族路径。
 - `EntityDocumentValidator`：**本批的核心**。吃任意 `PoolSchema`，十条判定规则，
   文案一律复用 `ValidationMessageCatalog` 里 `需求.` 那一族——那些文案是**字段级**的、
-  与实体无关，为资产另造一族只会让 `校验错误文案.json` 里多出一堆重复的话。
+  与实体无关，为资产另造一族只会让 `validation-messages.json` 里多出一堆重复的话。
 - `AssetRequest`：模型 + 读写 + 取号（`ASSET-<需求四位>-<该需求下序号 +1>`）。
 - `ProvenanceSidecar`：模型 + 读写 + `ComputeFileHash` + `ForManualProduction`
   （人产物一放进来 `当选` 就是 true——子文档 06 §二 第 6 步「人改即权威」）。

@@ -49,6 +49,6 @@ if (validation.Succeeded)
 
 ## 兼容层的边界
 
-`Graphs/示例流程图.json` 仅是回归测试夹具。`GraphJsonCodec` 仍能读取它，
+`Graphs/sample-flow.json` 仅是回归测试夹具。`GraphJsonCodec` 仍能读取它，
 `GraphExecutor` 与 `NodeEditorGraphRunner` 仍能执行并对拍；它没有资产写回能力。
 新模块不要扩展这个 JSON 格式，应该在所属 NodeGraph 模块注册节点、Unit、根目录与校验器。

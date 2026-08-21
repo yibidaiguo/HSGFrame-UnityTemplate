@@ -28,7 +28,7 @@ namespace Template.Toolkit.Scaffold
             ".prefab", ".unity", ".asset", ".xml", ".props", ".targets"
         };
 
-        // 扩展名认不出来的文本文件按文件名前缀认。Jenkinsfile.秒级门禁 这类文件的「扩展名」
+        // 扩展名认不出来的文本文件按文件名前缀认。Jenkinsfile.fast-gate 这类文件的「扩展名」
         // 是中文流水线名，按扩展名匹配永远认不出来，于是里面的解决方案名与入口方法全名
         // 会原样留在新项目里——上一轮就是这么漏掉四条流水线定义的。
         private static readonly string[] TextFileNamePrefixes = { "Jenkinsfile" };

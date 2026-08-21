@@ -40,7 +40,7 @@
 ## 落地
 
 **数据**：`Bridges/tripo/driver.json`（模型生成，线上）、`Bridges/blender/driver.json`
-（模型加工，本地）+ `依赖清单.json`；`Specifications/Baseline/asset-spec.baseline.json` 的两个模型类型
+（模型加工，本地）+ `dependencies.json`；`Specifications/Baseline/asset-spec.baseline.json` 的两个模型类型
 各加 `贴图尺寸` / `包围盒上限米` / `最大骨骼数`。
 
 **`包围盒上限米` 刻意不进 `可覆盖`**——它是拦「进 Unity 大一百倍」的那道保险，

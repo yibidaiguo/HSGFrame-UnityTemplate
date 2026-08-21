@@ -160,7 +160,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void CatalogLoadsRealDefinitionWithFourPipelines()
         {
-            var definitionPath = Path.Combine(FindTemplateRoot(), "Pipelines", "流水线定义.json");
+            var definitionPath = Path.Combine(FindTemplateRoot(), "Pipelines", "pipelines.json");
 
             var catalog = PipelineCatalog.LoadFromFile(definitionPath);
 
@@ -172,7 +172,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void FindReturnsNullForUnknownName()
         {
-            var definitionPath = Path.Combine(FindTemplateRoot(), "Pipelines", "流水线定义.json");
+            var definitionPath = Path.Combine(FindTemplateRoot(), "Pipelines", "pipelines.json");
             var catalog = PipelineCatalog.LoadFromFile(definitionPath);
 
             Assert.Null(catalog.Find("不存在的流水线"));
@@ -203,7 +203,7 @@ namespace Template.Toolkit.DashboardTests
             var directory = new DirectoryInfo(AppContext.BaseDirectory);
             while (directory != null)
             {
-                if (File.Exists(Path.Combine(directory.FullName, "Pipelines", "流水线定义.json")))
+                if (File.Exists(Path.Combine(directory.FullName, "Pipelines", "pipelines.json")))
                 {
                     return directory.FullName;
                 }
@@ -211,7 +211,7 @@ namespace Template.Toolkit.DashboardTests
                 directory = directory.Parent;
             }
 
-            throw new InvalidOperationException("找不到模板根：Pipelines/流水线定义.json 不存在");
+            throw new InvalidOperationException("找不到模板根：Pipelines/pipelines.json 不存在");
         }
     }
 }

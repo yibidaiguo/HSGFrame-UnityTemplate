@@ -14,15 +14,15 @@
 |---|---|---|
 | 总览 | 各页聚合 | 卡片点击跳转 |
 | 任务 | `_Tasks/*/状态.json` + 工作项 + git log | 关卡通过/打回、task.run/pause、重规划横幅 |
-| 需求池 | `Pools/Requirements/` + `Pools/专项/` | 看板按专项分组;专项认领/转手按钮;拖到「已确认」列=拨扳机(白名单校验),其余只读 |
+| 需求池 | `Pools/Requirements/` + `Pools/Epics/` | 看板按专项分组;专项认领/转手按钮;拖到「已确认」列=拨扳机(白名单校验),其余只读 |
 | 设计池 | `Pools/Designs/` | 汇总浏览、记录时间线、定稿预览(色块 + 参考图) |
-| 冲突 | `冲突列表.json` | 裁决按钮(补选三选一)→ conflict.resolve |
+| 冲突 | `conflicts.json` | 裁决按钮(补选三选一)→ conflict.resolve |
 | 资产 | 产物 + 项目资产目录 + 边车 | 网格预览、按需求/定稿筛选、离风格报告 |
-| 门禁 | `_Generated/门禁报告.json` | 重跑按钮、棘轮余额曲线 |
+| 门禁 | `_Generated/gate-report.json` | 重跑按钮、棘轮余额曲线 |
 | 下游 | `Config/downstream.json` + `local.json` + 各 driver.json | 动态表单、试跑、能力对账、provision |
-| 引擎 | `Config/engine.json` + `Pools/组织/` + 队列 + 预算记账 | 模式切换、成员默认职责分配、确认权、卡片路由表、追加预算 |
+| 引擎 | `Config/engine.json` + `Pools/Organization/` + 队列 + 预算记账 | 模式切换、成员默认职责分配、确认权、卡片路由表、追加预算 |
 | 审查 | PR/分支 + `_Tasks/` + `Specifications/*/release-policy.json` | 见 §三·五 |
-| 规范(管理员) | `Specifications/` + `提案/` + `Designs/定稿/` | 见 §四 |
+| 规范(管理员) | `Specifications/` + `Proposals/` + `Designs/Final/` | 见 §四 |
 
 ## 三、任务页细节(列表 → 详情两级,同一页面)
 
