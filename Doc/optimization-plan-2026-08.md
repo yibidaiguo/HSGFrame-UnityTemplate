@@ -20,6 +20,19 @@
 （2026-08-21 追加：执行层已整体换成仓库自有的 `agent.dispatch`，四个角色档案收进
 `Tools/AgentRunner/Roles/`，dev-cycle 技能收进 `.claude/skills/dev-cycle/`。）
 
+## 一·二、2026-08-22 落地批（正式版冲刺）
+
+| 批 | 状态 | 凭据 |
+|---|---|---|
+| A 门禁补线 | **完成**：资产十道接进 gate-unity、配置表校验进 gate.ps1、接线对账测试、基线锁三口全堵（执行端实现）、CI 夜间/发布补分钟级、三条资产存量红清账 | gate.ps1 27 段 PASS + gate-unity PASS |
+| 安装向导（新增需求） | **完成**：setup.init / setup.check / Tools/setup.ps1，密钥文件保护三查（ignore 覆盖 / 未被跟踪 / 键在不在），本仓实测红 0 黄 4 绿 3 | 提交在案 |
+| B 面板一期 | **完成**：泳道看板、建需求表单（pool.draft 全链路真跑：REQ-0001 入池又清账）、详情页（阶段轴/验收标准/工作项）、/cmd 结构化通道、抽查弹窗换按钮 | 浏览器真开验证 |
+| C 角色工作台 | **完成**：策划/美术/程序/管理四工作台过滤侧栏（分视图不分权限），全景随时可切回 | 浏览器验证 |
+| E 版本事实源 | **完成**：unity-cmd.ps1 / pack-hotfix.ps1 按 ProjectVersion.txt 推编辑器路径，换版本只改一处 | gate-unity 真跑 |
+| F 沉淀机制 | **完成**：模块自述门禁 gate.modulereadme（执行端实现）、三件套入 dev-cycle 验收清单、预审规则文件名 ASCII 化；**事实修正**：晋升落地器早已存在（task.promotion.decide 落地 → 检查器草案 / Specifications/Project/prereview-rules.json），当初「spec.promote 零实现」指的只是命令名 | 提交在案 |
+| G 预审裁剪 | **完成**：spec-relevance.json 裁剪表 + diff 路径解析，没进表的规范始终带上、解析不出回退全量、N/M 说明进提示词 | 执行端实现 + 冒烟 |
+| D 多项目/飞书隔离 | **未动，卡在用户**：表格事件订阅要先把应用提权到「可管理」（1069603），双 base 事件分裂也要真测才能定分发形态——决策 91：没真跑过的不写 | — |
+
 ## 二、待做批次（每批独立可验，动手前过设计审查）
 
 ### A. 门禁补线（测试体系最大的洞）
