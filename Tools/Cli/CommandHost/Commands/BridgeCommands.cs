@@ -165,13 +165,46 @@ namespace Template.Toolkit.CommandHost.Commands
         public string RepositoryRoot { get; set; }
 
         /// <summary>只打要发的请求不真发——真发花用户的积分，默认不花。</summary>
-        [Summary("只打要发的请求不真发；默认 true，要真发显式传 false")]
+        [Summary("只打要发的请求不真发；默认 true，要真发显式传 --DryRun false（参数名按 CLR 属性名写）")]
         [DefaultValue(true)]
         public bool DryRun { get; set; }
 
         /// <summary>子进程超时秒数。</summary>
         [Summary("子进程超时秒数")]
         [DefaultValue(600)]
+        public int TimeoutSeconds { get; set; }
+    }
+
+    /// <summary>执行后端直调命令 bridge.complete 的参数。</summary>
+    public sealed class BridgeCompleteArguments
+    {
+        /// <summary>要调用的下游 driver 名，对应 Bridges/&lt;名&gt;/ 目录。</summary>
+        [Summary("要调用的下游 driver 名，对应 Bridges/<名>/ 目录")]
+        public string Driver { get; set; }
+
+        /// <summary>提示词。缺省是一句最短的探路话——试跑要的是「通不通」，不是「答得好不好」。</summary>
+        [Summary("提示词；缺省是一句最短的探路话")]
+        [DefaultValue("回一个字：通")]
+        public string Prompt { get; set; }
+
+        /// <summary>系统上下文。</summary>
+        [Summary("系统上下文")]
+        [DefaultValue("你是连通性自检，用户让你回什么就回什么，不要多说。")]
+        public string Context { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>只组装不发：打印将发的请求，不真调。默认 false——这条命令存在的意义就是真调一次。</summary>
+        [Summary("只组装不发；默认 false，因为试跑就该是一次真调用（决策 91）")]
+        [DefaultValue(false)]
+        public bool DryRun { get; set; }
+
+        /// <summary>子进程超时秒数。</summary>
+        [Summary("子进程超时秒数")]
+        [DefaultValue(120)]
         public int TimeoutSeconds { get; set; }
     }
 
@@ -626,7 +659,7 @@ namespace Template.Toolkit.CommandHost.Commands
         /// </summary>
         /// <param name="arguments">模型生成命令参数。</param>
         [EditorCommand("bridge.model")]
-        [Summary("下游模型生成：真出粗模；默认干跑，--dry-run false 才真发（花积分）")]
+        [Summary("下游模型生成：真出粗模；默认干跑，--DryRun false 才真发（花积分）")]
         public static CommandResult Model(BridgeModelArguments arguments)
         {
             if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
@@ -699,6 +732,66 @@ namespace Template.Toolkit.CommandHost.Commands
             };
 
             return CommandResult.Success($"模型生成完成：{RelativeTo(repositoryRoot, modelFile)}", lines);
+        }
+
+        /// <summary>
+        /// 执行后端直调：发一句最短的提示，看下游通不通。
+        /// **这就是执行后端 driver 的试跑**——决策 91 说得很死：能不能用只有真调一次才算数，
+        /// 密钥非空、HTTP 200 都不是判据。一次调用的开销是可以忽略的几个 token，
+        /// 但它能一次分清「密钥错 / 地址错 / 模型名错 / 余额不够」四种完全不同的毛病。
+        /// </summary>
+        /// <param name="arguments">执行后端直调命令参数。</param>
+        [EditorCommand("bridge.complete")]
+        [Summary("执行后端直调：发一句最短的提示看通不通，这就是它的试跑（真调一次）")]
+        public static CommandResult Complete(BridgeCompleteArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            {
+                return CommandResult.Failure("必须指定 --Driver，值取 Bridges/ 下的目录名");
+            }
+
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            var prompt = arguments.Prompt ?? "";
+            var context = arguments.Context ?? "";
+            if (arguments.DryRun)
+            {
+                return CommandResult.Success($"干跑完成：driver={arguments.Driver}，未发任何请求", new[]
+                {
+                    "动作：complete",
+                    $"提示：{prompt}",
+                    $"上下文：{context}"
+                });
+            }
+
+            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["提示"] = prompt,
+                ["上下文"] = context
+            });
+
+            var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "complete", payload, arguments.TimeoutSeconds);
+            if (!result.Succeeded)
+            {
+                return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
+            }
+
+            var text = ReadString(result.Payload, "文本");
+            var model = ReadString(result.Payload, "模型");
+            return CommandResult.Success($"执行后端通了：driver={arguments.Driver}", new[]
+            {
+                $"服务端报的模型：{(model.Length == 0 ? "（没报）" : model)}",
+                $"回答字数：{text.Length}",
+                $"回答（截断到 200 字）：{(text.Length <= 200 ? text : text.Substring(0, 200) + "…")}"
+            });
         }
 
         /// <summary>

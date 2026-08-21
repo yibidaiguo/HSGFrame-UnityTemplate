@@ -1,14 +1,22 @@
 {
   "名称": "comfyui",
-  "port": ["生图"],
+  "port": [
+    "生图"
+  ],
   "形态": "本地",
   "契约版本": ">=1.0 <2.0",
   "配置schema": {
-    "地址": { "类型": "string", "默认": "http://127.0.0.1:8188" },
-    "超时秒": { "类型": "number", "默认": 300 }
+    "地址": {
+      "类型": "string",
+      "默认": "http://127.0.0.1:8188"
+    },
+    "超时秒": {
+      "类型": "number",
+      "默认": 300
+    }
   },
   "密钥字段": [],
-  "试跑": "art.caps --driver comfyui",
+  "试跑": "bridge.probe --Driver comfyui",
   "能力探测": "bridge.probe --Driver comfyui",
   "实现": "bridge-comfyui",
   "字段类型映射": {},

@@ -59,6 +59,57 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal(0, DaemonTickLedger.LastReadBadLineCount);
         }
 
+        /// <summary>
+        /// 账本读不动时要留下原因：空列表 + LastReadFailureReason 非空。
+        /// 「账本是空的」（正常，决策 77）与「账本读不动」（故障）必须分得开——
+        /// 合并的话，哪天面板拿它印统计数字，读不动就会被印成「一切正常」。
+        /// 造读不动的办法：另开一个句柄以 FileShare.None 占住账本文件，
+        /// 这正是真实场景里会发生的事（另一个进程正在写）。
+        /// </summary>
+        [Fact]
+        public void UnreadableLedgerReportsReasonInsteadOfLookingEmpty()
+        {
+            var ledgerPath = DaemonTickLedger.LedgerFile(_repositoryRoot);
+            Directory.CreateDirectory(Path.GetDirectoryName(ledgerPath));
+            File.WriteAllText(ledgerPath, "{}", new UTF8Encoding(false));
+
+            using (File.Open(ledgerPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            {
+                var records = DaemonTickLedger.Read(_repositoryRoot);
+
+                Assert.Empty(records);
+                Assert.NotEqual("", DaemonTickLedger.LastReadFailureReason);
+                Assert.Contains("读不动", DaemonTickLedger.LastReadFailureReason);
+            }
+        }
+
+        /// <summary>账本不存在是正常状态：空列表，且**不留失败原因**。</summary>
+        [Fact]
+        public void MissingLedgerIsNormalAndLeavesNoFailureReason()
+        {
+            var records = DaemonTickLedger.Read(_repositoryRoot);
+
+            Assert.Empty(records);
+            Assert.Equal("", DaemonTickLedger.LastReadFailureReason);
+        }
+
+        /// <summary>正常跑完一轮，锁能删掉，汇总里的释放失败原因是空的。</summary>
+        [Fact]
+        public void SummaryCarriesEmptyReleaseReasonOnCleanRun()
+        {
+            EngineSettings.Save(_repositoryRoot, PollingSettings());
+            new ExecutionQueue(null, "").Save(_poolRoot);
+
+            var summary = PollingDaemon.Run(
+                _repositoryRoot,
+                new DaemonRunOptions { MaxRounds = 1, RoundDelayMilliseconds = 0, StopFilePath = "" },
+                AdvancingClock(),
+                milliseconds => { });
+
+            Assert.Equal("", summary.ReleaseFailureReason);
+            Assert.False(File.Exists(SingleInstanceLock.LockFile(_repositoryRoot)));
+        }
+
         /// <summary>停止文件存在时第一轮开头就退出、RoundsRun=0、账本没有行，停止文件不被删。</summary>
         [Fact]
         public void StopFileExitsBeforeFirstRound()

@@ -885,7 +885,9 @@ namespace Template.Toolkit.CommandHost.Commands
         /// 报告是产物不是判定（决策 89）：命令返回值永远是 Success，哪怕报告里全是「脏」。
         /// 模型漏答的项进「漏判的工作项」，绝不默认成「净」（决策 42）。
         /// 按判定键缓存（决策 90）：同输入同模型同提示词版本不重判，命中标「来自缓存」。
-        /// 本批只产报告，**不合并写 05-变更影响.md**（合并那一步不在本批范围）。
+        /// 报告落盘之后**合并写进 05-变更影响.md**（子文档 03 §三）：只加「执行后端评估（建议，不是判定）」
+        /// 那一节，不动重规划算出来的那几节；重复跑覆盖上一次，不越堆越多。
+        /// 那份文档不存在时不新建，只如实报一句——没有它说明还没重规划过。
         /// driver 名只走运行时数据（路由表解析），本文件不出现任何 driver 名字面量。
         /// </summary>
         /// <param name="arguments">影响评估命令参数。</param>
@@ -1050,6 +1052,12 @@ namespace Template.Toolkit.CommandHost.Commands
                     $"来自缓存：{fromCache}",
                     $"报告：{reportPath}"
                 };
+
+                var merge = ChangeImpactMerger.Merge(repositoryRoot, arguments.RequirementIdentifier, report);
+                outputLines.Add(merge.Merged
+                    ? $"已合并写：{merge.FilePath}{(merge.ReplacedExistingSection ? "（覆盖了上一次的评估小节）" : "")}"
+                    : $"没合并写：{merge.Reason}");
+
                 return CommandResult.Success("影响评估完成，报告已落盘", outputLines);
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
@@ -2159,6 +2167,12 @@ namespace Template.Toolkit.CommandHost.Commands
             foreach (var record in summary.Records)
             {
                 lines.Add($"轮次 {record.Round}　取活 {(record.ShouldTake ? "取" : "不取")}　原因 {record.Reason}");
+            }
+
+            if (summary.ReleaseFailureReason.Length > 0)
+            {
+                // 锁没释放掉不算这一轮失败（下一次启动能接管陈旧锁自愈），但必须说出来。
+                lines.Add($"锁释放失败：{summary.ReleaseFailureReason}");
             }
 
             return CommandResult.Success(

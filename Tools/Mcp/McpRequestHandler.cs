@@ -142,6 +142,26 @@ namespace Template.Toolkit.Mcp
                 && argumentsElement.ValueKind == JsonValueKind.Object
                 ? argumentsElement.GetRawText()
                 : "{}";
+            // 先校验再绑定，与命令宿主同一条路（Program.cs）：
+            // 认不出来的参数键要当场报错，不许静默忽略——两条入口的行为必须一样，
+            // 否则「从 MCP 调」与「从命令行调」会给出两种结果。
+            var diagnostics = CommandArgumentValidator.Validate(descriptor, argumentsJson);
+            if (diagnostics.Count > 0)
+            {
+                // 参数问题走 isError 的工具结果，不走 JSON-RPC 协议错误：
+                // 协议错误是「这个请求本身不合法」，而参数写错属于「工具跑失败了」，
+                // 调用方要看到的是那四要素诊断，不是一个协议码。
+                var lines = new List<string> { $"参数校验失败，问题 {diagnostics.Count} 条" };
+                lines.AddRange(diagnostics.Select(diagnostic =>
+                    $"位置：{diagnostic.Location}；原因：{diagnostic.Reason}；修复：{diagnostic.FixAction}"));
+                var failure = new
+                {
+                    content = new[] { new { type = "text", text = BuildDiagnosticText(lines) } },
+                    isError = true
+                };
+                return Success(id, failure);
+            }
+
             var arguments = CommandArgumentBinder.Bind(descriptor, argumentsJson);
 
             CommandResult commandResult;
@@ -163,6 +183,12 @@ namespace Template.Toolkit.Mcp
                 isError = !commandResult.IsSuccess
             };
             return Success(id, callResult);
+        }
+
+        /// <summary>把诊断行拼成一段文本；换行符从 Environment 取，别在源码里写字面换行。</summary>
+        private static string BuildDiagnosticText(List<string> lines)
+        {
+            return string.Join(Environment.NewLine, lines);
         }
 
         private static string BuildResultText(CommandResult commandResult)

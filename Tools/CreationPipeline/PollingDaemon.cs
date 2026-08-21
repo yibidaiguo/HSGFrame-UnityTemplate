@@ -36,18 +36,21 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="wakeConsumedCount">成功消费的唤醒信号数。</param>
         /// <param name="stopReason">停止原因，永远非空。</param>
         /// <param name="records">逐轮记录，顺序即轮次顺序。</param>
+        /// <param name="releaseFailureReason">锁释放失败的原因；正常释放为空串。</param>
         public DaemonRunSummary(
             int roundsRun,
             int takenCount,
             int wakeConsumedCount,
             string stopReason,
-            IReadOnlyList<DaemonTickRecord> records)
+            IReadOnlyList<DaemonTickRecord> records,
+            string releaseFailureReason = "")
         {
             RoundsRun = roundsRun;
             TakenCount = takenCount;
             WakeConsumedCount = wakeConsumedCount;
             StopReason = stopReason ?? "";
             Records = records ?? Array.Empty<DaemonTickRecord>();
+            ReleaseFailureReason = releaseFailureReason ?? "";
         }
 
         /// <summary>实际跑完的轮数。</summary>
@@ -64,6 +67,13 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>逐轮记录，顺序即轮次顺序。</summary>
         public IReadOnlyList<DaemonTickRecord> Records { get; }
+
+        /// <summary>
+        /// 锁释放失败的原因；正常释放为空串。
+        /// 删不掉的锁文件会让下一次启动走「接管陈旧锁」那条路——能自愈，
+        /// 但自愈这件事本身要留痕，否则出问题时查不出锁曾经卡过。
+        /// </summary>
+        public string ReleaseFailureReason { get; }
     }
 
     /// <summary>
@@ -195,7 +205,19 @@ namespace Template.Toolkit.CreationPipeline
                     sleep(options.RoundDelayMilliseconds);
                 }
 
-                return new DaemonRunSummary(roundsRun, takenCount, wakeConsumedCount, stopReason, records);
+                // 锁**在这里显式释放**，为的是把释放失败带进汇总：
+                // 写在 using 的花括号上等于释放发生在 return 之后，
+                // ReleaseFailureReason 就永远读不到——删不掉的锁文件会让下一轮走
+                // 「接管陈旧锁」那条路，能自愈，但自愈过程一点痕迹都不留。
+                // Dispose 是幂等的，using 再调一次不会重复删。
+                instanceLock.Dispose();
+                return new DaemonRunSummary(
+                    roundsRun,
+                    takenCount,
+                    wakeConsumedCount,
+                    stopReason,
+                    records,
+                    instanceLock.ReleaseFailureReason);
             }
         }
 

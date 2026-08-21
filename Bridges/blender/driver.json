@@ -1,14 +1,22 @@
 {
   "名称": "blender",
-  "port": ["模型加工"],
+  "port": [
+    "模型加工"
+  ],
   "形态": "本地",
   "契约版本": ">=1.0 <2.0",
   "配置schema": {
-    "可执行文件": { "类型": "string", "默认": "" },
-    "超时秒": { "类型": "number", "默认": 900 }
+    "可执行文件": {
+      "类型": "string",
+      "默认": ""
+    },
+    "超时秒": {
+      "类型": "number",
+      "默认": 900
+    }
   },
   "密钥字段": [],
-  "试跑": "art.caps --driver blender",
+  "试跑": "bridge.probe --Driver blender",
   "能力探测": "bridge.probe --Driver blender",
   "实现": "bridge-blender",
   "字段类型映射": {},

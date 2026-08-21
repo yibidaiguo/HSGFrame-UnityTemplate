@@ -108,6 +108,46 @@ namespace Template.Toolkit.Tests
             Assert.Equal(3, diagnostics.Count);
         }
 
+        /// <summary>
+        /// 认不出来的参数键要报错，不许静默忽略。
+        /// 这一条是真事故换来的：driver 自述里的试跑写成 `--dry-run`，而属性名是 `DryRun`，
+        /// 键对不上被吞掉、命令按默认值跑完、退出码 0，于是一次「干跑」按钮执行了一次真跑。
+        /// </summary>
+        [Fact]
+        public void UnknownParameterNameIsRejected()
+        {
+            var descriptor = BuildDescriptor(Required("Driver", "String"));
+
+            var diagnostics = CommandArgumentValidator.Validate(descriptor, "{\"Driver\":\"x\",\"dry-run\":true}");
+
+            Assert.Single(diagnostics);
+            Assert.Equal("dry-run", diagnostics[0].Location);
+            Assert.Contains("不认识这个参数名", diagnostics[0].Reason);
+            Assert.Contains("Driver", diagnostics[0].FixAction);
+        }
+
+        /// <summary>参数名大小写不敏感：写成 driver 照样认，不该被当成未知参数。</summary>
+        [Fact]
+        public void ParameterNameMatchIsCaseInsensitive()
+        {
+            var descriptor = BuildDescriptor(Required("Driver", "String"));
+
+            var diagnostics = CommandArgumentValidator.Validate(descriptor, "{\"driver\":\"x\"}");
+
+            Assert.Empty(diagnostics);
+        }
+
+        /// <summary>多个未知参数一次全报出来，不是报一个就停。</summary>
+        [Fact]
+        public void AllUnknownParameterNamesAreReportedAtOnce()
+        {
+            var descriptor = BuildDescriptor(Required("Driver", "String"));
+
+            var diagnostics = CommandArgumentValidator.Validate(descriptor, "{\"Driver\":\"x\",\"a\":1,\"b\":2}");
+
+            Assert.Equal(2, diagnostics.Count);
+        }
+
         private static CommandDescriptor BuildDescriptor(params CommandParameterSchema[] schemas)
         {
             var method = typeof(CommandArgumentValidatorTests).GetMethod(nameof(NoOpCommand));

@@ -62,6 +62,28 @@ namespace Template.Toolkit.CommandFramework
                 var root = document.RootElement;
                 var diagnostics = new List<CommandDiagnostic>();
 
+                // 认不出来的参数键**必须报错**，不许静默忽略。
+                // 静默忽略的代价是真金白银：driver 自述里的试跑写的是 `--dry-run`，
+                // 而属性名是 `DryRun`，键对不上就被吞掉、命令按默认值跑完、退出码 0，
+                // 没有任何人会知道那次「干跑」其实是真跑（P8 批次 13 真踩过，
+                // 一次点击执行了一次真的供给）。同一个坑长在花积分的命令上就是烧钱。
+                var knownNames = new HashSet<string>(
+                    descriptor.ParameterSchemas.Select(parameter => parameter.ParameterName),
+                    StringComparer.OrdinalIgnoreCase);
+                foreach (var property in root.EnumerateObject())
+                {
+                    if (knownNames.Contains(property.Name))
+                    {
+                        continue;
+                    }
+
+                    diagnostics.Add(new CommandDiagnostic(
+                        property.Name,
+                        "不认识这个参数名——参数键按 CLR 属性名匹配（大小写不敏感），认不出来的键一律不许静默忽略",
+                        $"改成这条命令认的参数名之一：{string.Join(" / ", descriptor.ParameterSchemas.Select(parameter => parameter.ParameterName))}",
+                        BuildMinimalExample(descriptor)));
+                }
+
                 foreach (var parameter in descriptor.ParameterSchemas.Where(parameter => parameter.IsRequired))
                 {
                     var property = FindProperty(root, parameter.ParameterName);

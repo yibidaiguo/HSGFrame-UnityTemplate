@@ -121,10 +121,14 @@ namespace Template.Toolkit.CreationPipeline
             // 第 4 步 · 合成候选需求：先分离工程字段并记发现，再拼内容字段与工程字段。
             var findings = new List<PoolFinding>();
             var contentFields = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+            // 归工程的字段名单只算一次，且与助手草稿那条路共用同一份实现
+            // （RequirementFieldOwnership）——同一条规矩抄两遍迟早分叉。
+            var engineOwnedFields = new HashSet<string>(
+                RequirementFieldOwnership.FieldsOwnedBy(schema, RequirementFieldOwnership.EngineOwner),
+                StringComparer.Ordinal);
             foreach (var pair in envelope.Fields)
             {
-                var schemaField = schema.FindField(pair.Key);
-                if (schemaField != null && string.Equals(schemaField.Ownership, "工程", StringComparison.Ordinal))
+                if (engineOwnedFields.Contains(pair.Key))
                 {
                     findings.Add(new PoolFinding(
                         envelope.SourceFilePath,

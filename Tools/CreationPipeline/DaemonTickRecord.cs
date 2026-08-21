@@ -79,6 +79,14 @@ namespace Template.Toolkit.CreationPipeline
         public static int LastReadBadLineCount { get; private set; }
 
         /// <summary>
+        /// 最近一次 Read「整份文件读不动」的原因；读成了（含文件不存在）时是空串。
+        /// **有它才分得开两件事**：账本是空的（正常，决策 77）与账本读不动（故障）。
+        /// 少了这一条，哪天面板拿账本印「问题 0 条」，读不动就会被印成「一切正常」——
+        /// 决策 42 那类假绿。
+        /// </summary>
+        public static string LastReadFailureReason { get; private set; } = "";
+
+        /// <summary>
         /// 往账本追加一行记录：UTF-8 无 BOM、行尾 \n、键名中文。
         /// 目录不存在先建；追加失败让异常冒泡——账本写不进是该停下来的硬伤。
         /// </summary>
@@ -120,6 +128,7 @@ namespace Template.Toolkit.CreationPipeline
         public static IReadOnlyList<DaemonTickRecord> Read(string repositoryRoot)
         {
             LastReadBadLineCount = 0;
+            LastReadFailureReason = "";
             var filePath = LedgerFile(repositoryRoot);
             if (!File.Exists(filePath))
             {
@@ -133,8 +142,9 @@ namespace Template.Toolkit.CreationPipeline
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
             {
-                // 读不动按空账本返回；行级坏行计数表达不了整份文件读不动，
-                // 接口没有失败原因字段，如实空着比硬凑一条坏行计数诚实。
+                // 读不动仍返回空列表（调用方不必为此改形状），但**原因要留下**：
+                // LastReadFailureReason 非空就说明这次的空是故障，不是「本来就没有」。
+                LastReadFailureReason = $"账本读不动：{filePath}：{exception.Message}";
                 return Array.Empty<DaemonTickRecord>();
             }
 
