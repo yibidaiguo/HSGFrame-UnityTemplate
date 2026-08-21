@@ -1,11 +1,14 @@
 ﻿<#
-  门禁总编排：按由快到慢的顺序跑完全部检查，任何一道红就地停下。
+  门禁总编排：按由快到慢的顺序跑完全部检查，最后汇总并落一份报告。
 
   用法：
     .\gate.ps1 [-RepositoryRoot <仓库根目录>]
 
   检查逻辑全部在 C# 侧（Toolkit.Gates + 命令宿主），这个脚本只负责调用与汇总，
   这样执行后端也能用 dotnet test 自己验证门禁本身。
+
+  每跑一遍都把逐道结果写进 _Generated/gate-report.json（面板门禁页读它；
+  这份报告是本机状态，已进 .gitignore，不入库）。
 
   退出码：0 全绿，1 有门禁不过，2 环境问题（工程或命令宿主找不到）。
 #>
@@ -38,6 +41,15 @@ foreach ($requiredPath in @($solutionPath, $commandHostProject)) {
 }
 
 $failedGateNames = @()
+# 逐道结果按跑的顺序记这里，收尾写成 _Generated/gate-report.json——
+# 面板门禁页从 P1 起就在读这个文件，而它此前一直没有生产者，页面恒空。
+$gateResults = [ordered]@{}
+
+function Register-GateResult {
+    param([string]$GateName, [bool]$Succeeded)
+    $script:gateResults[$GateName] = $Succeeded
+    if (-not $Succeeded) { $script:failedGateNames += $GateName }
+}
 
 function Write-GateHeader {
     param([string]$GateName)
@@ -48,7 +60,8 @@ function Write-GateHeader {
 function Invoke-GateCommand {
     param([string]$CommandName, [hashtable]$CommandArguments)
 
-    $argumentsPath = Join-Path ([System.IO.Path]::GetTempPath()) ("gate-{0}.json" -f ($CommandName -replace '\.', '-'))
+    # 参数文件名带上进程号：两个仓库并行跑门禁时，固定文件名会互相覆盖、判定串台。
+    $argumentsPath = Join-Path ([System.IO.Path]::GetTempPath()) ("gate-{0}-{1}.json" -f ($CommandName -replace '\.', '-'), $PID)
     $CommandArguments | ConvertTo-Json -Depth 5 | Set-Content -Path $argumentsPath -Encoding utf8
 
     # Out-Host 是必需的：不消费掉子进程的输出，它会连同退出码一起成为函数的返回值，
@@ -57,50 +70,42 @@ function Invoke-GateCommand {
     return $LASTEXITCODE
 }
 
+function Invoke-Gate {
+    param([string]$GateName, [string]$CommandName, [hashtable]$CommandArguments)
+    $exitCode = Invoke-GateCommand -CommandName $CommandName -CommandArguments $CommandArguments
+    Register-GateResult -GateName $GateName -Succeeded ($exitCode -eq 0)
+}
+
 # 秒级：纯 C# 测试。改一处就该跑的那一道。
 Write-GateHeader '秒级门禁 · dotnet test'
 & dotnet test $solutionPath --nologo
-if ($LASTEXITCODE -ne 0) { $failedGateNames += '秒级门禁（dotnet test）' }
+Register-GateResult -GateName '秒级门禁（dotnet test）' -Succeeded ($LASTEXITCODE -eq 0)
 
 # 十秒级：全解决方案编译，.editorconfig 的命名规则也在这一步报出来。
 Write-GateHeader '十秒级门禁 · dotnet build'
 & dotnet build $solutionPath --nologo
-if ($LASTEXITCODE -ne 0) { $failedGateNames += '十秒级门禁（dotnet build）' }
+Register-GateResult -GateName '十秒级门禁（dotnet build）' -Succeeded ($LASTEXITCODE -eq 0)
 
 Write-GateHeader '命名与注释规范'
-if ((Invoke-GateCommand -CommandName 'gate.naming' -CommandArguments @{ RootDirectory = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
-    $failedGateNames += '命名检查器'
-}
+Invoke-Gate -GateName '命名检查器' -CommandName 'gate.naming' -CommandArguments @{ RootDirectory = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 
 Write-GateHeader '模块边界'
-if ((Invoke-GateCommand -CommandName 'gate.moduleboundary' -CommandArguments @{ ScriptsRootDirectory = (Join-Path $templateRoot 'UnityProject/Assets/Game/Scripts'); ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
-    $failedGateNames += '模块边界'
-}
+Invoke-Gate -GateName '模块边界' -CommandName 'gate.moduleboundary' -CommandArguments @{ ScriptsRootDirectory = (Join-Path $templateRoot 'UnityProject/Assets/Game/Scripts'); ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 
 Write-GateHeader '业务层裸日志'
-if ((Invoke-GateCommand -CommandName 'gate.businesslog' -CommandArguments @{ ScriptsRootDirectory = (Join-Path $templateRoot 'UnityProject/Assets/Game/Scripts'); ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
-    $failedGateNames += '业务层裸日志'
-}
+Invoke-Gate -GateName '业务层裸日志' -CommandName 'gate.businesslog' -CommandArguments @{ ScriptsRootDirectory = (Join-Path $templateRoot 'UnityProject/Assets/Game/Scripts'); ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 
 Write-GateHeader '装配对账'
-if ((Invoke-GateCommand -CommandName 'gate.assemblylink' -CommandArguments @{ ProjectFilePath = (Join-Path $templateRoot 'Solutions/Logic.Core/Logic.Core.csproj'); ScriptsRootDirectory = (Join-Path $templateRoot 'UnityProject/Assets/Game/Scripts') }) -ne 0) {
-    $failedGateNames += '装配对账'
-}
+Invoke-Gate -GateName '装配对账' -CommandName 'gate.assemblylink' -CommandArguments @{ ProjectFilePath = (Join-Path $templateRoot 'Solutions/Logic.Core/Logic.Core.csproj'); ScriptsRootDirectory = (Join-Path $templateRoot 'UnityProject/Assets/Game/Scripts') }
 
 Write-GateHeader '可选功能引用范围'
-if ((Invoke-GateCommand -CommandName 'gate.featurescope' -CommandArguments @{ TemplateRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
-    $failedGateNames += '可选功能引用范围'
-}
+Invoke-Gate -GateName '可选功能引用范围' -CommandName 'gate.featurescope' -CommandArguments @{ TemplateRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 
 Write-GateHeader '通用性检查'
-if ((Invoke-GateCommand -CommandName 'gate.generic' -CommandArguments @{ RootDirectory = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
-    $failedGateNames += '通用性检查'
-}
+Invoke-Gate -GateName '通用性检查' -CommandName 'gate.generic' -CommandArguments @{ RootDirectory = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 
 Write-GateHeader '测试基线锁'
-if ((Invoke-GateCommand -CommandName 'gate.baseline' -CommandArguments @{ TemplateRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
-    $failedGateNames += '测试基线锁'
-}
+Invoke-Gate -GateName '测试基线锁' -CommandName 'gate.baseline' -CommandArguments @{ TemplateRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 
 Write-GateHeader '改动文件白名单'
 $changedPaths = @()
@@ -151,83 +156,53 @@ foreach ($statusLine in $statusLines) {
 if ($editorOwnedPaths.Count -gt 0) {
     Write-Host "[gate] 知会：编辑器自有目录下有 $($editorOwnedPaths.Count) 处变化，未计入白名单判定"
 }
-if ((Invoke-GateCommand -CommandName 'gate.whitelist' -CommandArguments @{ ChangedPathsText = ($changedPaths -join "`n"); ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
-    $failedGateNames += '改动文件白名单'
-}
+Invoke-Gate -GateName '改动文件白名单' -CommandName 'gate.whitelist' -CommandArguments @{ ChangedPathsText = ($changedPaths -join "`n"); ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 
 Write-GateHeader '文档长度'
-if ((Invoke-GateCommand -CommandName 'gate.doc' -CommandArguments @{ RepositoryRoot = $RepositoryRoot; TemplateRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
-    $failedGateNames += '文档长度'
-}
+Invoke-Gate -GateName '文档长度' -CommandName 'gate.doc' -CommandArguments @{ RepositoryRoot = $RepositoryRoot; TemplateRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 
 Write-GateHeader '路径 ASCII'
-if ((Invoke-GateCommand -CommandName 'gate.pathascii' -CommandArguments @{ RepositoryRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
-    $failedGateNames += '路径 ASCII'
-}
+Invoke-Gate -GateName '路径 ASCII' -CommandName 'gate.pathascii' -CommandArguments @{ RepositoryRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 
 # 创作管线门禁：池子校验、扩展合法性、供给对账、下游边界、层边界五道。
 # 前两道管池子数据本身，供给对账管产物与数据的一致性，下游/层边界管引擎与产品层的耦合纪律。
 Write-GateHeader '池子校验'
-if ((Invoke-GateCommand -CommandName 'pool.validate' -CommandArguments @{ PoolRoot = (Join-Path $templateRoot 'Pools') }) -ne 0) {
-    $failedGateNames += '池子校验'
-}
+Invoke-Gate -GateName '池子校验' -CommandName 'pool.validate' -CommandArguments @{ PoolRoot = (Join-Path $templateRoot 'Pools') }
 
 Write-GateHeader '扩展合法性'
-if ((Invoke-GateCommand -CommandName 'schema.check' -CommandArguments @{ PoolRoot = (Join-Path $templateRoot 'Pools'); EntityName = '需求' }) -ne 0) {
-    $failedGateNames += '扩展合法性'
-}
+Invoke-Gate -GateName '扩展合法性' -CommandName 'schema.check' -CommandArguments @{ PoolRoot = (Join-Path $templateRoot 'Pools'); EntityName = '需求' }
 
 Write-GateHeader '需求文档'
-if ((Invoke-GateCommand -CommandName 'gate.reqdoc' -CommandArguments @{ RepositoryRoot = $templateRoot; PoolRoot = (Join-Path $templateRoot 'Pools') }) -ne 0) {
-    $failedGateNames += '需求文档'
-}
+Invoke-Gate -GateName '需求文档' -CommandName 'gate.reqdoc' -CommandArguments @{ RepositoryRoot = $templateRoot; PoolRoot = (Join-Path $templateRoot 'Pools') }
 
 Write-GateHeader '供给对账'
-if ((Invoke-GateCommand -CommandName 'gate.provision' -CommandArguments @{ RepositoryRoot = $templateRoot; PoolRoot = (Join-Path $templateRoot 'Pools') }) -ne 0) {
-    $failedGateNames += '供给对账'
-}
+Invoke-Gate -GateName '供给对账' -CommandName 'gate.provision' -CommandArguments @{ RepositoryRoot = $templateRoot; PoolRoot = (Join-Path $templateRoot 'Pools') }
 
 Write-GateHeader '下游边界'
-if ((Invoke-GateCommand -CommandName 'gate.bridgeboundary' -CommandArguments @{ RepositoryRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
-    $failedGateNames += '下游边界'
-}
+Invoke-Gate -GateName '下游边界' -CommandName 'gate.bridgeboundary' -CommandArguments @{ RepositoryRoot = $templateRoot; ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 
 Write-GateHeader '层边界'
-if ((Invoke-GateCommand -CommandName 'gate.layerboundary' -CommandArguments @{ RepositoryRoot = $templateRoot; UnityAssetsDirectory = (Join-Path $templateRoot 'UnityProject/Assets'); ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }) -ne 0) {
-    $failedGateNames += '层边界'
-}
+Invoke-Gate -GateName '层边界' -CommandName 'gate.layerboundary' -CommandArguments @{ RepositoryRoot = $templateRoot; UnityAssetsDirectory = (Join-Path $templateRoot 'UnityProject/Assets'); ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 
 Write-GateHeader '资产规格'
-if ((Invoke-GateCommand -CommandName 'gate.assetspec' -CommandArguments @{ RepositoryRoot = $templateRoot }) -ne 0) {
-    $failedGateNames += '资产规格'
-}
+Invoke-Gate -GateName '资产规格' -CommandName 'gate.assetspec' -CommandArguments @{ RepositoryRoot = $templateRoot }
 
 Write-GateHeader '配方门禁'
-if ((Invoke-GateCommand -CommandName 'gate.recipe' -CommandArguments @{ RepositoryRoot = $templateRoot }) -ne 0) {
-    $failedGateNames += '配方门禁'
-}
+Invoke-Gate -GateName '配方门禁' -CommandName 'gate.recipe' -CommandArguments @{ RepositoryRoot = $templateRoot }
 
 Write-GateHeader '放行策略'
-if ((Invoke-GateCommand -CommandName 'gate.release' -CommandArguments @{ RepositoryRoot = $templateRoot }) -ne 0) {
-    $failedGateNames += '放行策略'
-}
+Invoke-Gate -GateName '放行策略' -CommandName 'gate.release' -CommandArguments @{ RepositoryRoot = $templateRoot }
 
 Write-GateHeader '模型门禁'
-if ((Invoke-GateCommand -CommandName 'gate.model' -CommandArguments @{ RepositoryRoot = $templateRoot }) -ne 0) {
-    $failedGateNames += '模型门禁'
-}
+Invoke-Gate -GateName '模型门禁' -CommandName 'gate.model' -CommandArguments @{ RepositoryRoot = $templateRoot }
 
 # 冲突可见：冲突列表格式合法、未销账数可见。未销账不判红——冲突不拦执行，这道查的是格式。
 Write-GateHeader '冲突可见'
-if ((Invoke-GateCommand -CommandName 'gate.conflict' -CommandArguments @{ PoolRoot = (Join-Path $templateRoot 'Pools') }) -ne 0) {
-    $failedGateNames += '冲突可见'
-}
+Invoke-Gate -GateName '冲突可见' -CommandName 'gate.conflict' -CommandArguments @{ PoolRoot = (Join-Path $templateRoot 'Pools') }
 
 # 晋升门禁：意见库格式合法且晋升提案可见。有提案不判红——提案是待办，不是违规，这道查的是格式。
 Write-GateHeader '晋升门禁'
-if ((Invoke-GateCommand -CommandName 'gate.promotion' -CommandArguments @{ PoolRoot = (Join-Path $templateRoot 'Pools') }) -ne 0) {
-    $failedGateNames += '晋升门禁'
-}
+Invoke-Gate -GateName '晋升门禁' -CommandName 'gate.promotion' -CommandArguments @{ PoolRoot = (Join-Path $templateRoot 'Pools') }
 
 # 生成物幂等：仓库里已生成的产物必须与当前 schema / 定义一致，谁手改了产物这里就会红。
 Write-GateHeader '生成物幂等'
@@ -265,9 +240,7 @@ if ($uiDefinitions.Count -eq 0) {
     }
 }
 
-if ($idempotencyFailed) {
-    $failedGateNames += '生成物幂等'
-}
+Register-GateResult -GateName '生成物幂等' -Succeeded (-not $idempotencyFailed)
 
 # Agent 入口镜像对账（R9）：CLAUDE.md 是源，AGENTS.md 等是镜像。
 # 改了源却没重跑同步脚本，各家模型看到的入口就分叉了——这一道把分叉钉在提交前。
@@ -275,10 +248,27 @@ Write-GateHeader 'Agent 入口镜像'
 $agentSyncScript = Join-Path $templateRoot 'Tools/AgentSync/agent-sync.ps1'
 if (Test-Path $agentSyncScript) {
     & $agentSyncScript -Verify | Out-Host
-    if ($LASTEXITCODE -ne 0) { $failedGateNames += 'Agent 入口镜像' }
+    Register-GateResult -GateName 'Agent 入口镜像' -Succeeded ($LASTEXITCODE -eq 0)
 } else {
     Write-Host "[gate] 知会：$agentSyncScript 不在，跳过 Agent 入口镜像对账"
 }
+
+# 逐道结果落报告：面板门禁页读这份文件。失败也要写——「红在哪一道」正是面板该显示的。
+$reportDirectory = Join-Path $templateRoot '_Generated'
+New-Item -ItemType Directory -Force -Path $reportDirectory | Out-Null
+$reportEntries = @()
+foreach ($gateName in $gateResults.Keys) {
+    $reportEntries += [ordered]@{
+        名称 = $gateName
+        结果 = $(if ($gateResults[$gateName]) { '成功' } else { '失败' })
+        问题数 = 0
+    }
+}
+[ordered]@{
+    时间 = (Get-Date -Format o)
+    条目 = $reportEntries
+} | ConvertTo-Json -Depth 4 | Set-Content -Path (Join-Path $reportDirectory 'gate-report.json') -Encoding utf8
+Write-Host "[gate] 报告已落 _Generated/gate-report.json（共 $($reportEntries.Count) 道）"
 
 Write-Host ''
 if ($failedGateNames.Count -gt 0) {

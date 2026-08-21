@@ -79,6 +79,8 @@ _Tasks/.prereview-cache/
 # gate.provision 靠 _Generated/Bridges/<driver>/ 在不在判断该 driver 声称已供给，
 # 探测结果混进去会让它判红（P8 批次 8 真踩过）。
 _Generated/Probes/
+# 门禁报告是「这台机器最近一次跑门禁的结果」，跟机器走不跟仓库走；面板门禁页现读它。
+_Generated/gate-report.json
 _Tasks/.engine.lock
 _Tasks/wake/
 # 助手常驻会话的运行时状态同理：收到的消息、发出去的草稿留底与会话流水都是
