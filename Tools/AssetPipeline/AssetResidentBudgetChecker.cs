@@ -112,7 +112,7 @@ namespace Template.Toolkit.AssetPipeline
                 assetPath,
                 reason,
                 "把不必全程常驻的内容改成按需分组，或调高 gate-config.json 的 residentBudgetBytes",
-                "规范/结构规范-资源.md 第三节");
+                "Specifications/structure-assets.md 第三节");
         }
     }
 }

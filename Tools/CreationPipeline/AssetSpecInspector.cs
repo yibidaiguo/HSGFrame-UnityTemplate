@@ -14,7 +14,7 @@ namespace Template.Toolkit.CreationPipeline
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="requirementIdentifier">需求 id，如「REQ-0042」。</param>
-        /// <param name="moduleName">业务模块名，取 规范/业务/&lt;模块&gt;/ 的就近覆盖；留空表示只用基线与项目两层。
+        /// <param name="moduleName">业务模块名，取 Specifications/Business/&lt;模块&gt;/ 的就近覆盖；留空表示只用基线与项目两层。
         /// 这个参数必须与建请求时用的那个一致，否则「按带业务层的数据建、拿不带业务层的数据校」会误判。</param>
         public static IReadOnlyList<PoolFinding> Inspect(string repositoryRoot, string requirementIdentifier, string moduleName)
         {
@@ -69,8 +69,8 @@ namespace Template.Toolkit.CreationPipeline
                 findings.Add(new PoolFinding(
                     filePath,
                     $"资产类型「{request.AssetType}」不在资产规格数据里",
-                    "在 规范/项目/资产规格.json 里加这个类型，或改成已有类型",
-                    "规范/项目/资产规格.json"));
+                    "在 Specifications/Project/asset-spec.json 里加这个类型，或改成已有类型",
+                    "Specifications/Project/asset-spec.json"));
                 return findings;
             }
 
@@ -80,7 +80,7 @@ namespace Template.Toolkit.CreationPipeline
                     filePath,
                     $"落点「{request.Destination}」与资产规格数据的「{spec.Destination}」不一致",
                     "落点由资产规格数据定，不由 brief 即兴",
-                    "规范/项目/资产规格.json"));
+                    "Specifications/Project/asset-spec.json"));
             }
 
             if (spec.NamingPattern.Length > 0 && !MatchesNamingPattern(request.NamingText, spec.NamingPattern))
@@ -89,7 +89,7 @@ namespace Template.Toolkit.CreationPipeline
                     filePath,
                     $"命名「{request.NamingText}」不匹配该类型的命名模式「{spec.NamingPattern}」",
                     "按该类型的命名模式改命名",
-                    "规范/项目/资产规格.json"));
+                    "Specifications/Project/asset-spec.json"));
             }
 
             foreach (var pair in request.Specification)
@@ -101,7 +101,7 @@ namespace Template.Toolkit.CreationPipeline
                         filePath,
                         $"规格里的「{pair.Key}」不在该类型的规格数据里",
                         "去掉这个键，或先在资产规格数据里声明它",
-                        "规范/项目/资产规格.json"));
+                        "Specifications/Project/asset-spec.json"));
                     continue;
                 }
 
@@ -111,7 +111,7 @@ namespace Template.Toolkit.CreationPipeline
                         filePath,
                         $"规格「{pair.Key}」被 brief 从「{dataValue}」放宽成「{pair.Value}」；brief 只能收紧不能放宽",
                         "把规格值改回不宽于资产规格数据的值",
-                        "规范/项目/资产规格.json"));
+                        "Specifications/Project/asset-spec.json"));
                 }
             }
 

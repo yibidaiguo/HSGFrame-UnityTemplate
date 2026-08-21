@@ -111,7 +111,7 @@ namespace Template.Toolkit.AssetPipeline
                     relativePath,
                     "预制体不在 ResourceArt 树里",
                     "把它连同 .meta 一起挪进 Game/ResourceArt/<功能>/，Art/ 只放被引用的源生资产",
-                    "规范/结构规范-资源.md 第二节"));
+                    "Specifications/structure-assets.md 第二节"));
             }
         }
 

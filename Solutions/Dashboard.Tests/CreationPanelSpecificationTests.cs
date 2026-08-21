@@ -33,22 +33,22 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void RowsMatchLayerAndModuleLayout()
         {
-            WriteSpecFile("基线", "基线规则.json", """
+            WriteSpecFile("Baseline", "基线规则.json", """
                 {
                   "规则": [{ "id": "r1" }, { "id": "r2" }]
                 }
                 """);
-            WriteSpecFile("基线", "基线说明.md", "# 基线说明");
-            WriteSpecFile("项目", "预审规则.json", """
+            WriteSpecFile("Baseline", "基线说明.md", "# 基线说明");
+            WriteSpecFile("Project", "预审规则.json", """
                 [ { "id": "p1" }, { "id": "p2" }, { "id": "p3" } ]
                 """);
-            WriteSpecFile(Path.Combine("业务", "钓鱼"), "钓鱼规则.json", """
+            WriteSpecFile(Path.Combine("Business", "钓鱼"), "钓鱼规则.json", """
                 {
                   "规则": [{ "id": "f1" }]
                 }
                 """);
-            WriteSpecFile(Path.Combine("业务", "钓鱼"), "钓鱼说明.md", "# 钓鱼说明");
-            WriteSpecFile(Path.Combine("业务", "种田"), "种田规则.json", """
+            WriteSpecFile(Path.Combine("Business", "钓鱼"), "钓鱼说明.md", "# 钓鱼说明");
+            WriteSpecFile(Path.Combine("Business", "种田"), "种田规则.json", """
                 {
                   "规则": [{ "id": "z1" }]
                 }
@@ -73,16 +73,16 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void ReadTwiceGivesSameRelativePathOrder()
         {
-            WriteSpecFile("基线", "乙.json", """
+            WriteSpecFile("Baseline", "乙.json", """
             { "规则": [] }
             """);
-            WriteSpecFile("基线", "甲.json", """
+            WriteSpecFile("Baseline", "甲.json", """
             { "规则": [] }
             """);
-            WriteSpecFile(Path.Combine("业务", "模块乙"), "乙.json", """
+            WriteSpecFile(Path.Combine("Business", "模块乙"), "乙.json", """
             { "规则": [] }
             """);
-            WriteSpecFile(Path.Combine("业务", "模块甲"), "甲.json", """
+            WriteSpecFile(Path.Combine("Business", "模块甲"), "甲.json", """
             { "规则": [] }
             """);
 
@@ -100,10 +100,10 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void RelativePathUsesForwardSlashes()
         {
-            WriteSpecFile("基线", "规则.json", """
+            WriteSpecFile("Baseline", "规则.json", """
             { "规则": [] }
             """);
-            WriteSpecFile(Path.Combine("业务", "模块"), "规则.json", """
+            WriteSpecFile(Path.Combine("Business", "模块"), "规则.json", """
             { "规则": [] }
             """);
 
@@ -112,7 +112,7 @@ namespace Template.Toolkit.DashboardTests
             foreach (var row in rows)
             {
                 Assert.DoesNotContain("\\", row.RelativePath);
-                Assert.StartsWith("规范/", row.RelativePath);
+                Assert.StartsWith("Specifications/", row.RelativePath);
             }
         }
 
@@ -120,7 +120,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void NonJsonOrMarkdownFilesAreIgnored()
         {
-            WriteSpecFile("基线", "说明.txt", "not a spec");
+            WriteSpecFile("Baseline", "说明.txt", "not a spec");
 
             var rows = CreationPanelReader.ReadSpecifications(_repositoryRoot);
 
@@ -131,7 +131,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void TopLevelArrayCountsRules()
         {
-            WriteSpecFile("基线", "数组.json", """
+            WriteSpecFile("Baseline", "数组.json", """
                 [ { "id": "a" }, { "id": "b" }, { "id": "c" } ]
                 """);
 
@@ -146,7 +146,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void TopLevelObjectWithRulesCountsRules()
         {
-            WriteSpecFile("基线", "对象规则.json", """
+            WriteSpecFile("Baseline", "对象规则.json", """
                 {
                   "规则": [{ "id": "a" }, { "id": "b" }]
                 }
@@ -162,7 +162,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void TopLevelObjectWithoutRulesIsMinusOne()
         {
-            WriteSpecFile("基线", "无规则.json", """
+            WriteSpecFile("Baseline", "无规则.json", """
                 {
                   "标题": "只有标题"
                 }
@@ -179,7 +179,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void MarkdownRuleCountIsMinusOne()
         {
-            WriteSpecFile("基线", "说明.md", "# 说明");
+            WriteSpecFile("Baseline", "说明.md", "# 说明");
 
             var rows = CreationPanelReader.ReadSpecifications(_repositoryRoot);
 
@@ -193,7 +193,7 @@ namespace Template.Toolkit.DashboardTests
         public void BrokenJsonProducesUnreadableRow()
         {
             // 坏 JSON 的内容刻意只用 ASCII：命名门禁看不出这是字符串里的数据。
-            WriteSpecFile("基线", "坏规则.json", """
+            WriteSpecFile("Baseline", "坏规则.json", """
                 {
                   not valid json at all
                 """);
@@ -210,13 +210,13 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void ReadDoesNotWriteAnything()
         {
-            WriteSpecFile("基线", "规则.json", """
+            WriteSpecFile("Baseline", "规则.json", """
                 {
                   "规则": [{ "id": "a" }]
                 }
                 """);
-            WriteSpecFile("基线", "说明.md", "# 说明");
-            WriteSpecFile(Path.Combine("业务", "模块"), "模块规则.json", """
+            WriteSpecFile("Baseline", "说明.md", "# 说明");
+            WriteSpecFile(Path.Combine("Business", "模块"), "模块规则.json", """
                 [ { "id": "m" } ]
                 """);
 
@@ -254,7 +254,7 @@ namespace Template.Toolkit.DashboardTests
 
         private void WriteSpecFile(string relativeDirectory, string fileName, string content)
         {
-            var directory = Path.Combine(_repositoryRoot, "规范", relativeDirectory);
+            var directory = Path.Combine(_repositoryRoot, "Specifications", relativeDirectory);
             Directory.CreateDirectory(directory);
             WriteFile(Path.Combine(directory, fileName), content);
         }

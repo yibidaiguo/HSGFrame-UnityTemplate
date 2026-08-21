@@ -18,7 +18,7 @@ namespace Template.Toolkit.Gates
             "bin", "obj", ".git", "Library", "Temp", "PackageCache", "HybridCLRData",
         };
 
-        private const string ReferenceDocumentPath = "规范/结构规范-代码.md 第三节";
+        private const string ReferenceDocumentPath = "Specifications/structure-code.md 第三节";
 
         private const string FixActionText =
             "把这段代码搬进该功能的包，或者让它别引这个程序集——引用范围就是可选功能的定义";

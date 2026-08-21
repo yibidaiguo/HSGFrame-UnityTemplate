@@ -40,14 +40,14 @@ namespace Template.Toolkit.CreationPipeline
     /// 晋升落地规划器：把一条已批准的提案真的变成产物。
     /// 只产产物、不改提案状态——把状态改成已落地是命令层的事（产物写成了但状态没跟上，
     /// 比状态先跳过去而产物没写要好查得多）。检查器去向写一份草案 Markdown；
-    /// 预审规则去向往 规范/项目/预审规则.json 合并追加一条规则。
+    /// 预审规则去向往 Specifications/Project/预审规则.json 合并追加一条规则。
     /// </summary>
     public static class PromotionLandingPlanner
     {
         /// <summary>
         /// 把一条已批准的提案落地成产物。
         /// 检查器去向：写 &lt;仓库根&gt;/提案/检查器/&lt;问题类别&gt;.md（五节草案，短于 200 行）；
-        /// 预审规则去向：往 &lt;仓库根&gt;/规范/项目/预审规则.json 合并追加一条 PRR-xxxx 规则，
+        /// 预审规则去向：往 &lt;仓库根&gt;/Specifications/Project/预审规则.json 合并追加一条 PRR-xxxx 规则，
         /// 同一个来源提案已在里面时不重复追加（幂等跳过，仍算成功）。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
@@ -116,7 +116,7 @@ namespace Template.Toolkit.CreationPipeline
             return new PromotionLandingResult(true, artifactPath, $"检查器草案已写出：{artifactPath}");
         }
 
-        /// <summary>把预审规则去向的提案合并追加进 规范/项目/预审规则.json；同一个来源提案不重复追加。</summary>
+        /// <summary>把预审规则去向的提案合并追加进 Specifications/Project/预审规则.json；同一个来源提案不重复追加。</summary>
         private static PromotionLandingResult LandPreReviewRule(string repositoryRoot, PromotionRecord record)
         {
             var filePath = SpecificationPaths.ProjectPreReviewRuleFile(repositoryRoot);

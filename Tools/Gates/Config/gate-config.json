@@ -31,7 +31,7 @@
     "new"
   ],
   "directoryNamePattern": "^[A-Za-z][A-Za-z0-9_.]*$",
-  "_underscoreExemptNames说明": "只剩三个长期白名单（机器管理区，见 规范/结构规范-总纲.md 第三节第 1 条）。迁移期的过渡名已于 2026-08-16 全部燃尽，R1 完工；以后往这里加名字要有同等理由——它是机器管理的区，不是「暂时懒得改」的区。",
+  "_underscoreExemptNames说明": "只剩三个长期白名单（机器管理区，见 Specifications/structure-overview.md 第三节第 1 条）。迁移期的过渡名已于 2026-08-16 全部燃尽，R1 完工；以后往这里加名字要有同等理由——它是机器管理的区，不是「暂时懒得改」的区。",
   "underscoreExemptNames": [
     "_Inbox",
     "_Generated",

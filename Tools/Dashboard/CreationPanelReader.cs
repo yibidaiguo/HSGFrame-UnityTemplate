@@ -2162,7 +2162,7 @@ namespace Template.Toolkit.Dashboard
                 "",
                 rows);
 
-            var businessRoot = Path.Combine(repositoryRoot, "规范", "业务");
+            var businessRoot = Path.Combine(repositoryRoot, "Specifications", "Business");
             if (Directory.Exists(businessRoot))
             {
                 var moduleNames = Directory.GetDirectories(businessRoot)

@@ -21,7 +21,7 @@ namespace Template.Toolkit.Gates
 
         private const string GameLogicAssemblyName = "Game.Logic";
 
-        private const string ReferenceDocumentPath = "规范/结构规范-代码.md 第三节";
+        private const string ReferenceDocumentPath = "Specifications/structure-code.md 第三节";
 
         private const string FixActionText = "要么把它挪出链接范围，要么让它归 Game.Logic——链接范围就是 Game.Logic 的定义";
 

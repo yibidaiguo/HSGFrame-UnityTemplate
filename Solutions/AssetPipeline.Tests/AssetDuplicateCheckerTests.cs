@@ -24,7 +24,7 @@ namespace Template.Toolkit.AssetPipeline.Tests
                 Assert.Equal("Game/Art/Texture/T_A.png", violation.AssetPath);
                 Assert.Equal("与另外 1 个资产内容完全相同：Game/Art/Texture/T_B.png", violation.Reason);
                 Assert.Equal("复用只走引用：删掉多余的那几份改成引用同一个，预制体要定制差异用 Prefab Variant", violation.Fix);
-                Assert.Equal("规范/结构规范-资源.md 第四节", violation.Reference);
+                Assert.Equal("Specifications/structure-assets.md 第四节", violation.Reference);
             }
             finally
             {

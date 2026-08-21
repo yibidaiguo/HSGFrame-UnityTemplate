@@ -48,8 +48,8 @@ namespace Template.Toolkit.CommandHost.Commands
         [DefaultValue("")]
         public string Destination { get; set; }
 
-        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
-        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        /// <summary>业务模块名，用于取 Specifications/Business/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 Specifications/Business/<模块>/ 的就近覆盖")]
         [DefaultValue("")]
         public string Module { get; set; }
 
@@ -151,8 +151,8 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("资产 id，如「ASSET-0042-01」")]
         public string AssetIdentifier { get; set; }
 
-        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
-        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        /// <summary>业务模块名，用于取 Specifications/Business/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 Specifications/Business/<模块>/ 的就近覆盖")]
         [DefaultValue("")]
         public string ModuleName { get; set; }
 
@@ -181,8 +181,8 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("模型度量文件的路径，由加工站产出")]
         public string MetricsPath { get; set; }
 
-        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
-        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        /// <summary>业务模块名，用于取 Specifications/Business/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 Specifications/Business/<模块>/ 的就近覆盖")]
         [DefaultValue("")]
         public string ModuleName { get; set; }
     }

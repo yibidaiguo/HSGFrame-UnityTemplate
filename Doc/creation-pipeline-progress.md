@@ -78,7 +78,7 @@
 
 ## 四、验证矩阵
 
-到 P2 批次 2 为止**都不碰** `UnityProject/Assets/Game/Scripts/` 与 `Packages/com.hsgframe.*/Runtime/`，所以铁律 4 的分钟级 Unity 门禁**不适用**——批次 2 只落 `规范/` 下的纯数据与 `Tools/` 下的引擎，资产落点是**字符串**，没有真资产进 `UnityProject/`。
+到 P2 批次 2 为止**都不碰** `UnityProject/Assets/Game/Scripts/` 与 `Packages/com.hsgframe.*/Runtime/`，所以铁律 4 的分钟级 Unity 门禁**不适用**——批次 2 只落 `Specifications/` 下的纯数据与 `Tools/` 下的引擎，资产落点是**字符串**，没有真资产进 `UnityProject/`。
 **真有资产文件往 `UnityProject/Assets/` 落的那一批（最早是 P2 批次 3）起，这一行必须改成「要跑 `gate-unity.ps1`」。**
 
 | 档 | 命令 | 每批都要 |

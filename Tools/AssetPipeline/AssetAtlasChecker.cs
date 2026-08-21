@@ -46,7 +46,7 @@ namespace Template.Toolkit.AssetPipeline
                         directory + "/导入规则.json",
                         $"图集名「{atlasName}」不是 SA_ 前缀",
                         "图集资产按前缀表用 SA_ 打头",
-                        "规范/结构规范-资源.md 第五节"));
+                        "Specifications/structure-assets.md 第五节"));
                     continue;
                 }
 
@@ -58,7 +58,7 @@ namespace Template.Toolkit.AssetPipeline
                         $"Game/Settings/Atlas/{atlasName}.spriteatlas",
                         $"目录「{directory}」声明了图集「{atlasName}」，但这张图集不存在",
                         "在 Game/Settings/Atlas/ 下建这张图集，或把导入规则里的「图集」字段清掉",
-                        "规范/结构规范-资源.md 第八节"));
+                        "Specifications/structure-assets.md 第八节"));
                     continue;
                 }
 
@@ -77,7 +77,7 @@ namespace Template.Toolkit.AssetPipeline
                         directory,
                         $"图集「{atlasName}」没有收录目录「{directory}」",
                         "在图集的 Objects for Packing 里把这个目录加进去",
-                        "规范/结构规范-资源.md 第三节"));
+                        "Specifications/structure-assets.md 第三节"));
                 }
             }
 

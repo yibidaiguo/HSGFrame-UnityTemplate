@@ -64,9 +64,9 @@ git 在不同 `core.quotepath` 下显示不一致；CI 容器 locale 不是 UTF-
 | 批 | 范围 | 怎么验 | 状态 |
 |---|---|---|---|
 | a | 加 `gate.pathascii` 门禁 + 配成 warn 只列不拦 | 门禁自己跑一次，列出存量 | **已完成** |
-| b | `Doc/`（纯文档；`规范/` 挪到 c 批，它底下有代码要读的数据文件） | 全仓搜旧名零命中；链接逐条解析；`gate.doc` 绿 | **已完成** |
+| b | `Doc/`（纯文档；`Specifications/` 挪到 c 批，它底下有代码要读的数据文件） | 全仓搜旧名零命中；链接逐条解析；`gate.doc` 绿 | **已完成** |
 | c1 | `Config/创作管线/` → `Tools/CreationPipeline/Config/` + `.gitignore` 密钥路径 + 路径常量 | `dotnet test` + `gate.ps1` + 真跑一条要读密钥的命令；**盯死密钥那条** | **已完成** |
-| c2 | `规范/` → `Specifications/` + `SpecificationPaths` | 同上 + 面板规范页真开一次 | 待 |
+| c2 | `Specifications/` → `Specifications/` + `SpecificationPaths` | 同上 + 面板规范页真开一次 | 待 |
 | c3 | `Config/Luban/` → `Tools/Luban/Config/` + `Tools/` 下的中文文件名 | 同上；**Luban 那条 gitignore 会把新目录整个吞掉，要同步放行** | 待 |
 | d | `Pools/` + `_Generated/` + 指纹重算 | `pool.validate` / `gate.provision` 绿 | 待 |
 | e | `UnityProject/` | **必须跑 `gate-unity.ps1`** | 待 |
@@ -91,6 +91,32 @@ git 在不同 `core.quotepath` 下显示不一致；CI 容器 locale 不是 UTF-
 对照表随各批落地逐步补进本文件第三节。
 
 ## 三、各批落地记录
+
+### c2 批 · `规范/` → `Specifications/`（2026-08-21）
+
+| 旧 | 新 |
+|---|---|
+| `规范/基线/` | `Specifications/Baseline/`（`资产规格.基线.json` → `asset-spec.baseline.json`，`放行策略.基线.json` → `release-policy.baseline.json`） |
+| `规范/项目/` | `Specifications/Project/`（`资产规格.json` → `asset-spec.json`，`放行策略.json` → `release-policy.json`） |
+| `规范/业务/` | `Specifications/Business/` |
+| `规范/结构规范-总纲.md` | `Specifications/structure-overview.md` |
+| `规范/结构规范-代码.md` | `Specifications/structure-code.md` |
+| `规范/结构规范-资源.md` | `Specifications/structure-assets.md` |
+
+引用同步改了 52 个文件，含 `CLAUDE.md`、`AGENTS.md`、四道资产门禁、
+`SpecificationPaths` 那一族路径常量。
+
+**顺手补了 `SpecificationPaths.BusinessRoot(repositoryRoot)`**：
+面板要枚举「有哪些模块写了规范」，而原来那个类只有「按模块名取目录」的方法，
+回答不了这个问题，于是面板自己 `Path.Combine` 了一遍——**路径就有了第二个来源**。
+补上根目录方法，那处绕过才有地方收。
+
+**这一批唯一红过的地方值得记**：`Dashboard.Tests` 的规范页测试全红了 6 条。
+原因不是代码错，是**测试夹具自己造的目录名没跟着改**——
+它写 `Specifications/基线/…`，而读取器找的是 `Specifications/Baseline/`。
+测试用的是系统临时目录、造的是自己的一棵树，所以**改名脚本扫不到它**。
+这类「夹具里硬写的目录名」是改名批次最容易漏的一处，
+而它的表现恰好是「读出来是空的」——跟目录真的空长得一模一样。
 
 ### c1 批 · `Tools/CreationPipeline/Config/`（2026-08-21）
 
@@ -152,7 +178,7 @@ git status --porcelain | grep local.json
   全仓搜六个旧文件名与两个旧目录名，**零命中**；
   `dotnet test` 全绿、`dotnet build` 0 错误、`gate.ps1` PASS 全绿。
 
-**`规范/` 从 b 批挪到 c 批**：它底下有 `基线/*.json` 与 `项目/*.json` 是**代码要读的数据**
+**`Specifications/` 从 b 批挪到 c 批**：它底下有 `基线/*.json` 与 `项目/*.json` 是**代码要读的数据**
 （`SpecificationPaths` 那一族），不属于「纯文档、无代码引用」。跟 `Config/` 一起改更安全。
 
 ### a 批 · 门禁先立（2026-08-21）

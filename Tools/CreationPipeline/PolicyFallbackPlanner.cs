@@ -95,7 +95,7 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>
         /// 应用策略回落计划：把 plan.ChangedKeys 里的每个键写成「人审」，落到项目层文件
-        /// 规范/项目/放行策略.json（合并写，不是覆盖写——只改「策略」对象里这几个键，
+        /// Specifications/Project/release-policy.json（合并写，不是覆盖写——只改「策略」对象里这几个键，
         /// 文件里其余的键与其余顶层字段一字不动；文件不存在就建一个只含「策略」的最小文档）。
         /// ChangedKeys 为空 → 什么都不写，返回空列表。永远只写「人审」，永不写「自动放行」。
         /// </summary>

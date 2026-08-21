@@ -98,8 +98,8 @@ namespace Template.Toolkit.CreationPipeline
                 findings.Add(new PoolFinding(
                     RepositoryRelative(repositoryRoot, baselineFile),
                     "放行策略基线文件不存在",
-                    "从模板同步一份 规范/基线/放行策略.基线.json",
-                    "规范/基线/放行策略.基线.json"));
+                    "从模板同步一份 Specifications/Baseline/release-policy.baseline.json",
+                    "Specifications/Baseline/release-policy.baseline.json"));
                 return new ReleasePolicyCatalog(
                     policies, Array.Empty<string>(), 3, Array.Empty<string>(), findings, sourceLayers);
             }
@@ -138,7 +138,7 @@ namespace Template.Toolkit.CreationPipeline
                             RepositoryRelative(repositoryRoot, layer.FilePath),
                             "基线「抽查比例」缺失、不是数字或不在 0 到 1 之间，取默认值 0.2",
                             "在基线里写一个 0 到 1 之间的数字，或接受默认值 0.2",
-                            "规范/基线/放行策略.基线.json"));
+                            "Specifications/Baseline/release-policy.baseline.json"));
                     }
                 }
                 else
@@ -156,7 +156,7 @@ namespace Template.Toolkit.CreationPipeline
                                 RepositoryRelative(repositoryRoot, layer.FilePath),
                                 $"基线把「{pair.Key}」写成了非法值「{pair.Value}」，只许「自动放行」或「人审」",
                                 "改成「自动放行」或「人审」",
-                                "规范/基线/放行策略.基线.json"));
+                                "Specifications/Baseline/release-policy.baseline.json"));
                             continue;
                         }
 
@@ -265,7 +265,7 @@ namespace Template.Toolkit.CreationPipeline
                     RepositoryRelative(repositoryRoot, filePath),
                     $"{layerName}层文件不是合法 JSON：{exception.Message}",
                     "修正该文件的 JSON 语法",
-                    "规范/基线/放行策略.基线.json"));
+                    "Specifications/Baseline/release-policy.baseline.json"));
                 return null;
             }
         }
@@ -283,7 +283,7 @@ namespace Template.Toolkit.CreationPipeline
                     RepositoryRelative(repositoryRoot, layer.FilePath),
                     $"{layer.LayerName}层写了「可覆盖」，但它是基线独有的数据，下层写了不生效",
                     "删掉该键；需要放宽就到基线的「可覆盖」里登记",
-                    "规范/基线/放行策略.基线.json"));
+                    "Specifications/Baseline/release-policy.baseline.json"));
             }
 
             if (layerData.SuggestionThreshold.HasValue)
@@ -292,7 +292,7 @@ namespace Template.Toolkit.CreationPipeline
                     RepositoryRelative(repositoryRoot, layer.FilePath),
                     $"{layer.LayerName}层写了「建议数阈值」，但它是基线独有的数据，下层写了不生效",
                     "删掉该键；阈值只由基线定",
-                    "规范/基线/放行策略.基线.json"));
+                    "Specifications/Baseline/release-policy.baseline.json"));
             }
 
             if (layerData.SpotCheckRatio.HasValue)
@@ -301,7 +301,7 @@ namespace Template.Toolkit.CreationPipeline
                     RepositoryRelative(repositoryRoot, layer.FilePath),
                     $"{layer.LayerName}层写了「抽查比例」，但它是基线独有的数据，下层写了不生效",
                     "删掉该键；抽查比例只由基线定",
-                    "规范/基线/放行策略.基线.json"));
+                    "Specifications/Baseline/release-policy.baseline.json"));
             }
 
             if (layerData.HighRiskScopes.Count > 0)
@@ -310,7 +310,7 @@ namespace Template.Toolkit.CreationPipeline
                     RepositoryRelative(repositoryRoot, layer.FilePath),
                     $"{layer.LayerName}层写了「高危范围」，但它是基线独有的数据，下层写了不生效",
                     "删掉该键；高危范围只由基线定",
-                    "规范/基线/放行策略.基线.json"));
+                    "Specifications/Baseline/release-policy.baseline.json"));
             }
         }
 
@@ -361,7 +361,7 @@ namespace Template.Toolkit.CreationPipeline
                     RepositoryRelative(repositoryRoot, layer.FilePath),
                     $"{layer.LayerName}层把「{pair.Key}」从「{oldValue}」放宽成「{pair.Value}」，而基线没把它列进「可覆盖」",
                     "改成收紧，或在基线的「可覆盖」里加上这个键",
-                    "规范/基线/放行策略.基线.json"));
+                    "Specifications/Baseline/release-policy.baseline.json"));
                 return;
             }
 
@@ -370,7 +370,7 @@ namespace Template.Toolkit.CreationPipeline
                 RepositoryRelative(repositoryRoot, layer.FilePath),
                 $"{layer.LayerName}层把「{pair.Key}」写成了非法值「{pair.Value}」，只许「自动放行」或「人审」",
                 "改成「自动放行」或「人审」",
-                "规范/基线/放行策略.基线.json"));
+                "Specifications/Baseline/release-policy.baseline.json"));
         }
 
         private static bool IsValidValue(string value)

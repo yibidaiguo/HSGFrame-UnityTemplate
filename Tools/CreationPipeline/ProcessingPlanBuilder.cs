@@ -27,7 +27,7 @@ namespace Template.Toolkit.CreationPipeline
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="request">资产请求。</param>
-        /// <param name="moduleName">业务模块名，取 规范/业务/&lt;模块&gt;/ 的就近覆盖；留空表示只用基线与项目两层。</param>
+        /// <param name="moduleName">业务模块名，取 Specifications/Business/&lt;模块&gt;/ 的就近覆盖；留空表示只用基线与项目两层。</param>
         public static ProcessingPlan Build(string repositoryRoot, AssetRequest request, string moduleName)
         {
             var findings = new List<PoolFinding>();
@@ -42,7 +42,7 @@ namespace Template.Toolkit.CreationPipeline
                     requestIdentifier,
                     $"资产类型「{request.AssetType}」不在资产规格数据里，加工计划无法构建",
                     "在资产规格数据里加这个类型，或改成已有类型",
-                    "规范/基线/资产规格.基线.json"));
+                    "Specifications/Baseline/asset-spec.baseline.json"));
                 fatal = true;
             }
 
@@ -52,7 +52,7 @@ namespace Template.Toolkit.CreationPipeline
                     requestIdentifier,
                     $"域「{request.Domain}」不是「{ModelDomain}」，加工计划只对模型域有意义",
                     "把资产请求的域改成资产.模型，或换一份模型资产请求",
-                    "规范/基线/资产规格.基线.json"));
+                    "Specifications/Baseline/asset-spec.baseline.json"));
                 fatal = true;
             }
 
@@ -150,7 +150,7 @@ namespace Template.Toolkit.CreationPipeline
                     requestIdentifier,
                     $"规格数据缺「{specKey}」，步骤「{stepName}」禁用",
                     "在资产规格数据的该类型下补 规格." + specKey,
-                    "规范/基线/资产规格.基线.json"));
+                    "Specifications/Baseline/asset-spec.baseline.json"));
                 return new ProcessingStep(stepName, false, new Dictionary<string, string>(), $"规格数据缺「{specKey}」");
             }
 
@@ -174,7 +174,7 @@ namespace Template.Toolkit.CreationPipeline
                     requestIdentifier,
                     "规格数据缺「命名模式」，步骤「命名」禁用",
                     "在资产规格数据的该类型下补 命名模式",
-                    "规范/基线/资产规格.基线.json"));
+                    "Specifications/Baseline/asset-spec.baseline.json"));
                 return new ProcessingStep("命名", false, new Dictionary<string, string>(), "规格数据缺「命名模式」");
             }
 
@@ -199,7 +199,7 @@ namespace Template.Toolkit.CreationPipeline
                     requestIdentifier,
                     "规格数据缺「格式」，导出步骤的格式参数为空",
                     "在资产规格数据的该类型下补 规格.格式",
-                    "规范/基线/资产规格.基线.json"));
+                    "Specifications/Baseline/asset-spec.baseline.json"));
             }
 
             return new ProcessingStep("导出", true, new Dictionary<string, string>

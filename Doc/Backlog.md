@@ -53,7 +53,7 @@ git 在不同 `core.quotepath` 设置下显示不一致、CI 容器的 locale �
 | 批 | 范围 | 能独立验吗 |
 |---|---|---|
 | a | 加门禁规则 + 把它配成**只警告不拦**，先把存量列出来 | 能 |
-| b | `Doc/` + `规范/`（纯文档，无代码引用） | 能 |
+| b | `Doc/` + `Specifications/`（纯文档，无代码引用） | 能 |
 | c | `Config/` + `.gitignore` + 门禁配置 | 能，但要盯死密钥那条 |
 | d | `Pools/` + `_Generated/` + 路径常量 + 指纹重算 | 能 |
 | e | `UnityProject/` | **要跑 `gate-unity.ps1`** |

@@ -74,7 +74,7 @@ namespace Template.Toolkit.CreationPipeline
     public static class ReviewPackageBuilder
     {
         /// <summary>高危范围静态清单，与 RiskGrader 的缺省值一致；变更地图里这些范围的组标题加「（高危）」。</summary>
-        private static readonly string[] HighRiskScopes = { "框架", "引擎", "检查器", "构建", "规范" };
+        private static readonly string[] HighRiskScopes = { "框架", "引擎", "检查器", "构建", "Specifications" };
 
         /// <summary>
         /// 组装一份审查包 Markdown。

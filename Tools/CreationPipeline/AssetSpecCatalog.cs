@@ -106,8 +106,8 @@ namespace Template.Toolkit.CreationPipeline
                 findings.Add(new PoolFinding(
                     RepositoryRelative(repositoryRoot, baselineFile),
                     "资产规格基线文件不存在",
-                    "从模板同步一份 规范/基线/资产规格.基线.json",
-                    "规范/基线/资产规格.基线.json"));
+                    "从模板同步一份 Specifications/Baseline/asset-spec.baseline.json",
+                    "Specifications/Baseline/asset-spec.baseline.json"));
                 return new AssetSpecCatalog(types, findings);
             }
 
@@ -229,7 +229,7 @@ namespace Template.Toolkit.CreationPipeline
                     RepositoryRelative(repositoryRoot, filePath),
                     $"{layerName}层文件不是合法 JSON：{exception.Message}",
                     "修正该文件的 JSON 语法",
-                    "规范/基线/资产规格.基线.json"));
+                    "Specifications/Baseline/asset-spec.baseline.json"));
                 return null;
             }
         }
@@ -309,7 +309,7 @@ namespace Template.Toolkit.CreationPipeline
                         RepositoryRelative(repositoryRoot, layer.FilePath),
                         $"{layer.LayerName}层把「{incoming.TypeName}.{pair.Key}」从「{oldValue}」放宽成「{pair.Value}」，而基线没把它列进「可覆盖」",
                         "改成收紧，或在基线的「可覆盖」里加上这个键",
-                        "规范/基线/资产规格.基线.json"));
+                        "Specifications/Baseline/asset-spec.baseline.json"));
                     continue;
                 }
 

@@ -72,7 +72,7 @@ namespace Template.Toolkit.AssetPipeline
                     group[0],
                     $"与另外 {remainingPaths.Count} 个资产内容完全相同：{string.Join("、", remainingPaths)}",
                     "复用只走引用：删掉多余的那几份改成引用同一个，预制体要定制差异用 Prefab Variant",
-                    "规范/结构规范-资源.md 第四节"));
+                    "Specifications/structure-assets.md 第四节"));
             }
 
             violations.Sort((left, right) => string.CompareOrdinal(left.AssetPath, right.AssetPath));

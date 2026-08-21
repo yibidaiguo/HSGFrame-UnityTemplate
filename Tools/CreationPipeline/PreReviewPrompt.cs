@@ -115,8 +115,8 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 从仓库根读生效规范文本：优先 <c>_Generated/生效规范/</c>（合并器的产物目录），
-        /// 不存在时回落读 <c>规范/</c> 下三层（基线/项目/业务）的 .json 与 .md。
+        /// 从仓库根读生效规范文本：优先 <c>_Generated/生效Specifications/</c>（合并器的产物目录），
+        /// 不存在时回落读 <c>Specifications/</c> 下三层（基线/项目/业务）的 .json 与 .md。
         /// 每份文件内容前带一行「### 文件：&lt;仓库相对路径&gt;」，让模型知道规范来自哪个文件。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
@@ -130,7 +130,7 @@ namespace Template.Toolkit.CreationPipeline
                 return texts;
             }
 
-            var specificationRoot = Path.Combine(repositoryRoot ?? "", "规范");
+            var specificationRoot = Path.Combine(repositoryRoot ?? "", "Specifications");
             if (Directory.Exists(specificationRoot))
             {
                 CollectTexts(specificationRoot, repositoryRoot, texts);

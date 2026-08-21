@@ -114,7 +114,7 @@ namespace Template.Toolkit.Gates
                         $"{filePath}:{lineIndex + 1}",
                         $"业务层写了裸 {matchedText}，日志要走 HSGFrame.Logging",
                         "改成注入 HSGFrame.Logging 的日志接口；View 层要落到 Unity 控制台就用现成的 UnityConsoleLogSink",
-                        "规范/结构规范-代码.md 第六节"));
+                        "Specifications/structure-code.md 第六节"));
                 }
             }
 

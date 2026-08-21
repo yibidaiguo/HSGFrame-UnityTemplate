@@ -8,7 +8,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
     /// <summary>风险分级判定顺序的测试：高危范围、行数、阻断数、低风险判据与空改动。</summary>
     public class RiskGraderTests
     {
-        private static readonly string[] HighRiskScopes = { "框架", "引擎", "检查器", "构建", "规范" };
+        private static readonly string[] HighRiskScopes = { "框架", "引擎", "检查器", "构建", "Specifications" };
 
         /// <summary>改框架包：高危范围命中，风险级「高」，范围含「框架」。</summary>
         [Fact]

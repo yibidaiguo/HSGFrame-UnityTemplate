@@ -44,9 +44,9 @@ namespace Template.Toolkit.CreationPipeline
                 return "构建";
             }
 
-            if (StartsWith(normalized, "规范/") || StartsWith(normalized, "Doc/"))
+            if (StartsWith(normalized, "Specifications/") || StartsWith(normalized, "Doc/"))
             {
-                return "规范";
+                return "Specifications";
             }
 
             if (StartsWith(normalized, "UnityProject/Assets/Game/Scripts/Modules/"))

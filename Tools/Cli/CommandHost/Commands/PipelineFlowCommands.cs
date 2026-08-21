@@ -204,8 +204,8 @@ namespace Template.Toolkit.CommandHost.Commands
         [DefaultValue(0)]
         public int SuggestionFindingCount { get; set; }
 
-        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
-        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        /// <summary>业务模块名，用于取 Specifications/Business/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 Specifications/Business/<模块>/ 的就近覆盖")]
         [DefaultValue("")]
         public string ModuleName { get; set; }
     }
@@ -236,8 +236,8 @@ namespace Template.Toolkit.CommandHost.Commands
         [DefaultValue(0)]
         public int SuggestionFindingCount { get; set; }
 
-        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
-        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        /// <summary>业务模块名，用于取 Specifications/Business/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 Specifications/Business/<模块>/ 的就近覆盖")]
         [DefaultValue("")]
         public string ModuleName { get; set; }
 
@@ -363,8 +363,8 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("池子根目录，相对当前工作目录")]
         public string PoolRoot { get; set; }
 
-        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖。</summary>
-        [Summary("业务模块名，用于取 规范/业务/<模块>/ 的就近覆盖")]
+        /// <summary>业务模块名，用于取 Specifications/Business/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 Specifications/Business/<模块>/ 的就近覆盖")]
         [DefaultValue("")]
         public string ModuleName { get; set; }
 
@@ -403,7 +403,7 @@ namespace Template.Toolkit.CommandHost.Commands
         [DefaultValue("")]
         public string RevertCommit { get; set; }
 
-        /// <summary>业务模块名，用于取 规范/业务/&lt;模块&gt;/ 的就近覆盖与意见库模块名。</summary>
+        /// <summary>业务模块名，用于取 Specifications/Business/&lt;模块&gt;/ 的就近覆盖与意见库模块名。</summary>
         [Summary("业务模块名，用于就近覆盖与意见库模块名")]
         [DefaultValue("")]
         public string ModuleName { get; set; }

@@ -35,7 +35,7 @@ P4 批次 2 做了 `PromotionProposalBuilder`——能从意见库**算出**提�
 
 **数据**：`Pools/晋升提案/PR-xxxx.json`（协作层，一提案一文件）、
 `提案/检查器/<类别>.md`（检查器规格草案）、
-`规范/项目/预审规则.json`（预审规则，合并写）。
+`Specifications/Project/预审规则.json`（预审规则，合并写）。
 仓库里只铺了两个 `.gitkeep`，**零真实数据**（决策 4）。
 
 **引擎**：`PromotionLedger`（`PromotionRecord` + 四态状态机，终态不许覆盖）、

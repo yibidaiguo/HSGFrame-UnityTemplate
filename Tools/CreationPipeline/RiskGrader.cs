@@ -38,7 +38,7 @@ namespace Template.Toolkit.CreationPipeline
     public static class RiskGrader
     {
         /// <summary>高危范围缺省值，与放行策略基线「高危范围」一致；参数传 null 时用它兜底。</summary>
-        private static readonly string[] DefaultHighRiskScopes = { "框架", "引擎", "检查器", "构建", "规范" };
+        private static readonly string[] DefaultHighRiskScopes = { "框架", "引擎", "检查器", "构建", "Specifications" };
 
         /// <summary>
         /// 按改动范围与规模给风险级。

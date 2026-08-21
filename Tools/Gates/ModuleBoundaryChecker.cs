@@ -141,7 +141,7 @@ namespace Template.Toolkit.Gates
                             $"引用了模块「{pair.Key}」的私有面「{match.Value}」，模块的公开面只有 Contracts 与 Events",
                             $"改成引用 {pair.Key}.Contracts / {pair.Key}.Events，或让 {pair.Key} 发事件、这边订阅；" +
                             "两个模块都要的类型上提到 Scripts/Shared/",
-                            "规范/结构规范-代码.md 第四节"));
+                            "Specifications/structure-code.md 第四节"));
                     }
                 }
             }
