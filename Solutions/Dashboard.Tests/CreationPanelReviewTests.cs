@@ -317,7 +317,7 @@ namespace Template.Toolkit.DashboardTests
                   "提出时间": "2026-01-06T00:00:00Z",
                   "裁决人": "王五",
                   "裁决时间": "2026-01-07T00:00:00Z",
-                  "落地产物": "Specifications/Project/预审规则.json"
+                  "落地产物": "Specifications/Project/prereview-rules.json"
                 }
                 """);
 

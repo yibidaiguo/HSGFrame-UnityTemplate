@@ -39,7 +39,7 @@ namespace Template.Toolkit.DashboardTests
                 }
                 """);
             WriteSpecFile("Baseline", "基线说明.md", "# 基线说明");
-            WriteSpecFile("Project", "预审规则.json", """
+            WriteSpecFile("Project", "prereview-rules.json", """
                 [ { "id": "p1" }, { "id": "p2" }, { "id": "p3" } ]
                 """);
             WriteSpecFile(Path.Combine("Business", "钓鱼"), "钓鱼规则.json", """
