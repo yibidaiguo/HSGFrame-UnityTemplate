@@ -182,5 +182,97 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal("下游报错", error.Code);
             Assert.True(error.Retryable);
         }
+
+        /// <summary>v3 的服务端 code 优先于 HTTP 状态码：同一个 403 底下 2010 与 1005 是两件事。</summary>
+        [Theory]
+        [InlineData(403, "{\"code\":2010,\"message\":\"You don't have enough credit to create this task\"}", "额度不足")]
+        [InlineData(403, "{\"code\":1005,\"message\":\"no permission\"}", "凭据无效")]
+        [InlineData(400, "{\"code\":1004,\"message\":\"invalid model\"}", "请求不合协议")]
+        [InlineData(404, "{\"code\":4001,\"message\":\"No endpoint found: POST /v3/upload\"}", "下游报错")]
+        [InlineData(404, "{\"code\":2001,\"message\":\"The task is not found\"}", "下游报错")]
+        public void ServerCodeWinsOverHttpStatus(int statusCode, string responseText, string expectedCode)
+        {
+            var error = TripoHttpErrorMapper.Map(statusCode, responseText);
+
+            Assert.Equal(expectedCode, error.Code);
+            Assert.False(error.Retryable);
+        }
+
+        /// <summary>1004 的人话必须把矛头指向「我们发的形状不对」，不是账号问题——否则又要去换 key 查一天。</summary>
+        [Fact]
+        public void ParameterErrorSaysItIsOurRequestShape()
+        {
+            var error = TripoHttpErrorMapper.Map(400, "{\"code\":1004,\"message\":\"invalid model 'tripo-v3.1'\"}");
+
+            Assert.Contains("形状不对", error.HumanText);
+            Assert.Contains("不是账号问题", error.HumanText);
+            Assert.Contains("tripo-v3.1", error.HumanText);
+        }
+
+        /// <summary>4001 的人话必须点名 base URL 或版本写错了——这正是待办 3 那次踩的坑。</summary>
+        [Fact]
+        public void EndpointNotFoundSaysBaseUrlIsWrong()
+        {
+            var error = TripoHttpErrorMapper.Map(404, "{\"code\":4001,\"message\":\"No endpoint found\"}");
+
+            Assert.Contains("base URL", error.HumanText);
+        }
+
+        /// <summary>模型版本只认下游列出来的四个值；空串给缺省值。</summary>
+        [Theory]
+        [InlineData("P1-20260311")]
+        [InlineData("v2.5-20250123")]
+        [InlineData("v3.0-20250812")]
+        [InlineData("v3.1-20260211")]
+        public void AllowedModelVersionsPassThrough(string version)
+        {
+            Assert.Equal(version, TripoClient.NormalizeModelVersion(version));
+        }
+
+        /// <summary>空串给缺省模型版本。</summary>
+        [Fact]
+        public void EmptyModelVersionFallsBackToDefault()
+        {
+            Assert.Equal(TripoClient.DefaultModelVersion, TripoClient.NormalizeModelVersion(""));
+        }
+
+        /// <summary>官方快速开始页写的 tripo-v3.1 服务端不认，本地就要拦下来，省一次注定 1004 的调用。</summary>
+        [Fact]
+        public void UnknownModelVersionThrowsBeforeAnyCall()
+        {
+            var exception = Assert.Throws<TripoClientException>(() => TripoClient.NormalizeModelVersion("tripo-v3.1"));
+
+            Assert.Equal("请求不合协议", exception.ErrorCode);
+            Assert.Contains("v3.1-20260211", exception.Message);
+        }
+
+        /// <summary>text-to-model 提交体是 v3 形状：有 model，没有 v2 的 type / model_version。</summary>
+        [Fact]
+        public void TextSubmitBodyUsesVersionThreeShape()
+        {
+            using var client = new TripoClient("https://openapi.tripo3d.ai/v3", "not-a-real-key", 60, "v3.0-20250812");
+
+            var body = client.BuildSubmitBody("a small wooden crate");
+
+            Assert.Contains("\"model\":\"v3.0-20250812\"", body);
+            Assert.Contains("\"prompt\":\"a small wooden crate\"", body);
+            Assert.DoesNotContain("model_version", body);
+            Assert.DoesNotContain("\"type\":\"text_to_model\"", body);
+        }
+
+        /// <summary>image-to-model 提交体带 file={type,url}；类型空串按 png。</summary>
+        [Theory]
+        [InlineData("", "png")]
+        [InlineData("JPG", "jpg")]
+        [InlineData(".png", "png")]
+        public void ImageSubmitBodyCarriesFileObject(string given, string expected)
+        {
+            using var client = new TripoClient("https://openapi.tripo3d.ai/v3", "not-a-real-key", 60, "v3.0-20250812");
+
+            var body = client.BuildImageSubmitBody("https://example.invalid/a.png", given);
+
+            Assert.Contains("\"file\":{\"type\":\"" + expected + "\"", body);
+            Assert.Contains("\"url\":\"https://example.invalid/a.png\"", body);
+        }
     }
 }

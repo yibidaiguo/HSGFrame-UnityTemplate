@@ -46,7 +46,7 @@ namespace Template.Bridges.Tripo
     }
 
     /// <summary>
-    /// 纯函数状态机：把下游 GET /task/&lt;id&gt; 响应里的 status 字符串判定成「继续轮询 / 终态成功 / 终态失败」。
+    /// 纯函数状态机：把下游 GET /tasks/&lt;id&gt; 响应里的 status 字符串判定成「继续轮询 / 终态成功 / 终态失败」。
     /// 状态取值是 tripo 特有知识（换一个模型生成 driver 不成立），所以住桥里不住引擎（决策 93）。
     /// 未知状态一律当失败、原样带出字符串，绝不默默当成还在跑然后一直轮询到超时（决策 42）。
     /// </summary>
@@ -101,26 +101,31 @@ namespace Template.Bridges.Tripo
         /// <param name="responseText">响应体文本，可能为空。</param>
         public static BridgeError Map(int statusCode, string responseText)
         {
+            // v3 的服务端错误码比 HTTP 状态码分得细：同一个 403 底下有「积分不足」与「密钥无权」两种
+            // 完全不同的原因，同一个 400 底下有「参数非法」，同一个 404 底下有「端点不存在」与「任务不存在」。
+            // 所以先看响应体里的 code，取不到再退回按 HTTP 状态码分（v3 实测码见 Bridges/tripo/endpoints-verified.md）。
+            var serverCode = ReadErrorCode(responseText);
+            switch (serverCode)
+            {
+                case 2010:
+                    return new BridgeError("额度不足", "下游 code 2010：账号 API 积分不足，不是代码坏了。注意网页版订阅与 API credits 是两套额度，要在开发者门户单独买", retryable: false);
+                case 1005:
+                    return new BridgeError("凭据无效", "下游 code 1005：该密钥无权访问此资源", retryable: false);
+                case 1004:
+                    return new BridgeError("请求不合协议", "下游 code 1004：参数非法——是我们发的请求形状不对，不是账号问题。下游原话：" + ReadServerMessage(responseText), retryable: false);
+                case 4001:
+                    return new BridgeError("下游报错", "下游 code 4001：端点不存在——base URL 或 API 版本写错了。下游原话：" + ReadServerMessage(responseText), retryable: false);
+                case 2001:
+                    return new BridgeError("下游报错", "下游 code 2001：任务不存在——task_id 不属于这个账号，或格式不对", retryable: false);
+            }
+
             if (statusCode == 401)
             {
                 return new BridgeError("凭据无效", $"下游返回 HTTP {statusCode}，密钥无效或无权访问", retryable: false);
             }
 
-            // tripo 的 403 有两种：code 1005（无权限）与 code 2010（积分不足）。
-            // 响应体里有 code 时按 code 分，没 body 才退化成凭据无效。
             if (statusCode == 403)
             {
-                var code = ReadErrorCode(responseText);
-                if (code == 2010)
-                {
-                    return new BridgeError("额度不足", "下游返回 HTTP 403：账号积分/配额不足，不是代码坏了。请到下游控制台确认剩余积分", retryable: false);
-                }
-
-                if (code == 1005)
-                {
-                    return new BridgeError("凭据无效", "下游返回 HTTP 403：该密钥无权访问此资源", retryable: false);
-                }
-
                 return new BridgeError("凭据无效", $"下游返回 HTTP {statusCode}，密钥无效或无权访问", retryable: false);
             }
 
@@ -287,35 +292,118 @@ namespace Template.Bridges.Tripo
         /// <summary>轮询间隔毫秒数：线上服务，任务书要求不小于 5 秒。</summary>
         private const int PollIntervalMilliseconds = 5000;
 
-        /// <summary>提交时用的模型版本：H3 v3.0（定价表里 text_to_model 无纹理 10 积分，最省的档位）。</summary>
-        private const string SubmitModelVersion = "v3.0-20250812";
+        /// <summary>
+        /// 提交时用的缺省模型版本：v3.0（定价表里 text_to_model 无纹理 10 积分，最省的档位）。
+        /// 调用方可用配置键「模型版本」覆盖，值必须在 <see cref="AllowedModelVersions"/> 里。
+        /// </summary>
+        public const string DefaultModelVersion = "v3.0-20250812";
+
+        /// <summary>
+        /// 下游允许的四个模型版本，由服务端 code 1004 的报错原文实证：
+        /// 「invalid model 'tripo-v3.1', allowed values: P1-20260311, v2.5-20250123, v3.0-20250812, v3.1-20260211」。
+        /// 官方快速开始那页写的 `tripo-v3.1` 不在其中——服务端当场拒（决策 94：以真回包为准）。
+        /// </summary>
+        public static readonly string[] AllowedModelVersions =
+        {
+            "P1-20260311",
+            "v2.5-20250123",
+            "v3.0-20250812",
+            "v3.1-20260211"
+        };
 
         private readonly string _baseUrl;
         private readonly string _apiKey;
         private readonly int _timeoutSeconds;
+        private readonly string _modelVersion;
         private readonly HttpClient _httpClient;
 
         /// <summary>
         /// 构造对下游的 HTTP 客户端。
         /// </summary>
-        /// <param name="baseUrl">下游地址，如 https://api.tripo3d.ai/v2/openapi。</param>
+        /// <param name="baseUrl">下游地址，v3 是 https://openapi.tripo3d.ai/v3。</param>
         /// <param name="apiKey">模型生成密钥，只进 Authorization 头。</param>
         /// <param name="timeoutSeconds">单次 HTTP 调用的超时秒数。</param>
-        public TripoClient(string baseUrl, string apiKey, int timeoutSeconds)
+        /// <param name="modelVersion">模型版本；空串用缺省值。不在允许列表里当场抛，不发请求。</param>
+        public TripoClient(string baseUrl, string apiKey, int timeoutSeconds, string modelVersion = "")
         {
             _baseUrl = (baseUrl ?? "").TrimEnd('/');
             _apiKey = apiKey ?? "";
             _timeoutSeconds = Math.Max(1, timeoutSeconds);
+            _modelVersion = NormalizeModelVersion(modelVersion);
             _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(Math.Max(1, timeoutSeconds)) };
         }
 
         /// <summary>
-        /// 提交 text_to_model 任务，返回 task_id。
+        /// 校验并归一模型版本：空串给缺省值，不在允许列表里当场抛（省一次注定 1004 的调用）。
+        /// </summary>
+        /// <param name="modelVersion">调用方给的模型版本。</param>
+        public static string NormalizeModelVersion(string modelVersion)
+        {
+            var text = (modelVersion ?? "").Trim();
+            if (text.Length == 0)
+            {
+                return DefaultModelVersion;
+            }
+
+            if (Array.IndexOf(AllowedModelVersions, text) < 0)
+            {
+                throw new TripoClientException(
+                    "请求不合协议",
+                    "模型版本「" + text + "」不在下游允许的四个值里：" + string.Join("、", AllowedModelVersions),
+                    retryable: false);
+            }
+
+            return text;
+        }
+
+        /// <summary>下游账号余额：balance 是可用积分，frozen 是冻结中的。</summary>
+        public sealed class BalanceReading
+        {
+            /// <summary>构造一份余额读数。</summary>
+            /// <param name="balance">可用积分。</param>
+            /// <param name="frozen">冻结中的积分。</param>
+            public BalanceReading(double balance, double frozen)
+            {
+                Balance = balance;
+                Frozen = frozen;
+            }
+
+            /// <summary>可用积分。</summary>
+            public double Balance { get; }
+
+            /// <summary>冻结中的积分。</summary>
+            public double Frozen { get; }
+        }
+
+        /// <summary>
+        /// 查账号余额：GET {base}/account/balance。
+        /// 注意（决策 91）：余额**不是**就绪判据——余额非零也可能因别的原因提交失败，
+        /// 这个读数只用来诊断「2010 到底是不是真没钱了」。
+        /// </summary>
+        public BalanceReading QueryBalance()
+        {
+            var url = _baseUrl + "/account/balance";
+            var call = Send(HttpMethod.Get, url, null, includeAuthorization: true);
+            if (!call.Succeeded)
+            {
+                throw new TripoClientException(call.Error.Code, call.Error.HumanText, call.Error.Retryable);
+            }
+
+            if (!TryExtractBalance(call.ResponseText, out var balance, out var frozen, out var reason))
+            {
+                throw new TripoClientException("下游报错", "余额响应解析不了：" + reason + "，响应原文：" + SafePreview(call.ResponseText), retryable: false);
+            }
+
+            return new BalanceReading(balance, frozen);
+        }
+
+        /// <summary>
+        /// 提交 text_to_model 任务，返回 task_id。v3 端点：POST {base}/generation/text-to-model。
         /// </summary>
         /// <param name="prompt">提示词。</param>
         public string SubmitTask(string prompt)
         {
-            var url = _baseUrl + "/task";
+            var url = _baseUrl + "/generation/text-to-model";
             var body = BuildSubmitBody(prompt);
             Console.Error.WriteLine("BridgeTripo 将提交任务：POST " + url + " body=" + body + "（密钥只进 Authorization 头）");
 
@@ -331,6 +419,40 @@ namespace Template.Bridges.Tripo
             }
 
             Console.Error.WriteLine("BridgeTripo 已提交任务，task_id=" + taskId);
+            return taskId;
+        }
+
+        /// <summary>
+        /// 提交 image_to_model 任务，返回 task_id。v3 端点：POST {base}/generation/image-to-model。
+        /// 参考图走「下游自己去取的 URL」这一路：实证过 file={"type":…,"url":…} 能过参数校验
+        /// （拿不可达的 URL 试会回 1004「input image is not accessible」，拿真 URL 试直接进 2010 积分关）。
+        /// v3 没有 /upload 与 /upload/sts 端点（两个都实证回 4001），所以本地图片要先有个可公开访问的地址。
+        /// </summary>
+        /// <param name="imageUrl">参考图地址，下游要能直接 GET 到。</param>
+        /// <param name="imageType">图片类型，如 png / jpg。</param>
+        public string SubmitImageTask(string imageUrl, string imageType)
+        {
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                throw new TripoClientException("请求不合协议", "参考图地址是空的", retryable: false);
+            }
+
+            var url = _baseUrl + "/generation/image-to-model";
+            var body = BuildImageSubmitBody(imageUrl, imageType);
+            Console.Error.WriteLine("BridgeTripo 将提交图生模型任务：POST " + url + " body=" + body + "（密钥只进 Authorization 头）");
+
+            var call = Send(HttpMethod.Post, url, body, includeAuthorization: true);
+            if (!call.Succeeded)
+            {
+                throw new TripoClientException(call.Error.Code, call.Error.HumanText, call.Error.Retryable);
+            }
+
+            if (!TryExtractTaskId(call.ResponseText, out var taskId, out var reason))
+            {
+                throw new TripoClientException("下游报错", "提交任务的响应里找不到 task_id：" + reason + "，响应原文：" + SafePreview(call.ResponseText), retryable: false);
+            }
+
+            Console.Error.WriteLine("BridgeTripo 已提交图生模型任务，task_id=" + taskId);
             return taskId;
         }
 
@@ -363,10 +485,10 @@ namespace Template.Bridges.Tripo
             }
         }
 
-        /// <summary>查一次任务状态：GET /task/&lt;task_id&gt;，解析状态与模型 URL。</summary>
+        /// <summary>查一次任务状态：GET {base}/tasks/&lt;task_id&gt;（v3 端点），解析状态与模型 URL。</summary>
         public TripoTaskQuery QueryTask(string taskId)
         {
-            var url = _baseUrl + "/task/" + Uri.EscapeDataString(taskId);
+            var url = _baseUrl + "/tasks/" + Uri.EscapeDataString(taskId);
             var call = Send(HttpMethod.Get, url, null, includeAuthorization: true);
             if (!call.Succeeded)
             {
@@ -484,16 +606,81 @@ namespace Template.Bridges.Tripo
             return new HttpCall { Succeeded = false, Error = error };
         }
 
-        /// <summary>拼 text_to_model 提交体。字段名来自 tripo 官方文档；texture/pbr 关掉拿无纹理粗模（最省积分的档）。</summary>
-        private static string BuildSubmitBody(string prompt)
+        /// <summary>
+        /// 拼 v3 的 text-to-model 提交体：{"prompt":…,"model":…,"texture":false,"pbr":false,"face_limit":3000}。
+        /// 形状实证过——这一份原样发出去回的是 403/2010（积分关），不是 400/1004（参数关），
+        /// 说明参数校验整份都过了。v2 的 `type` 与 `model_version` 两个键 v3 不认（决策 94）。
+        /// texture/pbr 关掉拿无纹理粗模，是定价表里最省积分的档。
+        /// </summary>
+        /// <param name="prompt">提示词。</param>
+        public string BuildSubmitBody(string prompt)
         {
             var builder = new StringBuilder();
-            builder.Append("{\"type\":\"text_to_model\",\"prompt\":");
+            builder.Append("{\"prompt\":");
             builder.Append(JsonSerializer.Serialize(prompt));
-            builder.Append(",\"model_version\":");
-            builder.Append(JsonSerializer.Serialize(SubmitModelVersion));
+            builder.Append(",\"model\":");
+            builder.Append(JsonSerializer.Serialize(_modelVersion));
             builder.Append(",\"texture\":false,\"pbr\":false,\"face_limit\":3000}");
             return builder.ToString();
+        }
+
+        /// <summary>
+        /// 拼 v3 的 image-to-model 提交体：{"model":…,"file":{"type":…,"url":…},…}。
+        /// 形状同样实证过：真 URL 回 403/2010，不可达 URL 回 400/1004「input image is not accessible」。
+        /// </summary>
+        /// <param name="imageUrl">参考图地址。</param>
+        /// <param name="imageType">图片类型，如 png / jpg；空串按 png。</param>
+        public string BuildImageSubmitBody(string imageUrl, string imageType)
+        {
+            var type = string.IsNullOrWhiteSpace(imageType) ? "png" : imageType.Trim().TrimStart('.').ToLowerInvariant();
+            var builder = new StringBuilder();
+            builder.Append("{\"model\":");
+            builder.Append(JsonSerializer.Serialize(_modelVersion));
+            builder.Append(",\"file\":{\"type\":");
+            builder.Append(JsonSerializer.Serialize(type));
+            builder.Append(",\"url\":");
+            builder.Append(JsonSerializer.Serialize(imageUrl));
+            builder.Append("},\"texture\":false,\"pbr\":false,\"face_limit\":3000}");
+            return builder.ToString();
+        }
+
+        /// <summary>从余额响应里取 balance / frozen：先试 data.balance，再试顶层 balance。</summary>
+        private static bool TryExtractBalance(string responseText, out double balance, out double frozen, out string reason)
+        {
+            balance = 0;
+            frozen = 0;
+            using var document = ParseOrFail(responseText, "余额响应", out reason);
+            if (document == null)
+            {
+                return false;
+            }
+
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                reason = "余额响应顶层不是对象";
+                return false;
+            }
+
+            var scope = root;
+            if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object)
+            {
+                scope = data;
+            }
+
+            if (!scope.TryGetProperty("balance", out var balanceElement) || balanceElement.ValueKind != JsonValueKind.Number)
+            {
+                reason = "既没有 data.balance 也没有顶层 balance";
+                return false;
+            }
+
+            balance = balanceElement.GetDouble();
+            if (scope.TryGetProperty("frozen", out var frozenElement) && frozenElement.ValueKind == JsonValueKind.Number)
+            {
+                frozen = frozenElement.GetDouble();
+            }
+
+            return true;
         }
 
         /// <summary>从提交响应里取 task_id：先试 data.task_id，再试顶层 task_id。</summary>
@@ -601,15 +788,25 @@ namespace Template.Bridges.Tripo
                 output = topOutput;
             }
 
-            if (output.ValueKind == JsonValueKind.Object
-                && output.TryGetProperty("model", out var model)
-                && model.ValueKind == JsonValueKind.String)
+            // 成功回包的 output 形状**至今没有真回包验证过**（提交那一步一直卡在 2010 积分关），
+            // 所以这里按「几个已知候选键挨个试」写，取到哪个用哪个，并把没取到当作明确失败。
+            // 第一次真跑到成功时，务必核对实际键名并把这段收敛成实证过的那一个（决策 94）。
+            if (output.ValueKind == JsonValueKind.Object)
             {
-                modelUrl = model.GetString() ?? "";
-                return modelUrl.Length > 0;
+                foreach (var candidate in new[] { "model", "pbr_model", "base_model" })
+                {
+                    if (output.TryGetProperty(candidate, out var model) && model.ValueKind == JsonValueKind.String)
+                    {
+                        modelUrl = model.GetString() ?? "";
+                        if (modelUrl.Length > 0)
+                        {
+                            return true;
+                        }
+                    }
+                }
             }
 
-            reason = "output 里没有 model 下载地址";
+            reason = "output 里没有 model / pbr_model / base_model 任何一个下载地址";
             return false;
         }
 

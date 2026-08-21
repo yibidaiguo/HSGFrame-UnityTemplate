@@ -18,8 +18,8 @@ namespace Template.Bridges.Tripo
         /// <summary>协议契约版本。</summary>
         private const string ContractVersion = "1.0.0";
 
-        /// <summary>缺省下游地址（driver.json 配置 schema 的默认值）。</summary>
-        private const string DefaultBaseUrl = "https://api.tripo3d.ai/v2/openapi";
+        /// <summary>缺省下游地址（driver.json 配置 schema 的默认值）：v3 的主机与版本，实证过。</summary>
+        private const string DefaultBaseUrl = "https://openapi.tripo3d.ai/v3";
 
         /// <summary>缺省超时秒数（driver.json 配置 schema 的默认值）。</summary>
         private const int DefaultTimeoutSeconds = 600;
@@ -47,8 +47,11 @@ namespace Template.Bridges.Tripo
                     case "generate":
                         response = RunGenerate(request);
                         break;
+                    case "balance":
+                        response = RunBalance(request);
+                        break;
                     default:
-                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥只支持 generate", retryable: false);
+                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥支持 generate / balance", retryable: false);
                         break;
                 }
 
@@ -79,14 +82,25 @@ namespace Template.Bridges.Tripo
         /// <param name="request">请求信封，配置含 地址/超时秒/模型生成密钥。</param>
         private static BridgeResponse RunGenerate(BridgeRequest request)
         {
-            if (!TryGetPayloadString(request, "提示词", out var prompt, out var reason))
-            {
-                return Failure("请求不合协议", reason, retryable: false);
-            }
+            // 参考图地址给了就走 image-to-model，没给就走 text-to-model。
+            // 两条路的提交体形状都实证过（见 Bridges/tripo/endpoints-verified.md）。
+            var referenceImageUrl = ReadOptionalPayloadString(request, "参考图地址");
+            var referenceImageType = ReadOptionalPayloadString(request, "参考图类型");
+            var usesImage = referenceImageUrl.Length > 0;
 
-            if (string.IsNullOrWhiteSpace(prompt))
+            var prompt = "";
+            string reason;
+            if (!usesImage)
             {
-                return Failure("请求不合协议", "载荷「提示词」是空的", retryable: false);
+                if (!TryGetPayloadString(request, "提示词", out prompt, out reason))
+                {
+                    return Failure("请求不合协议", reason, retryable: false);
+                }
+
+                if (string.IsNullOrWhiteSpace(prompt))
+                {
+                    return Failure("请求不合协议", "载荷「提示词」是空的", retryable: false);
+                }
             }
 
             if (!TryGetPayloadString(request, "输出目录", out var outputDirectory, out reason))
@@ -97,6 +111,7 @@ namespace Template.Bridges.Tripo
             var baseUrl = ReadConfigurationString(request, "地址", DefaultBaseUrl);
             var timeoutSeconds = ReadConfigurationInt(request, "超时秒", DefaultTimeoutSeconds);
             var secretKey = ReadConfigurationString(request, "模型生成密钥", "");
+            var modelVersion = ReadConfigurationString(request, "模型版本", "");
 
             if (baseUrl.Length == 0)
             {
@@ -111,11 +126,23 @@ namespace Template.Bridges.Tripo
             string modelFilePath;
             string taskId;
             string statusText;
-            using (var client = new TripoClient(baseUrl, secretKey, timeoutSeconds))
+            TripoClient client;
+            try
+            {
+                client = new TripoClient(baseUrl, secretKey, timeoutSeconds, modelVersion);
+            }
+            catch (TripoClientException exception)
+            {
+                return Failure(exception.ErrorCode, exception.Message, exception.Retryable);
+            }
+
+            using (client)
             {
                 try
                 {
-                    taskId = client.SubmitTask(prompt);
+                    taskId = usesImage
+                        ? client.SubmitImageTask(referenceImageUrl, referenceImageType)
+                        : client.SubmitTask(prompt);
 
                     var query = client.PollUntilFinal(taskId);
                     statusText = query.State.StatusText;
@@ -137,11 +164,53 @@ namespace Template.Bridges.Tripo
             {
                 ["模型文件"] = modelFilePath,
                 ["task_id"] = taskId,
-                ["状态"] = statusText
+                ["状态"] = statusText,
+                ["提交方式"] = usesImage ? "image-to-model" : "text-to-model"
             });
 
             Console.Error.WriteLine("BridgeTripo 模型已落盘：" + modelFilePath);
             return BridgeResponse.Success(ContractVersion, payload);
+        }
+
+        /// <summary>
+        /// 跑 balance 动作：查一次账号余额，返回 {"可用积分":…,"冻结积分":…}。
+        /// 这是**诊断**用的，不是就绪判据——决策 91 说得很死：能不能用只有真提交一次任务才算数。
+        /// 它的用处是把「2010 到底是不是真没钱」这件事一次问清楚，省得去换 key、查权限。
+        /// </summary>
+        /// <param name="request">请求信封，配置含 地址/超时秒/模型生成密钥。</param>
+        private static BridgeResponse RunBalance(BridgeRequest request)
+        {
+            var baseUrl = ReadConfigurationString(request, "地址", DefaultBaseUrl);
+            var timeoutSeconds = ReadConfigurationInt(request, "超时秒", DefaultTimeoutSeconds);
+            var secretKey = ReadConfigurationString(request, "模型生成密钥", "");
+
+            if (baseUrl.Length == 0)
+            {
+                return Failure("下游不可达", "下游地址未配置（配置键「地址」为空）", retryable: false);
+            }
+
+            if (secretKey.Length == 0)
+            {
+                return Failure("凭据无效", "模型生成密钥未配置（配置键「模型生成密钥」为空）", retryable: false);
+            }
+
+            using var client = new TripoClient(baseUrl, secretKey, timeoutSeconds);
+            try
+            {
+                var reading = client.QueryBalance();
+                var payload = JsonSerializer.SerializeToElement(new JsonObject
+                {
+                    ["可用积分"] = reading.Balance,
+                    ["冻结积分"] = reading.Frozen,
+                    ["提醒"] = "余额不是就绪判据（决策 91）：能不能用只有真提交一次任务才算数"
+                });
+
+                return BridgeResponse.Success(ContractVersion, payload);
+            }
+            catch (TripoClientException exception)
+            {
+                return Failure(exception.ErrorCode, exception.Message, exception.Retryable);
+            }
         }
 
         /// <summary>
@@ -272,6 +341,19 @@ namespace Template.Bridges.Tripo
             }
 
             return fallback;
+        }
+
+        /// <summary>读载荷里的可选字符串键；缺失或类型不对给空串（不算错）。</summary>
+        private static string ReadOptionalPayloadString(BridgeRequest request, string key)
+        {
+            if (request.Payload.ValueKind == JsonValueKind.Object
+                && request.Payload.TryGetProperty(key, out var element)
+                && element.ValueKind == JsonValueKind.String)
+            {
+                return (element.GetString() ?? "").Trim();
+            }
+
+            return "";
         }
 
         /// <summary>读载荷里的字符串键。</summary>

@@ -140,9 +140,20 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("要调用的下游 driver 名，对应 Bridges/<名>/ 目录")]
         public string Driver { get; set; }
 
-        /// <summary>生成提示词。</summary>
-        [Summary("生成提示词")]
+        /// <summary>生成提示词。给了参考图地址时可以不填，所以它在框架层是可选的，两个都空由命令自己拦。</summary>
+        [Summary("生成提示词；给了 --reference-image-url 时可以不填")]
+        [DefaultValue("")]
         public string Prompt { get; set; }
+
+        /// <summary>参考图地址：给了就走图生模型，下游要能直接取到这个地址。</summary>
+        [Summary("参考图地址：给了就走图生模型；下游要能直接取到这个地址（本地文件不行）")]
+        [DefaultValue("")]
+        public string ReferenceImageUrl { get; set; }
+
+        /// <summary>参考图类型，如 png / jpg；空串按 png。</summary>
+        [Summary("参考图类型，如 png / jpg；空串按 png")]
+        [DefaultValue("")]
+        public string ReferenceImageType { get; set; }
 
         /// <summary>粗模的输出目录（绝对或相对路径）。</summary>
         [Summary("粗模的输出目录（绝对或相对路径）")]
@@ -623,9 +634,10 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
             }
 
-            if (string.IsNullOrWhiteSpace(arguments.Prompt))
+            var referenceImageUrl = (arguments.ReferenceImageUrl ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(arguments.Prompt) && referenceImageUrl.Length == 0)
             {
-                return CommandResult.Failure("必须指定 --prompt");
+                return CommandResult.Failure("必须指定 --prompt 或 --reference-image-url，两个都空就没有输入了");
             }
 
             if (string.IsNullOrWhiteSpace(arguments.OutputDirectory))
@@ -655,12 +667,14 @@ namespace Template.Toolkit.CommandHost.Commands
 
             if (arguments.DryRun)
             {
-                return DryRunModel(repositoryRoot, arguments.Driver, arguments.Prompt, outputDirectory);
+                return DryRunModel(repositoryRoot, arguments.Driver, arguments.Prompt ?? "", referenceImageUrl, outputDirectory);
             }
 
             var payload = JsonSerializer.SerializeToElement(new JsonObject
             {
-                ["提示词"] = arguments.Prompt,
+                ["提示词"] = arguments.Prompt ?? "",
+                ["参考图地址"] = referenceImageUrl,
+                ["参考图类型"] = (arguments.ReferenceImageType ?? "").Trim(),
                 ["输出目录"] = outputDirectory
             });
 
@@ -673,20 +687,79 @@ namespace Template.Toolkit.CommandHost.Commands
             var modelFile = ReadString(result.Payload, "模型文件");
             var taskId = ReadString(result.Payload, "task_id");
             var statusText = ReadString(result.Payload, "状态");
+            var submitMode = ReadString(result.Payload, "提交方式");
 
             var lines = new List<string>
             {
                 $"模型文件：{RelativeTo(repositoryRoot, modelFile)}",
                 $"字节数：{ByteCountOf(modelFile)}",
                 $"task_id：{taskId}",
-                $"状态：{statusText}"
+                $"状态：{statusText}",
+                $"提交方式：{(submitMode.Length == 0 ? "（桥没报）" : submitMode)}"
             };
 
             return CommandResult.Success($"模型生成完成：{RelativeTo(repositoryRoot, modelFile)}", lines);
         }
 
+        /// <summary>
+        /// 下游账号余额：真发一次查询（不花积分）。**这不是就绪判据**——决策 91 定死了
+        /// 「能不能用只有真提交一次任务才算数」，余额只用来诊断「额度不足是不是真没钱」。
+        /// 桥不支持 balance 动作时会回「未知动作」，那是准确的，不是坏了。
+        /// </summary>
+        /// <param name="arguments">余额查询命令参数。</param>
+        [EditorCommand("bridge.balance")]
+        [Summary("查下游账号余额（不花积分）；余额不是就绪判据，只用来诊断额度不足")]
+        public static CommandResult Balance(BridgePackageCheckArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            {
+                return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
+            }
+
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            var payload = JsonSerializer.SerializeToElement(new JsonObject());
+            var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "balance", payload, timeoutSeconds: 120);
+            if (!result.Succeeded)
+            {
+                return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
+            }
+
+            var available = ReadNumberText(result.Payload, "可用积分");
+            var frozen = ReadNumberText(result.Payload, "冻结积分");
+            var lines = new List<string>
+            {
+                $"可用积分：{available}",
+                $"冻结积分：{frozen}",
+                "提醒：余额不是就绪判据（决策 91）——能不能用只有真提交一次任务才算数"
+            };
+
+            return CommandResult.Success($"余额查询完成：driver={arguments.Driver}，可用 {available}", lines);
+        }
+
+        /// <summary>读响应载荷里数字键的文本形式；缺失或类型不对给「（桥没报）」。</summary>
+        private static string ReadNumberText(JsonElement element, string propertyName)
+        {
+            if (element.ValueKind == JsonValueKind.Object
+                && element.TryGetProperty(propertyName, out var value)
+                && value.ValueKind == JsonValueKind.Number)
+            {
+                return value.GetRawText();
+            }
+
+            return "（桥没报）";
+        }
+
         /// <summary>干跑：读 driver 自述与本机配置，把将发给桥的请求打出来，不发任何请求。</summary>
-        private static CommandResult DryRunModel(string repositoryRoot, string driverName, string prompt, string outputDirectory)
+        private static CommandResult DryRunModel(string repositoryRoot, string driverName, string prompt, string referenceImageUrl, string outputDirectory)
         {
             BridgeDriverDescriptor descriptor;
             try
@@ -704,11 +777,13 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure("本机配置错误", new[] { localSettings.LoadFailureReason });
             }
 
+            var usesImage = !string.IsNullOrWhiteSpace(referenceImageUrl);
             var lines = new List<string>
             {
                 "干跑：以下是将发给桥的请求，没有真发（真发花积分）",
                 $"动作：generate",
-                $"载荷：{{\"提示词\":\"{prompt}\",\"输出目录\":\"{outputDirectory}\"}}"
+                $"提交方式：{(usesImage ? "image-to-model（给了参考图地址）" : "text-to-model")}",
+                $"载荷：{{\"提示词\":\"{prompt}\",\"参考图地址\":\"{referenceImageUrl}\",\"输出目录\":\"{outputDirectory}\"}}"
             };
 
             if (localSettings.TryGetDriverConfiguration(driverName, out var driverConfiguration)

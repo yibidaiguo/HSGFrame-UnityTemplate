@@ -94,7 +94,7 @@
     "Solutions/CreationPipeline.Tests/SyncWatermarkTests.cs": "f698d4e65c0c65a2ed50e9f455694614c886c6b53aefd2c379722f2a9136d6de",
     "Solutions/CreationPipeline.Tests/TableDescriptionBuilderTests.cs": "800147b508f96aa869e228aba546402d2f366476887e806bf938045d26c31db7",
     "Solutions/CreationPipeline.Tests/TaskStatusReportTests.cs": "663caabf78969ff3592372db45fb55950b5ba90be32e8ed73e12866295e73baf",
-    "Solutions/CreationPipeline.Tests/TripoTaskStateTests.cs": "bfd9c9df9999ee949ffeadee9dafed7dfe46c6564b44f5ef5fd7d714a2473cea",
+    "Solutions/CreationPipeline.Tests/TripoTaskStateTests.cs": "137c044e6721e4c233d18e81090fd30e081b2a5765ee8a00c1ead1feb0aa075e",
     "Solutions/CreationPipeline.Tests/ValidationMessageCatalogTests.cs": "5a2c23ffb6811be4b42487de672a0481c6118fb23c4245761aa72e644aa65c9d",
     "Solutions/CreationPipeline.Tests/WakeSignalSourceTests.cs": "0109b04f2f58956075cdc97eef6fca66708f482d352fdc26b9491fa6d0e1b25c",
     "Solutions/CreationPipeline.Tests/WorkItemGraphTests.cs": "7084c2c5a454e996d296a16170863a73f276f86fc61a0c38b1915964e654ae04",
