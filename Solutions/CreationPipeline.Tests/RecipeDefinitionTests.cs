@@ -118,7 +118,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Contains(RecipePaths.WorkflowFile(workspace.Root, "comfyui", "图标@v5"), exception.Message);
         }
 
-        /// <summary>映射.json 是坏 JSON 时 Load 抛 InvalidOperationException。</summary>
+        /// <summary>mapping.json 是坏 JSON 时 Load 抛 InvalidOperationException。</summary>
         [Fact]
         public void LoadBrokenMappingThrows()
         {
@@ -242,7 +242,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Contains("依赖清单文件", finding.Reason);
         }
 
-        /// <summary>配方加载失败（映射.json 坏）时转成 1 条 finding，不让异常穿出去。</summary>
+        /// <summary>配方加载失败（mapping.json 坏）时转成 1 条 finding，不让异常穿出去。</summary>
         [Fact]
         public void InspectorLoadFailureIsReportedNotThrown()
         {

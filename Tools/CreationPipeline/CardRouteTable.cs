@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>
-    /// 卡片类型 → 职责的路由表：内建默认表随基线发，项目可用 Pools/组织/卡片路由.json 逐键覆盖。
+    /// 卡片类型 → 职责的路由表：内建默认表随基线发，项目可用 Pools/Organization/卡片路由.json 逐键覆盖。
     /// 「提出人」是伪职责，由路由在查人前特判，不是成员表里的真职责。
     /// </summary>
     public sealed class CardRouteTable

@@ -35,7 +35,7 @@ git 在不同 `core.quotepath` 下显示不一致；CI 容器 locale 不是 UTF-
 
 ### 3. 两条锁定决策要改
 
-**决策 1** 原文：「C# 一律落 ASCII 目录……中文只许出现在纯数据目录（`Pools/专项/`）与**文件名**里」。
+**决策 1** 原文：「C# 一律落 ASCII 目录……中文只许出现在纯数据目录（`Pools/Epics/`）与**文件名**里」。
 新写法：**全仓的目录名与文件名一律 ASCII；中文只许出现在文件内容里**
 （注释、文案、数据值、JSON 的键都不受限）。适用范围从「含 `.cs` 的目录」扩到全仓。
 
@@ -68,7 +68,8 @@ git 在不同 `core.quotepath` 下显示不一致；CI 容器 locale 不是 UTF-
 | c1 | `Config/创作管线/` → `Tools/CreationPipeline/Config/` + `.gitignore` 密钥路径 + 路径常量 | `dotnet test` + `gate.ps1` + 真跑一条要读密钥的命令；**盯死密钥那条** | **已完成** |
 | c2 | `Specifications/` → `Specifications/` + `SpecificationPaths` | 同上 + 面板规范页真开一次 | 待 |
 | c3 | `Tools/Luban/Config/` → `Tools/Luban/Config/` + `Tools/` 下的中文文件名 | 同上；**Luban 那条 gitignore 会把新目录整个吞掉，要同步放行** | 待 |
-| d | `Pools/` + `_Generated/` + 指纹重算 | `pool.validate` / `gate.provision` 绿 | 待 |
+| d1 | `Pools/` + `_Generated/` + `Bridges/` | `pool.validate` / `gate.provision` 绿 + 真跑重生成 | **已完成** |
+| d2 | `Config/{Tables,Schema,Mirror}` + `Index/` + `Levels/` + `Pipelines/` + `UI/` + 其余零散 | `dotnet test` + `gate.ps1` | 待 |
 | e | `UnityProject/` | **必须跑 `gate-unity.ps1`** | 待 |
 | f | 门禁从 warn 改成 block | 门禁自己判红一次再改对 | 待 |
 

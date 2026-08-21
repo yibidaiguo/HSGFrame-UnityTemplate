@@ -33,7 +33,7 @@ namespace Template.Toolkit.CreationPipeline
     public static class SelectionCardBuilder
     {
         /// <summary>变体目录缺省时的参考示例路径。</summary>
-        private const string ReferenceSchemaPath = "Pools/Schema/基线/溯源.schema.json";
+        private const string ReferenceSchemaPath = "Pools/Schema/Baseline/provenance.schema.json";
 
         /// <summary>允许的图片后缀，比较时大小写不敏感。</summary>
         private static readonly string[] AllowedImageExtensions = { ".png", ".jpg", ".jpeg", ".webp" };

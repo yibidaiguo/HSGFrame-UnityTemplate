@@ -1457,14 +1457,14 @@ namespace Template.Toolkit.Dashboard
         }
 
         /// <summary>
-        /// 读门禁报告：读仓库根 _Generated/门禁报告.json。
+        /// 读门禁报告：读仓库根 _Generated/gate-report.json。
         /// 文件不存在时返回 Status = 未跑、空条目（门禁报告是后续期才产的东西，这里如实说没有）；
         /// 存在时按「条目」数组读，任一条目结果不是「成功」即整份为红，否则绿；解析失败退回未跑。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         public static PanelGateReport ReadGateReport(string repositoryRoot)
         {
-            var reportPath = Path.Combine(repositoryRoot, "_Generated", "门禁报告.json");
+            var reportPath = Path.Combine(repositoryRoot, "_Generated", "gate-report.json");
             if (!File.Exists(reportPath))
             {
                 // 路径照样报出去：面板要能告诉人「该有的报告长在哪」，空字符串等于什么都没说。
@@ -1675,7 +1675,7 @@ namespace Template.Toolkit.Dashboard
         }
 
         /// <summary>
-        /// 读设计池页：扫 &lt;池根&gt;/Designs/定稿、汇总、记录 三个目录（各自顶层，不递归）。
+        /// 读设计池页：扫 &lt;池根&gt;/Designs/Final、汇总、记录 三个目录（各自顶层，不递归）。
         /// 目录不存在跳过那一类；解析不了的文件照样产一行、IsReadable 为 false——设计池页要让人
         /// 看见「这里有个坏文件」，静默吞掉才是骗人。排序：分类固定 定稿 → 汇总 → 记录，
         /// 同类内按 Moment 降序（新的在前），时间相同按文件名序数序。
@@ -1684,9 +1684,9 @@ namespace Template.Toolkit.Dashboard
         public static IReadOnlyList<PanelDesignRow> ReadDesigns(string poolRoot)
         {
             var rows = new List<PanelDesignRow>();
-            foreach (var category in DesignCategories)
+            foreach (var (categoryDirectory, category) in DesignCategories)
             {
-                var directory = Path.Combine(poolRoot, "Designs", category);
+                var directory = Path.Combine(poolRoot, "Designs", categoryDirectory);
                 if (!Directory.Exists(directory))
                 {
                     continue;
@@ -1694,14 +1694,14 @@ namespace Template.Toolkit.Dashboard
 
                 var files = Directory.GetFiles(directory, "*.json").ToList();
 
-                // 定稿是一稿一目录：Designs/定稿/<名>/定稿.json（子文档 06 §五，
+                // 定稿是一稿一目录：Designs/Final/<名>/final.json（子文档 06 §五，
                 // FinalPalette.Load 也是照这个找的）。只扫平铺的 *.json 就永远扫不到任何一份真定稿，
                 // 定稿预览那一块会恒显示「还没有定稿」——P7 批次三验收时真踩到过。
                 if (string.Equals(category, "定稿", StringComparison.Ordinal))
                 {
                     foreach (var finalDirectory in Directory.EnumerateDirectories(directory))
                     {
-                        var finalFile = Path.Combine(finalDirectory, "定稿.json");
+                        var finalFile = Path.Combine(finalDirectory, "final.json");
                         if (File.Exists(finalFile))
                         {
                             files.Add(finalFile);
@@ -2162,7 +2162,10 @@ namespace Template.Toolkit.Dashboard
                 "",
                 rows);
 
-            var businessRoot = Path.Combine(repositoryRoot, "Specifications", "Business");
+            // 走 SpecificationPaths 而不是自己再拼一遍：这里原先是第二个来源，
+            // 规范目录改名时它得靠人记得同步改——记不住就是规范页整层悄悄掉成 0 份，
+            // 而且不会有任何一个测试红（夹具在临时目录里自己造目录，造的是什么就读得到什么）。
+            var businessRoot = SpecificationPaths.BusinessRoot(repositoryRoot);
             if (Directory.Exists(businessRoot))
             {
                 var moduleNames = Directory.GetDirectories(businessRoot)
@@ -2407,8 +2410,18 @@ namespace Template.Toolkit.Dashboard
             internal string StateFailureReason { get; }
         }
 
-        /// <summary>设计池的分类目录名。</summary>
-        private static readonly string[] DesignCategories = { "定稿", "汇总", "记录" };
+        /// <summary>
+        /// 设计池的三个分类：**目录名（ASCII）与展示标签（中文）是两件事**。
+        /// 决策 1 改写后路径一律 ASCII，而页面上给人看的仍是「定稿 / 汇总 / 记录」——
+        /// 原来这两样共用一个字符串，改目录名的那一刻页面文案会跟着变成英文，
+        /// 或者（更常见）忘了改其中一处，那一整类就恒显示为空。
+        /// </summary>
+        private static readonly (string Directory, string Label)[] DesignCategories =
+        {
+            ("Final", "定稿"),
+            ("Digest", "汇总"),
+            ("Records", "记录")
+        };
 
         /// <summary>允许的图片后缀，比较时大小写不敏感（与选片一致）。</summary>
         private static readonly string[] AllowedImageExtensions = { ".png", ".jpg", ".jpeg", ".webp" };
@@ -2761,9 +2774,11 @@ namespace Template.Toolkit.Dashboard
         private static PanelDesignRow ReadDesignRow(string category, string filePath)
         {
             var name = Path.GetFileNameWithoutExtension(filePath);
-            if (string.Equals(name, "定稿", StringComparison.Ordinal))
+            if (string.Equals(name, "final", StringComparison.Ordinal))
             {
-                // 一稿一目录时文件名恒是「定稿」，那个名字对人没有意义；目录名才是这份定稿的名字。
+                // 一稿一目录时文件名恒是 final.json，那个名字对人没有意义；目录名才是这份定稿的名字。
+                // （文件名从「定稿.json」改成 final.json 时这里跟着改了——
+                //  漏改的表现是定稿行的名字变成「final」，不是报错。）
                 var parentName = Path.GetFileName(Path.GetDirectoryName(filePath));
                 if (!string.IsNullOrEmpty(parentName))
                 {
@@ -3039,7 +3054,7 @@ namespace Template.Toolkit.Dashboard
         {
             for (var i = 0; i < DesignCategories.Length; i++)
             {
-                if (string.Equals(DesignCategories[i], category, StringComparison.Ordinal))
+                if (string.Equals(DesignCategories[i].Label, category, StringComparison.Ordinal))
                 {
                     return i;
                 }

@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>
-    /// 专项认领表：读 Pools/专项/*.json，建「专项 id → (职责 → open_id 列表)」的表，
+    /// 专项认领表：读 Pools/Epics/*.json，建「专项 id → (职责 → open_id 列表)」的表，
     /// 供卡片路由第②步按专项认领查人。坏文件跳过，原因累加进 LoadFailureReason。
     /// </summary>
     public sealed class EpicClaimBook

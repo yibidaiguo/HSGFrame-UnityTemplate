@@ -268,12 +268,12 @@ namespace Template.Toolkit.CreationPipeline.Tests
             return entries.Select(entry => entry + "|" + File.ReadAllText(entry)).ToList();
         }
 
-        /// <summary>把定稿 JSON 写到 Pools/Designs/定稿/&lt;名&gt;/定稿.json 形状的路径。</summary>
+        /// <summary>把定稿 JSON 写到 Pools/Designs/Final/&lt;名&gt;/final.json 形状的路径。</summary>
         private static void WriteFinalJson(string poolRoot, string finalName, string json)
         {
-            var directory = Path.Combine(poolRoot, "Designs", "定稿", finalName);
+            var directory = Path.Combine(poolRoot, "Designs", "Final", finalName);
             Directory.CreateDirectory(directory);
-            File.WriteAllText(Path.Combine(directory, "定稿.json"), json, new UTF8Encoding(false));
+            File.WriteAllText(Path.Combine(directory, "final.json"), json, new UTF8Encoding(false));
         }
 
         /// <summary>在指定目录写一张 1×1 纯色 RGBA PNG 文件，返回路径。</summary>

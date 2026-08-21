@@ -63,7 +63,7 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 冲突裁决流水（Pools/Designs/冲突裁决流水.json）：只追加的账本，永不改既有条目。
+    /// 冲突裁决流水（Pools/Designs/conflict-decisions.json）：只追加的账本，永不改既有条目。
     /// 每条裁决（含强制推送挂账与事后补选销账）都追加一条，补选不会覆盖掉上一次的裁决——
     /// 「当初是谁强制推送的」永远查得出来。
     /// </summary>

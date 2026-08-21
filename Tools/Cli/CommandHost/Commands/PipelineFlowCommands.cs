@@ -1255,7 +1255,7 @@ namespace Template.Toolkit.CommandHost.Commands
             return result;
         }
 
-        /// <summary>读设计池汇总：&lt;池根&gt;/Designs/汇总/*.md 按文件名序数序，每份一节；目录不存在或没有文件给占位文案。</summary>
+        /// <summary>读设计池汇总：&lt;池根&gt;/Designs/Digest/*.md 按文件名序数序，每份一节；目录不存在或没有文件给占位文案。</summary>
         /// <param name="poolRoot">池子根目录。</param>
         private static string ReadDesignPoolSummary(string poolRoot)
         {

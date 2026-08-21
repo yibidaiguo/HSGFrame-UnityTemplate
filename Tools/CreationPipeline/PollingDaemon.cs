@@ -222,7 +222,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         // 池子根目录：显式给了就用给的，没给退化成仓库根下的 Pools
-        // （子文档 03 §五：engine-daemon 定时扫 Pools/队列.json）。
+        // （子文档 03 §五：engine-daemon 定时扫 Pools/queue.json）。
         private static string ResolvePoolRoot(string repositoryRoot, string configuredPoolRoot)
         {
             if (!string.IsNullOrWhiteSpace(configuredPoolRoot))

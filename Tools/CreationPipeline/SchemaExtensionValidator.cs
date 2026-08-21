@@ -9,7 +9,7 @@ namespace Template.Toolkit.CreationPipeline
     public static class SchemaExtensionValidator
     {
         /// <summary>参考示例固定指向需求基线 schema。</summary>
-        private const string ReferencePath = "Pools/Schema/基线/需求.schema.json";
+        private const string ReferencePath = "Pools/Schema/Baseline/requirement.schema.json";
 
         /// <summary>
         /// 逐条检查项目扩展 schema，返回全部违规发现；扩展文件不存在时视为合法，返回空列表。

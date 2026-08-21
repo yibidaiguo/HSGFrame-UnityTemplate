@@ -38,7 +38,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.True(File.Exists(ProvisionPaths.FingerprintFile(workspace.Root, "测试驱动")));
         }
 
-        /// <summary>真跑两次，建表描述.json 的内容逐字节相同（幂等）。</summary>
+        /// <summary>真跑两次，table-description.json 的内容逐字节相同（幂等）。</summary>
         [Fact]
         public void RunTwiceIsByteIdenticalForTableDescription()
         {
@@ -54,7 +54,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal(first, second);
         }
 
-        /// <summary>指纹.json 里的 schema哈希 等于按当前 schema 现算的哈希。</summary>
+        /// <summary>fingerprint.json 里的 schema哈希 等于按当前 schema 现算的哈希。</summary>
         [Fact]
         public void FingerprintSchemaHashMatchesComputedValue()
         {
@@ -67,7 +67,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal(ProvisionFingerprint.ComputeSchemaHash(schema), fingerprint.SchemaHash);
         }
 
-        /// <summary>校验错误文案.json 的条目条数等于目录条数。</summary>
+        /// <summary>validation-messages.json 的条目条数等于目录条数。</summary>
         [Fact]
         public void ValidationMessageExportHasAllEntries()
         {

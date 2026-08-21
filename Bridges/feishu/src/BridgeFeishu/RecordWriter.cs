@@ -25,7 +25,7 @@ namespace Template.Bridges.Feishu
         private const string ContractVersion = "1.0.0";
 
         /// <summary>建表描述文件在工作目录（仓库根）下的相对路径。</summary>
-        private const string TableDescriptionRelativePath = "_Generated/Bridges/feishu/建表描述.json";
+        private const string TableDescriptionRelativePath = "_Generated/Bridges/feishu/table-description.json";
 
         /// <summary>缺省超时秒数，配置里没有时用。</summary>
         private const int DefaultTimeoutSeconds = 60;

@@ -382,7 +382,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             return ConflictDebtView.All(ConflictList.Load(workspace.Root));
         }
 
-        /// <summary>把冲突列表 JSON 写到池子的 Designs/冲突列表.json。</summary>
+        /// <summary>把冲突列表 JSON 写到池子的 Designs/conflicts.json。</summary>
         private static void WriteConflictList(string poolRoot, string json)
         {
             var filePath = PoolPaths.ConflictListFile(poolRoot);

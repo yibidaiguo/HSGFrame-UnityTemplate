@@ -211,7 +211,7 @@ namespace Template.Toolkit.CreationPipeline
             {
                 return new[]
                 {
-                    new PoolFinding(identifier, "校验没跑成：" + exception.Message, "看引擎所在机器的临时目录权限", "Pools/Schema/基线/需求.schema.json")
+                    new PoolFinding(identifier, "校验没跑成：" + exception.Message, "看引擎所在机器的临时目录权限", "Pools/Schema/Baseline/requirement.schema.json")
                 };
             }
             finally

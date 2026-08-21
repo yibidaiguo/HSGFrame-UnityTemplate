@@ -6,7 +6,7 @@ using System.Text.Json;
 
 namespace Template.Toolkit.CreationPipeline
 {
-    /// <summary>一份定稿色板：从 Pools/Designs/定稿/&lt;定稿名&gt;/定稿.json 读出来的色板数据。</summary>
+    /// <summary>一份定稿色板：从 Pools/Designs/Final/&lt;定稿名&gt;/final.json 读出来的色板数据。</summary>
     public sealed class FinalPalette
     {
         /// <summary>构造一份定稿色板。</summary>
@@ -40,7 +40,7 @@ namespace Template.Toolkit.CreationPipeline
         public bool Loaded { get; }
 
         /// <summary>
-        /// 从 Pools/Designs/定稿/&lt;名&gt;/定稿.json 读一份定稿色板。
+        /// 从 Pools/Designs/Final/&lt;名&gt;/final.json 读一份定稿色板。
         /// 文件读不动、JSON 解析失败、根不是对象、缺「色板」或色板不是数组都算没读成，
         /// 原因写进 LoadFailureReason。色板里个别颜色不合法只跳过那一个并记原因，其余照收——
         /// 不静默吞掉，也不让一颗坏螺丝废掉整份色板。
@@ -54,7 +54,7 @@ namespace Template.Toolkit.CreationPipeline
                 return new FinalPalette("", 0, Array.Empty<SrgbColor>(), "定稿名或池子根目录为空，无从读起", false);
             }
 
-            var filePath = Path.Combine(poolRoot, "Designs", "定稿", finalName, "定稿.json");
+            var filePath = Path.Combine(poolRoot, "Designs", "Final", finalName, "final.json");
             string text;
             try
             {

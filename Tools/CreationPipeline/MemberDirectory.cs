@@ -37,7 +37,7 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 成员目录：读 Pools/组织/成员.json，供路由按默认职责与姓名查人。
+    /// 成员目录：读 Pools/Organization/成员.json，供路由按默认职责与姓名查人。
     /// 文件缺失、JSON 坏掉或根不是数组时一律退化为空目录，不抛异常，原因记在 LoadFailureReason。
     /// </summary>
     public sealed class MemberDirectory

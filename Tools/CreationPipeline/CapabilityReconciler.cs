@@ -69,7 +69,7 @@ namespace Template.Toolkit.CreationPipeline
                     ? "清单没给安装命令，照来源页面自行安装"
                     : $"按来源安装：{entry.InstallCommand}";
                 findings.Add(new PoolFinding(
-                    $"Bridges/{driverName}/依赖清单.json",
+                    $"Bridges/{driverName}/dependencies.json",
                     $"缺依赖「{entry.Name}」（类别：{entry.Category}），来源：{entry.Source}",
                     installHint,
                     entry.Source));

@@ -59,7 +59,7 @@ namespace Template.Toolkit.CreationPipeline
 
     /// <summary>
     /// 一份生图配方：workflow 节点集合、请求字段映射、锚点槽与依赖名，从
-    /// &lt;仓库根&gt;/Bridges/&lt;driver&gt;/配方/&lt;配方名&gt;/ 的 workflow.json 与 映射.json 读出。
+    /// &lt;仓库根&gt;/Bridges/&lt;driver&gt;/配方/&lt;配方名&gt;/ 的 workflow.json 与 mapping.json 读出。
     /// 文件缺失、JSON 坏掉或顶层不是对象时抛 InvalidOperationException，不做静默降级。
     /// </summary>
     public sealed class RecipeDefinition
@@ -137,7 +137,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 读取并校验一份配方：workflow.json 与 映射.json 都要在、顶层是对象。
+        /// 读取并校验一份配方：workflow.json 与 mapping.json 都要在、顶层是对象。
         /// 文件缺失、JSON 语法错误或顶层不是对象时抛 InvalidOperationException。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>

@@ -11,7 +11,7 @@ namespace Template.Toolkit.CreationPipeline
     public static class RequirementValidator
     {
         /// <summary>参考示例固定指向需求基线 schema。</summary>
-        private const string ReferencePath = "Pools/Schema/基线/需求.schema.json";
+        private const string ReferencePath = "Pools/Schema/Baseline/requirement.schema.json";
 
         /// <summary>
         /// 校验单个需求 JSON 文件，返回全部违规发现。

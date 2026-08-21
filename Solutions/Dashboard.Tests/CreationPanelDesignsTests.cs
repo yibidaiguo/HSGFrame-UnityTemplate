@@ -160,9 +160,21 @@ namespace Template.Toolkit.DashboardTests
             }
         }
 
+        /// <summary>分类展示标签 → 目录名：目录改成 ASCII 之后，夹具也要按目录名去造树。</summary>
+        private static string CategoryDirectory(string category)
+        {
+            switch (category)
+            {
+                case "定稿": return "Final";
+                case "汇总": return "Digest";
+                case "记录": return "Records";
+                default: return category;
+            }
+        }
+
         private void WriteDesign(string category, string fileName, string json)
         {
-            var directory = Path.Combine(_poolRoot, "Designs", category);
+            var directory = Path.Combine(_poolRoot, "Designs", CategoryDirectory(category));
             Directory.CreateDirectory(directory);
             WriteFile(Path.Combine(directory, fileName), json);
         }

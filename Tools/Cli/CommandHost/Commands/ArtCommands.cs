@@ -207,8 +207,8 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("池子根目录，必填")]
         public string PoolRoot { get; set; }
 
-        /// <summary>定稿名，必填，对应 Pools/Designs/定稿/&lt;名&gt;/定稿.json。</summary>
-        [Summary("定稿名，必填，对应 Pools/Designs/定稿/<名>/定稿.json")]
+        /// <summary>定稿名，必填，对应 Pools/Designs/Final/&lt;名&gt;/final.json。</summary>
+        [Summary("定稿名，必填，对应 Pools/Designs/Final/<名>/final.json")]
         public string FinalName { get; set; }
 
         /// <summary>图片根目录，必填，递归扫 *.png。</summary>

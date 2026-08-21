@@ -163,7 +163,7 @@ namespace Template.Toolkit.DashboardTests
         public void LocalDriverWithoutManifestIsNotMeasuredWithMinusOneCounts()
         {
             WriteDriver("comfyui", LocalDriverJson("comfyui"));
-            // 刻意不写 Bridges/comfyui/依赖清单.json。
+            // 刻意不写 Bridges/comfyui/dependencies.json。
 
             var row = Assert.Single(CreationPanelReader.ReadBridges(_repositoryRoot, _poolRoot));
 

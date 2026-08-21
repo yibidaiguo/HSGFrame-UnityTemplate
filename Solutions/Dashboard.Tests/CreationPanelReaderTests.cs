@@ -273,7 +273,7 @@ namespace Template.Toolkit.DashboardTests
         {
             var directory = Path.Combine(_repositoryRoot, "_Generated");
             Directory.CreateDirectory(directory);
-            WriteFile(Path.Combine(directory, "门禁报告.json"), json);
+            WriteFile(Path.Combine(directory, "gate-report.json"), json);
         }
 
         private void WriteQueue(string json)

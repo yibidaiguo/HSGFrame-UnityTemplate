@@ -184,7 +184,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 var packageDirectory = ProvisionPaths.AssistantPackageDirectory(root, "某下游");
                 var knowledgeDirectory = ProvisionPaths.AssistantKnowledgeDirectory(root, "某下游");
                 Directory.CreateDirectory(knowledgeDirectory);
-                File.WriteAllText(Path.Combine(packageDirectory, "系统提示.md"), "你是助手");
+                File.WriteAllText(Path.Combine(packageDirectory, "system-prompt.md"), "你是助手");
                 File.WriteAllText(Path.Combine(knowledgeDirectory, "术语.md"), "第一版知识");
 
                 var first = AssistantServePrompt.Build(root, "某下游", "随便说一句");
@@ -211,7 +211,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             {
                 var packageDirectory = ProvisionPaths.AssistantPackageDirectory(root, "某下游");
                 Directory.CreateDirectory(packageDirectory);
-                File.WriteAllText(Path.Combine(packageDirectory, "系统提示.md"), "你是助手");
+                File.WriteAllText(Path.Combine(packageDirectory, "system-prompt.md"), "你是助手");
 
                 var first = AssistantServePrompt.Build(root, "某下游", "第一句");
                 var second = AssistantServePrompt.Build(root, "某下游", "完全不同的第二句");

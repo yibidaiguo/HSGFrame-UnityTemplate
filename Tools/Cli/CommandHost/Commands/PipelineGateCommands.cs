@@ -267,7 +267,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 gateFindings.Add(new GateFinding(
                     ledgerFile,
                     $"放行流水加载有问题：{ledger.LoadFailureReason}",
-                    "修好放行流水.json 或删掉它重来",
+                    "修好release-ledger.json 或删掉它重来",
                     ledgerReference));
             }
             else

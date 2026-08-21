@@ -276,7 +276,7 @@ namespace Template.Toolkit.DashboardTests
         }
 
         /// <summary>
-        /// 定稿是一稿一目录（Designs/定稿/&lt;名&gt;/定稿.json，子文档 06 §五）：
+        /// 定稿是一稿一目录（Designs/Final/&lt;名&gt;/final.json，子文档 06 §五）：
         /// 只扫平铺 *.json 会永远扫不到真定稿，定稿预览恒显示「还没有定稿」。
         /// 名称取目录名，不取恒为「定稿」的文件名。
         /// </summary>
@@ -303,7 +303,7 @@ namespace Template.Toolkit.DashboardTests
 
         private void WriteDesign(string category, string fileName, string json)
         {
-            WriteFile(Path.Combine(_poolRoot, "Designs", category, fileName), json);
+            WriteFile(Path.Combine(_poolRoot, "Designs", CategoryDirectory(category), fileName), json);
         }
 
         private void WriteRequest(string requirementIdentifier, string assetIdentifier, string json)
@@ -313,7 +313,19 @@ namespace Template.Toolkit.DashboardTests
 
         private void WriteFinal(string finalName, string json)
         {
-            WriteFile(Path.Combine(_poolRoot, "Designs", "定稿", finalName, "定稿.json"), json);
+            WriteFile(Path.Combine(_poolRoot, "Designs", "Final", finalName, "final.json"), json);
+        }
+
+        /// <summary>分类展示标签 → 目录名：目录改成 ASCII 之后，夹具也要按目录名去造树。</summary>
+        private static string CategoryDirectory(string category)
+        {
+            switch (category)
+            {
+                case "定稿": return "Final";
+                case "汇总": return "Digest";
+                case "记录": return "Records";
+                default: return category;
+            }
         }
 
         private void WritePreviewPng()

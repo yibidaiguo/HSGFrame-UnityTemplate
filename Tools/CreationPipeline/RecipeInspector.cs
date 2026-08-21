@@ -51,8 +51,8 @@ namespace Template.Toolkit.CreationPipeline
                 findings.Add(new PoolFinding(
                     missingPath,
                     $"配方「{recipeName}」缺文件：{Path.GetFileName(missingPath)}",
-                    "把 workflow.json 与 映射.json 补全",
-                    $"Bridges/{driverName}/配方/{recipeName}/映射.json"));
+                    "把 workflow.json 与 mapping.json 补全",
+                    $"Bridges/{driverName}/配方/{recipeName}/mapping.json"));
                 return findings;
             }
 
@@ -67,8 +67,8 @@ namespace Template.Toolkit.CreationPipeline
                 findings.Add(new PoolFinding(
                     mappingPath,
                     exception.Message,
-                    "按配方契约补齐 workflow.json 与 映射.json",
-                    $"Bridges/{driverName}/配方/{recipeName}/映射.json"));
+                    "按配方契约补齐 workflow.json 与 mapping.json",
+                    $"Bridges/{driverName}/配方/{recipeName}/mapping.json"));
                 return findings;
             }
 
@@ -106,7 +106,7 @@ namespace Template.Toolkit.CreationPipeline
                         mappingPath,
                         $"请求字段「{entry.RequestField}」不在白名单里",
                         "改成白名单字段：资产类型 / 描述 / 命名 / 落点 / 变体数 / 域，或以 规格. / 风格锚点. 开头",
-                        $"Bridges/{driverName}/配方/{recipeName}/映射.json"));
+                        $"Bridges/{driverName}/配方/{recipeName}/mapping.json"));
                 }
             }
 
@@ -115,8 +115,8 @@ namespace Template.Toolkit.CreationPipeline
                 findings.Add(new PoolFinding(
                     mappingPath,
                     $"配方「{recipeName}」声明了 {recipe.DependencyNames.Count} 项依赖，但依赖清单文件不存在",
-                    "补一份 Bridges/<driver>/依赖清单.json",
-                    $"Bridges/{driverName}/依赖清单.json"));
+                    "补一份 Bridges/<driver>/dependencies.json",
+                    $"Bridges/{driverName}/dependencies.json"));
             }
             else if (DependencyManifest.Exists(repositoryRoot, driverName))
             {
@@ -131,7 +131,7 @@ namespace Template.Toolkit.CreationPipeline
                         RecipePaths.DependencyManifestFile(repositoryRoot, driverName),
                         exception.Message,
                         "按依赖清单契约修复该文件",
-                        $"Bridges/{driverName}/依赖清单.json"));
+                        $"Bridges/{driverName}/dependencies.json"));
                     return findings;
                 }
 
@@ -143,7 +143,7 @@ namespace Template.Toolkit.CreationPipeline
                             mappingPath,
                             $"配方「{recipeName}」声明的依赖「{dependencyName}」不在依赖清单里",
                             "在依赖清单里补这条，或从配方依赖数组里去掉",
-                            $"Bridges/{driverName}/依赖清单.json"));
+                            $"Bridges/{driverName}/dependencies.json"));
                     }
                 }
             }

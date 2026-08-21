@@ -57,7 +57,7 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 意见库（Pools/审查意见/）：协作层的沉淀闭环账本，只追加、不许改写已有条目。
+    /// 意见库（Pools/ReviewOpinions/）：协作层的沉淀闭环账本，只追加、不许改写已有条目。
     /// 每条意见一个 OP-xxxx.json 文件；目录不存在是正常状态（空意见库），Load 返回空库不报错。
     /// </summary>
     public sealed class ReviewOpinionBook

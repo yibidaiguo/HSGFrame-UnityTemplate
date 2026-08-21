@@ -10,7 +10,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="driverName">driver 名称。</param>
         public static string RecipeRootDirectory(string repositoryRoot, string driverName)
         {
-            return Path.Combine(repositoryRoot, "Bridges", driverName, "配方");
+            return Path.Combine(repositoryRoot, "Bridges", driverName, "recipes");
         }
 
         /// <summary>某配方的目录：配方根目录/&lt;配方名&gt;。</summary>
@@ -31,21 +31,21 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(RecipeDirectory(repositoryRoot, driverName, recipeName), "workflow.json");
         }
 
-        /// <summary>某配方的映射文件：配方目录/映射.json。</summary>
+        /// <summary>某配方的映射文件：配方目录/mapping.json。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="driverName">driver 名称。</param>
         /// <param name="recipeName">配方名，如「图标@v5」。</param>
         public static string MappingFile(string repositoryRoot, string driverName, string recipeName)
         {
-            return Path.Combine(RecipeDirectory(repositoryRoot, driverName, recipeName), "映射.json");
+            return Path.Combine(RecipeDirectory(repositoryRoot, driverName, recipeName), "mapping.json");
         }
 
-        /// <summary>某 driver 的依赖清单文件：Bridges/&lt;driver&gt;/依赖清单.json。</summary>
+        /// <summary>某 driver 的依赖清单文件：Bridges/&lt;driver&gt;/dependencies.json。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="driverName">driver 名称。</param>
         public static string DependencyManifestFile(string repositoryRoot, string driverName)
         {
-            return Path.Combine(repositoryRoot, "Bridges", driverName, "依赖清单.json");
+            return Path.Combine(repositoryRoot, "Bridges", driverName, "dependencies.json");
         }
     }
 }

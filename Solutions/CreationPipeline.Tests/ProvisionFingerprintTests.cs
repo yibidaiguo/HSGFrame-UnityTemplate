@@ -70,7 +70,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void ReconcileReturnsEmptyWhenFingerprintFileMissing()
         {
             using var workspace = new PoolTestWorkspace();
-            var filePath = Path.Combine(workspace.Root, "_Generated", "指纹.json");
+            var filePath = Path.Combine(workspace.Root, "_Generated", "fingerprint.json");
 
             var findings = ProvisionFingerprint.Reconcile(filePath, "abc", "def");
 
@@ -82,7 +82,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void ReconcileReturnsEmptyWhenHashesMatch()
         {
             using var workspace = new PoolTestWorkspace();
-            var filePath = Path.Combine(workspace.Root, "_Generated", "指纹.json");
+            var filePath = Path.Combine(workspace.Root, "_Generated", "fingerprint.json");
             var schemaHash = ProvisionFingerprint.ComputeSchemaHash(CreateSchema("需求"));
             var digestHash = ProvisionFingerprint.ComputeDesignDigestHash(workspace.Root);
             ProvisionFingerprint.Create("feishu", ">=1.0 <2.0", schemaHash, digestHash).WriteTo(filePath);
@@ -97,7 +97,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void ReconcileReportsSchemaHashMismatch()
         {
             using var workspace = new PoolTestWorkspace();
-            var filePath = Path.Combine(workspace.Root, "_Generated", "指纹.json");
+            var filePath = Path.Combine(workspace.Root, "_Generated", "fingerprint.json");
             var schemaHash = ProvisionFingerprint.ComputeSchemaHash(CreateSchema("需求"));
             var digestHash = ProvisionFingerprint.ComputeDesignDigestHash(workspace.Root);
             ProvisionFingerprint.Create("feishu", ">=1.0 <2.0", schemaHash, digestHash).WriteTo(filePath);
@@ -116,7 +116,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void WriteToThenReadRoundTripsAllFields()
         {
             using var workspace = new PoolTestWorkspace();
-            var filePath = Path.Combine(workspace.Root, "_Generated", "指纹.json");
+            var filePath = Path.Combine(workspace.Root, "_Generated", "fingerprint.json");
             var schemaHash = ProvisionFingerprint.ComputeSchemaHash(CreateSchema("需求"));
             var digestHash = ProvisionFingerprint.ComputeDesignDigestHash(workspace.Root);
             var written = ProvisionFingerprint.Create("feishu", ">=1.0 <2.0", schemaHash, digestHash);
@@ -138,7 +138,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             using var workspace = new PoolTestWorkspace();
 
-            Assert.Null(ProvisionFingerprint.Read(Path.Combine(workspace.Root, "不存在的指纹.json")));
+            Assert.Null(ProvisionFingerprint.Read(Path.Combine(workspace.Root, "不存在的fingerprint.json")));
         }
 
         /// <summary>造一份固定的需求 schema：两字段两分类型必填一个状态机。</summary>

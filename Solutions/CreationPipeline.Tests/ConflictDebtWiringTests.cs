@@ -153,7 +153,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal(ExtractConclusion(markdownWithout), ExtractConclusion(markdownWith));
         }
 
-        /// <summary>助手包：Build 之后 知识/冲突清单.md 真的存在，且 ProspectiveFiles 的返回里含它，两边完全一致。</summary>
+        /// <summary>助手包：Build 之后 知识/conflicts.md 真的存在，且 ProspectiveFiles 的返回里含它，两边完全一致。</summary>
         [Fact]
         public void AssistantPackageWritesConflictListAndProspectiveMatches()
         {
@@ -176,7 +176,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动", conflictList);
             var prospective = AssistantPackageBuilder.ProspectiveFiles(workspace.Root, "测试驱动");
 
-            var conflictListFile = files.Single(file => Path.GetFileName(file) == "冲突清单.md");
+            var conflictListFile = files.Single(file => Path.GetFileName(file) == "conflicts.md");
             Assert.True(File.Exists(conflictListFile));
             Assert.Contains(conflictListFile, prospective);
             Assert.Equal(prospective, files);
@@ -204,7 +204,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             }
         }
 
-        /// <summary>助手包：冲突列表读不成 → 冲突清单.md 里含「没读成」，不含「暂无冲突」。</summary>
+        /// <summary>助手包：冲突列表读不成 → conflicts.md 里含「没读成」，不含「暂无冲突」。</summary>
         [Fact]
         public void AssistantConflictListNotReadableShowsDeclaration()
         {
@@ -215,7 +215,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var schema = PoolSchemaLoader.Load(workspace.Root, "需求");
 
             var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动", ConflictList.Load(workspace.Root));
-            var conflictListMarkdown = File.ReadAllText(files.Single(file => Path.GetFileName(file) == "冲突清单.md"));
+            var conflictListMarkdown = File.ReadAllText(files.Single(file => Path.GetFileName(file) == "conflicts.md"));
 
             Assert.Contains("没读成", conflictListMarkdown);
             Assert.DoesNotContain("暂无冲突", conflictListMarkdown);
@@ -245,7 +245,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var schema = PoolSchemaLoader.Load(workspace.Root, "需求");
 
             var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动", ConflictList.Load(workspace.Root));
-            var designSummary = File.ReadAllText(files.Single(file => Path.GetFileName(file) == "设计池摘要.md"));
+            var designSummary = File.ReadAllText(files.Single(file => Path.GetFileName(file) == "design-digest.md"));
 
             Assert.Contains("⚠ 冲突区域", designSummary);
             Assert.True(designSummary.IndexOf("⚠ 冲突区域", StringComparison.Ordinal) < designSummary.IndexOf("## 签到", StringComparison.Ordinal));
@@ -264,7 +264,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var schema = PoolSchemaLoader.Load(workspace.Root, "需求");
 
             var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动", ConflictList.Load(workspace.Root));
-            var designSummary = File.ReadAllText(files.Single(file => Path.GetFileName(file) == "设计池摘要.md"));
+            var designSummary = File.ReadAllText(files.Single(file => Path.GetFileName(file) == "design-digest.md"));
 
             Assert.DoesNotContain("⚠ 冲突区域", designSummary);
             Assert.Contains("## 签到", designSummary);
@@ -278,9 +278,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var schema = PoolSchemaLoader.Load(workspace.Root, "需求");
 
             var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动", ConflictList.Load(workspace.Root));
-            var systemPrompt = File.ReadAllText(files.Single(file => Path.GetFileName(file) == "系统提示.md"));
+            var systemPrompt = File.ReadAllText(files.Single(file => Path.GetFileName(file) == "system-prompt.md"));
 
-            Assert.Contains("4. 新需求碰到「冲突清单.md」里列出的涉区 id 时，先提醒提出人那块还挂着未销账的冲突，再继续填写。", systemPrompt);
+            Assert.Contains("4. 新需求碰到「conflicts.md」里列出的涉区 id 时，先提醒提出人那块还挂着未销账的冲突，再继续填写。", systemPrompt);
         }
 
         /// <summary>备一个池子：基线 schema 写进池根，知识目录与设计池汇总目录都不预建。</summary>
@@ -291,7 +291,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             return workspace;
         }
 
-        /// <summary>把冲突列表 JSON 写到池子的 Designs/冲突列表.json。</summary>
+        /// <summary>把冲突列表 JSON 写到池子的 Designs/conflicts.json。</summary>
         private static void WriteConflictList(string poolRoot, string json)
         {
             var filePath = PoolPaths.ConflictListFile(poolRoot);

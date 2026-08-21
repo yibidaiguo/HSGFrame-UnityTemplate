@@ -11,7 +11,7 @@ namespace Template.Toolkit.CreationPipeline
     /// 助手 B 形态（常驻会话）一轮的提示词：系统提示 + 知识文件 + 输出契约 + 用户这句话。
     ///
     /// **知识与 A 形态（配置包）共用同一批文件**（子文档 02 §五）：
-    /// 系统提示与知识都读 <c>_Generated/Bridges/&lt;driver&gt;/助手配置包/</c> 下那几份，
+    /// 系统提示与知识都读 <c>_Generated/Bridges/&lt;driver&gt;/assistant-package/</c> 下那几份，
     /// 不另抄一份——抄一份就等于开了第二个事实源，两边迟早说不一样的话。
     ///
     /// **提示词版本是算出来的，不是写死的常量。** P8 批次 5 留过一个洞：
@@ -85,7 +85,7 @@ namespace Template.Toolkit.CreationPipeline
 
             var systemPromptFile = Path.Combine(
                 ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName),
-                "系统提示.md");
+                "system-prompt.md");
             var systemPrompt = ReadTextOrEmpty(systemPromptFile);
             if (systemPrompt.Length == 0)
             {

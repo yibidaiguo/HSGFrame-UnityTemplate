@@ -17,7 +17,7 @@ namespace Template.Toolkit.CreationPipeline
         private static readonly JsonSerializerOptions WriteOptions = CreateWriteOptions();
 
         /// <summary>工程字段发现的参考示例固定指向需求基线 schema。</summary>
-        private const string ReferenceSchemaPath = "Pools/Schema/基线/需求.schema.json";
+        private const string ReferenceSchemaPath = "Pools/Schema/Baseline/requirement.schema.json";
 
         /// <summary>取号前缀与位数：REQ- 后跟四位编号。</summary>
         private const string RequirementPrefix = "REQ-";

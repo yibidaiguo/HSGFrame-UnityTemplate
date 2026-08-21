@@ -38,28 +38,28 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.All(inspection.Artifacts, artifact => Assert.True(artifact.Exists));
         }
 
-        /// <summary>手工删掉术语表.md：缺失 1 份，出一条原因含「缺失」的发现，位置指向被删产物。</summary>
+        /// <summary>手工删掉glossary.md：缺失 1 份，出一条原因含「缺失」的发现，位置指向被删产物。</summary>
         [Fact]
         public void InspectReportsMissingArtifact()
         {
             using var workspace = PrepareProvisionedWorkspace();
-            File.Delete(Path.Combine(workspace.Root, "_Generated", "Bridges", "测试驱动", "助手配置包", "知识", "术语表.md"));
+            File.Delete(Path.Combine(workspace.Root, "_Generated", "Bridges", "测试驱动", "assistant-package", "knowledge", "glossary.md"));
 
             var inspection = AssistantPackageInspector.Inspect(workspace.Root, "测试驱动");
 
             Assert.Equal(1, inspection.MissingCount);
             var finding = Assert.Single(inspection.Findings);
             Assert.Contains("缺失", finding.Reason);
-            Assert.Contains("术语表.md", finding.Location);
+            Assert.Contains("glossary.md", finding.Location);
         }
 
-        /// <summary>把建表描述.json 清空成 0 字节：空文件 1 份，出一条原因含「空文件」的发现。</summary>
+        /// <summary>把table-description.json 清空成 0 字节：空文件 1 份，出一条原因含「空文件」的发现。</summary>
         [Fact]
         public void InspectReportsEmptyArtifact()
         {
             using var workspace = PrepareProvisionedWorkspace();
             File.WriteAllText(
-                Path.Combine(workspace.Root, "_Generated", "Bridges", "测试驱动", "建表描述.json"),
+                Path.Combine(workspace.Root, "_Generated", "Bridges", "测试驱动", "table-description.json"),
                 "",
                 new UTF8Encoding(false));
 
@@ -68,7 +68,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal(1, inspection.EmptyCount);
             var finding = Assert.Single(inspection.Findings);
             Assert.Contains("空文件", finding.Reason);
-            Assert.Contains("建表描述.json", finding.Location);
+            Assert.Contains("table-description.json", finding.Location);
         }
 
         /// <summary>每份产物的导入提示都非空白，人工导入清单不会缺项。</summary>
@@ -88,13 +88,13 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void ReconcileReportsMissingArtifact()
         {
             using var workspace = PrepareProvisionedWorkspace();
-            File.Delete(Path.Combine(workspace.Root, "_Generated", "Bridges", "测试驱动", "助手配置包", "知识", "术语表.md"));
+            File.Delete(Path.Combine(workspace.Root, "_Generated", "Bridges", "测试驱动", "assistant-package", "knowledge", "glossary.md"));
 
             var report = ProvisionReconciler.Reconcile(workspace.Root, workspace.Root);
 
             var finding = Assert.Single(report.Findings);
             Assert.Contains("缺失", finding.Reason);
-            Assert.Contains("术语表.md", finding.Location);
+            Assert.Contains("glossary.md", finding.Location);
         }
 
         /// <summary>备一个已供给的工作区：基线 schema、driver 自述与真跑一次供给。</summary>

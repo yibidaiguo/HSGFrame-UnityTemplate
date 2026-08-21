@@ -82,7 +82,7 @@ namespace Template.Toolkit.DashboardTests
                   "字段类型映射": {}
                 }
                 """);
-            WriteFile(Path.Combine(_repositoryRoot, "Bridges", "driver-with-manifest", "依赖清单.json"), """
+            WriteFile(Path.Combine(_repositoryRoot, "Bridges", "driver-with-manifest", "dependencies.json"), """
                 {
                   "契约版本": "1.0",
                   "依赖": []
@@ -120,8 +120,8 @@ namespace Template.Toolkit.DashboardTests
                   "字段类型映射": {}
                 }
                 """);
-            Directory.CreateDirectory(Path.Combine(_repositoryRoot, "Bridges", "driver-recipes", "配方", "配方一"));
-            Directory.CreateDirectory(Path.Combine(_repositoryRoot, "Bridges", "driver-recipes", "配方", "配方二"));
+            Directory.CreateDirectory(Path.Combine(_repositoryRoot, "Bridges", "driver-recipes", "recipes", "配方一"));
+            Directory.CreateDirectory(Path.Combine(_repositoryRoot, "Bridges", "driver-recipes", "recipes", "配方二"));
 
             var rows = CreationPanelReader.ReadProvision(_repositoryRoot, _poolRoot);
 
@@ -167,7 +167,7 @@ namespace Template.Toolkit.DashboardTests
                 }
                 """);
             WriteFile(
-                Path.Combine(_repositoryRoot, "_Generated", "Bridges", "driver-gamma", "指纹.json"),
+                Path.Combine(_repositoryRoot, "_Generated", "Bridges", "driver-gamma", "fingerprint.json"),
                 """
                 { "自述哈希": "aaa", "产物哈希": "bbb" }
                 """);

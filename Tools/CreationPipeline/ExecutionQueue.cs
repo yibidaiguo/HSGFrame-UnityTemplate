@@ -35,7 +35,7 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 先进先出的执行队列：Pools/队列.json 的内存形态。
+    /// 先进先出的执行队列：Pools/queue.json 的内存形态。
     /// 文件不存在、JSON 坏掉或「条目」不是数组时退化为空队列，不抛异常，原因记在 LoadFailureReason。
     /// </summary>
     public sealed class ExecutionQueue
@@ -54,7 +54,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 从池根加载执行队列：读 &lt;池根&gt;/队列.json。
+        /// 从池根加载执行队列：读 &lt;池根&gt;/queue.json。
         /// 文件不存在、JSON 语法错误、「条目」缺失或不是数组时返回空队列不抛异常，原因记进 LoadFailureReason；
         /// 单个条目缺「需求id」时跳过该条目。
         /// </summary>
@@ -165,7 +165,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 写回 &lt;池根&gt;/队列.json，目录不存在就建；缩进 + 不转义中文。
+        /// 写回 &lt;池根&gt;/queue.json，目录不存在就建；缩进 + 不转义中文。
         /// </summary>
         /// <param name="poolRoot">池子根目录。</param>
         public void Save(string poolRoot)

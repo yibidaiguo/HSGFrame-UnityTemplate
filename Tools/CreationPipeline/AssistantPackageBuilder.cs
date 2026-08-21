@@ -8,13 +8,13 @@ using System.Text.Json;
 namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>
-    /// 生成助手配置包：系统提示、设计池摘要、冲突清单、术语表、正反例、模块清单与导入说明七个 markdown 文件。
+    /// 生成assistant-package：系统提示、设计池摘要、冲突清单、术语表、正反例、模块清单与导入说明七个 markdown 文件。
     /// 知识素材（术语表 / 正反例 / 模块清单）是可选的——拿不到时降级成占位文案，不让供给整条失败。
     /// </summary>
     public static class AssistantPackageBuilder
     {
         /// <summary>
-        /// 生成助手配置包的七个 markdown 文件，全部写 UTF-8、中文正文；
+        /// 生成assistant-package的七个 markdown 文件，全部写 UTF-8、中文正文；
         /// 返回写出的文件绝对路径列表，顺序即写盘顺序。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录，模块清单降级扫描从这里展开。</param>
@@ -32,13 +32,13 @@ namespace Template.Toolkit.CreationPipeline
             var knowledgeDirectory = ProvisionPaths.AssistantKnowledgeDirectory(repositoryRoot, driverName);
             Directory.CreateDirectory(knowledgeDirectory);
 
-            var systemPromptFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "系统提示.md");
-            var designSummaryFile = Path.Combine(knowledgeDirectory, "设计池摘要.md");
-            var conflictListFile = Path.Combine(knowledgeDirectory, "冲突清单.md");
-            var glossaryFile = Path.Combine(knowledgeDirectory, "术语表.md");
-            var examplesFile = Path.Combine(knowledgeDirectory, "正反例.md");
-            var moduleListFile = Path.Combine(knowledgeDirectory, "模块清单.md");
-            var importGuideFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "导入说明.md");
+            var systemPromptFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "system-prompt.md");
+            var designSummaryFile = Path.Combine(knowledgeDirectory, "design-digest.md");
+            var conflictListFile = Path.Combine(knowledgeDirectory, "conflicts.md");
+            var glossaryFile = Path.Combine(knowledgeDirectory, "glossary.md");
+            var examplesFile = Path.Combine(knowledgeDirectory, "examples.md");
+            var moduleListFile = Path.Combine(knowledgeDirectory, "modules.md");
+            var importGuideFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "import-guide.md");
 
             WriteAll(systemPromptFile, BuildSystemPrompt(schema));
             WriteAll(designSummaryFile, BuildDesignSummary(poolRoot, conflictList));
@@ -52,7 +52,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 只列助手配置包七个文件的路径，不碰磁盘；供干跑列出将要生成的文件用。
+        /// 只列assistant-package七个文件的路径，不碰磁盘；供干跑列出将要生成的文件用。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="driverName">面向的 driver 名称。</param>
@@ -61,17 +61,17 @@ namespace Template.Toolkit.CreationPipeline
             return PackageFiles(repositoryRoot, driverName);
         }
 
-        /// <summary>助手配置包七个文件的绝对路径列表，顺序即写盘顺序。</summary>
+        /// <summary>assistant-package七个文件的绝对路径列表，顺序即写盘顺序。</summary>
         private static IReadOnlyList<string> PackageFiles(string repositoryRoot, string driverName)
         {
             var knowledgeDirectory = ProvisionPaths.AssistantKnowledgeDirectory(repositoryRoot, driverName);
-            var systemPromptFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "系统提示.md");
-            var designSummaryFile = Path.Combine(knowledgeDirectory, "设计池摘要.md");
-            var conflictListFile = Path.Combine(knowledgeDirectory, "冲突清单.md");
-            var glossaryFile = Path.Combine(knowledgeDirectory, "术语表.md");
-            var examplesFile = Path.Combine(knowledgeDirectory, "正反例.md");
-            var moduleListFile = Path.Combine(knowledgeDirectory, "模块清单.md");
-            var importGuideFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "导入说明.md");
+            var systemPromptFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "system-prompt.md");
+            var designSummaryFile = Path.Combine(knowledgeDirectory, "design-digest.md");
+            var conflictListFile = Path.Combine(knowledgeDirectory, "conflicts.md");
+            var glossaryFile = Path.Combine(knowledgeDirectory, "glossary.md");
+            var examplesFile = Path.Combine(knowledgeDirectory, "examples.md");
+            var moduleListFile = Path.Combine(knowledgeDirectory, "modules.md");
+            var importGuideFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "import-guide.md");
 
             return new[]
             {
@@ -101,7 +101,7 @@ namespace Template.Toolkit.CreationPipeline
             builder.AppendLine("1. 需求必须落在 schema 声明的字段里，不发明 schema 之外的字段。");
             builder.AppendLine("2. 分类型必填不能少：按需求的类型补齐该类型要求的必填字段。");
             builder.AppendLine("3. 发现与既有设计冲突时，先指出冲突再帮着写。");
-            builder.AppendLine("4. 新需求碰到「冲突清单.md」里列出的涉区 id 时，先提醒提出人那块还挂着未销账的冲突，再继续填写。");
+            builder.AppendLine("4. 新需求碰到「conflicts.md」里列出的涉区 id 时，先提醒提出人那块还挂着未销账的冲突，再继续填写。");
             builder.AppendLine();
             builder.AppendLine("## schema 摘要");
             builder.AppendLine();
@@ -368,11 +368,11 @@ namespace Template.Toolkit.CreationPipeline
             builder.AppendLine("按下面四步把本配置包导入下游平台：");
             builder.AppendLine();
             builder.AppendLine("1. 在下游平台新建助手。");
-            builder.AppendLine("2. 把「系统提示.md」全文贴进系统提示框。");
+            builder.AppendLine("2. 把「system-prompt.md」全文贴进系统提示框。");
             builder.AppendLine("3. 把「知识」目录下四个文件逐个上传为知识库文件。");
             builder.AppendLine("4. 回到本仓库跑一次门禁对账，确认指纹一致。");
             builder.AppendLine();
-            builder.AppendLine("> 警告：指纹.json 变了就必须重新走一遍本流程，否则助手用的是过期知识。");
+            builder.AppendLine("> 警告：fingerprint.json 变了就必须重新走一遍本流程，否则助手用的是过期知识。");
             return builder.ToString();
         }
 

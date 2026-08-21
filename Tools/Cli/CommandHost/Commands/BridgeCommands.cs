@@ -52,7 +52,7 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("要探测的下游 driver 名，对应 Bridges/<名>/ 目录")]
         public string Driver { get; set; }
 
-        /// <summary>探测输出文件的路径（绝对或相对路径，跑完 CapabilityProbeResult 要能读它）；空串时用默认位置 _Generated/Bridges/&lt;driver&gt;/探测结果.json 并自动建目录。</summary>
+        /// <summary>探测输出文件的路径（绝对或相对路径，跑完 CapabilityProbeResult 要能读它）；空串时用默认位置 _Generated/Bridges/&lt;driver&gt;/probe-result.json 并自动建目录。</summary>
         [Summary("探测输出文件的路径（绝对或相对路径，跑完 CapabilityProbeResult 要能读它）；空串用默认位置并自动建目录")]
         [DefaultValue("")]
         public string OutputPath { get; set; }
@@ -110,7 +110,7 @@ namespace Template.Toolkit.CommandHost.Commands
         public string RequestPath { get; set; }
 
         /// <summary>配方名，对应 Bridges/&lt;driver&gt;/配方/&lt;配方名&gt;/。</summary>
-        [Summary("配方名，对应 Bridges/<driver>/配方/<配方名>/")]
+        [Summary("配方名，对应 Bridges/<driver>/recipes/<配方名>/")]
         public string RecipeName { get; set; }
 
         /// <summary>变体与溯源边车的输出目录（绝对或相对路径，变体落其下「变体/」子目录）。</summary>
@@ -208,7 +208,7 @@ namespace Template.Toolkit.CommandHost.Commands
         public int TimeoutSeconds { get; set; }
     }
 
-    /// <summary>下游供给命令：bridge.provision，一次产出建表描述、专项表、校验错误文案、助手配置包与指纹。</summary>
+    /// <summary>下游供给命令：bridge.provision，一次产出建表描述、专项表、校验错误文案、assistant-package与指纹。</summary>
     public static class BridgeCommands
     {
         /// <summary>
@@ -216,7 +216,7 @@ namespace Template.Toolkit.CommandHost.Commands
         /// </summary>
         /// <param name="arguments">供给命令参数。</param>
         [EditorCommand("bridge.provision")]
-        [Summary("产出下游供给的全部产物：建表描述、专项表、校验错误文案、助手配置包与指纹")]
+        [Summary("产出下游供给的全部产物：建表描述、专项表、校验错误文案、assistant-package与指纹")]
         public static CommandResult Provision(BridgeProvisionArguments arguments)
         {
             if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
@@ -365,7 +365,7 @@ namespace Template.Toolkit.CommandHost.Commands
             {
                 if (string.IsNullOrWhiteSpace(arguments.OutputPath))
                 {
-                    // 默认落到面板下游页找的位置：_Generated/Bridges/<driver>/探测结果.json，并自动建目录。
+                    // 默认落到面板下游页找的位置：_Generated/Bridges/<driver>/probe-result.json，并自动建目录。
                     outputPath = ProvisionPaths.ProbeResultFile(repositoryRoot, arguments.Driver);
                     var directory = Path.GetDirectoryName(outputPath);
                     if (!string.IsNullOrEmpty(directory))

@@ -46,7 +46,7 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 供给编排：一次跑出建表描述、专项表、校验错误文案、助手配置包与指纹全部产物。
+    /// 供给编排：一次跑出建表描述、专项表、校验错误文案、assistant-package与指纹全部产物。
     /// 指纹必须最后写，中途失败不会留下一份自称新鲜的指纹。
     /// </summary>
     public static class BridgeProvisioner

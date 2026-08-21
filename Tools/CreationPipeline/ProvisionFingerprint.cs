@@ -119,7 +119,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 计算设计池汇总的汇总哈希：列 &lt;池根&gt;/Designs/汇总/ 下的 *.md（不递归），
+        /// 计算设计池汇总的汇总哈希：列 &lt;池根&gt;/Designs/Digest/ 下的 *.md（不递归），
         /// 按文件名序数序排序，每文件一行「文件名|内容 SHA256」，\n 连接后再取一次 SHA256。
         /// 目录不存在或一个文件都没有时，对空字符串取 SHA256。
         /// </summary>

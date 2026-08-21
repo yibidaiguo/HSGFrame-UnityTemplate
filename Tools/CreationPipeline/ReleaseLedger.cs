@@ -88,7 +88,7 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 放行流水（Pools/放行流水.json）：自动放行的合并全量入账，只追加 + 就地改抽查状态。
+    /// 放行流水（Pools/release-ledger.json）：自动放行的合并全量入账，只追加 + 就地改抽查状态。
     /// 空流水是正常状态，LoadFailureReason 为空串；文件在但读不动时两者必须能分开。
     /// </summary>
     public sealed class ReleaseLedger

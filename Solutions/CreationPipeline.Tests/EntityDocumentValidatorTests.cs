@@ -34,14 +34,14 @@ namespace Template.Toolkit.CreationPipeline.Tests
         /// <summary>把仓库里的真实基线 schema 内容写进临时池子并加载。</summary>
         private static PoolSchema LoadRequestSchema(PoolTestWorkspace workspace)
         {
-            workspace.WriteBaselineSchema("资产请求", BaselineText("资产请求.schema.json"));
+            workspace.WriteBaselineSchema("资产请求", BaselineText("asset-request.schema.json"));
             return PoolSchemaLoader.Load(workspace.Root, "资产请求");
         }
 
-        /// <summary>读仓库 Pools/Schema/基线/ 下的真实文件内容。</summary>
+        /// <summary>读仓库 Pools/Schema/Baseline/ 下的真实文件内容。</summary>
         private static string BaselineText(string fileName)
         {
-            return File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Pools", "Schema", "基线", fileName));
+            return File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Pools", "Schema", "Baseline", fileName));
         }
 
         /// <summary>从测试运行目录逐级向上找仓库根（以基线 schema 文件存在为标志）。</summary>
@@ -50,7 +50,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var directory = new DirectoryInfo(AppContext.BaseDirectory);
             while (directory != null)
             {
-                if (File.Exists(Path.Combine(directory.FullName, "Pools", "Schema", "基线", "资产请求.schema.json")))
+                if (File.Exists(Path.Combine(directory.FullName, "Pools", "Schema", "Baseline", "asset-request.schema.json")))
                 {
                     return directory.FullName;
                 }
@@ -58,7 +58,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 directory = directory.Parent;
             }
 
-            throw new InvalidOperationException("找不到仓库根目录（缺 Pools/Schema/基线/资产请求.schema.json）。");
+            throw new InvalidOperationException("找不到仓库根目录（缺 Pools/Schema/Baseline/asset-request.schema.json）。");
         }
 
         /// <summary>把 JSON 文本写到资产请求目录下某文件，返回完整路径。</summary>

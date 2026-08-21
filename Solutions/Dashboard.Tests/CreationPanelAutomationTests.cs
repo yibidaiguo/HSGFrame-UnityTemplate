@@ -165,7 +165,7 @@ namespace Template.Toolkit.DashboardTests
         {
             var directory = Path.Combine(_poolRoot, "Designs");
             Directory.CreateDirectory(directory);
-            WriteFile(Path.Combine(directory, "冲突列表.json"), json);
+            WriteFile(Path.Combine(directory, "conflicts.json"), json);
         }
 
         private void WriteOpinion(string identifier, string category, string rulability, string moduleName, string quotation)

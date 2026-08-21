@@ -47,7 +47,7 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 本地形态 driver 的依赖清单：从 &lt;仓库根&gt;/Bridges/&lt;driver&gt;/依赖清单.json 读出，
+    /// 本地形态 driver 的依赖清单：从 &lt;仓库根&gt;/Bridges/&lt;driver&gt;/dependencies.json 读出，
     /// 条目按名称序数序排序。文件缺失或类别不合法时抛 InvalidOperationException。
     /// </summary>
     public sealed class DependencyManifest
@@ -160,7 +160,7 @@ namespace Template.Toolkit.CreationPipeline
             return false;
         }
 
-        /// <summary>依赖清单文件的路径：Bridges/&lt;driver&gt;/依赖清单.json。</summary>
+        /// <summary>依赖清单文件的路径：Bridges/&lt;driver&gt;/dependencies.json。</summary>
         private static string DependencyManifestFile(string repositoryRoot, string driverName)
         {
             return RecipePaths.DependencyManifestFile(repositoryRoot, driverName);

@@ -159,13 +159,13 @@ namespace Template.Toolkit.CreationPipeline
                 (ProvisionPaths.TableDescriptionFile(repositoryRoot, driverName), "按这份在下游平台建表：字段、类型、单选项、分类型三张表单"),
                 (ProvisionPaths.EpicTableFile(repositoryRoot, driverName), "按这份建专项表：每职责一个人员多选的认领列"),
                 (ProvisionPaths.ValidationMessageFile(repositoryRoot, driverName), "导入成下游的校验提示文案；拒收回贴与助手用的是同一份"),
-                (Path.Combine(packageDirectory, "系统提示.md"), "全文贴进助手的系统提示框"),
-                (Path.Combine(knowledgeDirectory, "设计池摘要.md"), "上传为助手的知识库文件"),
-                (Path.Combine(knowledgeDirectory, "冲突清单.md"), "上传为助手的知识库文件"),
-                (Path.Combine(knowledgeDirectory, "术语表.md"), "上传为助手的知识库文件"),
-                (Path.Combine(knowledgeDirectory, "正反例.md"), "上传为助手的知识库文件"),
-                (Path.Combine(knowledgeDirectory, "模块清单.md"), "上传为助手的知识库文件"),
-                (Path.Combine(packageDirectory, "导入说明.md"), "给做导入的人看，不用上传"),
+                (Path.Combine(packageDirectory, "system-prompt.md"), "全文贴进助手的系统提示框"),
+                (Path.Combine(knowledgeDirectory, "design-digest.md"), "上传为助手的知识库文件"),
+                (Path.Combine(knowledgeDirectory, "conflicts.md"), "上传为助手的知识库文件"),
+                (Path.Combine(knowledgeDirectory, "glossary.md"), "上传为助手的知识库文件"),
+                (Path.Combine(knowledgeDirectory, "examples.md"), "上传为助手的知识库文件"),
+                (Path.Combine(knowledgeDirectory, "modules.md"), "上传为助手的知识库文件"),
+                (Path.Combine(packageDirectory, "import-guide.md"), "给做导入的人看，不用上传"),
                 (ProvisionPaths.FingerprintFile(repositoryRoot, driverName), "不上传；它是下次对账的凭据")
             };
         }

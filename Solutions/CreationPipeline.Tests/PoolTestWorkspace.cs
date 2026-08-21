@@ -13,7 +13,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
     public sealed class PoolTestWorkspace : IDisposable
     {
         /// <summary>
-        /// 在临时目录下创建「创作管线测试-&lt;Guid&gt;」目录，并建出 Schema/基线、Schema/项目、Requirements 三个子目录。
+        /// 在临时目录下创建「创作管线测试-&lt;Guid&gt;」目录，并建出 Schema/Baseline、Schema/Project、Requirements 三个子目录。
         /// </summary>
         public PoolTestWorkspace()
         {
@@ -39,7 +39,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         }
 
         /// <summary>
-        /// 把基线 schema JSON 写到 Schema/基线/&lt;实体&gt;.schema.json。
+        /// 把基线 schema JSON 写到 Schema/Baseline/&lt;实体&gt;.schema.json。
         /// </summary>
         /// <param name="entityName">实体名，如「需求」。</param>
         /// <param name="json">基线 schema 的 JSON 文本。</param>
@@ -49,7 +49,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         }
 
         /// <summary>
-        /// 把项目扩展 schema JSON 写到 Schema/项目/&lt;实体&gt;.扩展.json。
+        /// 把项目扩展 schema JSON 写到 Schema/Project/&lt;实体&gt;.扩展.json。
         /// </summary>
         /// <param name="entityName">实体名，如「需求」。</param>
         /// <param name="json">项目扩展 schema 的 JSON 文本。</param>
@@ -205,13 +205,13 @@ namespace Template.Toolkit.CreationPipeline.Tests
             WriteFile(EngineSettings.SettingsFile(Root), json);
         }
 
-        /// <summary>&lt;Root&gt;/队列.json 是否存在。</summary>
+        /// <summary>&lt;Root&gt;/queue.json 是否存在。</summary>
         public bool QueueFileExists()
         {
             return File.Exists(PoolPaths.QueueFile(Root));
         }
 
-        /// <summary>读取 &lt;Root&gt;/队列.json 全文；文件不存在返回空串。</summary>
+        /// <summary>读取 &lt;Root&gt;/queue.json 全文；文件不存在返回空串。</summary>
         public string ReadQueueFile()
         {
             var path = PoolPaths.QueueFile(Root);

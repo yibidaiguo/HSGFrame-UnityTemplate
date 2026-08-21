@@ -134,7 +134,7 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 晋升提案账本（Pools/晋升提案/）：一个提案一个 PR-xxxx.json 文件，只追加、就地改状态。
+    /// 晋升提案账本（Pools/Promotions/）：一个提案一个 PR-xxxx.json 文件，只追加、就地改状态。
     /// 空账本是正常状态（目录不存在时 Load 返回空账本、LoadFailureReason 为空串）；
     /// 「目录空」与「文件读不动」必须分开（锁定决策 42）。
     /// </summary>
