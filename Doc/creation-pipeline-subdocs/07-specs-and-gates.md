@@ -26,7 +26,7 @@ Specifications/
 
 - 三层就近生效:业务级在自己范围内覆盖项目级,项目级覆盖基线——**收紧任意,放宽仅限上层标了「可覆盖」的键**。
 - 数组默认追加;骨架必填、状态机枚举、检查器清单不可覆盖。
-- 合并器按范围输出 `_Generated/生效Specifications/`(全局一份 + 每业务一份);「生效规范幂等」门禁重跑无 diff。
+- 合并器按范围输出 `_Generated/EffectiveSpecifications/`(全局一份 + 每业务一份);「生效规范幂等」门禁重跑无 diff。
 
 ## 三、规则执行三档
 
@@ -53,7 +53,7 @@ Specifications/
 | 冲突可见 | 冲突列表 + 验收报告 | 未决冲突全列出、条目字段齐 |
 | 下游边界 | 引擎/管线代码 | 无 driver 名符号/字符串 |
 | 层边界 | 仓库路径 + 产品层代码 | 协作/过程/生成数据不在 `UnityProject/Assets` 下;游戏代码不引用 `Pools/` `_Tasks/` |
-| 生效规范幂等 | _Generated/生效规范 | 重合并无 diff |
+| 生效规范幂等 | _Generated/EffectiveSpecifications | 重合并无 diff |
 
 全部挂进模板既有 `gate.ps1` 框架(追加清单条目);单跑入口 `gate.ps1 -Only 资产规格`。
 

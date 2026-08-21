@@ -420,7 +420,7 @@ Specifications/
 | 冲突可见 | 验收报告列全未决冲突;冲突列表条目带裁决人字段 |
 | 下游边界 | 引擎与管线层不得引用具体 driver 符号/字符串,只准经 port 接口 |
 | 层边界 | 协作/过程/生成数据不进 `UnityProject/Assets`;游戏代码不引用 `Pools/` `_Tasks/` |
-| 生效规范幂等 | `_Generated/生效Specifications/` 重合并无 diff |
+| 生效规范幂等 | `_Generated/EffectiveSpecifications/` 重合并无 diff |
 
 ## 十一、安全与成本
 

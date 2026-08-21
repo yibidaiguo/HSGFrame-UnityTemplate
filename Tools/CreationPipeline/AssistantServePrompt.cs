@@ -90,7 +90,11 @@ namespace Template.Toolkit.CreationPipeline
             if (systemPrompt.Length == 0)
             {
                 degraded.Add("读不到助手系统提示（" + systemPromptFile + "）——先跑一次 bridge.provision");
-                systemPrompt = "你是策划提需求时的助手。（注意：本轮没能读到供给产出的系统提示，知识是降级的。）";
+                // 降级时 schema 摘要也一起没了，输出契约却要求「字段名照 schema 摘要」——
+                // 那张表正好在读不到的文件里。所以降级轮一律不建需求，只回话说明缺供给。
+                systemPrompt = "你是策划提需求时的助手。（注意：本轮没能读到供给产出的系统提示与 schema 摘要，"
+                    + "知识是降级的——「要不要建需求」一律回 false，"
+                    + "把「还缺什么」写成「助手知识未供给，请先跑 bridge.provision」。）";
             }
 
             var knowledgeTexts = new List<string>();

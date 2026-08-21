@@ -46,7 +46,10 @@ namespace Template.Toolkit.CreationPipeline
             WriteAll(glossaryFile, BuildGlossary(poolRoot));
             WriteAll(examplesFile, BuildExamples(poolRoot));
             WriteAll(moduleListFile, BuildModuleList(repositoryRoot, poolRoot));
-            WriteAll(importGuideFile, BuildImportGuide());
+            WriteAll(importGuideFile, BuildImportGuide(new[]
+            {
+                designSummaryFile, conflictListFile, glossaryFile, examplesFile, moduleListFile
+            }));
 
             return PackageFiles(repositoryRoot, driverName);
         }
@@ -105,12 +108,29 @@ namespace Template.Toolkit.CreationPipeline
             builder.AppendLine();
             builder.AppendLine("## schema 摘要");
             builder.AppendLine();
-            builder.AppendLine("| 字段 | 类型 | 必填 | 枚举值 | 所有权 |");
-            builder.AppendLine("|---|---|---|---|---|");
+            builder.AppendLine("下面只列**你要帮着填**的字段。工程侧字段引擎自己补，你不填、也不解释：");
+            builder.AppendLine();
+            builder.AppendLine("| 字段 | 类型 | 必填 | 枚举值 |");
+            builder.AppendLine("|---|---|---|---|");
+            var engineFieldNames = new List<string>();
             foreach (var field in schema.Fields)
             {
+                // 工程侧字段不进表格：表里每一行都该是助手要动的字段，
+                // 此前 15 行里 9 行是明令不填的工程字段，既费 token 又制造干扰。
+                if (string.Equals(field.Ownership, RequirementFieldOwnership.EngineOwner, StringComparison.Ordinal))
+                {
+                    engineFieldNames.Add(field.Name);
+                    continue;
+                }
+
                 var enumText = string.Join("、", field.EnumValues);
-                builder.AppendLine($"| {field.Name} | {field.FieldType} | {(field.IsRequired ? "是" : "否")} | {enumText} | {field.Ownership} |");
+                builder.AppendLine($"| {field.Name} | {field.FieldType} | {(field.IsRequired ? "是" : "否")} | {enumText} |");
+            }
+
+            if (engineFieldNames.Count > 0)
+            {
+                builder.AppendLine();
+                builder.AppendLine($"工程侧字段（引擎补，你不碰）：{string.Join("、", engineFieldNames)}。");
             }
 
             builder.AppendLine();
@@ -360,8 +380,16 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>组导入说明：固定四步加过期警告，不出现任何下游平台的名字。</summary>
-        private static string BuildImportGuide()
+        /// <param name="knowledgeFiles">真写盘的知识文件路径，导入说明第 3 步的清单从这里推导。</param>
+        private static string BuildImportGuide(IReadOnlyList<string> knowledgeFiles)
         {
+            // 知识文件清单从真写盘的那组文件名推导，不再手写数目——
+            // 上一版写死「四个文件」而实际写盘五个，人照着做必漏传一个，随后指纹对账必然对不上。
+            var knowledgeNames = knowledgeFiles
+                .Select(Path.GetFileName)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToList();
+
             var builder = new StringBuilder();
             builder.AppendLine("# 配置包导入说明");
             builder.AppendLine();
@@ -369,7 +397,7 @@ namespace Template.Toolkit.CreationPipeline
             builder.AppendLine();
             builder.AppendLine("1. 在下游平台新建助手。");
             builder.AppendLine("2. 把「system-prompt.md」全文贴进系统提示框。");
-            builder.AppendLine("3. 把「知识」目录下四个文件逐个上传为知识库文件。");
+            builder.AppendLine($"3. 把「知识」目录下这 {knowledgeNames.Count} 个文件逐个上传为知识库文件：{string.Join("、", knowledgeNames)}。");
             builder.AppendLine("4. 回到本仓库跑一次门禁对账，确认指纹一致。");
             builder.AppendLine();
             builder.AppendLine("> 警告：fingerprint.json 变了就必须重新走一遍本流程，否则助手用的是过期知识。");
