@@ -59,13 +59,24 @@ namespace Template.Toolkit.CreationPipeline.Tests
         }
 
         /// <summary>
-        /// 把任意内容写到 Requirements/&lt;文件名&gt;。
+        /// 把内容写成一条需求：Requirements/&lt;id&gt;/requirement.json。
         /// </summary>
-        /// <param name="fileName">文件名，如「REQ-0001.json」。</param>
-        /// <param name="json">文件内容。</param>
-        public void WriteRequirement(string fileName, string json)
+        /// <param name="identifier">需求 id，如「REQ-0001」。目录名即 id，校验器按它判。</param>
+        /// <param name="json">requirement.json 的内容。</param>
+        public void WriteRequirement(string identifier, string json)
         {
-            WriteFile(Path.Combine(PoolPaths.RequirementsDirectory(Root), fileName), json);
+            WriteFile(PoolPaths.RequirementFile(Root, identifier), json);
+        }
+
+        /// <summary>
+        /// 把内容写到某条需求目录下的任意相对路径，如「index.md」「media/a.png」。
+        /// </summary>
+        /// <param name="identifier">需求 id。</param>
+        /// <param name="relativePath">相对该需求目录的路径。</param>
+        /// <param name="content">文件内容。</param>
+        public void WriteRequirementFile(string identifier, string relativePath, string content)
+        {
+            WriteFile(Path.Combine(PoolPaths.RequirementDirectory(Root, identifier), relativePath), content);
         }
 
         /// <summary>
@@ -80,18 +91,18 @@ namespace Template.Toolkit.CreationPipeline.Tests
             WriteFile(Path.Combine(directory, fileName), json);
         }
 
-        /// <summary>读取 Requirements 目录下指定文件的全文。</summary>
-        /// <param name="fileName">文件名，如「REQ-0001.json」。</param>
-        public string ReadRequirement(string fileName)
+        /// <summary>读取某条需求的 requirement.json 全文。</summary>
+        /// <param name="identifier">需求 id，如「REQ-0001」。</param>
+        public string ReadRequirement(string identifier)
         {
-            return File.ReadAllText(Path.Combine(PoolPaths.RequirementsDirectory(Root), fileName));
+            return File.ReadAllText(PoolPaths.RequirementFile(Root, identifier));
         }
 
-        /// <summary>Requirements 目录下是否存在指定文件。</summary>
-        /// <param name="fileName">文件名，如「REQ-0001.json」。</param>
-        public bool RequirementExists(string fileName)
+        /// <summary>某条需求的 requirement.json 在不在。</summary>
+        /// <param name="identifier">需求 id，如「REQ-0001」。</param>
+        public bool RequirementExists(string identifier)
         {
-            return File.Exists(Path.Combine(PoolPaths.RequirementsDirectory(Root), fileName));
+            return File.Exists(PoolPaths.RequirementFile(Root, identifier));
         }
 
         /// <summary>
@@ -242,6 +253,13 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
         private static void WriteFile(string path, string json)
         {
+            // 需求现在是一个目录，落点比原来深一层，父目录不一定已经在了。
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
             File.WriteAllText(path, json, new UTF8Encoding(false));
         }
     }

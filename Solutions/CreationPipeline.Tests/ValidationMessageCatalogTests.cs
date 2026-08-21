@@ -8,13 +8,13 @@ namespace Template.Toolkit.CreationPipeline.Tests
     /// <summary>ValidationMessageCatalog 与 ValidationMessageEntry 的行为测试。</summary>
     public class ValidationMessageCatalogTests
     {
-        /// <summary>条目总数恰好 13 条，且规则 id 互不重复。</summary>
+        /// <summary>条目总数恰好 14 条，且规则 id 互不重复。</summary>
         [Fact]
-        public void EntriesCountIsThirteenAndRuleIdentifiersAreUnique()
+        public void EntriesCountIsFourteenAndRuleIdentifiersAreUnique()
         {
             var entries = ValidationMessageCatalog.Entries;
 
-            Assert.Equal(13, entries.Count);
+            Assert.Equal(14, entries.Count);
             Assert.Equal(entries.Count, entries.Select(e => e.RuleIdentifier).Distinct().Count());
         }
 

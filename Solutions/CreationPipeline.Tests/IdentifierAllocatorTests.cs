@@ -23,7 +23,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             using var workspace = new PoolTestWorkspace();
 
-            var next = IdentifierAllocator.Next(PoolPaths.RequirementsDirectory(workspace.Root), "REQ-", 4);
+            var next = IdentifierAllocator.NextByDirectoryName(PoolPaths.RequirementsDirectory(workspace.Root), "REQ-", 4);
 
             Assert.Equal("REQ-0001", next);
         }
@@ -34,28 +34,28 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             using var workspace = new PoolTestWorkspace();
             var directory = PoolPaths.RequirementsDirectory(workspace.Root);
-            workspace.WriteRequirement("REQ-0007.json", "{}");
+            workspace.WriteRequirement("REQ-0007", "{}");
 
-            Assert.Equal("REQ-0008", IdentifierAllocator.Next(directory, "REQ-", 4));
+            Assert.Equal("REQ-0008", IdentifierAllocator.NextByDirectoryName(directory, "REQ-", 4));
 
-            workspace.WriteRequirement("REQ-0002.json", "{}");
-            workspace.WriteRequirement("REQ-0011.json", "{}");
+            workspace.WriteRequirement("REQ-0002", "{}");
+            workspace.WriteRequirement("REQ-0011", "{}");
 
-            Assert.Equal("REQ-0012", IdentifierAllocator.Next(directory, "REQ-", 4));
+            Assert.Equal("REQ-0012", IdentifierAllocator.NextByDirectoryName(directory, "REQ-", 4));
         }
 
-        /// <summary>混入 README.md、REQ-abc.json、OTHER-0099.json 这类不匹配文件不影响取号结果。</summary>
+        /// <summary>混入 README、REQ-abc、OTHER-0099 这类不匹配的目录名不影响取号结果。</summary>
         [Fact]
-        public void NextIgnoresUnrelatedFileNames()
+        public void NextIgnoresUnrelatedDirectoryNames()
         {
             using var workspace = new PoolTestWorkspace();
             var directory = PoolPaths.RequirementsDirectory(workspace.Root);
-            workspace.WriteRequirement("README.md", "说明");
-            workspace.WriteRequirement("REQ-abc.json", "{}");
-            workspace.WriteRequirement("OTHER-0099.json", "{}");
-            workspace.WriteRequirement("REQ-0003.json", "{}");
+            workspace.WriteRequirement("README", "说明");
+            workspace.WriteRequirement("REQ-abc", "{}");
+            workspace.WriteRequirement("OTHER-0099", "{}");
+            workspace.WriteRequirement("REQ-0003", "{}");
 
-            var next = IdentifierAllocator.Next(directory, "REQ-", 4);
+            var next = IdentifierAllocator.NextByDirectoryName(directory, "REQ-", 4);
 
             Assert.Equal("REQ-0004", next);
         }

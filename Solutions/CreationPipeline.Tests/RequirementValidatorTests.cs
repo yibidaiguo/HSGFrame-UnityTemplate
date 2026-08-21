@@ -64,12 +64,12 @@ namespace Template.Toolkit.CreationPipeline.Tests
             return PoolSchemaLoader.Load(workspace.Root, "需求");
         }
 
-        /// <summary>拼出需求目录下某文件的完整路径。</summary>
+        /// <summary>拼出某条需求的 requirement.json 路径。</summary>
         /// <param name="workspace">测试工作区。</param>
-        /// <param name="fileName">需求文件名。</param>
-        private static string RequirementPath(PoolTestWorkspace workspace, string fileName)
+        /// <param name="identifier">需求 id，如「REQ-0042」。</param>
+        private static string RequirementPath(PoolTestWorkspace workspace, string identifier)
         {
-            return Path.Combine(PoolPaths.RequirementsDirectory(workspace.Root), fileName);
+            return PoolPaths.RequirementFile(workspace.Root, identifier);
         }
 
         /// <summary>完整合法的「系统」需求零违规。</summary>
@@ -78,9 +78,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             using var workspace = new PoolTestWorkspace();
             var schema = LoadSchema(workspace);
-            workspace.WriteRequirement("REQ-0042.json", ValidSystemRequirementJson().ToJsonString());
+            workspace.WriteRequirement("REQ-0042", ValidSystemRequirementJson().ToJsonString());
 
-            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042.json"), schema);
+            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042"), schema);
 
             Assert.Empty(findings);
         }
@@ -93,9 +93,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var schema = LoadSchema(workspace);
             var json = ValidSystemRequirementJson();
             json.Remove("标题");
-            workspace.WriteRequirement("REQ-0042.json", json.ToJsonString());
+            workspace.WriteRequirement("REQ-0042", json.ToJsonString());
 
-            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042.json"), schema);
+            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042"), schema);
 
             Assert.NotEmpty(findings);
             Assert.Contains(findings, f => f.Reason.Contains("标题"));
@@ -109,9 +109,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var schema = LoadSchema(workspace);
             var json = ValidSystemRequirementJson();
             json["类型"] = "美术";
-            workspace.WriteRequirement("REQ-0042.json", json.ToJsonString());
+            workspace.WriteRequirement("REQ-0042", json.ToJsonString());
 
-            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042.json"), schema);
+            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042"), schema);
 
             Assert.NotEmpty(findings);
             Assert.Contains(findings, f => f.Reason.Contains("类型"));
@@ -119,18 +119,18 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
         /// <summary>文件名叫 REQ-0042 而 id 写成 REQ-0043 时至少一条违规，原因里含「文件名」。</summary>
         [Fact]
-        public void MismatchedIdAndFileNameReportsViolation()
+        public void MismatchedIdAndDirectoryNameReportsViolation()
         {
             using var workspace = new PoolTestWorkspace();
             var schema = LoadSchema(workspace);
             var json = ValidSystemRequirementJson();
             json["id"] = "REQ-0043";
-            workspace.WriteRequirement("REQ-0042.json", json.ToJsonString());
+            workspace.WriteRequirement("REQ-0042", json.ToJsonString());
 
-            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042.json"), schema);
+            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042"), schema);
 
             Assert.NotEmpty(findings);
-            Assert.Contains(findings, f => f.Reason.Contains("文件名"));
+            Assert.Contains(findings, f => f.Reason.Contains("目录名"));
         }
 
         /// <summary>id 写成 REQ-42（位数不对）时至少一条违规，原因里能看到 id 模式。</summary>
@@ -141,9 +141,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var schema = LoadSchema(workspace);
             var json = ValidSystemRequirementJson();
             json["id"] = "REQ-42";
-            workspace.WriteRequirement("REQ-42.json", json.ToJsonString());
+            workspace.WriteRequirement("REQ-42", json.ToJsonString());
 
-            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-42.json"), schema);
+            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-42"), schema);
 
             Assert.NotEmpty(findings);
             Assert.Contains(findings, f => f.Reason.Contains("id 模式"));
@@ -157,9 +157,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var schema = LoadSchema(workspace);
             var json = ValidSystemRequirementJson();
             json["验收标准"] = new JsonArray();
-            workspace.WriteRequirement("REQ-0042.json", json.ToJsonString());
+            workspace.WriteRequirement("REQ-0042", json.ToJsonString());
 
-            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042.json"), schema);
+            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042"), schema);
 
             Assert.NotEmpty(findings);
             Assert.Contains(findings, f => f.Reason.Contains("验收标准"));
@@ -173,9 +173,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var schema = LoadSchema(workspace);
             var json = ValidSystemRequirementJson();
             json.Remove("玩法");
-            workspace.WriteRequirement("REQ-0042.json", json.ToJsonString());
+            workspace.WriteRequirement("REQ-0042", json.ToJsonString());
 
-            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042.json"), schema);
+            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042"), schema);
 
             Assert.NotEmpty(findings);
             Assert.Contains(findings, f => f.Reason.Contains("玩法"));
@@ -189,9 +189,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var schema = LoadSchema(workspace);
             var json = ValidSystemRequirementJson();
             json["复现步骤"] = "先做 A 再做 B";
-            workspace.WriteRequirement("REQ-0042.json", json.ToJsonString());
+            workspace.WriteRequirement("REQ-0042", json.ToJsonString());
 
-            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042.json"), schema);
+            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042"), schema);
 
             Assert.NotEmpty(findings);
             Assert.Contains(findings, f => f.Reason.Contains("未在合并 schema 中声明"));
@@ -203,9 +203,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             using var workspace = new PoolTestWorkspace();
             var schema = LoadSchema(workspace);
-            workspace.WriteRequirement("REQ-0042.json", "{ 这不是 json");
+            workspace.WriteRequirement("REQ-0042", "{ 这不是 json");
 
-            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042.json"), schema);
+            var findings = RequirementValidator.CheckFile(RequirementPath(workspace, "REQ-0042"), schema);
 
             var finding = Assert.Single(findings);
             Assert.Contains("JSON 语法错误", finding.Reason);
@@ -229,11 +229,11 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             using var workspace = new PoolTestWorkspace();
             var schema = LoadSchema(workspace);
-            workspace.WriteRequirement("REQ-0042.json", ValidSystemRequirementJson().ToJsonString());
+            workspace.WriteRequirement("REQ-0042", ValidSystemRequirementJson().ToJsonString());
             var badJson = ValidSystemRequirementJson();
             badJson["id"] = "REQ-0043";
             badJson.Remove("标题");
-            workspace.WriteRequirement("REQ-0043.json", badJson.ToJsonString());
+            workspace.WriteRequirement("REQ-0043", badJson.ToJsonString());
 
             var findings = RequirementValidator.CheckDirectory(PoolPaths.RequirementsDirectory(workspace.Root), schema);
 

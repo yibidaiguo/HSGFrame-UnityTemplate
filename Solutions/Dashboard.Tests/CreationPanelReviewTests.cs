@@ -34,7 +34,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void OnlyTasksWithPendingGateAppear()
         {
-            WriteRequirement("REQ-0001.json", """
+            WriteRequirement("REQ-0001", """
                 {
                   "id": "REQ-0001",
                   "标题": "需求一"
@@ -66,7 +66,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void TitleComesFromRequirementFileOrFallsBackToEmpty()
         {
-            WriteRequirement("REQ-0001.json", """
+            WriteRequirement("REQ-0001", """
                 {
                   "id": "REQ-0001",
                   "标题": "有标题的需求"
@@ -98,7 +98,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void GradeComesFromReleaseLedger()
         {
-            WriteRequirement("REQ-0001.json", """
+            WriteRequirement("REQ-0001", """
                 {
                   "id": "REQ-0001",
                   "标题": "需求一"
@@ -155,7 +155,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void QueueSortsByLastTouchedTimeThenMissingLast()
         {
-            WriteRequirement("REQ-0001.json", """
+            WriteRequirement("REQ-0001", """
                 {
                   "id": "REQ-0001",
                   "标题": "需求一"
@@ -394,11 +394,10 @@ namespace Template.Toolkit.DashboardTests
             }
         }
 
-        private void WriteRequirement(string fileName, string json)
+        private void WriteRequirement(string identifier, string json)
         {
-            var directory = PoolPaths.RequirementsDirectory(_poolRoot);
-            Directory.CreateDirectory(directory);
-            WriteFile(Path.Combine(directory, fileName), json);
+            Directory.CreateDirectory(PoolPaths.RequirementDirectory(_poolRoot, identifier));
+            WriteFile(PoolPaths.RequirementFile(_poolRoot, identifier), json);
         }
 
         private string WriteTaskState(string requirementIdentifier, string json)
@@ -424,6 +423,12 @@ namespace Template.Toolkit.DashboardTests
 
         private static void WriteFile(string path, string json)
         {
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
             File.WriteAllText(path, json, new UTF8Encoding(false));
         }
     }

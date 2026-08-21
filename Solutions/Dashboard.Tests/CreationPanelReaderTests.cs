@@ -51,7 +51,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void ReadRequirementsReadsTwoFilesInOrdinalOrder()
         {
-            WriteRequirement("REQ-0002.json", """
+            WriteRequirement("REQ-0002", """
                 {
                   "id": "REQ-0002",
                   "标题": "需求二",
@@ -61,7 +61,7 @@ namespace Template.Toolkit.DashboardTests
                   "锁定": false
                 }
                 """);
-            WriteRequirement("REQ-0001.json", """
+            WriteRequirement("REQ-0001", """
                 {
                   "id": "REQ-0001",
                   "标题": "需求一",
@@ -91,11 +91,11 @@ namespace Template.Toolkit.DashboardTests
         {
             // 坏 JSON 的内容刻意只用 ASCII：命名门禁看不出这是字符串里的数据，
             // 裸中文写在这里会被当成「标识符含中文」判红。
-            WriteRequirement("REQ-0001.json", """
+            WriteRequirement("REQ-0001", """
                 {
                   not valid json at all
                 """);
-            WriteRequirement("REQ-0002.json", """
+            WriteRequirement("REQ-0002", """
                 {
                   "id": "REQ-0002",
                   "标题": "完好需求"
@@ -112,7 +112,7 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void ReadTasksReadsStateFileAndStage()
         {
-            WriteRequirement("REQ-0001.json", """
+            WriteRequirement("REQ-0001", """
                 {
                   "id": "REQ-0001",
                   "标题": "需求一"
@@ -202,13 +202,13 @@ namespace Template.Toolkit.DashboardTests
         [Fact]
         public void OverviewAggregatesCounts()
         {
-            WriteRequirement("REQ-0001.json", """
+            WriteRequirement("REQ-0001", """
                 {
                   "id": "REQ-0001",
                   "状态": "草稿"
                 }
                 """);
-            WriteRequirement("REQ-0002.json", """
+            WriteRequirement("REQ-0002", """
                 {
                   "id": "REQ-0002",
                   "状态": "已确认"
@@ -257,9 +257,9 @@ namespace Template.Toolkit.DashboardTests
             }
         }
 
-        private void WriteRequirement(string fileName, string json)
+        private void WriteRequirement(string identifier, string json)
         {
-            WriteFile(Path.Combine(PoolPaths.RequirementsDirectory(_poolRoot), fileName), json);
+            WriteFile(PoolPaths.RequirementFile(_poolRoot, identifier), json);
         }
 
         private void WriteTaskState(string requirementIdentifier, string json)
@@ -283,6 +283,12 @@ namespace Template.Toolkit.DashboardTests
 
         private static void WriteFile(string path, string json)
         {
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
             File.WriteAllText(path, json, new UTF8Encoding(false));
         }
     }

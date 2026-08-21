@@ -52,8 +52,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void NoCommonModulesNeverComparesTitles()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0001.json", Requirement("REQ-0001", "七日签到", "[\"签到\"]", "[]", "", "[]"));
-            workspace.WriteRequirement("REQ-0002.json", Requirement("REQ-0002", "七日签到", "[\"背包\"]", "[]", "", "[]"));
+            workspace.WriteRequirement("REQ-0001", Requirement("REQ-0001", "七日签到", "[\"签到\"]", "[]", "", "[]"));
+            workspace.WriteRequirement("REQ-0002", Requirement("REQ-0002", "七日签到", "[\"背包\"]", "[]", "", "[]"));
 
             var report = ConflictDetector.Detect(workspace.Root, "REQ-0002");
 
@@ -66,8 +66,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void CommonModulesAndSimilarTitlesRaiseHighCard()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0001.json", Requirement("REQ-0001", "七日签到", "[\"签到\"]", "[]", "", "[]"));
-            workspace.WriteRequirement("REQ-0002.json", Requirement("REQ-0002", "七日签到啦", "[\"签到\"]", "[]", "", "[]"));
+            workspace.WriteRequirement("REQ-0001", Requirement("REQ-0001", "七日签到", "[\"签到\"]", "[]", "", "[]"));
+            workspace.WriteRequirement("REQ-0002", Requirement("REQ-0002", "七日签到啦", "[\"签到\"]", "[]", "", "[]"));
 
             var report = ConflictDetector.Detect(workspace.Root, "REQ-0002");
 
@@ -84,8 +84,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void DifferentTitlesScoreLowAndDoNotRaiseCard()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0001.json", Requirement("REQ-0001", "背包扩容", "[\"签到\"]", "[]", "", "[]"));
-            workspace.WriteRequirement("REQ-0002.json", Requirement("REQ-0002", "七日签到", "[\"签到\"]", "[]", "", "[]"));
+            workspace.WriteRequirement("REQ-0001", Requirement("REQ-0001", "背包扩容", "[\"签到\"]", "[]", "", "[]"));
+            workspace.WriteRequirement("REQ-0002", Requirement("REQ-0002", "七日签到", "[\"签到\"]", "[]", "", "[]"));
 
             var report = ConflictDetector.Detect(workspace.Root, "REQ-0002");
 
@@ -101,8 +101,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void SharedDesignRecordsProduceCandidateWithScore()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0001.json", Requirement("REQ-0001", "七日签到", "[]", "[\"DR-0001\"]", "", "[]"));
-            workspace.WriteRequirement("REQ-0002.json", Requirement("REQ-0002", "七日签到", "[]", "[\"DR-0001\", \"DR-0002\"]", "", "[]"));
+            workspace.WriteRequirement("REQ-0001", Requirement("REQ-0001", "七日签到", "[]", "[\"DR-0001\"]", "", "[]"));
+            workspace.WriteRequirement("REQ-0002", Requirement("REQ-0002", "七日签到", "[]", "[\"DR-0001\", \"DR-0002\"]", "", "[]"));
 
             var report = ConflictDetector.Detect(workspace.Root, "REQ-0002");
 
@@ -119,11 +119,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void SameSpecialProjectAndExactAcceptanceOverlap()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement(
-                "REQ-0001.json",
+            workspace.WriteRequirement("REQ-0001",
                 Requirement("REQ-0001", "七日签到", "[]", "[]", "EP-0001", "[\"登录弹出签到界面\", \"第7天发放大奖\"]"));
-            workspace.WriteRequirement(
-                "REQ-0002.json",
+            workspace.WriteRequirement("REQ-0002",
                 Requirement("REQ-0002", "七日签到", "[]", "[]", "EP-0001", "[\"登录弹出签到界面\"]"));
 
             var report = ConflictDetector.Detect(workspace.Root, "REQ-0002");
@@ -139,11 +137,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void SamePairHittingTwoCriteriaProducesTwoCandidates()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement(
-                "REQ-0001.json",
+            workspace.WriteRequirement("REQ-0001",
                 Requirement("REQ-0001", "背包扩容", "[]", "[\"DR-0001\"]", "EP-0001", "[\"登录弹出签到界面\"]"));
-            workspace.WriteRequirement(
-                "REQ-0002.json",
+            workspace.WriteRequirement("REQ-0002",
                 Requirement("REQ-0002", "七日签到", "[]", "[\"DR-0001\"]", "EP-0001", "[\"登录弹出签到界面\"]"));
 
             var report = ConflictDetector.Detect(workspace.Root, "REQ-0002");
@@ -159,16 +155,16 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void BrokenRequirementSkippedButScanStillTrue()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0001.json", Requirement("REQ-0001", "七日签到", "[]", "[\"DR-0001\"]", "", "[]"));
+            workspace.WriteRequirement("REQ-0001", Requirement("REQ-0001", "七日签到", "[]", "[\"DR-0001\"]", "", "[]"));
             // 坏 JSON 的内容刻意只用 ASCII：裸中文写在这里会被命名门禁当成「标识符含中文」判红。
-            workspace.WriteRequirement("REQ-0003.json", "not-json");
-            workspace.WriteRequirement("REQ-0002.json", Requirement("REQ-0002", "七日签到", "[]", "[\"DR-0001\"]", "", "[]"));
+            workspace.WriteRequirement("REQ-0003", "not-json");
+            workspace.WriteRequirement("REQ-0002", Requirement("REQ-0002", "七日签到", "[]", "[\"DR-0001\"]", "", "[]"));
 
             var report = ConflictDetector.Detect(workspace.Root, "REQ-0002");
 
             Assert.True(report.Scanned);
             Assert.Single(report.Candidates);
-            Assert.Contains("REQ-0003.json", report.LoadFailureReason);
+            Assert.Contains("REQ-0003", report.LoadFailureReason);
         }
 
         /// <summary>确定性：同一份输入连跑两次，候选序列逐条相等（id、判据、分数全一样）。</summary>
@@ -176,14 +172,11 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void DetectionIsDeterministic()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement(
-                "REQ-0001.json",
+            workspace.WriteRequirement("REQ-0001",
                 Requirement("REQ-0001", "七日签到", "[\"签到\"]", "[\"DR-0001\"]", "EP-0001", "[\"登录弹出签到界面\"]"));
-            workspace.WriteRequirement(
-                "REQ-0002.json",
+            workspace.WriteRequirement("REQ-0002",
                 Requirement("REQ-0002", "七日签到啦", "[\"签到\"]", "[\"DR-0001\"]", "EP-0001", "[\"登录弹出签到界面\", \"第7天发放大奖\"]"));
-            workspace.WriteRequirement(
-                "REQ-0004.json",
+            workspace.WriteRequirement("REQ-0004",
                 Requirement("REQ-0004", "背包扩容", "[\"签到\"]", "[]", "EP-0001", "[\"仓库格子上限提升\"]"));
 
             var first = ConflictDetector.Detect(workspace.Root, "REQ-0002");
@@ -203,8 +196,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void DetectNeverWritesToPool()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0001.json", Requirement("REQ-0001", "七日签到", "[\"签到\"]", "[]", "", "[]"));
-            workspace.WriteRequirement("REQ-0002.json", Requirement("REQ-0002", "七日签到啦", "[\"签到\"]", "[]", "", "[]"));
+            workspace.WriteRequirement("REQ-0001", Requirement("REQ-0001", "七日签到", "[\"签到\"]", "[]", "", "[]"));
+            workspace.WriteRequirement("REQ-0002", Requirement("REQ-0002", "七日签到啦", "[\"签到\"]", "[]", "", "[]"));
             var before = SnapshotRequirements(workspace.Root);
 
             ConflictDetector.Detect(workspace.Root, "REQ-0002");

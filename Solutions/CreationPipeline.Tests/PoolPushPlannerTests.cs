@@ -38,7 +38,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void AcceptanceEventPlansEnvelopeWithWriteBack()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0042.json", RequirementJson);
+            workspace.WriteRequirement("REQ-0042", RequirementJson);
             workspace.WriteMemberDirectory(MembersJson);
 
             var result = PoolPushPlanner.Plan(workspace.RepositoryRoot, workspace.Root, "REQ-0042", "待验收", FixedMoment);
@@ -73,7 +73,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void UnknownEventListsAvailableEvents()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0042.json", RequirementJson);
+            workspace.WriteRequirement("REQ-0042", RequirementJson);
 
             var result = PoolPushPlanner.Plan(workspace.RepositoryRoot, workspace.Root, "REQ-0042", "神秘事件", FixedMoment);
 
@@ -88,7 +88,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void EnvelopeKeepsChineseUnescaped()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0042.json", RequirementJson);
+            workspace.WriteRequirement("REQ-0042", RequirementJson);
             workspace.WriteMemberDirectory(MembersJson);
 
             var result = PoolPushPlanner.Plan(workspace.RepositoryRoot, workspace.Root, "REQ-0042", "待验收", FixedMoment);
@@ -103,7 +103,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void EpicClaimedRecipientLandsInEnvelope()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0042.json", RequirementJson);
+            workspace.WriteRequirement("REQ-0042", RequirementJson);
             workspace.WriteMemberDirectory(MembersJson);
             workspace.WriteEpic("EP-0003.json", """
             { "id": "EP-0003", "认领": { "管理员": ["ou_Z"] } }

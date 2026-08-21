@@ -98,9 +98,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             Assert.Equal(IntakeDecision.Accepted, outcome.Decision);
             Assert.Equal("REQ-0001", outcome.RequirementIdentifier);
-            Assert.True(workspace.RequirementExists("REQ-0001.json"));
+            Assert.True(workspace.RequirementExists("REQ-0001"));
 
-            var json = JsonNode.Parse(workspace.ReadRequirement("REQ-0001.json")) as JsonObject;
+            var json = JsonNode.Parse(workspace.ReadRequirement("REQ-0001")) as JsonObject;
             Assert.Equal("recABC123", json["来源"]["记录id"].GetValue<string>());
             Assert.Equal("草稿", json["状态"].GetValue<string>());
             Assert.False(json["锁定"].GetValue<bool>());
@@ -121,8 +121,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal(IntakeDecision.Accepted, firstOutcome.Decision);
             Assert.Equal(IntakeDecision.Skipped, secondOutcome.Decision);
 
-            var requirementFiles = Directory.GetFiles(PoolPaths.RequirementsDirectory(workspace.Root), "*.json");
-            Assert.Single(requirementFiles);
+            Assert.Single(PoolPaths.EnumerateRequirementIdentifiers(workspace.Root));
         }
 
         /// <summary>缺「验收标准」的记录拒收：拒收单落 _Generated/拒收，理由数组非空，需求目录没有新文件。</summary>
@@ -142,7 +141,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.True(File.Exists(noticePath));
             var notice = JsonNode.Parse(File.ReadAllText(noticePath)) as JsonObject;
             Assert.NotEmpty(notice["理由"] as JsonArray);
-            Assert.False(workspace.RequirementExists("REQ-0001.json"));
+            Assert.False(workspace.RequirementExists("REQ-0001"));
         }
 
         /// <summary>拒收单文件文本里的中文没有被转义成 \uXXXX，能直接看到「原因」两个字。</summary>
@@ -177,7 +176,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             Assert.Equal(IntakeDecision.Rejected, outcome.Decision);
             Assert.Contains(outcome.Findings, finding => finding.Reason.Contains("归工程所有"));
-            Assert.False(workspace.RequirementExists("REQ-0001.json"));
+            Assert.False(workspace.RequirementExists("REQ-0001"));
         }
 
         /// <summary>未锁定需求的更高修订 → Updated：标题换成新值，来源.修订变成新修订。</summary>
@@ -194,7 +193,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var outcome = Assert.Single(outcomes, item => item.Decision == IntakeDecision.Updated);
 
             Assert.Equal("REQ-0001", outcome.RequirementIdentifier);
-            var json = JsonNode.Parse(workspace.ReadRequirement("REQ-0001.json")) as JsonObject;
+            var json = JsonNode.Parse(workspace.ReadRequirement("REQ-0001")) as JsonObject;
             Assert.Equal("七日签到V2", json["标题"].GetValue<string>());
             Assert.Equal(2, json["来源"]["修订"].GetValue<int>());
         }
@@ -209,7 +208,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             RequirementIntake.Run(workspace.RepositoryRoot, workspace.Root, schema, FixedMoment);
 
             // 手工把已入池需求置为锁定，模拟需求进入锁定态。
-            var requirementPath = Path.Combine(PoolPaths.RequirementsDirectory(workspace.Root), "REQ-0001.json");
+            var requirementPath = PoolPaths.RequirementFile(workspace.Root, "REQ-0001");
             var requirement = JsonNode.Parse(File.ReadAllText(requirementPath)) as JsonObject;
             requirement["锁定"] = true;
             File.WriteAllText(requirementPath, requirement.ToJsonString());
@@ -221,7 +220,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal("REQ-0001", outcome.RequirementIdentifier);
 
             // 需求文件本身没变：标题仍是旧值，锁定保持 true。
-            var after = JsonNode.Parse(workspace.ReadRequirement("REQ-0001.json")) as JsonObject;
+            var after = JsonNode.Parse(workspace.ReadRequirement("REQ-0001")) as JsonObject;
             Assert.Equal("七日签到", after["标题"].GetValue<string>());
             Assert.True(after["锁定"].GetValue<bool>());
 
@@ -250,8 +249,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.All(outcomes, item => Assert.Equal(IntakeDecision.Accepted, item.Decision));
             Assert.Contains(outcomes, item => item.RequirementIdentifier == "REQ-0001");
             Assert.Contains(outcomes, item => item.RequirementIdentifier == "REQ-0002");
-            Assert.True(workspace.RequirementExists("REQ-0001.json"));
-            Assert.True(workspace.RequirementExists("REQ-0002.json"));
+            Assert.True(workspace.RequirementExists("REQ-0001"));
+            Assert.True(workspace.RequirementExists("REQ-0002"));
         }
     }
 }

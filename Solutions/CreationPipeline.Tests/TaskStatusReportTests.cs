@@ -32,7 +32,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void FullReportRendersSixLines()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0001.json", RequirementJson);
+            workspace.WriteRequirement("REQ-0001", RequirementJson);
             workspace.WriteTaskState("REQ-0001", TaskStateJson);
 
             var output = TaskStatusReport.RenderOne(workspace.RepositoryRoot, workspace.Root, "REQ-0001");
@@ -49,7 +49,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void MissingTaskStateShowsNotStarted()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0001.json", RequirementJson);
+            workspace.WriteRequirement("REQ-0001", RequirementJson);
 
             var output = TaskStatusReport.RenderOne(workspace.RepositoryRoot, workspace.Root, "REQ-0001");
 
@@ -72,7 +72,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void NullWorkItemRendersAsNone()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0001.json", RequirementJson);
+            workspace.WriteRequirement("REQ-0001", RequirementJson);
             workspace.WriteTaskState("REQ-0001", """
             {
               "阶段": "执行",
@@ -94,9 +94,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void RenderAllCoversEveryTaskDirectory()
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.WriteRequirement("REQ-0001.json", RequirementJson);
+            workspace.WriteRequirement("REQ-0001", RequirementJson);
             workspace.WriteTaskState("REQ-0001", TaskStateJson);
-            workspace.WriteRequirement("REQ-0002.json", """
+            workspace.WriteRequirement("REQ-0002", """
             { "id": "REQ-0002", "标题": "水下遗迹", "状态": "已确认" }
             """);
             workspace.WriteTaskState("REQ-0002", TaskStateJson);
