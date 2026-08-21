@@ -1,0 +1,35 @@
+{
+  "_说明": "执行端围栏：命令白名单与写盘拒绝清单。执行端自己被拒绝写这份文件——围栏不许由被围的一方放宽。",
+  "命令白名单前缀": [
+    "dotnet test",
+    "dotnet build",
+    "dotnet run",
+    "dotnet restore",
+    "dotnet sln list",
+    "git status",
+    "git grep",
+    "git diff",
+    "git log",
+    "git show",
+    "git ls-files",
+    "git rev-parse",
+    "pwsh Tools/Gates/",
+    "pwsh ./Tools/Gates/"
+  ],
+  "写盘拒绝前缀": [
+    "Tools/Gates/Config/",
+    "Tools/AgentRunner/Config/",
+    "Tools/AgentRunner/Roles/",
+    ".claude/",
+    "_Generated/Bridges/"
+  ],
+  "写盘拒绝文件": [
+    ".gitignore",
+    ".gitattributes",
+    ".mcp.json",
+    "Tools/CreationPipeline/Config/local.json"
+  ],
+  "命令超时秒": 600,
+  "命令输出上限字符": 8000,
+  "读文件上限字符": 60000
+}

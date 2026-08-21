@@ -96,6 +96,15 @@ dotnet run --project Tools/Cli/CommandHost/CommandHost.csproj -- run project.cre
 命令层全部命令（`asset_*` / `gate_*` / `task_*`……）在 Claude Code 里直接可用；
 第一次要先跑一遍 `dotnet build Solutions/Template.sln` 把服务编出来。
 
+**把活派给执行后端**（OpenAI 兼容 API，配置在 `local.json` 的「下游配置.oaicompat」）：
+
+```powershell
+pwsh Tools/dispatch.ps1 -Role implementer -TaskFile <任务书路径>
+```
+
+四个角色（implementer / verifier / operator / explore）的档案在 `Tools/AgentRunner/Roles/`，
+任务书模板在 `.claude/skills/dev-cycle/templates/`，围栏在 `Tools/AgentRunner/Config/agent-policy.json`。
+
 ## 版本对照
 
 | 组件 | 版本 | 装在哪 |

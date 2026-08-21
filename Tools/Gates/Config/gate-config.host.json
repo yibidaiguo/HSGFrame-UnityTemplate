@@ -22,6 +22,7 @@
     "Specifications/",
     "Proposals/",
     "getting-started.md",
+    ".claude/",
     "reasonix.toml",
     ".mcp.json",
     ".gitignore",

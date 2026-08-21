@@ -43,7 +43,7 @@
 
 ## 三、门禁现场（踩过的坑，别再踩）
 
-- **测试基线锁**：新增测试文件必须登记进 `Tools/Gates/Config/test-baseline.json`，否则 `gate.baseline` 红。该目录在 `reasonix.toml` 的 deny 里，**执行后端改不了，只能由 Claude 跑更新模式**：
+- **测试基线锁**：新增测试文件必须登记进 `Tools/Gates/Config/test-baseline.json`，否则 `gate.baseline` 红。该目录在执行端的写盘拒绝清单里，**执行端改不了，只能由 Claude 跑更新模式**：
   `run gate.baseline --arguments-file <{TemplateRoot, ConfigurationPath, UpdateBaseline:true}>`
   **两个路径都要写绝对路径，且 `ConfigurationPath` 必须是 `gate-config.json` 而不是 `.host.json`**——
   写相对路径或写成 host 配置，它会「重建成功」但把基线削掉一百多条（P6 批次 1 踩过）。
@@ -66,10 +66,8 @@
   空串分支必须写 JS 单引号 `''`。写错了整份脚本语法错、一页都不渲染，
   而编译/测试/门禁全绿（决策 76，P4 批次二埋到 P7 批次二才发现）。
   **改完面板务必真开一次看**。
-- **执行后端的沙箱把 `/tmp` 映射进仓库内的 `tmp/`。** 派活时要在任务书的「环境」节写死「不许用 `/tmp`，用 `$TEMP` / `Path.GetTempPath()`」。
 - **本机是 .NET 10 preview SDK**：写盘的 `JsonSerializerOptions` 要写成 `new JsonSerializerOptions(JsonSerializerOptions.Default) { … }`，裸构造序列化 `JsonArray` 里的字符串元素会抛。
-- **派活的任务书要落进仓库，命令行只给一句短指令。** 长任务书直接当命令行参数传给 `rx.py`，Reasonix 会判成 plan 模式、给子代理套上 `constraint=no-mutation`，表现成跑两分钟、`chars=0`、`exit=1`、磁盘零文件。可用写法：任务书放 `_Scratch/派活/任务-<批次>.md`，命令行写「读 <路径> 这份任务书，逐条落实，然后按它「返回什么」那节回报」。
-- **`Tools/Gates/Config/` 在 `reasonix.toml` 的 deny 里**：`gate-config.json` 与 `test-baseline.json` 执行后端都改不了。派活时**别把这两个文件列进任务书的「改哪些文件」**，配置项由 Claude 自己补。
+- **`Tools/Gates/Config/` 在执行端围栏（`Tools/AgentRunner/Config/agent-policy.json`）的写盘拒绝清单里**：`gate-config.json` 与 `test-baseline.json` 执行端改不了。派活时**别把这两个文件列进任务书的「改哪些文件」**，配置项由 Claude 自己补。
 - **assistant-package的文件清单有三份**（`PackageFiles` / `ProspectiveFiles` / `AssistantPackageInspector`），
   加包文件时三份都要改，只改前两份会让 `gate.provision` 假绿（决策 72，P6 批次 3 踩过）。
 - **`bridge.provision` 的参数名是 `Driver` 不是 `DriverName`**，写错会被参数校验拦下。

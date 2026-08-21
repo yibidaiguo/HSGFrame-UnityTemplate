@@ -16,8 +16,9 @@
 | dev-cycle 技能瘦身：模板不再复述角色档案（7 节 vs 9 节打架消除）、主文件三处重复合并、补 base URL 教训 | 母仓 df2b730 |
 | 文档纠偏：user-setup 过期路径与 tripo v2 地址、Jenkinsfile「七道」与 `流水线定义.json` 旧名、getting-started 的 PackagePrefix 幽灵参数 | 本批 |
 
-**探查修正一条**：`explore` 角色档案并不缺——它刻意装在 `~/.claude/roles/`
-（Reasonix 有 builtin explore，进 `~/.agents/skills/` 会盖掉它），rx.py 的搜索路径覆盖了。
+**探查修正一条**：`explore` 角色档案并不缺，当时装在用户级目录里，探查只看了一处。
+（2026-08-21 追加：执行层已整体换成仓库自有的 `agent.dispatch`，四个角色档案收进
+`Tools/AgentRunner/Roles/`，dev-cycle 技能收进 `.claude/skills/dev-cycle/`。）
 
 ## 二、待做批次（每批独立可验，动手前过设计审查）
 
@@ -30,7 +31,9 @@ CI 四条 Jenkins 流水线没有一条跑 EditMode/PlayMode——铁律 4 说�
 仿 `McpToolCoverageTests`）；2) 资产族门禁接进 `gate-unity.ps1`（资产检查本就属分钟级）；
 3) nightly 流水线补调 `gate-unity.ps1`；4) 基线锁三个口子：子目录 glob 逃逸、
 Unity 侧 8 个测试文件不在锁内、csproj 摘出 sln 后基线照绿（需「sln 引用对账」检查）。
-**先决**：资产族对当前仓库的存量红先清点；`gate-config` 由 Claude 改（reasonix deny）。
+**先决**：资产族对当前仓库的存量红先清点；`gate-config` 在执行端写盘拒绝清单里，由 Claude 改。
+顺带修一处根错位：门禁报告写在模板根 `_Generated/`、面板按仓库根读——独立仓库下重合，
+模板作宿主子目录时会恒显「未跑」（执行端首跑发现的）。
 
 ### B. 面板改造一期：从「能看」到「能干活」
 
@@ -63,14 +66,12 @@ Unity 侧 8 个测试文件不在锁内、csproj 摘出 sln 后基线照绿（�
 
 ### E. Unity 版本单一事实源
 
-**为什么**：`ProjectVersion.txt` 是钉子，但 `unity-cmd.ps1` / `pack-hotfix.ps1` /
-`reasonix.toml` 各抄了一份 exe 全路径；换版本要动 4 处 + 14 个 package.json + 6 处文档。
+**为什么**：`ProjectVersion.txt` 是钉子，但 `unity-cmd.ps1` 与 `pack-hotfix.ps1`
+各抄了一份 exe 全路径；换版本要动多处 + 14 个 package.json + 6 处文档。
 **做什么**：1) `unity-cmd.ps1` 从 `ProjectVersion.txt` 读版本，按 Hub 默认装机路径
 （`D:/Unity/Editor/<版本>` / `C:/Program Files/Unity/Hub/Editor/<版本>`）探测 exe，
-探不到再报错让人指路径；2) `pack-hotfix.ps1` 改调同一函数；3) `reasonix.toml` 的
-Unity 放行规则改成 `D:/Unity/Editor/*/Unity.exe -batchmode*` 通配。
-**先决**：确认 Reasonix 的 allow 规则支持中段通配；14 个 package.json 的次版本号另算
-（UPM 兼容声明，跟包走不跟机器走，不动）。
+探不到再报错让人指路径；2) `pack-hotfix.ps1` 改调同一函数。
+**先决**：14 个 package.json 的次版本号另算（UPM 兼容声明，跟包走不跟机器走，不动）。
 
 ### F. 模块 skill 沉淀机制（做完编辑器就长出配套工具）
 

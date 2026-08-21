@@ -25,5 +25,6 @@
     <ProjectReference Include="../../FileServer/FileServer.csproj" />
     <ProjectReference Include="../../Dashboard/Dashboard.csproj" />
     <ProjectReference Include="../../CreationPipeline/CreationPipeline.csproj" />
+    <ProjectReference Include="../../AgentRunner/AgentRunner.csproj" />
   </ItemGroup>
 </Project>
