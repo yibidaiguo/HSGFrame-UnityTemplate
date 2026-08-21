@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -91,6 +92,61 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <summary>试跑：只组装提示词、不发请求，打印提示词统计。</summary>
         [Summary("试跑：只组装提示词、不发请求，打印提示词统计")]
         [DefaultValue(false)]
+        public bool DryRun { get; set; }
+    }
+
+    /// <summary>影响评估命令 task.impact 的参数。</summary>
+    public sealed class TaskImpactArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>需求 id，形如 REQ-0042；影响评估报告落 _Tasks/&lt;id&gt;/影响评估.json。</summary>
+        [Summary("需求 id，形如 REQ-0042；影响评估报告落 _Tasks/<id>/影响评估.json")]
+        public string RequirementIdentifier { get; set; }
+
+        /// <summary>变更 diff 的文件路径，内容作为评估输入。</summary>
+        [Summary("变更 diff 的文件路径，内容作为评估输入")]
+        public string DiffPath { get; set; }
+
+        /// <summary>未命中工作项的 JSON 列表文件路径（字符串数组）。</summary>
+        [Summary("未命中工作项的 JSON 列表文件路径（字符串数组）")]
+        public string WorkItemsPath { get; set; }
+
+        /// <summary>执行后端调用超时秒数，缺省 120。</summary>
+        [Summary("执行后端调用超时秒数，缺省 120")]
+        [DefaultValue(120)]
+        public int TimeoutSeconds { get; set; }
+
+        /// <summary>试跑：只组装提示词、不发请求，打印提示词统计。默认 true——真调花用户的钱。</summary>
+        [Summary("试跑：只组装提示词、不发请求，打印提示词统计。默认 true")]
+        [DefaultValue(true)]
+        public bool DryRun { get; set; }
+    }
+
+    /// <summary>语义冲突比对命令 conflict.semantic 的参数。</summary>
+    public sealed class ConflictSemanticArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        [DefaultValue("Pools")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>执行后端调用超时秒数，缺省 120。</summary>
+        [Summary("执行后端调用超时秒数，缺省 120")]
+        [DefaultValue(120)]
+        public int TimeoutSeconds { get; set; }
+
+        /// <summary>试跑：只组装提示词、不发请求，打印提示词统计。默认 true——真调花用户的钱。</summary>
+        [Summary("试跑：只组装提示词、不发请求，打印提示词统计。默认 true")]
+        [DefaultValue(true)]
         public bool DryRun { get; set; }
     }
 
@@ -824,8 +880,428 @@ namespace Template.Toolkit.CommandHost.Commands
             }
         }
 
+        /// <summary>
+        /// 影响评估：执行后端对未被 diff 直接命中的工作项逐个判脏/净并给理由，产物是影响评估报告。
+        /// 报告是产物不是判定（决策 89）：命令返回值永远是 Success，哪怕报告里全是「脏」。
+        /// 模型漏答的项进「漏判的工作项」，绝不默认成「净」（决策 42）。
+        /// 按判定键缓存（决策 90）：同输入同模型同提示词版本不重判，命中标「来自缓存」。
+        /// 本批只产报告，**不合并写 05-变更影响.md**（合并那一步不在本批范围）。
+        /// driver 名只走运行时数据（路由表解析），本文件不出现任何 driver 名字面量。
+        /// </summary>
+        /// <param name="arguments">影响评估命令参数。</param>
+        [EditorCommand("task.impact")]
+        [Summary("影响评估：执行后端对未命中工作项判脏/净，产物是影响评估报告")]
+        public static CommandResult Impact(TaskImpactArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RequirementIdentifier))
+            {
+                return CommandResult.Failure("参数 RequirementIdentifier 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.DiffPath))
+            {
+                return CommandResult.Failure("参数 DiffPath 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.WorkItemsPath))
+            {
+                return CommandResult.Failure("参数 WorkItemsPath 为必填项");
+            }
+
+            var repositoryRoot = ResolveRoot(arguments.RepositoryRoot, ".", "RepositoryRoot", "仓库根", out var repositoryFailure);
+            if (repositoryFailure.Length > 0)
+            {
+                return CommandResult.Failure(repositoryFailure);
+            }
+
+            string diffText;
+            try
+            {
+                diffText = File.ReadAllText(Path.GetFullPath(arguments.DiffPath));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is ArgumentException || exception is NotSupportedException)
+            {
+                return CommandResult.Failure($"读 diff 文件失败：{exception.Message}");
+            }
+
+            IReadOnlyList<string> workItems;
+            try
+            {
+                workItems = ReadWorkItemList(Path.GetFullPath(arguments.WorkItemsPath));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is ArgumentException || exception is NotSupportedException || exception is JsonException)
+            {
+                return CommandResult.Failure($"读工作项列表失败：{exception.Message}");
+            }
+
+            try
+            {
+                var prompt = ImpactAssessPrompt.Build(repositoryRoot, diffText, workItems, ImpactAssessPrompt.PromptVersion);
+
+                if (arguments.DryRun)
+                {
+                    return CommandResult.Success("影响评估试跑完成：只组装了提示词，未发任何请求", new[]
+                    {
+                        $"提示词字符数：{prompt.PromptText.Length}",
+                        $"提示词版本：{prompt.PromptVersion}",
+                        $"待评估工作项：{workItems.Count} 个"
+                    });
+                }
+
+                var routeTable = BridgeRouteTable.Load(repositoryRoot);
+                if (!routeTable.Loaded)
+                {
+                    return CommandResult.Failure($"路由表错误：{routeTable.LoadFailureReason}");
+                }
+
+                if (!routeTable.TryResolvePort("执行后端", out var driverName, out var routeReason))
+                {
+                    return CommandResult.Failure($"执行后端没有可用的 driver：{routeReason}");
+                }
+
+                var localSettings = LocalBridgeSettings.Load(repositoryRoot);
+                if (!localSettings.Loaded)
+                {
+                    return CommandResult.Failure($"本机配置错误：{localSettings.LoadFailureReason}");
+                }
+
+                var modelName = ReadConfiguredModelName(localSettings, driverName);
+                if (modelName.Length == 0)
+                {
+                    return CommandResult.Failure($"driver「{driverName}」的本机配置里没有「模型」键");
+                }
+
+                // 缓存键必须含模型名与提示词版本（决策 90）：换了模型还命中旧缓存，报告就在说谎。
+                var cacheKey = PreReviewCache.ComputeKey(prompt.PromptText, modelName, prompt.PromptVersion);
+
+                ImpactAssessReport report;
+                bool fromCache = false;
+                var cacheFilePath = PreReviewCache.CacheFile(repositoryRoot, cacheKey);
+                if (File.Exists(cacheFilePath))
+                {
+                    var cached = ImpactAssessReport.TryFromJson(File.ReadAllText(cacheFilePath, Encoding.UTF8));
+                    if (cached != null)
+                    {
+                        report = cached.AsStamped(DateTimeOffset.Now.ToString("o"), fromCache: true);
+                        fromCache = true;
+                    }
+                    else
+                    {
+                        report = null;
+                    }
+                }
+                else
+                {
+                    report = null;
+                }
+
+                if (report == null)
+                {
+                    var payload = JsonSerializer.SerializeToElement(new JsonObject
+                    {
+                        ["提示"] = prompt.PromptText,
+                        ["上下文"] = ImpactAssessSystemContext
+                    });
+
+                    var result = BridgeInvoker.Invoke(repositoryRoot, driverName, "complete", payload, arguments.TimeoutSeconds);
+                    if (!result.Succeeded)
+                    {
+                        return CommandResult.Failure($"执行后端调用失败（{result.ErrorCode}）：{result.HumanText}");
+                    }
+
+                    var modelText = ReadPayloadString(result.Payload, "文本");
+                    var returnedModel = ReadPayloadString(result.Payload, "模型");
+                    if (!ImpactAssessReport.TryParse(modelText, workItems, out report, out var parseReason))
+                    {
+                        // 解析失败绝不许当成零结论（决策 42）：判成了=false、零结论、原因写清。
+                        report = ImpactAssessReport.NotParsed(returnedModel, prompt.PromptVersion, cacheKey, parseReason);
+                    }
+                    else
+                    {
+                        report = new ImpactAssessReport(
+                            parsed: report.Parsed,
+                            model: returnedModel,
+                            promptVersion: prompt.PromptVersion,
+                            decisionKey: cacheKey,
+                            verdicts: report.Verdicts,
+                            missingWorkItems: report.MissingWorkItems,
+                            dirtyCount: report.DirtyCount,
+                            cleanCount: report.CleanCount,
+                            fromCache: false,
+                            parseReason: "",
+                            timestamp: DateTimeOffset.Now.ToString("o"));
+                    }
+
+                    // 判没判成都缓存：同输入同模型同版本不再重判。复用 PreReviewCache 的目录与键（决策 90）。
+                    Directory.CreateDirectory(PreReviewCache.CacheDirectory(repositoryRoot));
+                    File.WriteAllText(cacheFilePath, report.ToJson(), new UTF8Encoding(false));
+                }
+
+                var reportPath = report.WriteReport(repositoryRoot, arguments.RequirementIdentifier);
+                var outputLines = new List<string>
+                {
+                    $"判成了：{report.Parsed}",
+                    $"脏：{report.DirtyCount} 项",
+                    $"净：{report.CleanCount} 项",
+                    $"漏判的工作项：{report.MissingWorkItems.Count} 个",
+                    $"模型：{report.Model}",
+                    $"提示词版本：{report.PromptVersion}",
+                    $"判定键：{report.DecisionKey}",
+                    $"来自缓存：{fromCache}",
+                    $"报告：{reportPath}"
+                };
+                return CommandResult.Success("影响评估完成，报告已落盘", outputLines);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"影响评估失败：{exception.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 语义冲突比对：执行后端把设计池汇总与存量需求做语义比对，输出冲突候选 + 置信度，产物是语义冲突报告。
+        /// 报告是产物不是判定（决策 89）：命令返回值永远是 Success，哪怕报告里全是高置信度冲突。
+        /// 照决策 66：只产报告，**一个字都不写进协作层账本**——不写 ConflictList、不调 Append。
+        /// 照决策 67：同一对需求命中多条判据时，每条判据各产一条候选，不合并、不取最大（提示词里已明确要求）。
+        /// 按判定键缓存（决策 90）：同输入同模型同提示词版本不重判，命中标「来自缓存」。
+        /// driver 名只走运行时数据（路由表解析），本文件不出现任何 driver 名字面量。
+        /// </summary>
+        /// <param name="arguments">语义冲突比对命令参数。</param>
+        [EditorCommand("conflict.semantic")]
+        [Summary("语义冲突比对：执行后端对设计池汇总与存量需求做比对，产物是语义冲突报告")]
+        public static CommandResult SemanticConflict(ConflictSemanticArguments arguments)
+        {
+            var repositoryRoot = ResolveRoot(arguments?.RepositoryRoot, ".", "RepositoryRoot", "仓库根", out var repositoryFailure);
+            if (repositoryFailure.Length > 0)
+            {
+                return CommandResult.Failure(repositoryFailure);
+            }
+
+            var poolRoot = ResolveRoot(arguments?.PoolRoot, "Pools", "PoolRoot", "池子根", out var poolFailure);
+            if (poolFailure.Length > 0)
+            {
+                return CommandResult.Failure(poolFailure);
+            }
+
+            try
+            {
+                var designSummary = ReadDesignPoolSummary(poolRoot);
+                var existingRequirements = ReadExistingRequirements(poolRoot);
+                var prompt = SemanticConflictPrompt.Build(repositoryRoot, designSummary, existingRequirements, SemanticConflictPrompt.PromptVersion);
+
+                if (arguments.DryRun)
+                {
+                    return CommandResult.Success("语义冲突比对试跑完成：只组装了提示词，未发任何请求", new[]
+                    {
+                        $"提示词字符数：{prompt.PromptText.Length}",
+                        $"提示词版本：{prompt.PromptVersion}",
+                        $"存量需求：{existingRequirements.Count} 份"
+                    });
+                }
+
+                var routeTable = BridgeRouteTable.Load(repositoryRoot);
+                if (!routeTable.Loaded)
+                {
+                    return CommandResult.Failure($"路由表错误：{routeTable.LoadFailureReason}");
+                }
+
+                if (!routeTable.TryResolvePort("执行后端", out var driverName, out var routeReason))
+                {
+                    return CommandResult.Failure($"执行后端没有可用的 driver：{routeReason}");
+                }
+
+                var localSettings = LocalBridgeSettings.Load(repositoryRoot);
+                if (!localSettings.Loaded)
+                {
+                    return CommandResult.Failure($"本机配置错误：{localSettings.LoadFailureReason}");
+                }
+
+                var modelName = ReadConfiguredModelName(localSettings, driverName);
+                if (modelName.Length == 0)
+                {
+                    return CommandResult.Failure($"driver「{driverName}」的本机配置里没有「模型」键");
+                }
+
+                // 缓存键必须含模型名与提示词版本（决策 90）：换了模型还命中旧缓存，报告就在说谎。
+                var cacheKey = PreReviewCache.ComputeKey(prompt.PromptText, modelName, prompt.PromptVersion);
+
+                SemanticConflictReport report;
+                bool fromCache = false;
+                var cacheFilePath = PreReviewCache.CacheFile(repositoryRoot, cacheKey);
+                if (File.Exists(cacheFilePath))
+                {
+                    var cached = SemanticConflictReport.TryFromJson(File.ReadAllText(cacheFilePath, Encoding.UTF8));
+                    if (cached != null)
+                    {
+                        report = cached.AsStamped(DateTimeOffset.Now.ToString("o"), fromCache: true);
+                        fromCache = true;
+                    }
+                    else
+                    {
+                        report = null;
+                    }
+                }
+                else
+                {
+                    report = null;
+                }
+
+                if (report == null)
+                {
+                    var payload = JsonSerializer.SerializeToElement(new JsonObject
+                    {
+                        ["提示"] = prompt.PromptText,
+                        ["上下文"] = SemanticConflictSystemContext
+                    });
+
+                    var result = BridgeInvoker.Invoke(repositoryRoot, driverName, "complete", payload, arguments.TimeoutSeconds);
+                    if (!result.Succeeded)
+                    {
+                        return CommandResult.Failure($"执行后端调用失败（{result.ErrorCode}）：{result.HumanText}");
+                    }
+
+                    var modelText = ReadPayloadString(result.Payload, "文本");
+                    var returnedModel = ReadPayloadString(result.Payload, "模型");
+                    if (!SemanticConflictReport.TryParse(modelText, out report, out var parseReason))
+                    {
+                        // 解析失败绝不许当成零候选（决策 42）：判成了=false、零候选、原因写清。
+                        report = SemanticConflictReport.NotParsed(returnedModel, prompt.PromptVersion, cacheKey, parseReason);
+                    }
+                    else
+                    {
+                        report = new SemanticConflictReport(
+                            parsed: report.Parsed,
+                            model: returnedModel,
+                            promptVersion: prompt.PromptVersion,
+                            decisionKey: cacheKey,
+                            candidates: report.Candidates,
+                            highCount: report.HighCount,
+                            mediumCount: report.MediumCount,
+                            lowCount: report.LowCount,
+                            fromCache: false,
+                            parseReason: "",
+                            timestamp: DateTimeOffset.Now.ToString("o"));
+                    }
+
+                    // 判没判成都缓存：同输入同模型同版本不再重判。复用 PreReviewCache 的目录与键（决策 90）。
+                    Directory.CreateDirectory(PreReviewCache.CacheDirectory(repositoryRoot));
+                    File.WriteAllText(cacheFilePath, report.ToJson(), new UTF8Encoding(false));
+                }
+
+                var reportPath = report.WriteReport(repositoryRoot);
+                var outputLines = new List<string>
+                {
+                    $"判成了：{report.Parsed}",
+                    $"冲突候选：{report.Candidates.Count} 条（高 {report.HighCount} / 中 {report.MediumCount} / 低 {report.LowCount}）",
+                    $"模型：{report.Model}",
+                    $"提示词版本：{report.PromptVersion}",
+                    $"判定键：{report.DecisionKey}",
+                    $"来自缓存：{fromCache}",
+                    $"报告：{reportPath}"
+                };
+                return CommandResult.Success("语义冲突比对完成，报告已落盘", outputLines);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"语义冲突比对失败：{exception.Message}");
+            }
+        }
+
         /// <summary>执行后端调用的系统上下文：只定位角色，具体的审查要求全在提示词里。</summary>
         private const string PreReviewSystemContext = "你是创作管线的 AI 对抗预审员。你只对给定的变更 diff 输出审查发现，输出必须是严格的 JSON，不要输出任何其他内容。";
+
+        /// <summary>影响评估调用的系统上下文：只定位角色，具体的评估要求全在提示词里。</summary>
+        private const string ImpactAssessSystemContext = "你是创作管线的影响评估员。你只对给定的变更 diff 与工作项列表逐个判定脏/净，输出必须是严格的 JSON，不要输出任何其他内容。";
+
+        /// <summary>语义冲突比对调用的系统上下文：只定位角色，具体的比对要求全在提示词里。</summary>
+        private const string SemanticConflictSystemContext = "你是创作管线的语义冲突比对员。你只对设计池汇总与存量需求做语义比对并输出冲突候选，输出必须是严格的 JSON，不要输出任何其他内容。";
+
+        /// <summary>从 JSON 文件读未命中工作项列表：数组元素是字符串直接取；是对象则取「id」字符串键；其余形状报错。</summary>
+        /// <param name="filePath">工作项列表 JSON 文件路径。</param>
+        private static IReadOnlyList<string> ReadWorkItemList(string filePath)
+        {
+            var root = JsonNode.Parse(File.ReadAllText(filePath, Encoding.UTF8));
+            if (root is not JsonArray array)
+            {
+                throw new JsonException("工作项列表的顶层必须是 JSON 数组");
+            }
+
+            var result = new List<string>();
+            foreach (var item in array)
+            {
+                if (item is JsonValue jsonValue && jsonValue.GetValueKind() == JsonValueKind.String)
+                {
+                    result.Add(jsonValue.GetValue<string>() ?? "");
+                    continue;
+                }
+
+                if (item is JsonObject obj && obj.TryGetPropertyValue("id", out var idNode) && idNode is JsonValue idValue && idValue.GetValueKind() == JsonValueKind.String)
+                {
+                    result.Add(idValue.GetValue<string>() ?? "");
+                    continue;
+                }
+
+                throw new JsonException("工作项列表的每个元素必须是字符串或带「id」字符串键的对象");
+            }
+
+            return result;
+        }
+
+        /// <summary>读设计池汇总：&lt;池根&gt;/Designs/汇总/*.md 按文件名序数序，每份一节；目录不存在或没有文件给占位文案。</summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        private static string ReadDesignPoolSummary(string poolRoot)
+        {
+            var directory = PoolPaths.DesignSummaryDirectory(poolRoot);
+            if (!Directory.Exists(directory))
+            {
+                return "暂无设计汇总。";
+            }
+
+            var files = Directory.GetFiles(directory, "*.md").ToList();
+            files.Sort(StringComparer.Ordinal);
+            if (files.Count == 0)
+            {
+                return "暂无设计汇总。";
+            }
+
+            var builder = new StringBuilder();
+            for (var i = 0; i < files.Count; i++)
+            {
+                if (i > 0)
+                {
+                    builder.AppendLine();
+                }
+
+                var fileName = Path.GetFileName(files[i]);
+                builder.AppendLine("### 文件：" + fileName);
+                builder.AppendLine();
+                builder.AppendLine(File.ReadAllText(files[i], Encoding.UTF8));
+            }
+
+            return builder.ToString();
+        }
+
+        /// <summary>读存量需求：&lt;池根&gt;/Requirements/REQ-*.json 按文件名序数序，每份 JSON 原文一节；目录不存在给空列表。</summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        private static IReadOnlyList<string> ReadExistingRequirements(string poolRoot)
+        {
+            var result = new List<string>();
+            var directory = PoolPaths.RequirementsDirectory(poolRoot);
+            if (!Directory.Exists(directory))
+            {
+                return result;
+            }
+
+            var files = Directory.GetFiles(directory, "REQ-*.json").ToList();
+            files.Sort(StringComparer.Ordinal);
+            foreach (var file in files)
+            {
+                var fileName = Path.GetFileName(file);
+                result.Add("### 需求：" + fileName + Environment.NewLine + File.ReadAllText(file, Encoding.UTF8));
+            }
+
+            return result;
+        }
 
         /// <summary>从本机配置里读某 driver 的模型名（只读「模型」键，密钥不经这里）。</summary>
         private static string ReadConfiguredModelName(LocalBridgeSettings localSettings, string driverName)
