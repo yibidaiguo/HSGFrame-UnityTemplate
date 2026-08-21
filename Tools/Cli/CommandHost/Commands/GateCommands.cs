@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -153,6 +153,41 @@ namespace Template.Toolkit.CommandHost.Commands
             // 只有这个数能把「真没违规」和「根本没扫到东西」分开。
             return GateCommandSupport.ToResult(
                 $"模块边界门禁（模块 {moduleNames.Count} 个：{string.Join("、", moduleNames)}）", findings);
+        }
+    }
+
+    /// <summary>模块自述门禁命令的参数。</summary>
+    public sealed class GateModuleReadmeArguments
+    {
+        /// <summary>模块根目录，即 UnityProject/Assets/Game/Scripts/Modules。</summary>
+        [Summary("模块根目录，即 UnityProject/Assets/Game/Scripts/Modules")]
+        public string ModulesRootDirectory { get; set; }
+
+        /// <summary>README.md 允许的最大物理行数。</summary>
+        [Summary("README.md 允许的最大物理行数")]
+        [DefaultValue(40)]
+        public int MaxLines { get; set; }
+    }
+
+    /// <summary>模块自述门禁命令：每个模块根必须有 ≤40 行的 README.md。</summary>
+    public static class GateModuleReadmeCommand
+    {
+        /// <summary>
+        /// 跑模块自述检查，返回结构化发现列表。
+        /// </summary>
+        /// <param name="arguments">模块自述门禁参数。</param>
+        [EditorCommand("gate.modulereadme")]
+        [Summary("每个模块根必须有 ≤40 行的 README.md——规矩在《结构规范-代码》，这里把它变成门禁")]
+        public static CommandResult Execute(GateModuleReadmeArguments arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments.ModulesRootDirectory))
+            {
+                return CommandResult.Failure("参数 ModulesRootDirectory 为必填项");
+            }
+
+            var findings = ModuleReadmeChecker.Check(arguments.ModulesRootDirectory, arguments.MaxLines);
+
+            return GateCommandSupport.ToResult("模块自述门禁", findings);
         }
     }
 

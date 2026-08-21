@@ -92,6 +92,9 @@ Invoke-Gate -GateName '命名检查器' -CommandName 'gate.naming' -CommandArgum
 Write-GateHeader '模块边界'
 Invoke-Gate -GateName '模块边界' -CommandName 'gate.moduleboundary' -CommandArguments @{ ScriptsRootDirectory = (Join-Path $templateRoot 'UnityProject/Assets/Game/Scripts'); ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 
+Write-GateHeader '模块自述'
+Invoke-Gate -GateName '模块自述' -CommandName 'gate.modulereadme' -CommandArguments @{ ModulesRootDirectory = (Join-Path $templateRoot 'UnityProject/Assets/Game/Scripts/Modules') }
+
 Write-GateHeader '业务层裸日志'
 Invoke-Gate -GateName '业务层裸日志' -CommandName 'gate.businesslog' -CommandArguments @{ ScriptsRootDirectory = (Join-Path $templateRoot 'UnityProject/Assets/Game/Scripts'); ConfigurationPath = (Join-Path $templateRoot 'Tools/Gates/Config/gate-config.json') }
 

@@ -91,10 +91,10 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(repositoryRoot, "提案", "检查器");
         }
 
-        /// <summary>项目层预审规则文件：Specifications/Project/预审规则.json。</summary>
+        /// <summary>项目层预审规则文件：Specifications/Project/prereview-rules.json（路径 ASCII 门禁是 block 模式，文件名必须 ASCII）。</summary>
         public static string ProjectPreReviewRuleFile(string repositoryRoot)
         {
-            return Path.Combine(repositoryRoot, "Specifications", "Project", "预审规则.json");
+            return Path.Combine(repositoryRoot, "Specifications", "Project", "prereview-rules.json");
         }
     }
 }

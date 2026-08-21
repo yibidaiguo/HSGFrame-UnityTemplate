@@ -13,35 +13,18 @@
 | `ILevelEntityResourceMap` | `Contracts/` | 实体类别 → YooAsset 资源地址的只读映射 |
 | `LevelEntityCatalogRegistry` | `Contracts/` | 名录的挂靠点：装配方 `Publish`，模块外读 `Current` |
 
-模块内部（**模块外引到即违规**）：
-
-| 类型 | 在哪 | 干什么 |
-|---|---|---|
-| `LevelDefinition` / `LevelChunk` / `LogicEntityPlacement` / `LevelVector3` | `Data/` | 关卡的纯数据形态，零 UnityEngine |
-| `LevelSerializer` | `Data/` | 关卡数据与 JSON 文本互转 |
-| `LevelValidator` / `LevelDataException` | `Data/` | 关卡数据的合法性校验与错误四要素 |
-| `LevelRepository` | `Data/` | 按关卡 id 取关卡定义 |
-| `LevelEntityResourceMap` / `LevelEntityCatalog` | `Data/` | 上面两个契约的纯 C# 实现，可在纯 dotnet 下跑测试 |
-| `LogicEntityMarker` / `EntityParameterEntry` | `View/` | 场景里标记「这个物体是哪个逻辑实体、带什么参数」的 MonoBehaviour，同时实现 `ILevelEntityView` |
-| `LevelEntityResourceMapAsset` | `View/` | 映射的事实源资产（`Settings/Level/EntityResourceMap.asset`） |
-| `LevelEntitySpawner` | `View/` | 运行时装配器：按类别查地址、加载预制体、挂到标记下，再发布名录 |
-
+模块内部（**模块外引到即违规**）：`Data/` 是零 UnityEngine 的纯数据形态
+（定义 / 序列化 / 校验 / 仓库 / 两个契约的纯 C# 实现，可在纯 dotnet 下跑测试）；
+`View/` 是场景侧（`LogicEntityMarker` 标记、`LevelEntityResourceMapAsset` 映射资产、
+`LevelEntitySpawner` 运行时装配器）。
 `Contracts/` 与 `Data/` 归 `Game.Logic`；`View/` 靠 `Game.View.asmref` 归并进 `Game.View`。
 
 ## 依赖了谁
 
 - 不订阅任何模块的事件，也不引用别的模块。
-- 反向：`Toolkit.Editor` 的 `LevelSceneBuilder` / `LevelSceneExporter` 同时用 `Data/` 与 `View/`，
-  在「场景 ↔ 关卡 JSON」两个方向上做转换。
+- 反向：`Toolkit.Editor` 的 `LevelSceneBuilder` / `LevelSceneExporter` 在「场景 ↔ 关卡 JSON」两个方向上做转换。
 
 ## 常用命令
 
-```bash
-pwsh -NoProfile -File Tools/Cli/unity-cmd.ps1 -ExecuteMethod Template.Toolkit.Editor.LevelSceneCommandLine.ExportFromCommandLine
-```
-
-生成运行时资产（实体可视体、映射资产、UI 面板设置、启动场景）：
-
-```bash
-pwsh -NoProfile -File Tools/Cli/unity-cmd.ps1 -ExecuteMethod Template.Toolkit.Editor.RuntimeAssetScaffoldCommandLine.ScaffoldFromCommandLine
-```
+导出场景为关卡 JSON：`unity-cmd.ps1 -ExecuteMethod Template.Toolkit.Editor.LevelSceneCommandLine.ExportFromCommandLine`；
+生成运行时资产：`unity-cmd.ps1 -ExecuteMethod Template.Toolkit.Editor.RuntimeAssetScaffoldCommandLine.ScaffoldFromCommandLine`。
