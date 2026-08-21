@@ -8,7 +8,7 @@ namespace Template.Level.Data
     /// <summary>关卡仓库：关卡元信息与区块分开按需读盘，读过的留在内存里复用，可按块卸载。</summary>
     public sealed class LevelRepository
     {
-        private const string LevelDefinitionFileName = "关卡.json";
+        private const string LevelDefinitionFileName = "level.json";
 
         private readonly string _levelDirectory;
         private readonly Dictionary<string, LevelChunk> _chunksByName = new Dictionary<string, LevelChunk>();
@@ -17,7 +17,7 @@ namespace Template.Level.Data
         private int _fileReadCount;
 
         /// <summary>用一个关卡目录建仓库，构造阶段只记路径，读盘推迟到真正取数据时。</summary>
-        /// <param name="levelDirectory">单个关卡的目录，里面放 关卡.json 与各区块 json。</param>
+        /// <param name="levelDirectory">单个关卡的目录，里面放 level.json 与各区块 json。</param>
         public LevelRepository(string levelDirectory)
         {
             _levelDirectory = levelDirectory;
@@ -45,8 +45,8 @@ namespace Template.Level.Data
                 throw new LevelDataException(ComposeError(
                     _levelDirectory,
                     "关卡目录不存在",
-                    "在 Levels 下建一个关卡目录，并在里面放 关卡.json",
-                    "Levels/村庄"));
+                    "在 Levels 下建一个关卡目录，并在里面放 level.json",
+                    "Levels/Village"));
             }
 
             string levelPath = Path.Combine(_levelDirectory, LevelDefinitionFileName);
@@ -55,8 +55,8 @@ namespace Template.Level.Data
                 throw new LevelDataException(ComposeError(
                     levelPath,
                     "关卡文件不存在",
-                    "在关卡目录下建一份 关卡.json",
-                    "Levels/村庄/关卡.json"));
+                    "在关卡目录下建一份 level.json",
+                    "Levels/Village/level.json"));
             }
 
             string json = File.ReadAllText(levelPath);
@@ -69,7 +69,7 @@ namespace Template.Level.Data
             catch (JsonException exception)
             {
                 throw new LevelDataException(
-                    ComposeError(levelPath, "关卡 json 文本解析失败", "核对关卡 json 内容是否为合法 JSON", "Levels/村庄/关卡.json"),
+                    ComposeError(levelPath, "关卡 json 文本解析失败", "核对关卡 json 内容是否为合法 JSON", "Levels/Village/level.json"),
                     exception);
             }
 
@@ -90,8 +90,8 @@ namespace Template.Level.Data
                 throw new LevelDataException(ComposeError(
                     chunkName,
                     "区块名未登记进关卡清单",
-                    "把这个区块名加进 关卡.json 的区块清单，或改取一个已登记的区块",
-                    "区块_村口"));
+                    "把这个区块名加进 level.json 的区块清单，或改取一个已登记的区块",
+                    "block-gate"));
             }
 
             string chunkPath = Path.Combine(_levelDirectory, chunkName + ".json");
@@ -100,8 +100,8 @@ namespace Template.Level.Data
                 throw new LevelDataException(ComposeError(
                     chunkPath,
                     "区块文件不存在",
-                    "在关卡目录下建一份同名的区块 json，或把这个区块名从 关卡.json 的区块清单里去掉",
-                    "Levels/村庄/区块_村口.json"));
+                    "在关卡目录下建一份同名的区块 json，或把这个区块名从 level.json 的区块清单里去掉",
+                    "Levels/Village/block-gate.json"));
             }
 
             string json = File.ReadAllText(chunkPath);
@@ -115,7 +115,7 @@ namespace Template.Level.Data
             catch (JsonException exception)
             {
                 throw new LevelDataException(
-                    ComposeError(chunkPath, "区块 json 文本解析失败", "核对区块 json 内容是否为合法 JSON", "Levels/村庄/区块_村口.json"),
+                    ComposeError(chunkPath, "区块 json 文本解析失败", "核对区块 json 内容是否为合法 JSON", "Levels/Village/block-gate.json"),
                     exception);
             }
 

@@ -46,7 +46,7 @@ namespace Template.Tests
         {
             var repository = new LevelRepository(VillageDirectory());
 
-            var chunk = repository.LoadChunk("区块_村口");
+            var chunk = repository.LoadChunk("block-gate");
             var placement = chunk.Placements.Single(entity => entity.EntityId == "村口_守卫_01");
 
             Assert.Equal("NPC", placement.EntityKind);
@@ -61,7 +61,7 @@ namespace Template.Tests
         {
             var repository = new LevelRepository(VillageDirectory());
 
-            var chunk = repository.LoadChunk("区块_广场");
+            var chunk = repository.LoadChunk("block-square");
             var placement = chunk.Placements.Single(entity => entity.EntityId == "广场_任务物件_石碑");
 
             Assert.Equal("任务物件", placement.EntityKind);
@@ -81,10 +81,10 @@ namespace Template.Tests
         {
             var repository = new LevelRepository(VillageDirectory());
 
-            repository.LoadChunk("区块_村口");
+            repository.LoadChunk("block-gate");
 
             Assert.Single(repository.LoadedChunkNames);
-            Assert.Equal("区块_村口", repository.LoadedChunkNames[0]);
+            Assert.Equal("block-gate", repository.LoadedChunkNames[0]);
         }
 
         [Fact]
@@ -92,9 +92,9 @@ namespace Template.Tests
         {
             var repository = new LevelRepository(VillageDirectory());
 
-            var first = repository.LoadChunk("区块_村口");
+            var first = repository.LoadChunk("block-gate");
             var readCountAfterFirst = repository.FileReadCount;
-            var second = repository.LoadChunk("区块_村口");
+            var second = repository.LoadChunk("block-gate");
 
             Assert.Equal(readCountAfterFirst, repository.FileReadCount);
             Assert.Same(first, second);
@@ -104,12 +104,12 @@ namespace Template.Tests
         public void UnloadingLoadedChunkReturnsTrueAndDropsIt()
         {
             var repository = new LevelRepository(VillageDirectory());
-            repository.LoadChunk("区块_村口");
+            repository.LoadChunk("block-gate");
 
-            var removed = repository.UnloadChunk("区块_村口");
+            var removed = repository.UnloadChunk("block-gate");
 
             Assert.True(removed);
-            Assert.DoesNotContain("区块_村口", repository.LoadedChunkNames);
+            Assert.DoesNotContain("block-gate", repository.LoadedChunkNames);
         }
 
         [Fact]
@@ -117,7 +117,7 @@ namespace Template.Tests
         {
             var repository = new LevelRepository(VillageDirectory());
 
-            var removed = repository.UnloadChunk("区块_广场");
+            var removed = repository.UnloadChunk("block-square");
 
             Assert.False(removed);
         }
@@ -126,11 +126,11 @@ namespace Template.Tests
         public void ReloadingAfterUnloadReadsDiskAgain()
         {
             var repository = new LevelRepository(VillageDirectory());
-            repository.LoadChunk("区块_村口");
+            repository.LoadChunk("block-gate");
             var readCountBeforeUnload = repository.FileReadCount;
 
-            repository.UnloadChunk("区块_村口");
-            repository.LoadChunk("区块_村口");
+            repository.UnloadChunk("block-gate");
+            repository.LoadChunk("block-gate");
 
             Assert.Equal(readCountBeforeUnload + 1, repository.FileReadCount);
         }
@@ -170,7 +170,7 @@ namespace Template.Tests
             var directory = CreateTempDirectory();
             try
             {
-                File.WriteAllText(Path.Combine(directory, "关卡.json"), "{ 这不是合法 json");
+                File.WriteAllText(Path.Combine(directory, "level.json"), "{ 这不是合法 json");
                 var repository = new LevelRepository(directory);
 
                 var exception = Assert.Throws<LevelDataException>(() => repository.LoadLevel());
@@ -191,7 +191,7 @@ namespace Template.Tests
             try
             {
                 File.WriteAllText(
-                    Path.Combine(directory, "关卡.json"),
+                    Path.Combine(directory, "level.json"),
                     "{\"关卡名\":\"测试关卡\",\"环境\":\"白天\",\"区块清单\":[]}");
                 var repository = new LevelRepository(directory);
 
@@ -213,7 +213,7 @@ namespace Template.Tests
             try
             {
                 File.WriteAllText(
-                    Path.Combine(directory, "关卡.json"),
+                    Path.Combine(directory, "level.json"),
                     "{\"关卡名\":\"测试关卡\",\"环境\":\"白天\",\"区块清单\":[\"区块_码头\"]}");
                 var repository = new LevelRepository(directory);
 
@@ -227,12 +227,12 @@ namespace Template.Tests
             }
         }
 
-        // 夹具住测试工程自己，不指仓库根的 Levels/村庄。那里是**活内容**：
+        // 夹具住测试工程自己，不指仓库根的 Levels/Village。那里是**活内容**：
         // 宿主项目按自己的游戏改关卡是本分事，而这些断言把示例的摆放数量与实体编号钉死了——
         // 宿主一改内容，模板自带的测试就红，红得跟他的改动毫无关系，还只能靠改模板文件收场。
         private static string VillageDirectory()
         {
-            return Path.Combine(FindTemplateRoot(), "Solutions", "Logic.Tests", "TestData", "村庄");
+            return Path.Combine(FindTemplateRoot(), "Solutions", "Logic.Tests", "TestData", "Village");
         }
 
         private static string CreateTempDirectory()

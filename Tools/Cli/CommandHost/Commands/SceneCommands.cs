@@ -50,8 +50,8 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("导出 JSON 的输出目录")]
         public string OutputDirectory { get; set; }
 
-        /// <summary>写进 关卡.json 的环境名，留空时沿用输出目录里那份旧的 关卡.json 的取值。</summary>
-        [Summary("写进 关卡.json 的环境名，留空时沿用输出目录里那份旧的 关卡.json 的取值")]
+        /// <summary>写进 level.json 的环境名，留空时沿用输出目录里那份旧的 level.json 的取值。</summary>
+        [Summary("写进 level.json 的环境名，留空时沿用输出目录里那份旧的 level.json 的取值")]
         [DefaultValue("")]
         public string EnvironmentName { get; set; }
 
@@ -82,14 +82,14 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             var templateRoot = SceneCommandSupport.ResolveTemplateRoot(arguments.TemplateRoot);
-            var levelJsonPath = Path.Combine(templateRoot, "Levels", arguments.LevelName, "关卡.json");
+            var levelJsonPath = Path.Combine(templateRoot, "Levels", arguments.LevelName, "level.json");
             if (!File.Exists(levelJsonPath))
             {
                 return CommandResult.Failure(SceneCommandSupport.ComposeError(
                     levelJsonPath,
                     "关卡文件不存在",
-                    "确认关卡名对应 Levels 下的一个目录，且里面有 关卡.json",
-                    "Levels/村庄/关卡.json"));
+                    "确认关卡名对应 Levels 下的一个目录，且里面有 level.json",
+                    "Levels/Village/level.json"));
             }
 
             var timeoutProblem = SceneCommandSupport.CheckTimeout(arguments.TimeoutMinutes);
@@ -134,7 +134,7 @@ namespace Template.Toolkit.CommandHost.Commands
                     "参数 OutputDirectory",
                     "输出目录为空",
                     "在参数里填导出 JSON 的输出目录",
-                    "Levels/村庄"));
+                    "Levels/Village"));
             }
 
             var templateRoot = SceneCommandSupport.ResolveTemplateRoot(arguments.TemplateRoot);

@@ -72,7 +72,7 @@ namespace Template.UiFramework.Tests
 
         private static UiPanelDefinitionSource LoadDefinition(string templateRoot)
         {
-            var definitionPath = Path.Combine(templateRoot, "Solutions", "UiFramework.Tests", "TestData", "主界面.uidef.json");
+            var definitionPath = Path.Combine(templateRoot, "Solutions", "UiFramework.Tests", "TestData", "MainPanel.uidef.json");
             var json = File.ReadAllText(definitionPath);
             return JsonSerializer.Deserialize<UiPanelDefinitionSource>(json);
         }

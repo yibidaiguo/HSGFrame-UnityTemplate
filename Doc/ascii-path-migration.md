@@ -71,7 +71,7 @@ git 在不同 `core.quotepath` 下显示不一致；CI 容器 locale 不是 UTF-
 | d1 | `Pools/` + `_Generated/` + `Bridges/` | `pool.validate` / `gate.provision` 绿 + 真跑重生成 | **已完成** |
 | d2a | 文档、CI 定义、样例图、空目录占位（无语义耦合） | `dotnet test` + `gate.ps1` | **已完成** |
 | d2b | `Config/{Tables,Schema,Mirror}` 表名三件套 + `Index/` 输出名 | 同上 + `codegen.run` 重生成一致 + 真跑一次 Luban | **已完成** |
-| d2c | `Levels/` + `UI/` + `Packages/` 里的资产名 | **要跑 `gate-unity.ps1`** | 待 |
+| d2c | `Levels/` + `UI/` + `Packages/` 里的资产名 | **`gate-unity.ps1` 跑过并 PASS** | **已完成** |
 | e | `UnityProject/` | **必须跑 `gate-unity.ps1`** | 待 |
 | f | 门禁从 warn 改成 block | 门禁自己判红一次再改对 | 待 |
 

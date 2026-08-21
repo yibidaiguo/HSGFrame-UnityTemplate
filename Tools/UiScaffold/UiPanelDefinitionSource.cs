@@ -74,14 +74,14 @@ namespace Template.Toolkit.UiScaffold
 
             if (string.IsNullOrWhiteSpace(PanelIdentifierName))
             {
-                problems.Add("位置：面板定义；原因：缺「面板标识名」，它要当 C# 类名与文件名；修复：补上一个英文标识名；参考：UI/Definitions/主界面.uidef.json");
+                problems.Add("位置：面板定义；原因：缺「面板标识名」，它要当 C# 类名与文件名；修复：补上一个英文标识名；参考：UI/Definitions/MainPanel.uidef.json");
             }
 
             foreach (var element in Flatten(Elements))
             {
                 if (string.IsNullOrWhiteSpace(element.ElementType))
                 {
-                    problems.Add($"位置：元素「{element.ElementName}」；原因：缺「元素类型」，UXML 标签名无从生成；修复：填一个 UI Toolkit 控件名，如 Label / Button / VisualElement；参考：UI/Definitions/主界面.uidef.json");
+                    problems.Add($"位置：元素「{element.ElementName}」；原因：缺「元素类型」，UXML 标签名无从生成；修复：填一个 UI Toolkit 控件名，如 Label / Button / VisualElement；参考：UI/Definitions/MainPanel.uidef.json");
                 }
             }
 
@@ -91,7 +91,7 @@ namespace Template.Toolkit.UiScaffold
 
             foreach (var duplicate in duplicates)
             {
-                problems.Add($"位置：元素「{duplicate.Key}」；原因：标识名在本面板里出现了 {duplicate.Count()} 次，生成的 C# 会有重复属性；修复：改成互不相同的标识名，纯布局容器可以留空标识名；参考：UI/Definitions/主界面.uidef.json");
+                problems.Add($"位置：元素「{duplicate.Key}」；原因：标识名在本面板里出现了 {duplicate.Count()} 次，生成的 C# 会有重复属性；修复：改成互不相同的标识名，纯布局容器可以留空标识名；参考：UI/Definitions/MainPanel.uidef.json");
             }
 
             return problems;

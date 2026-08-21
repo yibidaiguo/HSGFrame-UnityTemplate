@@ -18,7 +18,7 @@ namespace Template.Level.Data
                         $"区块 {chunkName}",
                         "区块文件缺失",
                         "在关卡目录下补上该区块的 json 文件",
-                        "Levels/村庄/区块_村口.json"));
+                        "Levels/Village/block-gate.json"));
                 }
             }
 
@@ -29,8 +29,8 @@ namespace Template.Level.Data
                     errors.Add(ComposeError(
                         $"区块 {chunkName}",
                         "区块未登记进关卡清单",
-                        "把这个区块名加进 关卡.json 的区块清单，或删掉多余的区块文件",
-                        "Levels/村庄/关卡.json"));
+                        "把这个区块名加进 level.json 的区块清单，或删掉多余的区块文件",
+                        "Levels/Village/level.json"));
                 }
             }
 

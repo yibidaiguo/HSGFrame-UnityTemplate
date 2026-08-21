@@ -17,8 +17,8 @@ namespace Template.Tests
                 LevelName = "村庄",
                 EnvironmentName = "晴天_黄昏",
             };
-            level.ChunkNames.Add("区块_村口");
-            level.ChunkNames.Add("区块_广场");
+            level.ChunkNames.Add("block-gate");
+            level.ChunkNames.Add("block-square");
 
             var json = LevelSerializer.ToJson(level);
             var roundTripped = LevelSerializer.LevelFromJson(json);
@@ -31,7 +31,7 @@ namespace Template.Tests
         [Fact]
         public void LevelChunkRoundTripsThroughJson()
         {
-            var chunk = new LevelChunk { ChunkName = "区块_村口" };
+            var chunk = new LevelChunk { ChunkName = "block-gate" };
             chunk.Placements.Add(new LogicEntityPlacement
             {
                 EntityId = "村口_守卫_01",
@@ -105,7 +105,7 @@ namespace Template.Tests
         public void SerializerEmitsChineseKeysUnescaped()
         {
             var level = new LevelDefinition { LevelName = "村庄", EnvironmentName = "晴天_黄昏" };
-            var chunk = new LevelChunk { ChunkName = "区块_村口" };
+            var chunk = new LevelChunk { ChunkName = "block-gate" };
             chunk.Placements.Add(new LogicEntityPlacement { EntityId = "村口_守卫_01", EntityKind = "NPC", RotationAngle = 90.0f });
 
             var levelJson = LevelSerializer.ToJson(level);
@@ -126,8 +126,8 @@ namespace Template.Tests
         public void FeedingOnlyOneChunkReportsTheOtherAsMissing()
         {
             var templateRoot = FindTemplateRoot();
-            var levelPath = Path.Combine(templateRoot, "Levels", "村庄", "关卡.json");
-            var chunkPath = Path.Combine(templateRoot, "Levels", "村庄", "区块_村口.json");
+            var levelPath = Path.Combine(templateRoot, "Levels", "Village", "level.json");
+            var chunkPath = Path.Combine(templateRoot, "Levels", "Village", "block-gate.json");
 
             Assert.True(File.Exists(levelPath), $"样例关卡文件不存在：{levelPath}");
             Assert.True(File.Exists(chunkPath), $"样例区块文件不存在：{chunkPath}");
@@ -140,7 +140,7 @@ namespace Template.Tests
             var errors = LevelValidator.Validate(level, chunksByName);
 
             var error = Assert.Single(errors);
-            Assert.Contains("区块_广场", error);
+            Assert.Contains("block-square", error);
         }
 
         [Fact]

@@ -20,7 +20,7 @@ namespace Template.Level.Tests.EditMode
         private const string ResourceMapAssetPath = "Assets/Game/Settings/Level/实体资源映射.asset";
         private const string EntityPrefabDirectory = "Assets/Game/ResourceArt/Level";
 
-        // 六个类别取自 Levels/村庄/区块_*.json 里「类别」字段的实际取值。
+        // 六个类别取自 Levels/Village/block-*.json 里「类别」字段的实际取值。
         private static readonly string[] ExpectedEntityKinds =
         {
             "NPC", "可交互物", "传送点", "刷怪点", "触发器", "任务物件",

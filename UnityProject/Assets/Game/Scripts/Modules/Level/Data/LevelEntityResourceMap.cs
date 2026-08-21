@@ -31,7 +31,7 @@ namespace Template.Level.Data
                     if (string.IsNullOrWhiteSpace(entry.Key))
                     {
                         throw new ArgumentException(
-                            "位置：LevelEntityResourceMap 构造函数；原因：实体类别为空白；修复：给每一条映射写上类别；参考：Levels/<关卡>/区块_*.json 里的「类别」字段",
+                            "位置：LevelEntityResourceMap 构造函数；原因：实体类别为空白；修复：给每一条映射写上类别；参考：Levels/<关卡>/block-*.json 里的「类别」字段",
                             nameof(entries));
                     }
 

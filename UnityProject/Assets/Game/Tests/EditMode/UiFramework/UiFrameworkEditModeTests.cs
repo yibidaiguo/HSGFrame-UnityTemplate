@@ -129,8 +129,8 @@ namespace Template.Tests.UiFramework.EditMode
             var host = new VisualElement();
             var root = new PanelRoot(host);
 
-            var theme = AssetDatabase.LoadAssetAtPath<StyleSheet>("Packages/com.hsgframe.uiframework/Theme/主题变量.uss");
-            Assert.IsNotNull(theme, "包没接进 manifest.json：找不到主题样式表 Packages/com.hsgframe.uiframework/Theme/主题变量.uss");
+            var theme = AssetDatabase.LoadAssetAtPath<StyleSheet>("Packages/com.hsgframe.uiframework/Theme/theme-variables.uss");
+            Assert.IsNotNull(theme, "包没接进 manifest.json：找不到主题样式表 Packages/com.hsgframe.uiframework/Theme/theme-variables.uss");
 
             Assert.AreEqual(0, host.styleSheets.count);
             root.ApplyTheme(theme);

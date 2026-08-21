@@ -130,7 +130,7 @@ namespace Template.UiFramework.Tests
         {
             // 向后兼容：老定义一个字段没加，生成物形状必须和扩展之前一致。
             using var fixture = new ScaffoldFixture();
-            var definition = LoadDefinition(fixture.RepositoryRoot, "主界面.uidef.json");
+            var definition = LoadDefinition(fixture.RepositoryRoot, "MainPanel.uidef.json");
 
             PanelScaffolder.Scaffold(fixture.RepositoryRoot, definition, fixture.OutputDirectory);
 
@@ -148,7 +148,7 @@ namespace Template.UiFramework.Tests
         private static string ScaffoldNestedPanel(out string generatedCode, out string styleSheet)
         {
             using var fixture = new ScaffoldFixture();
-            var definition = LoadDefinition(fixture.RepositoryRoot, "嵌套面板.uidef.json");
+            var definition = LoadDefinition(fixture.RepositoryRoot, "SettingsPanel.uidef.json");
 
             PanelScaffolder.Scaffold(fixture.RepositoryRoot, definition, fixture.OutputDirectory);
 

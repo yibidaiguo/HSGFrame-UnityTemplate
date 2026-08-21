@@ -41,7 +41,7 @@ namespace Template.Toolkit.Tests
 
                 AssertFailureWithFourElements(result);
                 Assert.Contains("不存在关卡", result.Message);
-                Assert.Contains("关卡.json", result.Message);
+                Assert.Contains("level.json", result.Message);
             }
             finally
             {
@@ -101,7 +101,7 @@ namespace Template.Toolkit.Tests
             var result = SceneExportCommand.Execute(new SceneExportArguments
             {
                 ScenePath = null,
-                OutputDirectory = "Levels/村庄",
+                OutputDirectory = "Levels/Village",
             });
 
             AssertFailureWithFourElements(result);
@@ -129,7 +129,7 @@ namespace Template.Toolkit.Tests
                 {
                     TemplateRoot = templateRoot,
                     ScenePath = "Assets/Game/Scenes/World/不存在.unity",
-                    OutputDirectory = "Levels/村庄",
+                    OutputDirectory = "Levels/Village",
                 });
 
                 AssertFailureWithFourElements(result);
@@ -153,7 +153,7 @@ namespace Template.Toolkit.Tests
                 {
                     TemplateRoot = templateRoot,
                     ScenePath = "Assets/Game/Scenes/World/测试.unity",
-                    OutputDirectory = "Levels/村庄",
+                    OutputDirectory = "Levels/Village",
                     TimeoutMinutes = 0,
                 });
 
@@ -177,7 +177,7 @@ namespace Template.Toolkit.Tests
             var levelDirectory = Path.Combine(templateRoot, "Levels", "测试关卡");
             Directory.CreateDirectory(levelDirectory);
             File.WriteAllText(
-                Path.Combine(levelDirectory, "关卡.json"),
+                Path.Combine(levelDirectory, "level.json"),
                 "{\"关卡名\":\"测试关卡\",\"环境\":\"白天\",\"区块清单\":[]}");
         }
 

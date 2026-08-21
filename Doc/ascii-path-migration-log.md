@@ -15,3 +15,4 @@
 | d1 | `Pools/` `_Generated/` `Bridges/`（2026-08-21） | [d1-pools.md](ascii-path-migration-logs/d1-pools.md) |
 | d2a | 文档、CI 定义与样例（2026-08-21） | [d2a-misc.md](ascii-path-migration-logs/d2a-misc.md) |
 | d2b | 配置表三件套与索引产物（2026-08-21） | [d2b-tables.md](ascii-path-migration-logs/d2b-tables.md) |
+| d2c | 关卡样例、UI 定义与主题样式表（2026-08-21） | [d2c-assets.md](ascii-path-migration-logs/d2c-assets.md) |

@@ -19,12 +19,12 @@ namespace Template.Tests.EditMode
         public void LevelValidatorReportsMissingChunkInsideEditor()
         {
             var level = new LevelDefinition { LevelName = "村庄" };
-            level.ChunkNames.Add("区块_广场");
+            level.ChunkNames.Add("block-square");
 
             var errors = LevelValidator.Validate(level, new System.Collections.Generic.Dictionary<string, LevelChunk>());
 
             Assert.AreEqual(1, errors.Count);
-            StringAssert.Contains("区块_广场", errors[0]);
+            StringAssert.Contains("block-square", errors[0]);
         }
     }
 }

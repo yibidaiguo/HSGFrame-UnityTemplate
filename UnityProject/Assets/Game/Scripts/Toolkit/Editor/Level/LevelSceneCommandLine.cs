@@ -41,7 +41,7 @@ namespace Template.Toolkit.Editor
         {
             var arguments = ReadArguments<ExportArguments>();
 
-            // 环境名不在场景结构里。参数没给时退回读输出目录里那份旧的 关卡.json，
+            // 环境名不在场景结构里。参数没给时退回读输出目录里那份旧的 level.json，
             // 免得往原地导出一次就把环境名清空。
             var environmentName = string.IsNullOrEmpty(arguments.EnvironmentName)
                 ? ReadEnvironmentName(arguments.OutputDirectory)
@@ -65,7 +65,7 @@ namespace Template.Toolkit.Editor
             var levelsDirectory = Path.Combine(templateRoot, "Levels");
             foreach (var levelDirectory in Directory.GetDirectories(levelsDirectory))
             {
-                if (!File.Exists(Path.Combine(levelDirectory, "关卡.json")))
+                if (!File.Exists(Path.Combine(levelDirectory, "level.json")))
                 {
                     continue;
                 }
@@ -129,7 +129,7 @@ namespace Template.Toolkit.Editor
         // 环境名不在场景结构里，导出时得从原关卡 JSON 读回来，避免写回时把环境名清空。
         private static string ReadEnvironmentName(string outputDirectory)
         {
-            var levelJsonPath = Path.Combine(outputDirectory, "关卡.json");
+            var levelJsonPath = Path.Combine(outputDirectory, "level.json");
             if (!File.Exists(levelJsonPath))
             {
                 return string.Empty;

@@ -15,6 +15,10 @@ namespace Template.Level.Tests.EditMode
     /// <summary>关卡场景构建与导出的往返测试：构建、分块启停、导出回 JSON、规范化文本比对。</summary>
     public class LevelSceneRoundTripTests
     {
+        /// <summary>关卡目录名（ASCII，决策 1）。</summary>
+        private const string LevelDirectoryName = "Village";
+
+        /// <summary>关卡名（数据里的展示名，中文照旧）。目录名与展示名从去中文化那一批起就是两件事。</summary>
         private const string LevelName = "村庄";
         private const string ScenePath = "Assets/Game/Scenes/World/临时_关卡往返测试.unity";
 
@@ -29,9 +33,9 @@ namespace Template.Level.Tests.EditMode
             Assert.IsNotNull(_templateRoot, "找不到模板根：未定位到 Tools/Gates/Config/gate-config.json，关卡往返测试无法继续");
 
             // 夹具住测试工程自己（与纯 dotnet 侧的 LevelRepositoryTests 同一份），不指仓库根的
-            // Levels/村庄。那里是**活内容**：宿主按自己的游戏改关卡是本分事，而下面的断言把
+            // Levels/Village。那里是**活内容**：宿主按自己的游戏改关卡是本分事，而下面的断言把
             // 示例的实体数量与编号钉死了——宿主一换内容这些测试就红，红得跟他的改动毫无关系。
-            _sourceLevelDirectory = Path.Combine(_templateRoot, "Solutions", "Logic.Tests", "TestData", LevelName);
+            _sourceLevelDirectory = Path.Combine(_templateRoot, "Solutions", "Logic.Tests", "TestData", LevelDirectoryName);
             LevelSceneBuilder.Build(_sourceLevelDirectory, ScenePath);
 
             var sourceLevel = new LevelRepository(_sourceLevelDirectory).LoadLevel();
@@ -73,7 +77,7 @@ namespace Template.Level.Tests.EditMode
         [Test]
         public void VillageGuardCarriesExpectedTransformKindAndParameters()
         {
-            var guard = FindEntity("区块_村口", "村口_守卫_01");
+            var guard = FindEntity("block-gate", "村口_守卫_01");
             Assert.IsNotNull(guard, "找不到 村口_守卫_01 实体物体");
 
             var position = guard.transform.localPosition;
@@ -94,8 +98,8 @@ namespace Template.Level.Tests.EditMode
         [Test]
         public void DisablingChunkDeactivatesItsEntitiesButKeepsOtherChunksActive()
         {
-            var squareChunk = FindChunk("区块_广场");
-            var villageChunk = FindChunk("区块_村口");
+            var squareChunk = FindChunk("block-square");
+            var villageChunk = FindChunk("block-gate");
             Assert.IsNotNull(squareChunk, "找不到 区块_广场 区块根");
             Assert.IsNotNull(villageChunk, "找不到 区块_村口 区块根");
 
@@ -170,9 +174,9 @@ namespace Template.Level.Tests.EditMode
         [Test]
         public void NormalizedJsonMatchesCharacterByCharacter()
         {
-            AssertNormalizedLevelJsonMatches("关卡.json");
-            AssertNormalizedChunkJsonMatches("区块_村口.json");
-            AssertNormalizedChunkJsonMatches("区块_广场.json");
+            AssertNormalizedLevelJsonMatches("level.json");
+            AssertNormalizedChunkJsonMatches("block-gate.json");
+            AssertNormalizedChunkJsonMatches("block-square.json");
         }
 
         private static GameObject GetLevelRoot()

@@ -12,10 +12,10 @@ namespace Template.Toolkit.Editor
     /// <summary>把 Unity 场景导出回关卡 JSON，与 LevelSceneBuilder 互为逆向。</summary>
     public static class LevelSceneExporter
     {
-        /// <summary>导出一个场景到指定目录，产出 关卡.json 与各区块 json，返回一行中文摘要。</summary>
+        /// <summary>导出一个场景到指定目录，产出 level.json 与各区块 json，返回一行中文摘要。</summary>
         /// <param name="scenePath">场景路径，相对 Unity 工程根写。</param>
         /// <param name="outputDirectory">导出目录，绝对路径。</param>
-        /// <param name="environmentName">写进 关卡.json 的环境名。</param>
+        /// <param name="environmentName">写进 level.json 的环境名。</param>
         public static string Export(string scenePath, string outputDirectory, string environmentName)
         {
             var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
@@ -78,7 +78,7 @@ namespace Template.Toolkit.Editor
             }
 
             var levelJson = LevelSerializer.ToJson(level);
-            File.WriteAllText(Path.Combine(outputDirectory, "关卡.json"), levelJson, new UTF8Encoding(false));
+            File.WriteAllText(Path.Combine(outputDirectory, "level.json"), levelJson, new UTF8Encoding(false));
 
             return $"场景 {scenePath} 已导出到 {outputDirectory}：区块 {level.ChunkNames.Count} 块，实体 {entityCount} 个，跳过 {skippedCount} 个";
         }

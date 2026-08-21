@@ -43,7 +43,7 @@ namespace Template.Toolkit.Editor
         private const string InputActionsAssetPath = InputSettingsDirectory + "/IA_默认输入.inputactions";
         private const string BootScenePath = BootSceneDirectory + "/启动.unity";
 
-        // 六个类别取自 Levels/村庄/区块_*.json 里「类别」字段的实际取值。地址就是预制体文件名
+        // 六个类别取自 Levels/Village/block-*.json 里「类别」字段的实际取值。地址就是预制体文件名
         //（收集器用 AddressByFileName），所以这张表同时也是「有哪些预制体」的清单。
         private static readonly (string EntityKind, string ResourceAddress, PrimitiveType Shape, Color Color)[] EntityKinds =
         {
