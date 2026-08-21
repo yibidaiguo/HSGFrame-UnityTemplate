@@ -97,12 +97,14 @@ namespace Template.Bridges.Feishu
                 return listCall.Response;
             }
 
-            if (TryReadTableIdByName(listCall.ResponseBody, tableName, out _))
+            if (TryReadTableIdByName(listCall.ResponseBody, tableName, out var existingTableId))
             {
-                // 同名表已存在：跳过，绝不重建。绝不许建出两张同名表。
-                var skipped = new JsonObject { ["表名"] = tableName, ["原因"] = "已存在，跳过" };
-                var skipPayload = new JsonObject { ["建了"] = new JsonArray(), ["跳过的"] = new JsonArray(skipped) };
-                return Success(JsonSerializer.SerializeToElement(skipPayload));
+                // 同名表已存在：绝不重建（建重了没有自动撤的路）。
+                // 但**也不能整张跳过**：schema 加了字段而表里没有那一列时，
+                // 写记录会当场报「字段 X 不在建表描述里」，而供给对账那边照样是绿的——
+                // 那正是一次假绿（真跑撞出来的：助手写草稿时卡在「目标」没有列）。
+                // 所以这里补列：**只加缺的列，既有列一个都不动、更不删**。
+                return AddMissingFields(appId, appToken, secretKey, timeoutSeconds, tableName, existingTableId, plannedFields);
             }
 
             var probeResult = ProbeAndVerify(appId, appToken, secretKey, timeoutSeconds, tableName, plannedFields, listCall.ResponseBody);
@@ -156,6 +158,116 @@ namespace Template.Bridges.Feishu
             }
 
             return Success(JsonSerializer.SerializeToElement(payload));
+        }
+
+        /// <summary>
+        /// 给已存在的表补缺的列：读回现有字段名 → 建表描述里有而表里没有的，逐个 POST 建出来。
+        /// **只加不改不删**：改字段类型与删字段都是不可逆动作，那两件事一律留给人去点。
+        /// 一个字段建失败就整体停下并把错原样带回——建了一半而不说，是最坏的结果。
+        /// </summary>
+        private static BridgeResponse AddMissingFields(
+            string appId,
+            string appToken,
+            string secretKey,
+            int timeoutSeconds,
+            string tableName,
+            string tableId,
+            IReadOnlyList<PlannedField> plannedFields)
+        {
+            var fieldsUrl = FeishuClient.BitableUrl(appToken, "tables/" + tableId + "/fields?page_size=200");
+            var listFieldsCall = FeishuClient.Send("GET", fieldsUrl, null, appId, secretKey, timeoutSeconds);
+            if (!listFieldsCall.Succeeded)
+            {
+                return listFieldsCall.Response;
+            }
+
+            var existingNames = ReadFieldNames(listFieldsCall.ResponseBody);
+            var added = new JsonArray();
+            var alreadyThere = new JsonArray();
+            foreach (var field in plannedFields)
+            {
+                if (existingNames.Contains(field.Name))
+                {
+                    alreadyThere.Add(field.Name);
+                    continue;
+                }
+
+                var createFieldUrl = FeishuClient.BitableUrl(appToken, "tables/" + tableId + "/fields");
+                var call = FeishuClient.Send("POST", createFieldUrl, BuildSingleFieldBody(field), appId, secretKey, timeoutSeconds);
+                if (!call.Succeeded)
+                {
+                    return call.Response;
+                }
+
+                added.Add(new JsonObject
+                {
+                    ["字段"] = field.Name,
+                    ["下游类型"] = field.DownstreamType,
+                    ["类型码"] = field.TypeCode
+                });
+            }
+
+            var skipped = new JsonObject
+            {
+                ["表名"] = tableName,
+                ["原因"] = added.Count == 0 ? "已存在且列齐，跳过" : $"已存在，补了 {added.Count} 列"
+            };
+
+            var payload = new JsonObject
+            {
+                ["建了"] = new JsonArray(),
+                ["跳过的"] = new JsonArray(skipped),
+                ["补的列"] = added,
+                ["本来就有的列数"] = alreadyThere.Count
+            };
+            return Success(JsonSerializer.SerializeToElement(payload));
+        }
+
+        /// <summary>读一张表的现有字段名集合。</summary>
+        private static HashSet<string> ReadFieldNames(JsonElement body)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            if (body.ValueKind == JsonValueKind.Object
+                && body.TryGetProperty("data", out var data)
+                && data.ValueKind == JsonValueKind.Object
+                && data.TryGetProperty("items", out var items)
+                && items.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in items.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.Object
+                        && item.TryGetProperty("field_name", out var name)
+                        && name.ValueKind == JsonValueKind.String)
+                    {
+                        names.Add(name.GetString() ?? "");
+                    }
+                }
+            }
+
+            return names;
+        }
+
+        /// <summary>拼「给已有表加一列」的请求体：{"field_name":…,"type":…[,"property":{…}]}。</summary>
+        private static string BuildSingleFieldBody(PlannedField field)
+        {
+            var node = new JsonObject
+            {
+                ["field_name"] = field.Name,
+                ["type"] = field.TypeCode
+            };
+
+            if (FeishuFieldTypeCodec.RequiresOptions(field.DownstreamType))
+            {
+                var options = new JsonArray();
+                foreach (var option in field.EnumValues)
+                {
+                    options.Add(new JsonObject { ["name"] = option });
+                }
+
+                node["property"] = new JsonObject { ["options"] = options };
+            }
+
+            return node.ToJsonString();
         }
 
         /// <summary>一次探测验证的结果：成功标志、失败时的协议响应、逐字段的验证明细。</summary>

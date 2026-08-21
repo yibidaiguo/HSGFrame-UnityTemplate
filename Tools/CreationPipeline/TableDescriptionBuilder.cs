@@ -20,13 +20,17 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="enumValues">单选项取值列表，传 null 视为空列表。</param>
         /// <param name="ownership">字段归属方，如 策划端 / 工程。</param>
         /// <param name="isEditableAfterLock">锁定后是否可改。</param>
+        /// <param name="logicalType">schema 里的逻辑类型（string / 数组 / 对象 / bool / enum…）。
+        /// 下游类型只说「存成什么列」，逻辑类型说「这一列里那串文字原本是什么」——
+        /// 数组存进多行文本之后，只有它能告诉读回来的人该不该切回数组。缺省空串表示不声明。</param>
         public TableFieldDescription(
             string name,
             string downstreamType,
             bool isRequired,
             IReadOnlyList<string> enumValues,
             string ownership,
-            bool isEditableAfterLock)
+            bool isEditableAfterLock,
+            string logicalType = "")
         {
             Name = name ?? "";
             DownstreamType = downstreamType ?? "";
@@ -34,6 +38,7 @@ namespace Template.Toolkit.CreationPipeline
             EnumValues = enumValues ?? Array.Empty<string>();
             Ownership = ownership ?? "";
             IsEditableAfterLock = isEditableAfterLock;
+            LogicalType = logicalType ?? "";
         }
 
         /// <summary>字段名。</summary>
@@ -53,6 +58,9 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>锁定后是否可改。</summary>
         public bool IsEditableAfterLock { get; }
+
+        /// <summary>schema 里的逻辑类型（string / 数组 / 对象 / bool / enum…）；空串表示不声明。</summary>
+        public string LogicalType { get; }
     }
 
     /// <summary>建表描述里的一张表单：按某个类型值分组后的可见字段。</summary>
@@ -119,7 +127,8 @@ namespace Template.Toolkit.CreationPipeline
                     ["必填"] = field.IsRequired,
                     ["单选项"] = field.EnumValues,
                     ["所有权"] = field.Ownership,
-                    ["锁定后可改"] = field.IsEditableAfterLock
+                    ["锁定后可改"] = field.IsEditableAfterLock,
+                    ["逻辑类型"] = field.LogicalType
                 });
             }
 
@@ -178,7 +187,33 @@ namespace Template.Toolkit.CreationPipeline
                     field.IsRequired,
                     field.EnumValues,
                     field.Ownership,
-                    field.IsEditableAfterLock));
+                    field.IsEditableAfterLock,
+                    field.FieldType));
+            }
+
+            // 分类型必填的那几个字段（目标 / 玩法 / 现状 / 期望 / 复现步骤 / 实际）**不在 schema.Fields 里**，
+            // 它们只出现在「分类型必填」表里。原来只把它们摆进表单、没给列——
+            // 结果是一条合法的「系统」需求根本写不进下游表（真跑撞出来的：
+            // 写记录时报「字段『目标』不在建表描述里」）。表单引用一个不存在的列，本身就是坏的。
+            // 所以这里给它们补上列：可选、归策划端、锁定后可改（它们是内容不是状态）。
+            foreach (var pair in schema.RequiredByType)
+            {
+                foreach (var name in pair.Value)
+                {
+                    if (fields.Exists(field => string.Equals(field.Name, name, StringComparison.Ordinal)))
+                    {
+                        continue;
+                    }
+
+                    fields.Add(new TableFieldDescription(
+                        name,
+                        driver.MapFieldType("string"),
+                        isRequired: false,
+                        enumValues: Array.Empty<string>(),
+                        ownership: "策划端",
+                        isEditableAfterLock: false,
+                        logicalType: "string"));
+                }
             }
 
             var forms = new List<TableFormDescription>();

@@ -1094,8 +1094,19 @@ namespace Template.Toolkit.CommandHost.Commands
                 lines.Add($"跳过：{ReadString(item, "表名")}（{ReadString(item, "原因")}）");
             }
 
-            lines.Add($"共建 {created.Count} 张、跳过 {skipped.Count} 张");
-            return CommandResult.Success($"建表完成：建了 {created.Count} 张、跳过 {skipped.Count} 张", lines);
+            var addedColumns = ReadArray(result.Payload, "补的列");
+            foreach (var item in addedColumns)
+            {
+                if (item.ValueKind == JsonValueKind.Object)
+                {
+                    lines.Add($"补列：{ReadString(item, "字段")}（{ReadString(item, "下游类型")}）");
+                }
+            }
+
+            lines.Add($"共建 {created.Count} 张、跳过 {skipped.Count} 张、补列 {addedColumns.Count} 个");
+            return CommandResult.Success(
+                $"建表完成：建了 {created.Count} 张、跳过 {skipped.Count} 张、补列 {addedColumns.Count} 个",
+                lines);
         }
 
         /// <summary>

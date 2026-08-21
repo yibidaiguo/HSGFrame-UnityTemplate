@@ -521,7 +521,11 @@ namespace Template.Bridges.Feishu
                         return false;
                     }
 
-                    fields.Add(new FieldSchema(name, downstreamType, ReadStringArray(fieldElement, "单选项")));
+                    fields.Add(new FieldSchema(
+                        name,
+                        downstreamType,
+                        ReadStringArray(fieldElement, "单选项"),
+                        ReadString(fieldElement, "逻辑类型")));
                 }
             }
 
@@ -722,11 +726,12 @@ namespace Template.Bridges.Feishu
         /// <param name="name">字段名，如「标题」。</param>
         /// <param name="downstreamType">下游类型名，如 文本 / 多行文本 / 单选 / 复选框。</param>
         /// <param name="enumValues">单选/多选的选项列表；其余类型给空列表。</param>
-        public FieldSchema(string name, string downstreamType, IReadOnlyList<string> enumValues)
+        public FieldSchema(string name, string downstreamType, IReadOnlyList<string> enumValues, string logicalType = "")
         {
             Name = name;
             DownstreamType = downstreamType;
             EnumValues = enumValues ?? Array.Empty<string>();
+            LogicalType = logicalType ?? "";
         }
 
         /// <summary>字段名。</summary>
@@ -737,6 +742,25 @@ namespace Template.Bridges.Feishu
 
         /// <summary>单选/多选的选项列表；其余类型为空。</summary>
         public IReadOnlyList<string> EnumValues { get; }
+
+        /// <summary>
+        /// schema 里的逻辑类型（string / 数组 / 对象…）。下游只有「文本」这一种容器，
+        /// 逻辑类型是**唯一**能说清「这串文字原本是不是一个数组」的东西——
+        /// 没有它，写进去的数组读回来就永远是一坨字符串，往返闭不上。
+        /// </summary>
+        public string LogicalType { get; }
+
+        /// <summary>逻辑类型是不是数组。</summary>
+        public bool IsLogicalArray()
+        {
+            return string.Equals(LogicalType, "数组", StringComparison.Ordinal);
+        }
+
+        /// <summary>逻辑类型是不是对象。</summary>
+        public bool IsLogicalObject()
+        {
+            return string.Equals(LogicalType, "对象", StringComparison.Ordinal);
+        }
 
         /// <summary>该字段是否是单选（单选值必须在校验过的选项列表里）。</summary>
         public bool IsSingleSelect()
@@ -802,6 +826,28 @@ namespace Template.Bridges.Feishu
             }
 
             // 文本 / 多行文本 等其余类型：收 string。
+            // 例外是**声明过逻辑类型**的那些：schema 说这一列是数组或对象，
+            // 而下游只有文本一种容器，所以按约定序列化——数组一行一条、对象一份 JSON。
+            // 这不是「硬转」：硬转是拿一个没人定义过的规则去猜，这里规则写在建表描述里，
+            // 读方向按同一条规则切回来，往返是闭的（TryMapRead 对称处理）。
+            if (schema.IsLogicalArray() && logicalValue.ValueKind == JsonValueKind.Array)
+            {
+                if (!TryJoinArray(logicalValue, out var joined, out var arrayReason))
+                {
+                    reason = arrayReason;
+                    return false;
+                }
+
+                feishuValue = JsonSerializer.SerializeToElement(joined);
+                return true;
+            }
+
+            if (schema.IsLogicalObject() && logicalValue.ValueKind == JsonValueKind.Object)
+            {
+                feishuValue = JsonSerializer.SerializeToElement(logicalValue.GetRawText());
+                return true;
+            }
+
             if (logicalValue.ValueKind != JsonValueKind.String)
             {
                 reason = $"文本字段收字符串，给的是 {DescribeKind(logicalValue)}，不许硬转";
@@ -809,6 +855,38 @@ namespace Template.Bridges.Feishu
             }
 
             feishuValue = logicalValue.Clone();
+            return true;
+        }
+
+        /// <summary>
+        /// 数组 → 多行文本：元素必须全是字符串，一行一条。
+        /// 元素里有非字符串就报错——那种东西拼出来的文本切不回原样，往返就闭不上了。
+        /// 元素自己带换行也报错，同样的理由。
+        /// </summary>
+        private static bool TryJoinArray(JsonElement array, out string joined, out string reason)
+        {
+            joined = "";
+            reason = "";
+            var items = new List<string>();
+            foreach (var item in array.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.String)
+                {
+                    reason = $"数组字段的元素必须都是字符串，遇到 {DescribeKind(item)}";
+                    return false;
+                }
+
+                var text = item.GetString() ?? "";
+                if (text.Contains('\n') || text.Contains('\r'))
+                {
+                    reason = "数组字段的元素里不许带换行——一行一条是切回数组的唯一依据";
+                    return false;
+                }
+
+                items.Add(text);
+            }
+
+            joined = string.Join("\n", items);
             return true;
         }
 
@@ -843,10 +921,10 @@ namespace Template.Bridges.Feishu
             }
 
             // 文本 / 多行文本：飞书可能返回字符串，也可能返回 [{"text":…}] 富文本数组，归一化成字符串。
+            // 归一化之后，如果 schema 声明这一列逻辑上是数组或对象，再按写方向的同一条规则切回去。
             if (feishuValue.ValueKind == JsonValueKind.String)
             {
-                logicalValue = feishuValue.Clone();
-                return true;
+                return TryRestoreLogicalShape(schema, feishuValue.GetString() ?? "", out logicalValue, out reason);
             }
 
             if (feishuValue.ValueKind == JsonValueKind.Array)
@@ -854,8 +932,7 @@ namespace Template.Bridges.Feishu
                 var text = ExtractPlainTextFromArray(feishuValue);
                 if (text != null)
                 {
-                    logicalValue = JsonSerializer.SerializeToElement(text);
-                    return true;
+                    return TryRestoreLogicalShape(schema, text, out logicalValue, out reason);
                 }
 
                 reason = $"文本字段读回的是数组但提不出纯文本：{feishuValue.GetRawText()}";
@@ -864,6 +941,62 @@ namespace Template.Bridges.Feishu
 
             reason = $"文本字段读回的不是字符串也不是数组，是 {DescribeKind(feishuValue)}";
             return false;
+        }
+
+        /// <summary>
+        /// 按逻辑类型把读回来的文本切回原来的形状：数组按行切、对象按 JSON 解析、其余原样。
+        /// 对象那一支解析失败就报错，**不许把一段 JSON 文本当成普通字符串塞回去**——
+        /// 那样池子里会多出一个类型不对的字段，而校验器要到很后面才炸。
+        /// </summary>
+        private static bool TryRestoreLogicalShape(FieldSchema schema, string text, out JsonElement logicalValue, out string reason)
+        {
+            reason = "";
+            if (schema.IsLogicalArray())
+            {
+                var items = new List<string>();
+                foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
+                {
+                    if (line.Trim().Length > 0)
+                    {
+                        items.Add(line);
+                    }
+                }
+
+                logicalValue = JsonSerializer.SerializeToElement(items);
+                return true;
+            }
+
+            if (schema.IsLogicalObject())
+            {
+                if (text.Trim().Length == 0)
+                {
+                    logicalValue = JsonSerializer.SerializeToElement(new Dictionary<string, string>());
+                    return true;
+                }
+
+                try
+                {
+                    using var document = JsonDocument.Parse(text);
+                    if (document.RootElement.ValueKind != JsonValueKind.Object)
+                    {
+                        logicalValue = default;
+                        reason = $"字段「{schema.Name}」声明是对象，但读回来的文本解析出来不是对象";
+                        return false;
+                    }
+
+                    logicalValue = document.RootElement.Clone();
+                    return true;
+                }
+                catch (JsonException exception)
+                {
+                    logicalValue = default;
+                    reason = $"字段「{schema.Name}」声明是对象，但读回来的文本不是合法 JSON：{exception.Message}";
+                    return false;
+                }
+            }
+
+            logicalValue = JsonSerializer.SerializeToElement(text);
+            return true;
         }
 
         /// <summary>从 [{"text":…}] 形状的数组提取纯文本；提不出给 null。</summary>

@@ -19,8 +19,28 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             var description = TableDescriptionBuilder.Build(CreateSchema(), driver);
 
-            Assert.Equal(4, description.Fields.Count);
+            // schema 声明的 4 个字段 + 分类型必填的 4 个（目标/玩法/现状/期望）= 8 列。
+            // 断言从 4 改成 8 是**故意的**：分类型必填的字段原来只进表单、没有列，
+            // 结果一条合法的「系统」需求根本写不进下游表（真跑撞出来的）。
+            // 表单引用一个不存在的列本身就是坏的，所以补列，断言跟着改。
+            Assert.Equal(8, description.Fields.Count);
             Assert.Equal("需求", description.TableName);
+            Assert.Contains(description.Fields, field => field.Name == "目标");
+            Assert.Contains(description.Fields, field => field.Name == "期望");
+        }
+
+        /// <summary>字段带得上 schema 里的逻辑类型——数组存进文本列之后，只有它能说清该不该切回数组。</summary>
+        [Fact]
+        public void BuildCarriesLogicalTypeFromSchema()
+        {
+            using var workspace = new PoolTestWorkspace();
+            var driver = WriteDriver(workspace);
+
+            var description = TableDescriptionBuilder.Build(CreateSchema(), driver);
+
+            Assert.Equal("array", description.Fields.Single(field => field.Name == "验收标准").LogicalType);
+            Assert.Equal("string", description.Fields.Single(field => field.Name == "标题").LogicalType);
+            Assert.Equal("string", description.Fields.Single(field => field.Name == "目标").LogicalType);
         }
 
         /// <summary>枚举字段的下游类型是「单选」。</summary>

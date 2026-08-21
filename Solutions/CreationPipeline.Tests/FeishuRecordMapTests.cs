@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Template.Bridges.Feishu;
 using Template.Toolkit.CreationPipeline;
@@ -283,6 +284,64 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal("REQ-TEST-0001", RecordReader.SanitizeFileName("REQ-TEST-0001"));
             var sanitized = RecordReader.SanitizeFileName("a/b\\c:d");
             Assert.Equal("a_b_c_d", sanitized);
+        }
+
+        /// <summary>
+        /// 数组 → 多行文本 → 数组的往返必须闭合。
+        /// 这一条是真跑撞出来的：schema 里「验收标准」是数组，下游只有文本列，
+        /// 原来写方向直接判「不许硬转」，结果一条合法需求根本写不进下游表。
+        /// 现在按建表描述里的「逻辑类型」序列化，一行一条，读回来按同一条规则切开。
+        /// </summary>
+        [Fact]
+        public void ArrayFieldRoundTripsThroughTextColumn()
+        {
+            var schema = new FieldSchema("验收标准", "多行文本", Array.Empty<string>(), "数组");
+            var logical = JsonSerializer.SerializeToElement(new[] { "第一条", "第二条" });
+
+            Assert.True(FeishuRecordFieldMap.TryMapWrite(schema, logical, out var written, out var writeReason), writeReason);
+            Assert.Equal("第一条\n第二条", written.GetString());
+
+            Assert.True(FeishuRecordFieldMap.TryMapRead(schema, written, out var readBack, out var readReason), readReason);
+            Assert.Equal(JsonValueKind.Array, readBack.ValueKind);
+            Assert.Equal(new[] { "第一条", "第二条" }, readBack.EnumerateArray().Select(item => item.GetString()));
+        }
+
+        /// <summary>数组元素自带换行会被拒——一行一条是切回数组的唯一依据，混进换行往返就闭不上。</summary>
+        [Fact]
+        public void ArrayElementWithNewlineIsRejected()
+        {
+            var schema = new FieldSchema("验收标准", "多行文本", Array.Empty<string>(), "数组");
+            var logical = JsonSerializer.SerializeToElement(new[] { "第一条\n偷偷换行" });
+
+            Assert.False(FeishuRecordFieldMap.TryMapWrite(schema, logical, out _, out var reason));
+            Assert.Contains("换行", reason);
+        }
+
+        /// <summary>对象 → 文本 → 对象同样闭合；读回来不是合法 JSON 要报错，不许当普通字符串塞回去。</summary>
+        [Fact]
+        public void ObjectFieldRoundTripsAndRejectsGarbage()
+        {
+            var schema = new FieldSchema("来源", "多行文本", Array.Empty<string>(), "对象");
+            var logical = JsonSerializer.SerializeToElement(new Dictionary<string, string> { ["渠道"] = "助手会话" });
+
+            Assert.True(FeishuRecordFieldMap.TryMapWrite(schema, logical, out var written, out var writeReason), writeReason);
+            Assert.True(FeishuRecordFieldMap.TryMapRead(schema, written, out var readBack, out _));
+            Assert.Equal("助手会话", readBack.GetProperty("渠道").GetString());
+
+            var garbage = JsonSerializer.SerializeToElement("not json at all");
+            Assert.False(FeishuRecordFieldMap.TryMapRead(schema, garbage, out _, out var reason));
+            Assert.Contains("对象", reason);
+        }
+
+        /// <summary>没声明逻辑类型的文本列行为一个字不变：收字符串，给别的报错。</summary>
+        [Fact]
+        public void PlainTextFieldKeepsOldBehaviour()
+        {
+            var schema = new FieldSchema("标题", "文本", Array.Empty<string>());
+
+            Assert.True(FeishuRecordFieldMap.TryMapWrite(schema, JsonSerializer.SerializeToElement("背包排序"), out _, out _));
+            Assert.False(FeishuRecordFieldMap.TryMapWrite(schema, JsonSerializer.SerializeToElement(new[] { "a" }), out _, out var reason));
+            Assert.Contains("不许硬转", reason);
         }
     }
 }

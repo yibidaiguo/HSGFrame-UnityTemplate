@@ -48,8 +48,11 @@ namespace Template.Bridges.Feishu
                     case "pull":
                         response = RecordReader.RunPull(request);
                         break;
+                    case "reply":
+                        response = MessageReplier.Reply(request);
+                        break;
                     default:
-                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥只支持 apply / card / push / pull", retryable: false);
+                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥支持 apply / card / push / pull / reply", retryable: false);
                         break;
                 }
 

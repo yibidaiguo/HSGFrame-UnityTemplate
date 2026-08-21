@@ -1,0 +1,165 @@
+using System;
+using System.IO;
+using System.Text.Json;
+
+namespace Template.Toolkit.CreationPipeline
+{
+    /// <summary>
+    /// 一条待回话的会话消息：从会话信号文件里的「会话」块读出来的归一形状。
+    ///
+    /// **信号文件里还有一份原始载荷，引擎一个字都不看**——那份是下游特有的形状，
+    /// 解析它属于下游知识（决策 93），所以归一这一步由桥的旁路做，引擎只认「会话」块。
+    /// 这样换一个消息下游，引擎侧零改动。
+    /// </summary>
+    public sealed class AssistantConversationMessage
+    {
+        /// <summary>
+        /// 构造一条会话消息。
+        /// </summary>
+        /// <param name="conversationIdentifier">会话标识，回话时按它找回去。</param>
+        /// <param name="senderIdentifier">发件人标识。</param>
+        /// <param name="messageIdentifier">消息标识，用于幂等与回复定位。</param>
+        /// <param name="messageKind">消息类型，如 text；非文字类型引擎不处理但要如实说。</param>
+        /// <param name="text">消息正文；非文字消息为空串。</param>
+        /// <param name="receivedAt">收到时间，原样字符串。</param>
+        public AssistantConversationMessage(
+            string conversationIdentifier,
+            string senderIdentifier,
+            string messageIdentifier,
+            string messageKind,
+            string text,
+            string receivedAt)
+        {
+            ConversationIdentifier = conversationIdentifier ?? "";
+            SenderIdentifier = senderIdentifier ?? "";
+            MessageIdentifier = messageIdentifier ?? "";
+            MessageKind = messageKind ?? "";
+            Text = text ?? "";
+            ReceivedAt = receivedAt ?? "";
+        }
+
+        /// <summary>会话标识，回话时按它找回去。</summary>
+        public string ConversationIdentifier { get; }
+
+        /// <summary>发件人标识。</summary>
+        public string SenderIdentifier { get; }
+
+        /// <summary>消息标识，用于幂等与回复定位。</summary>
+        public string MessageIdentifier { get; }
+
+        /// <summary>消息类型，如 text。</summary>
+        public string MessageKind { get; }
+
+        /// <summary>消息正文；非文字消息为空串。</summary>
+        public string Text { get; }
+
+        /// <summary>收到时间，原样字符串。</summary>
+        public string ReceivedAt { get; }
+
+        /// <summary>是不是一条能处理的文字消息：类型是 text 且正文非空。</summary>
+        public bool IsHandleableText
+        {
+            get { return string.Equals(MessageKind, "text", StringComparison.Ordinal) && Text.Trim().Length > 0; }
+        }
+
+        /// <summary>
+        /// 从会话信号文件读一条消息。文件读不动、不是 JSON、缺「会话」块都算失败并写清原因——
+        /// **不许拿空对象顶上去**（决策 42：读不动与「没有内容」是两支）。
+        /// </summary>
+        /// <param name="signalFilePath">会话信号文件路径。</param>
+        /// <param name="message">读成功时的消息；失败时为 null。</param>
+        /// <param name="reason">失败原因，人能看懂。</param>
+        public static bool TryReadFile(string signalFilePath, out AssistantConversationMessage message, out string reason)
+        {
+            message = null;
+            reason = "";
+
+            string text;
+            try
+            {
+                text = File.ReadAllText(signalFilePath);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                reason = "会话信号文件读不动：" + exception.Message;
+                return false;
+            }
+
+            return TryParse(text, out message, out reason);
+        }
+
+        /// <summary>
+        /// 从会话信号 JSON 文本解析一条消息。
+        /// </summary>
+        /// <param name="signalText">信号文件的 JSON 文本。</param>
+        /// <param name="message">解析成功时的消息；失败时为 null。</param>
+        /// <param name="reason">失败原因，人能看懂。</param>
+        public static bool TryParse(string signalText, out AssistantConversationMessage message, out string reason)
+        {
+            message = null;
+            reason = "";
+            if (string.IsNullOrWhiteSpace(signalText))
+            {
+                reason = "会话信号是空的";
+                return false;
+            }
+
+            JsonDocument document;
+            try
+            {
+                document = JsonDocument.Parse(signalText);
+            }
+            catch (JsonException exception)
+            {
+                reason = "会话信号不是合法 JSON：" + exception.Message;
+                return false;
+            }
+
+            using (document)
+            {
+                var root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object)
+                {
+                    reason = "会话信号的顶层不是 JSON 对象";
+                    return false;
+                }
+
+                if (!root.TryGetProperty("会话", out var conversation) || conversation.ValueKind != JsonValueKind.Object)
+                {
+                    reason = "会话信号里没有「会话」块——这份信号是旧格式或不是会话事件，"
+                        + "归一那一步该由下游旁路做（决策 93）";
+                    return false;
+                }
+
+                var conversationIdentifier = ReadString(conversation, "会话标识");
+                if (conversationIdentifier.Length == 0)
+                {
+                    reason = "「会话」块里没有会话标识，回话就没有去处";
+                    return false;
+                }
+
+                message = new AssistantConversationMessage(
+                    conversationIdentifier,
+                    ReadString(conversation, "发件人标识"),
+                    ReadString(conversation, "消息标识"),
+                    ReadString(conversation, "消息类型"),
+                    ReadString(conversation, "文本"),
+                    ReadString(root, "收到时间"));
+                return true;
+            }
+        }
+
+        /// <summary>读对象里的字符串键；缺失或类型不对给空串。</summary>
+        private static string ReadString(JsonElement element, string propertyName)
+        {
+            if (element.ValueKind == JsonValueKind.Object
+                && element.TryGetProperty(propertyName, out var value)
+                && value.ValueKind == JsonValueKind.String)
+            {
+                return value.GetString() ?? "";
+            }
+
+            return "";
+        }
+    }
+}

@@ -1,6 +1,9 @@
 using System;
 using System.IO;
-using System.Linq;
+using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Template.Toolkit.CreationPipeline
 {
@@ -58,23 +61,11 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="repositoryRoot">仓库根目录。</param>
         public static WakeSignalPoll Poll(string repositoryRoot)
         {
-            var directory = SignalDirectory(repositoryRoot);
-            if (!Directory.Exists(directory))
-            {
-                return new WakeSignalPoll(false, "", "唤醒目录不存在");
-            }
-
-            // 按文件名序数序排序，不许按时间排——时间在门禁里不稳定（决策 58 同源）。
-            var candidates = Directory
-                .GetFiles(directory, "*.json", SearchOption.TopDirectoryOnly)
-                .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
-                .ToList();
-            if (candidates.Count == 0)
-            {
-                return new WakeSignalPoll(false, "", "唤醒目录没有待处理信号");
-            }
-
-            return new WakeSignalPoll(true, candidates[0], $"发现唤醒信号：{candidates[0]}");
+            var poll = SignalDirectoryQueue.Poll(
+                SignalDirectory(repositoryRoot),
+                "唤醒目录没有待处理信号",
+                "唤醒目录不存在");
+            return new WakeSignalPoll(poll.HasSignal, poll.SignalFilePath, poll.Reason);
         }
 
         /// <summary>
@@ -86,24 +77,51 @@ namespace Template.Toolkit.CreationPipeline
         /// <returns>归档后的绝对路径；移动失败时为空串。</returns>
         public static string Consume(string repositoryRoot, string signalFilePath)
         {
+            return SignalDirectoryQueue.Consume(ArchiveDirectory(repositoryRoot), signalFilePath);
+        }
+
+        /// <summary>
+        /// 投一个唤醒信号：本进程自己产的事件（如助手写完了需求草稿）也要能叫醒引擎。
+        /// 文件名带时间戳与事件名，同一秒多个信号靠毫秒段与去重后缀区分，不互相覆盖。
+        /// 写失败返回空串、不抛——投信号失败不该把调用方那一轮弄崩（决策 83 同源）。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="eventKind">事件名，进文件名，非 ASCII 与路径分隔符会被替换掉。</param>
+        /// <param name="detail">事件明细，原样进信号的「载荷」。</param>
+        /// <param name="now">当前时间，由调用方给（门禁里要可复现，决策 58）。</param>
+        /// <returns>写成的信号文件绝对路径；失败时为空串。</returns>
+        public static string Emit(string repositoryRoot, string eventKind, JsonObject detail, DateTimeOffset now)
+        {
             try
             {
-                var archiveDirectory = ArchiveDirectory(repositoryRoot);
-                Directory.CreateDirectory(archiveDirectory);
+                var directory = SignalDirectory(repositoryRoot);
+                Directory.CreateDirectory(directory);
 
-                var fileName = Path.GetFileName(signalFilePath);
-                var destination = Path.Combine(archiveDirectory, fileName);
+                var safeKind = SanitizeForFileName(string.IsNullOrWhiteSpace(eventKind) ? "信号" : eventKind);
+                var stamp = now.ToUniversalTime().ToString("yyyyMMdd'T'HHmmss'-'fff");
+                var candidate = Path.Combine(directory, $"{stamp}-{safeKind}.json");
                 var suffix = 2;
-                while (File.Exists(destination))
+                while (File.Exists(candidate))
                 {
-                    var name = Path.GetFileNameWithoutExtension(fileName);
-                    var extension = Path.GetExtension(fileName);
-                    destination = Path.Combine(archiveDirectory, $"{name}-{suffix}{extension}");
+                    candidate = Path.Combine(directory, $"{stamp}-{safeKind}-{suffix}.json");
                     suffix++;
                 }
 
-                File.Move(signalFilePath, destination);
-                return destination;
+                var body = new JsonObject
+                {
+                    ["来源"] = "引擎内部",
+                    ["事件"] = eventKind ?? "",
+                    ["收到时间"] = now.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+                    ["载荷"] = detail ?? new JsonObject()
+                };
+
+                var options = new JsonSerializerOptions(JsonSerializerOptions.Default)
+                {
+                    WriteIndented = true,
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
+                File.WriteAllText(candidate, JsonSerializer.Serialize(body, options), new UTF8Encoding(false));
+                return candidate;
             }
             catch (Exception exception) when (
                 exception is IOException
@@ -113,6 +131,20 @@ namespace Template.Toolkit.CreationPipeline
             {
                 return "";
             }
+        }
+
+        /// <summary>把事件名里的路径分隔符与非法文件名字符换成下划线，防路径穿越。</summary>
+        private static string SanitizeForFileName(string text)
+        {
+            var invalid = Path.GetInvalidFileNameChars();
+            var builder = new StringBuilder();
+            foreach (var ch in text)
+            {
+                builder.Append(Array.IndexOf(invalid, ch) >= 0 ? '_' : ch);
+            }
+
+            var result = builder.ToString().Trim();
+            return result.Length == 0 ? "信号" : result;
         }
     }
 }
