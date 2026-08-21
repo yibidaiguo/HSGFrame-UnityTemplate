@@ -1613,7 +1613,7 @@ namespace Template.Toolkit.Dashboard
         /// <summary>
         /// 读资产页：扫 _Tasks/&lt;需求id&gt;/资产请求/ 下的 *.json（各一层，不递归）。
         /// 每份用 AssetRequest.Read 读，读不动的跳过不产行；资产类型与请求里的规格摘要直接取自请求。
-        /// 变体合格判定与选片一致：顶层图片文件且有同名「.溯源.json」边车才算合格，弃置数与预览存在性用 AssetPaths 数。
+        /// 变体合格判定与选片一致：顶层图片文件且有同名「.provenance.json」边车才算合格，弃置数与预览存在性用 AssetPaths 数。
         /// 结果按资产 id 序数序。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>

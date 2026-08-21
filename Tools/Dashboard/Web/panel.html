@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-主题="暗">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>创作管线面板</title>
+<style>
+/* ── 颜色令牌：暗色取 Catppuccin Mocha，亮色取 Latte。两套只换变量，组件样式一份。 ── */
+:root {
+    --底: #1e1e2e; --层1: #181825; --层2: #11111b; --面: #252537;
+    --线: #313244; --线亮: #45475a;
+    --字: #cdd6f4; --字次: #a6adc8; --字弱: #6c7086;
+    --主: #89b4fa; --主浅: rgba(137,180,250,.14);
+    --绿: #a6e3a1; --绿浅: rgba(166,227,161,.14);
+    --红: #f38ba8; --红浅: rgba(243,139,168,.14);
+    --黄: #f9e2af; --黄浅: rgba(249,226,175,.14);
+    --紫: #cba6f7; --青: #94e2d5; --橙: #fab387;
+    --影: 0 1px 2px rgba(0,0,0,.28), 0 4px 14px rgba(0,0,0,.22);
+    --圆: 10px; --圆小: 6px;
+}
+html[data-主题="亮"] {
+    --底: #eff1f5; --层1: #e6e9ef; --层2: #dce0e8; --面: #ffffff;
+    --线: #ccd0da; --线亮: #bcc0cc;
+    --字: #4c4f69; --字次: #5c5f77; --字弱: #8c8fa1;
+    --主: #1e66f5; --主浅: rgba(30,102,245,.10);
+    --绿: #40a02b; --绿浅: rgba(64,160,43,.12);
+    --红: #d20f39; --红浅: rgba(210,15,57,.10);
+    --黄: #df8e1d; --黄浅: rgba(223,142,29,.12);
+    --紫: #8839ef; --青: #179299; --橙: #fe640b;
+    --影: 0 1px 2px rgba(0,0,0,.06), 0 4px 14px rgba(0,0,0,.07);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+    font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    background: var(--底); color: var(--字); font-size: 13px; line-height: 1.55;
+    overflow: hidden;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--线亮); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ── 骨架：左侧栏 + 右主区 + 底部命令条 ── */
+#壳 { display: flex; height: 100%; }
+#侧栏 {
+    width: 232px; flex: 0 0 232px; background: var(--层1); border-right: 1px solid var(--线);
+    display: flex; flex-direction: column; overflow: hidden;
+}
+#品牌 { padding: 16px 16px 12px; display: flex; align-items: center; gap: 9px; }
+#品牌 .标 {
+    width: 26px; height: 26px; border-radius: 8px; flex: 0 0 26px;
+    background: linear-gradient(135deg, var(--主), var(--紫));
+    display: flex; align-items: center; justify-content: center; color: #11111b; font-weight: 700; font-size: 13px;
+}
+#品牌 .名 { font-size: 14px; font-weight: 600; letter-spacing: .3px; }
+#品牌 .副 { font-size: 11px; color: var(--字弱); }
+#导航 { flex: 1; overflow-y: auto; padding: 4px 8px 12px; }
+.组名 {
+    font-size: 10.5px; color: var(--字弱); letter-spacing: 1.2px; font-weight: 600;
+    padding: 14px 8px 5px;
+}
+.页项 {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 7px 9px; margin-bottom: 1px; border: 0; border-radius: var(--圆小);
+    background: transparent; color: var(--字次); font: inherit; font-size: 12.5px;
+    cursor: pointer; text-align: left; transition: background .13s, color .13s;
+}
+.页项:hover { background: var(--线); color: var(--字); }
+.页项.当前 { background: var(--主浅); color: var(--主); font-weight: 600; }
+.页项.当前 .图 { opacity: 1; }
+.页项 .图 { width: 15px; height: 15px; flex: 0 0 15px; opacity: .72; }
+.页项 .文 { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.页项 .徽 {
+    font-size: 10.5px; padding: 1px 6px; border-radius: 20px; font-variant-numeric: tabular-nums;
+    background: var(--线); color: var(--字次); min-width: 20px; text-align: center;
+}
+.页项 .徽.红 { background: var(--红浅); color: var(--红); }
+.页项 .徽.绿 { background: var(--绿浅); color: var(--绿); }
+.页项 .徽.黄 { background: var(--黄浅); color: var(--黄); }
+#侧栏底 { border-top: 1px solid var(--线); padding: 9px 10px; display: flex; gap: 6px; align-items: center; }
+
+#主区 { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+#页头 {
+    padding: 15px 22px 0; background: var(--底); border-bottom: 1px solid var(--线); position: relative;
+}
+#页头 .行1 { display: flex; align-items: flex-start; gap: 14px; }
+#页头 .题区 { flex: 1; min-width: 0; }
+#面包屑 { font-size: 11px; color: var(--字弱); margin-bottom: 2px; }
+#页标题 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: .2px; }
+#页说明 { margin: 3px 0 0; font-size: 12px; color: var(--字次); max-width: 900px; }
+#页头 .具区 { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+#页头 .条 { display: flex; align-items: center; gap: 10px; padding: 9px 0 10px; font-size: 11.5px; color: var(--字弱); }
+#进度条 { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; overflow: hidden; }
+#进度条 i {
+    display: block; height: 100%; width: 34%; background: var(--主); border-radius: 2px;
+    transform: translateX(-100%); animation: 跑 1.05s ease-in-out infinite; opacity: 0;
+}
+#进度条.走 i { opacity: 1; }
+@keyframes 跑 { 0% { transform: translateX(-110%); } 100% { transform: translateX(340%); } }
+#内容 { flex: 1; overflow: auto; padding: 18px 22px 26px; }
+#内容.载入中 { opacity: .45; transition: opacity .1s; }
+
+/* ── 控件 ── */
+.钮 {
+    font: inherit; font-size: 12px; padding: 5px 11px; border-radius: var(--圆小); cursor: pointer;
+    background: var(--面); color: var(--字); border: 1px solid var(--线亮);
+    display: inline-flex; align-items: center; gap: 5px; transition: background .13s, border-color .13s;
+}
+.钮:hover:not(:disabled) { background: var(--线); border-color: var(--字弱); }
+.钮:disabled { opacity: .42; cursor: not-allowed; }
+.钮.主 { background: var(--主); border-color: var(--主); color: var(--底); font-weight: 600; }
+.钮.主:hover:not(:disabled) { filter: brightness(1.08); background: var(--主); }
+.钮.危 { border-color: var(--红); color: var(--红); }
+.钮.危:hover:not(:disabled) { background: var(--红浅); }
+.钮.细 { padding: 3px 8px; font-size: 11.5px; }
+.钮.图钮 { padding: 5px 7px; }
+.钮 svg { width: 14px; height: 14px; }
+a.钮 { text-decoration: none; }
+.输 {
+    font: inherit; font-size: 12px; padding: 5px 10px; border-radius: var(--圆小);
+    background: var(--层2); color: var(--字); border: 1px solid var(--线亮); outline: none; min-width: 0;
+}
+.输:focus { border-color: var(--主); box-shadow: 0 0 0 2px var(--主浅); }
+.输::placeholder { color: var(--字弱); }
+select.输 { cursor: pointer; }
+.搜区 { position: relative; display: flex; align-items: center; }
+.搜区 svg { position: absolute; left: 8px; width: 13px; height: 13px; color: var(--字弱); pointer-events: none; }
+.搜区 .输 { padding-left: 27px; width: 190px; }
+
+/* ── 徽章 / 状态 ── */
+.态 {
+    display: inline-flex; align-items: center; gap: 5px; padding: 1.5px 8px; border-radius: 20px;
+    font-size: 11.5px; font-weight: 600; white-space: nowrap;
+    background: var(--线); color: var(--字次);
+}
+.态::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.态.绿 { background: var(--绿浅); color: var(--绿); }
+.态.红 { background: var(--红浅); color: var(--红); }
+.态.黄 { background: var(--黄浅); color: var(--黄); }
+.态.蓝 { background: var(--主浅); color: var(--主); }
+.态.灰 { background: var(--线); color: var(--字弱); }
+.态.无点::before { display: none; }
+.绿 { color: var(--绿); } .红 { color: var(--红); } .黄 { color: var(--黄); } .灰 { color: var(--字弱); }
+.弱 { color: var(--字弱); } .次 { color: var(--字次); }
+.小字 { font-size: 11.5px; }
+.等宽 { font-family: ui-monospace, Consolas, "Cascadia Mono", monospace; font-size: 11.5px; }
+
+/* ── 卡片 / 网格 ── */
+.板 {
+    background: var(--层1); border: 1px solid var(--线); border-radius: var(--圆);
+    padding: 14px 16px; margin-bottom: 16px;
+}
+.板 > .板题 {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin: -2px 0 11px; font-size: 13px; font-weight: 600; color: var(--字);
+}
+.板 > .板题 .右 { font-size: 11.5px; font-weight: 400; color: var(--字弱); }
+.格 { display: grid; gap: 12px; }
+.格.自适应 { grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); }
+.格.宽卡 { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+
+.指标 {
+    background: var(--层1); border: 1px solid var(--线); border-radius: var(--圆);
+    padding: 13px 15px; display: flex; flex-direction: column; gap: 2px;
+    transition: transform .13s, border-color .13s, box-shadow .13s; position: relative; overflow: hidden;
+}
+.指标.可点 { cursor: pointer; }
+.指标.可点:hover { transform: translateY(-2px); border-color: var(--线亮); box-shadow: var(--影); }
+.指标 .头 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.指标 .名 { font-size: 11.5px; color: var(--字次); }
+.指标 .数 { font-size: 27px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: -.5px; }
+.指标 .脚 { font-size: 11px; color: var(--字弱); }
+.指标 .条 { margin-top: 7px; }
+.指标::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--线亮); }
+.指标.绿边::after { background: var(--绿); }
+.指标.红边::after { background: var(--红); }
+.指标.黄边::after { background: var(--黄); }
+.指标.蓝边::after { background: var(--主); }
+
+/* ── 进度条 / 堆叠条 ── */
+.条 { height: 6px; border-radius: 4px; background: var(--线); overflow: hidden; display: flex; }
+.条 i { display: block; height: 100%; transition: width .3s ease; }
+.堆条 { height: 13px; border-radius: 5px; overflow: hidden; display: flex; background: var(--线); }
+.堆条 i { height: 100%; }
+.图例 { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 9px; font-size: 11.5px; }
+.图例 span { display: inline-flex; align-items: center; gap: 6px; color: var(--字次); }
+.图例 b { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.图例 em { font-style: normal; color: var(--字); font-variant-numeric: tabular-nums; }
+
+/* ── 门禁小方块阵 ── */
+.方阵 { display: flex; flex-wrap: wrap; gap: 5px; }
+.方 {
+    width: 26px; height: 26px; border-radius: var(--圆小); background: var(--线);
+    display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--字弱);
+    cursor: default; transition: transform .12s;
+}
+.方:hover { transform: scale(1.14); }
+.方.绿 { background: var(--绿浅); color: var(--绿); box-shadow: inset 0 0 0 1px var(--绿); }
+.方.红 { background: var(--红浅); color: var(--红); box-shadow: inset 0 0 0 1px var(--红); }
+
+/* ── 表格 ── */
+.表壳 { overflow-x: auto; border: 1px solid var(--线); border-radius: var(--圆); background: var(--层1); }
+table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; }
+thead th {
+    position: sticky; top: 0; z-index: 2; background: var(--层2); color: var(--字次);
+    font-weight: 600; text-align: left; padding: 8px 11px; white-space: nowrap;
+    border-bottom: 1px solid var(--线);
+}
+thead th.可排 { cursor: pointer; user-select: none; }
+thead th.可排:hover { color: var(--字); }
+thead th .箭 { opacity: .3; margin-left: 3px; font-size: 9px; }
+thead th.升 .箭, thead th.降 .箭 { opacity: 1; color: var(--主); }
+tbody td { padding: 7px 11px; border-bottom: 1px solid var(--线); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:nth-child(even) { background: rgba(127,127,127,.035); }
+tbody tr:hover { background: var(--主浅); }
+tbody tr.重 { background: var(--红浅) !important; }
+tbody tr.淡 td { color: var(--字弱); }
+td.空 { color: var(--字弱); }
+td .截 { display: block; max-width: 330px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.表脚 { padding: 7px 11px; font-size: 11.5px; color: var(--字弱); border-top: 1px solid var(--线); }
+
+/* ── 空态 / 错误态 ── */
+.空态 {
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    padding: 44px 20px; text-align: center; color: var(--字弱);
+    border: 1px dashed var(--线亮); border-radius: var(--圆); background: var(--层1);
+}
+.空态 svg { width: 30px; height: 30px; opacity: .5; }
+.空态 .题 { font-size: 13.5px; color: var(--字次); font-weight: 600; }
+.空态 .说 { font-size: 12px; max-width: 460px; }
+.错态 {
+    border: 1px solid var(--红); background: var(--红浅); border-radius: var(--圆);
+    padding: 14px 16px; margin-bottom: 16px;
+}
+.错态 .题 { font-weight: 600; color: var(--红); margin-bottom: 4px; }
+.错态 .说 { font-size: 12px; color: var(--字次); }
+/* 提示态跟错态长得像但不是红的：「门禁还没跑」「还没填操作人」这类不是错误，
+   是「现在还不能往下走，缺的是这个」。用红色说它们等于把没出的错说成出了错。 */
+.提示态 {
+    border: 1px solid var(--线亮); border-left: 3px solid var(--黄); background: var(--黄浅);
+    border-radius: var(--圆); padding: 12px 15px; margin-bottom: 16px;
+}
+.提示态 .题 { font-weight: 600; color: var(--黄); margin-bottom: 3px; }
+.提示态 .说 { font-size: 12px; color: var(--字次); }
+
+/* ── 任务图 ── */
+#图区 { overflow: auto; background: var(--层1); border: 1px solid var(--线); border-radius: var(--圆); padding: 12px; }
+#图区 svg { display: block; }
+.节点框 { fill: var(--面); stroke: var(--线亮); stroke-width: 1; }
+.节点框.完 { stroke: var(--绿); fill: var(--绿浅); }
+.节点框.环 { stroke: var(--红); fill: var(--红浅); stroke-width: 1.6; }
+.节点框.做 { stroke: var(--主); fill: var(--主浅); }
+.节点标 { fill: var(--字); font-size: 11px; font-weight: 600; }
+.节点副 { fill: var(--字弱); font-size: 10px; }
+.连线 { stroke: var(--线亮); stroke-width: 1.3; fill: none; }
+.层标 { fill: var(--字弱); font-size: 10.5px; }
+
+/* ── 色板 ── */
+.色块 { display: inline-block; width: 20px; height: 20px; border-radius: 5px; border: 1px solid var(--线亮); margin: 2px 3px 0 0; }
+
+/* ── 命令抽屉 ── */
+#命令条 {
+    border-top: 1px solid var(--线); background: var(--层1); padding: 6px 22px;
+    display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--字弱); flex: 0 0 auto;
+}
+#命令抽屉 { display: none; padding: 12px 22px 14px; background: var(--层1); border-top: 1px solid var(--线); flex: 0 0 auto; max-height: 44vh; overflow: auto; }
+#命令抽屉.开 { display: block; }
+#命令行 { flex: 1; font-family: ui-monospace, Consolas, monospace; }
+#命令输出 {
+    margin: 10px 0 0; padding: 9px 11px; max-height: 210px; overflow: auto; background: var(--层2);
+    border-radius: var(--圆小); border: 1px solid var(--线);
+    font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; white-space: pre-wrap; word-break: break-all;
+}
+.速令 { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.速令 button {
+    font: inherit; font-size: 11px; padding: 3px 9px; border-radius: 20px; cursor: pointer;
+    background: var(--面); border: 1px solid var(--线); color: var(--字次);
+    font-family: ui-monospace, Consolas, monospace;
+}
+.速令 button:hover { border-color: var(--主); color: var(--主); }
+
+/* ── 快捷键面板 / 吐司 ── */
+#键帮 { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 40; align-items: center; justify-content: center; }
+#键帮.开 { display: flex; }
+#键帮 .框 { background: var(--层1); border: 1px solid var(--线亮); border-radius: var(--圆); padding: 18px 22px; min-width: 320px; box-shadow: var(--影); }
+#键帮 h3 { margin: 0 0 12px; font-size: 14px; }
+#键帮 dl { display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; margin: 0; font-size: 12.5px; }
+#键帮 dt { text-align: right; }
+kbd {
+    font-family: ui-monospace, Consolas, monospace; font-size: 11px; padding: 1px 6px;
+    background: var(--层2); border: 1px solid var(--线亮); border-bottom-width: 2px; border-radius: 4px; color: var(--字);
+}
+#吐司 { position: fixed; right: 20px; bottom: 66px; z-index: 50; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+#吐司 div {
+    background: var(--面); border: 1px solid var(--线亮); border-left-width: 3px; border-radius: var(--圆小);
+    padding: 8px 14px; font-size: 12px; box-shadow: var(--影); animation: 浮 .18s ease;
+}
+#吐司 div.成 { border-left-color: var(--绿); }
+#吐司 div.败 { border-left-color: var(--红); }
+@keyframes 浮 { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ── 窄屏 ── */
+@media (max-width: 900px) {
+    #壳 { flex-direction: column; }
+    #侧栏 { width: 100%; flex: 0 0 auto; border-right: 0; border-bottom: 1px solid var(--线); }
+    #导航 { display: flex; overflow-x: auto; padding: 6px; gap: 4px; }
+    .组名 { display: none; }
+    .页项 { width: auto; white-space: nowrap; }
+    .页项 .徽 { display: none; }
+    #品牌 { padding: 10px 12px 6px; }
+    #侧栏底 { position: absolute; right: 10px; top: 10px; border: 0; padding: 0; }
+    #内容, #页头, #命令条, #命令抽屉 { padding-left: 14px; padding-right: 14px; }
+}
+</style>
+</head>
+<body>
+<div id="壳">
+    <aside id="侧栏">
+        <div id="品牌">
+            <div class="标">管</div>
+            <div>
+                <div class="名">创作管线</div>
+                <div class="副">面板 · 现读文件</div>
+            </div>
+        </div>
+        <nav id="导航"></nav>
+        <div id="侧栏底">
+            <button class="钮 图钮" id="主题钮" title="亮 / 暗主题（t）">◐</button>
+            <select class="输" id="自刷选" title="自动刷新间隔" style="flex:1;font-size:11.5px;padding:4px 6px;">
+                <option value="0">不自动刷新</option>
+                <option value="15">每 15 秒</option>
+                <option value="60">每 60 秒</option>
+                <option value="300">每 5 分钟</option>
+            </select>
+            <a class="钮 图钮" href="/" title="去日志看板（另一份页面，看实时日志流）">≡</a>
+        </div>
+    </aside>
+    <div id="主区">
+        <header id="页头">
+            <div class="行1">
+                <div class="题区">
+                    <div id="面包屑"></div>
+                    <h1 id="页标题">总览</h1>
+                    <p id="页说明"></p>
+                </div>
+                <div class="具区">
+                    <div class="搜区">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                        <input class="输" id="搜索框" placeholder="过滤本页（/）">
+                    </div>
+                    <input class="输" id="操作人" placeholder="操作人（裁决用）" style="width:132px;" title="裁决、批准一类动作要署名；只存在本机浏览器里">
+                    <button class="钮" id="刷新钮" title="重新拉这一页（r）">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+                        刷新
+                    </button>
+                </div>
+            </div>
+            <div class="条">
+                <span id="数据时间">—</span>
+                <span id="页计数"></span>
+                <span style="flex:1"></span>
+                <span class="弱">按 <kbd>?</kbd> 看快捷键</span>
+            </div>
+            <div id="进度条"><i></i></div>
+        </header>
+        <main id="内容"></main>
+        <div id="命令抽屉">
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input class="输" id="命令行" placeholder="pool.validate --PoolRoot Pools">
+                <button class="钮 主" id="执行">执行</button>
+                <button class="钮" id="收抽屉">收起</button>
+            </div>
+            <div class="速令" id="速令"></div>
+            <pre id="命令输出" class="弱">还没执行过命令。只放行 task. / pool. / bridge. / engine. / conflict. / spec. 六族，其余一律拒绝。</pre>
+        </div>
+        <div id="命令条">
+            <button class="钮 细" id="开抽屉">命令台</button>
+            <span id="命令态">就绪</span>
+            <span style="flex:1"></span>
+            <span class="弱">零外部依赖 · 页面不存业务状态</span>
+        </div>
+    </div>
+</div>
+<div id="吐司"></div>
+<div id="键帮"><div class="框">
+    <h3>快捷键</h3>
+    <dl>
+        <dt><kbd>/</kbd></dt><dd>聚焦本页过滤框</dd>
+        <dt><kbd>r</kbd></dt><dd>刷新当前页</dd>
+        <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>上一页 / 下一页</dd>
+        <dt><kbd>c</kbd></dt><dd>开合命令台</dd>
+        <dt><kbd>t</kbd></dt><dd>切换亮 / 暗主题</dd>
+        <dt><kbd>Esc</kbd></dt><dd>清过滤 / 关面板</dd>
+    </dl>
+</div></div>
+<script>
+/*脚本占位*/
+</script>
+</body>
+</html>

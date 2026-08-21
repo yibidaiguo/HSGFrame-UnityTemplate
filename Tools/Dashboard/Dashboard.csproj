@@ -12,4 +12,10 @@
   <ItemGroup>
     <ProjectReference Include="../CreationPipeline/CreationPipeline.csproj" />
   </ItemGroup>
+  <!-- 面板正文是两个真文件，嵌进程序集后由 CreationPanelPage 装配；
+       资源名固定成 Template.Toolkit.Dashboard.Web.<文件名>，别让默认的目录推导决定它。 -->
+  <ItemGroup>
+    <EmbeddedResource Include="Web/panel.html" LogicalName="Template.Toolkit.Dashboard.Web.panel.html" />
+    <EmbeddedResource Include="Web/panel.js" LogicalName="Template.Toolkit.Dashboard.Web.panel.js" />
+  </ItemGroup>
 </Project>

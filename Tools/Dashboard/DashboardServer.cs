@@ -252,7 +252,7 @@ namespace Template.Toolkit.Dashboard
             }
         }
 
-        /// <summary>写创作管线面板页面：五页装在一份自包含 HTML 里。</summary>
+        /// <summary>写创作管线面板页面：十六页装在一份自包含 HTML 里。</summary>
         private void WritePanelHtml(HttpListenerResponse response)
         {
             var bytes = Encoding.UTF8.GetBytes(CreationPanelPage.Html);

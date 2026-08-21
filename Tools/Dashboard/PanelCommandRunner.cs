@@ -214,11 +214,38 @@ namespace Template.Toolkit.Dashboard
 
                 Task.WaitAll(stdoutTask, stderrTask);
                 var output = Truncate(stdoutTask.Result + stderrTask.Result);
+                if (process.ExitCode != 0)
+                {
+                    // 「宿主没编译过」这一类失败，光把 MSBuild 的英文报错甩到面板上，
+                    // 看的人还得自己猜下一步。猜得出来的就替他说出来。
+                    var hint = DescribeMissingBuildOutput(output);
+                    if (hint != null)
+                    {
+                        output = hint + Environment.NewLine + Environment.NewLine + output;
+                    }
+                }
+
                 return new PanelCommandOutcome(true, process.ExitCode, output, "");
             }
         }
 
-        /// <summary>拼 dotnet run 的进程启动参数；全部走参数列表，绝不拼接 shell。</summary>
+        /// <summary>
+        /// 拼 dotnet run 的进程启动参数；全部走参数列表，绝不拼接 shell。
+        ///
+        /// <para>
+        /// 带 <c>--no-build</c> 是必需的，不是提速：命令宿主的工程引用链里有本看板工程
+        /// （它要用 <see cref="PipelineRunner"/> 与 <see cref="PipelineDefinition"/>——
+        /// 这两个类跟 HTTP 服务毫无关系，只是当初放错了程序集）。看板一跑起来就锁着自己的
+        /// 输出文件，不带这个开关的话，MSBuild 会先去重编译那条链、复制不动被锁的文件、
+        /// 整条命令以退出码 1 收场。**面板上每一个按钮都会这么死**——裁决、批准、抽查、
+        /// 试跑、命令台全在内。这件事从面板有按钮那天起就是坏的，一直没人真点过一次。
+        /// </para>
+        /// <para>
+        /// 代价说清楚：用的是已经编译好的产物。刚改完命令宿主又没编译的话，这里跑的是旧代码。
+        /// 所以产物缺失时不能装作没事——见 <see cref="DescribeMissingBuildOutput"/>。
+        /// 真正的修法是把那两个类挪出看板程序集、断掉命令宿主对看板的引用，那是另一批的事。
+        /// </para>
+        /// </summary>
         /// <param name="commandName">命令名。</param>
         /// <param name="argumentsFilePath">临时参数文件路径。</param>
         private ProcessStartInfo BuildStartInfo(string commandName, string argumentsFilePath)
@@ -237,6 +264,7 @@ namespace Template.Toolkit.Dashboard
             startInfo.ArgumentList.Add("run");
             startInfo.ArgumentList.Add("--project");
             startInfo.ArgumentList.Add(_commandHostProjectPath);
+            startInfo.ArgumentList.Add("--no-build");
             startInfo.ArgumentList.Add("--verbosity");
             startInfo.ArgumentList.Add("quiet");
             startInfo.ArgumentList.Add("--");
@@ -245,6 +273,32 @@ namespace Template.Toolkit.Dashboard
             startInfo.ArgumentList.Add("--arguments-file");
             startInfo.ArgumentList.Add(argumentsFilePath);
             return startInfo;
+        }
+
+        /// <summary>
+        /// 判断一次失败是不是「命令宿主还没编译过」，是就给一句人能照着做的话。
+        /// 不是这一类返回 null——把别的失败也说成没编译，是拿一个猜测盖住真原因。
+        /// </summary>
+        /// <param name="output">子进程的全部输出。</param>
+        internal static string DescribeMissingBuildOutput(string output)
+        {
+            if (output == null)
+            {
+                return null;
+            }
+
+            var looksMissing = output.Contains("--no-build", StringComparison.Ordinal)
+                || output.Contains("MSB1009", StringComparison.Ordinal)
+                || output.Contains("not find", StringComparison.OrdinalIgnoreCase)
+                || output.Contains("找不到", StringComparison.Ordinal);
+            if (!looksMissing)
+            {
+                return null;
+            }
+
+            return "命令宿主的编译产物不在（面板用 --no-build 起它，理由见 BuildStartInfo 的注释）。"
+                + "先跑一次 dotnet build Solutions/Template.sln 再回来点——"
+                + "注意跑之前要先停掉看板进程，它锁着自己的输出文件。";
         }
 
         /// <summary>把输出截断到前 20000 字符；超了在末尾补一行截断提示。</summary>
