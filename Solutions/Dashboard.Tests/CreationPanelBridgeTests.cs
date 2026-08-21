@@ -90,13 +90,13 @@ namespace Template.Toolkit.DashboardTests
             Assert.True(tokenField.IsSecret);
         }
 
-        /// <summary>密钥字段点名的字段 IsSecret 为 true；本机.json 不存在 → 未配，有那个键 → 已配；不在 schema 的密钥字段也产行。</summary>
+        /// <summary>密钥字段点名的字段 IsSecret 为 true；local.json 不存在 → 未配，有那个键 → 已配；不在 schema 的密钥字段也产行。</summary>
         [Fact]
         public void SecretStateComesFromLocalConfigKeyPresence()
         {
             WriteDriver("comfyui", RichDriverJson());
 
-            // 本机.json 不存在 → 全部密钥字段未配（正常，不是错误）。
+            // local.json 不存在 → 全部密钥字段未配（正常，不是错误）。
             var rows = CreationPanelReader.ReadBridges(_repositoryRoot, _poolRoot);
             Assert.Equal("未配", Field(rows[0], "令牌").SecretState);
 
@@ -106,7 +106,7 @@ namespace Template.Toolkit.DashboardTests
             Assert.Equal("secret", extraSecretField.FieldType);
             Assert.Equal("未配", extraSecretField.SecretState);
 
-            // 本机.json 里有那个键 → 已配；没有的键保持未配。
+            // local.json 里有那个键 → 已配；没有的键保持未配。
             WriteLocalConfig("""
                 {
                   "令牌": "已配置的值"
@@ -118,7 +118,7 @@ namespace Template.Toolkit.DashboardTests
         }
 
         /// <summary>
-        /// 密钥值不外泄（本批最硬的红线，决策 5）：本机.json 里放 SUPERSECRETVALUE，
+        /// 密钥值不外泄（本批最硬的红线，决策 5）：local.json 里放 SUPERSECRETVALUE，
         /// 把整个 ReadBridges 的返回序列化成 JSON 字符串，断言这个字符串里不含密钥值——
         /// 密钥只许判键在不在，值一次都不许落进任何返回、日志或文案。
         /// </summary>
@@ -219,7 +219,7 @@ namespace Template.Toolkit.DashboardTests
 
         private void WriteLocalConfig(string json)
         {
-            WriteFile(Path.Combine(_repositoryRoot, "Config", "创作管线", "本机.json"), json);
+            WriteFile(Path.Combine(_repositoryRoot, "Tools", "CreationPipeline", "Config", "local.json"), json);
         }
 
         private static string LocalDriverJson(string driverName)

@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>
-    /// 本机下游配置：从 <c>Config/创作管线/本机.json</c> 读出，文件在 .gitignore 里、可能根本不存在。
+    /// 本机下游配置：从 <c>Tools/CreationPipeline/Config/local.json</c> 读出，文件在 .gitignore 里、可能根本不存在。
     /// 文件不存在是正常状态（Loaded=true、内容为空）；文件存在但解析失败才是坏（Loaded=false）。
     ///
     /// 密钥红线（决策 5、78）：本文件是「项目的 AI 钱包」，里面存的是密钥值。
@@ -123,10 +123,10 @@ namespace Template.Toolkit.CreationPipeline
             return true;
         }
 
-        /// <summary>本机配置文件的路径：Config/创作管线/本机.json（在 .gitignore 里）。</summary>
+        /// <summary>本机配置文件的路径：Tools/CreationPipeline/Config/local.json（在 .gitignore 里）。</summary>
         internal static string SettingsFile(string repositoryRoot)
         {
-            return Path.Combine(repositoryRoot, "Config", "创作管线", "本机.json");
+            return Path.Combine(repositoryRoot, "Tools", "CreationPipeline", "Config", "local.json");
         }
     }
 }

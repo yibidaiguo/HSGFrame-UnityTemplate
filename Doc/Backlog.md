@@ -25,7 +25,7 @@ git 在不同 `core.quotepath` 设置下显示不一致、CI 容器的 locale �
 | `UnityProject` | 76 | 最大的一块。Unity 靠 GUID 引用，`.meta` 跟着一起挪就安全，但要真开 Unity 验 |
 | `Doc` | 39 | 互相有大量中文文件名的交叉链接，改名要同步改链接 |
 | `Pools` | 14 | 池子目录名进了代码常量（`PoolPaths` 那一族） |
-| `Config` | 11 | 含 `Config/创作管线/`，还进了 `.gitignore` |
+| `Config` | 11 | 含 `Tools/CreationPipeline/Config/`，还进了 `.gitignore` |
 | `_Generated` | 11 | 产物，重生成即可；但**指纹要重算**（决策 13） |
 | `Tools` | 9 | |
 | `规范` | 8 | 目录名本身就是中文，且写死在 CLAUDE.md 与多份规范文档里 |
@@ -41,7 +41,7 @@ git 在不同 `core.quotepath` 设置下显示不一致、CI 容器的 locale �
    改名 = 同时改这些常量，漏一个就是运行时才炸的路径错。
 3. **门禁配置里也有路径**：`gate-config.json` / `gate-config.host.json` 的
    `changedPathWhitelist` 等。那两个文件在 `reasonix.toml` 的 deny 里，**只能 Claude 改**。
-4. **`.gitignore` 里有中文路径**（`Config/创作管线/本机.json` 等），漏改会让密钥文件
+4. **`.gitignore` 里有中文路径**（`Tools/CreationPipeline/Config/local.json` 等），漏改会让密钥文件
    突然不再被忽略——**这一条最危险**，改名那一刻必须同步。
 5. **UnityProject 那 76 个要真开 Unity 验**（铁律 4）：改的是资产树，
    十秒级门禁一行 Unity 代码都不编，绿灯是假绿。
@@ -87,7 +87,7 @@ git 在不同 `core.quotepath` 设置下显示不一致、CI 容器的 locale �
 | 查任务 | `GET /task/{id}` | `GET /v3/tasks/{id}` |
 | 查余额 | `GET /user/balance` | `GET /v3/account/balance` |
 
-**根因是 Claude 自己**：`Config/创作管线/本机.示例.json` 里那个 v2 的 base URL
+**根因是 Claude 自己**：`Tools/CreationPipeline/Config/local.example.json` 里那个 v2 的 base URL
 是 Claude 凭印象写的，执行端照着任务书建的桥。
 **两份配置文件已改成 v3**，但**桥的代码还没翻**。
 
@@ -154,27 +154,27 @@ git 在不同 `core.quotepath` 设置下显示不一致、CI 容器的 locale �
 所以：
 
 - `Config/` **只留业务数据**（`Tables/` `Schema/` `Mirror/`），回到总纲给它的定义。
-- `Config/创作管线/` → **`Tools/CreationPipeline/Config/`**（顺带去中文，与第 1 条同批）。
+- `Tools/CreationPipeline/Config/` → **`Tools/CreationPipeline/Config/`**（顺带去中文，与第 1 条同批）。
 - `Config/Luban/` → **`Tools/Luban/Config/`**。
 
 不发明新概念，新工具以后也知道该放哪。
 
 ### 动手前必须先解决的
 
-1. **决策 2 要改**（它现在写的是「配置落 `Config/创作管线/`」）。
+1. **决策 2 要改**（它现在写的是「配置落 `Tools/CreationPipeline/Config/`」）。
 2. **`.gitignore` 里那条密钥路径必须同一个提交改掉**——
-   `Config/创作管线/本机.json` 一旦挪走而 gitignore 没跟上，
+   `Tools/CreationPipeline/Config/local.json` 一旦挪走而 gitignore 没跟上，
    密钥文件当场变成可入库。**这是全部两条待办里最危险的一步。**
 3. `Tools/Gates/Config/` 的 `changedPathWhitelist` 有 `Config/` 前缀，要跟着改。
    那两个配置文件在 `reasonix.toml` 的 deny 里，**只能 Claude 改**。
-4. 路径常量：`PipelinePaths` / `ProvisionPaths` 等拼 `Config/创作管线` 的地方。
+4. 路径常量：`PipelinePaths` / `ProvisionPaths` 等拼 `Tools/CreationPipeline/Config` 的地方。
 5. `Config/Luban/` 挪动要确认 `luban.conf` 里的相对路径与 `gen.sh` 跟着走。
 6. **改完补一条门禁**：`Config/` 下只许出现业务数据目录，
    出现工具链配置即红——否则下次又混回去。
 
 ### 与第 1 条的关系
 
-**两件事都要挪 `Config/创作管线/`、都要改 `.gitignore` 的密钥路径、都要改路径常量与门禁配置。**
+**两件事都要挪 `Tools/CreationPipeline/Config/`、都要改 `.gitignore` 的密钥路径、都要改路径常量与门禁配置。**
 分两次做等于把同一批危险改动做两遍，**必须合批**。
 合批后第 1 条分批表里的 c 批（`Config/` + `.gitignore` + 门禁配置）
 就是这一条的落点。

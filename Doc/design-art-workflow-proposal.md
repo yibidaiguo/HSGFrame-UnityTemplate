@@ -61,7 +61,7 @@ Pools/
     定稿/              ← 风格定稿:色板/形状语言/参考/负面清单,带版本
     冲突列表.json      ← 未裁决的设计冲突债务
 Bridges/               ← 下游适配器,一夹一个 driver(feishu/ comfyui/ blender/ …)
-Config/                ← 环境层:下游.json / 本机.json(密钥)/ 引擎.json / 同步水位
+Config/                ← 环境层:downstream.json / local.json(密钥)/ engine.json / 同步水位
 _Tasks/                ← 任务工作区(阶段产物)
 _Generated/Bridges/    ← provision 产物(建表描述/助手配置包/错误文案)
 ```
@@ -325,8 +325,8 @@ _Tasks/REQ-0042/
 | CLI 命令 | 确定性操作,可测试、可进门禁 | `pool.pull`、`art.generate --driver comfyui` |
 | MCP | 有状态的活工具会话 | blender、comfyui、unity-editor |
 
-- **可插拔切在 CLI driver 层**:稳定契约 = 资产请求 JSON 进、产物 + 溯源边车出;`Config/下游.json` 一行换 driver,上层 skill 与工作流零改动。MCP 是 driver 的实现细节,不是抽换点。
-- **配置两层拆分**:`Config/下游.json` 进 git 团队共享(域→driver 映射、端点、默认参数);`Config/本机.json` gitignore(密钥、GPU 地址、本机路径)。**密钥永不入库**,共享配置只存密钥名;面板「下游」页是这两个文件的编辑器,新项目首开时整列红点、逐项填绿即开工,兼当环境安装清单。
+- **可插拔切在 CLI driver 层**:稳定契约 = 资产请求 JSON 进、产物 + 溯源边车出;`Config/downstream.json` 一行换 driver,上层 skill 与工作流零改动。MCP 是 driver 的实现细节,不是抽换点。
+- **配置两层拆分**:`Config/downstream.json` 进 git 团队共享(域→driver 映射、端点、默认参数);`Config/local.json` gitignore(密钥、GPU 地址、本机路径)。**密钥永不入库**,共享配置只存密钥名;面板「下游」页是这两个文件的编辑器,新项目首开时整列红点、逐项填绿即开工,兼当环境安装清单。
 - **密钥与账号归属:配置跟机器走,不跟成员走**。AI 调用全由引擎发起,成员只点卡片——零密钥零安装;密钥只住执行机(v1 一台,即项目的「AI 钱包」)。成员想自己跑任务 = 把自己机器变执行机,用项目 key 或自带 key;消耗记录带执行机标识,混用可对账。接管产物只认文件不认账号——个人 AI 工具与账号天然在系统边界外。
 - **风格锚点是仓库资产**:参考图、色板、LoRA、ComfyUI workflow JSON 全部入库版本化,不留在工具侧。换后端的最大真实风险是风格漂移,锚点在仓库才有重校准基准。
 
@@ -346,7 +346,7 @@ _Tasks/REQ-0042/
 保证「随时可换」的四个机制:
 
 1. **driver 自述**:每个 driver 夹一份 `driver.json`——实现哪个 port、支持的契约版本、配置字段 schema、试跑命令。面板「下游」页按自述**动态渲染**配置表单,加 driver 不改面板。
-2. **接入成本恒定**:新下游 = `Bridges/<名字>/` 一夹(port 命令实现 + 自述)+ `Config/下游.json` 一行;引擎、skill、面板零改动。
+2. **接入成本恒定**:新下游 = `Bridges/<名字>/` 一夹(port 命令实现 + 自述)+ `Config/downstream.json` 一行;引擎、skill、面板零改动。
 3. **下游边界门禁**(§十):引擎与管线层代码禁止出现具体 driver 的符号/字符串,只准经 port 调用——与模板「可选功能引用范围」门禁同款,机器把关不靠自觉。
 4. **契约版本化**:port 契约(资产请求/溯源边车/同步记录)带版本号;driver 自述声明支持版本,不匹配在试跑即红;契约升级时老 driver 显式适配。
 

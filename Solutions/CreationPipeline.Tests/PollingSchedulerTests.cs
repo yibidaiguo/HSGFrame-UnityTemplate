@@ -45,7 +45,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var queue = QueueWithOneEntry();
 
             var decision = PollingScheduler.Tick(
-                Settings(EngineMode.Polling, "引擎配置文件不存在：/nope/引擎.json"), queue, FixedMoment, FixedMoment.AddSeconds(-100), isWakeUp: false);
+                Settings(EngineMode.Polling, "引擎配置文件不存在：/nope/engine.json"), queue, FixedMoment, FixedMoment.AddSeconds(-100), isWakeUp: false);
 
             Assert.False(decision.ShouldTake);
             Assert.Contains("引擎配置文件不存在", decision.Reason);

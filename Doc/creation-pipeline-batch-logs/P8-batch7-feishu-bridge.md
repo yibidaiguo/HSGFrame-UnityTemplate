@@ -65,21 +65,21 @@ POST /open-apis/bitable/v1/apps/{app_token}/tables  → code=91403  Forbidden
 | `Bridges/feishu/src/BridgeFeishu/TableProvisioner.cs` | 建表，**先列表再建、同名跳过** |
 | `Bridges/feishu/src/BridgeFeishu/CardSender.cs` | 发卡片 |
 | `Tools/Cli/CommandHost/Commands/BridgeCommands.cs` | `bridge.apply` / `bridge.card` |
-| `Config/创作管线/下游.json` | 追加三个 port 的路由（**已有三条一字未动**，核对过 diff） |
+| `Tools/CreationPipeline/Config/downstream.json` | 追加三个 port 的路由（**已有三条一字未动**，核对过 diff） |
 
 **两条命令的 `DryRun` 默认值都是 `true`**（核对过）。
 真写别人的工作区，默认就该是不写，要写得显式说。
 
 ## 四、验收时清掉的一处泄漏
 
-执行端做反向验证时，把用户的 `Config/创作管线/本机.json` **整份复制**到了
+执行端做反向验证时，把用户的 `Tools/CreationPipeline/Config/local.json` **整份复制**到了
 `_Scratch/反向验证-fs/` 下——那份里有真的应用密钥。它自己在返回里如实报了这件事。
 
 Claude 的处置：
 
 1. 立刻删掉整个 `_Scratch/反向验证-fs/` 与调试用的 `_Scratch/探针/`
    （后者的 stdout 曾打印过一次 tenant_access_token）。
-2. **全仓搜一遍**有没有第二份副本 —— 只剩 `本机.json` 本身。
+2. **全仓搜一遍**有没有第二份副本 —— 只剩 `local.json` 本身。
 3. **`git log --all -S <密钥>` 确认它从未进过 git 历史。**
 
 `_Scratch/` 本来就在 `.gitignore` 里，所以没有入库风险；但密钥多一份落盘就多一分暴露面。

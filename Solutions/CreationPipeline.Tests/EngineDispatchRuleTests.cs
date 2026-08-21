@@ -79,7 +79,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Contains("队列为空", reason);
         }
 
-        /// <summary>引擎.json 不存在时 EngineSettings.Load 出来的 Mode 是 Standby，LoadFailureReason 非空。</summary>
+        /// <summary>engine.json 不存在时 EngineSettings.Load 出来的 Mode 是 Standby，LoadFailureReason 非空。</summary>
         [Fact]
         public void MissingSettingsFileDefaultsToStandby()
         {

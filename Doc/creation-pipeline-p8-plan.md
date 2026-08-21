@@ -15,7 +15,7 @@
 ### 2. 影响面
 
 - 新增：`Bridges/<名>/src/` 下的 driver 实现（C# 控制台工程，CLI 子进程）、
-  `Config/创作管线/{本机,下游}.json`、`Tools/CreationPipeline/` 的调用侧基础设施。
+  `Tools/CreationPipeline/Config/{本机,下游}.json`、`Tools/CreationPipeline/` 的调用侧基础设施。
 - 改动：`Solutions/Template.sln`（新工程）、面板下游页、`Doc/`。
 - **不碰** `UnityProject/Assets/Game/Scripts/` 与 `Packages/com.hsgframe.*/Runtime/`：
   真资产落 `Designs/` 与 `_Tasks/`，**刻意不进 `UnityProject/Assets/`**。
@@ -26,8 +26,8 @@
 
 | 条 | 结论 |
 |---|---|
-| 决策 5 / 78 密钥不入库 | `.gitignore` 已有 `Config/创作管线/本机.json`，核实过 ✓ |
-| 决策 78 只判键在不在 | 所以**不许预生成空值键**——空串会让面板显示「已配」。模板叫 `本机.示例.json` |
+| 决策 5 / 78 密钥不入库 | `.gitignore` 已有 `Tools/CreationPipeline/Config/local.json`，核实过 ✓ |
+| 决策 78 只判键在不在 | 所以**不许预生成空值键**——空串会让面板显示「已配」。模板叫 `local.example.json` |
 | 决策 23 不写桩 | 装好才写；飞书/tripo 没凭据前一个字不写 |
 | 决策 17 下游边界不破例 | driver 名是全仓禁止串，扫描根是 `Tools/{CreationPipeline,Cli,Dashboard}`。**实现落 `Bridges/<名>/src/`，在扫描根之外** |
 | 决策 31 探测走文件 | 保留。真探测器**产出那个文件**，对账侧一个字不改 |
@@ -39,7 +39,7 @@
 
 **选定**：每个 driver 一个 C# 控制台工程，落 `Bridges/<名>/src/`，
 按子文档 05 §一的协议跑——stdin 收 JSON、stdout 出 JSON、退出码 0/非 0，
-错误格式 `{错误码, 人话, 可重试}`。可执行的解析走 `Config/创作管线/下游.json`。
+错误格式 `{错误码, 人话, 可重试}`。可执行的解析走 `Tools/CreationPipeline/Config/downstream.json`。
 
 **否掉一：driver 用 Python 写。** 贴 ComfyUI 生态、写起来短。
 否的理由是**验证体系**：项目全部门禁是 `dotnet test` + `gate.ps1`，

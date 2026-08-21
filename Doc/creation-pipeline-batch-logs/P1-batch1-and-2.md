@@ -71,7 +71,7 @@
 8. **卡片路由的默认表是代码内建值**(`CardRouteTable.Default()`),`Pools/组织/卡片路由.json` 存在才逐键覆盖。
    这样锁定决策 4「模板仓库零池子内容」与子文档 01「默认表随基线发」两条同时成立。
 9. **`提出人` 是伪职责**:先查成员表姓名,查不到退化成 `策划`,再走第②③④步。
-10. **值守是默认模式**:`Config/创作管线/引擎.json` 缺失时 `EngineSettings.Load` 返回值守——
+10. **值守是默认模式**:`Tools/CreationPipeline/Config/engine.json` 缺失时 `EngineSettings.Load` 返回值守——
     配置读不到时最安全的行为是永不自动。`EngineDispatchRule.TryTakeNext` 在值守下无条件返回 false 且不动队列。
 
 **验收记录**(全部由 Claude 亲自复跑,不采信执行后端的自述)
@@ -98,7 +98,7 @@
 
 - **出站事件表没有能路由到 `美术` 的事件**(`选片` 卡片由引擎发,不走 `pool.push`),
   所以专项认领那条路径目前只有单元测试覆盖,命令层跑不到。批次 5 引擎接上后自然打通。
-- **同步水位没做**(`Config/创作管线/同步水位.json`)。它要真拉取才有意义,属批次 3 的 driver。
+- **同步水位没做**(`Tools/CreationPipeline/Config/sync-watermark.json`)。它要真拉取才有意义,属批次 3 的 driver。
   本批的 `pool.pull` 是从**已经躺在 Inbox 里的文件**读,不负责把文件弄进来。
 - **隐式认领没落笔**(「首次处理该专项卡片 = 隐式认领」)。本批的 `CardRouter` 只做路由决策,不写盘。
 - `RejectionNotice.cs` / `RequirementIntake.cs` 的 `JsonSerializerOptions` 是裸构造,

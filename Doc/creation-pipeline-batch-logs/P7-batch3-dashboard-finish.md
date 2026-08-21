@@ -50,10 +50,10 @@
 
 ### 二、决策 5 的落盘保护从 P1 起就是一句空话
 
-执行后端报上来的：`git check-ignore Config/创作管线/本机.json` 返回 exit=1，
+执行后端报上来的：`git check-ignore Tools/CreationPipeline/Config/local.json` 返回 exit=1，
 **`.gitignore` 里根本没有这一条**。
 
-决策 5 白纸黑字写着「`Config/创作管线/本机.json` 进 `.gitignore`」，
+决策 5 白纸黑字写着「`Tools/CreationPipeline/Config/local.json` 进 `.gitignore`」，
 从 P1 写到现在**没有人真的去补那一行**。只要哪天有人生成了本机配置，
 密钥就会进 git——正是这条决策要防的事。已补上。
 
@@ -69,7 +69,7 @@
 **路由**：`/api/panel/bridges`、`/api/panel/deviation`（中文与 ASCII 参数别名都认，
 缺参返回带原因的「没算成」而不是空对象——决策 42/57）。
 
-**`.gitignore`**：补 `Config/创作管线/本机.json`（决策 5 的落地）。
+**`.gitignore`**：补 `Tools/CreationPipeline/Config/local.json`（决策 5 的落地）。
 
 ## 本批新增的锁定决策
 
@@ -86,7 +86,7 @@
 | `CreationPanelScriptTests` | 两条绿——上一批加的那道拦网这一批就派上用场了 |
 | 工作区残留 | `Pools/Designs/` 下**只剩三个 `.gitkeep`**，临时验收数据已清 |
 
-**密钥诱饵真跑**（这一批最重要的一条）：往 `Config/创作管线/本机.json`
+**密钥诱饵真跑**（这一批最重要的一条）：往 `Tools/CreationPipeline/Config/local.json`
 放一个值是 `CLAUDE_ACCEPTANCE_CANARY_9f3a` 的密钥，然后——
 
 | 查哪里 | 结果 |
@@ -109,7 +109,7 @@
 ## 验收时我自己修的四处
 
 1. **定稿子目录扫描**（上面那节）——本批功能的死路，修+补测试。
-2. **`.gitignore` 缺 `本机.json`**（上面那节）——P1 就欠着的账。
+2. **`.gitignore` 缺 `local.json`**（上面那节）——P1 就欠着的账。
 3. **命名门禁红 17 条**：新测试里写了一堆**中文局部变量名**（`var 地址 = …`）。
    这是真违规不是误报（不同于上一批那个单行 raw string 的假红），改成英文即绿。
    执行后端仍然只跑了 build/test 没跑全量门禁——**这条我下次要写进任务书的验收命令**。

@@ -7,7 +7,7 @@ namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>
     /// 下游域路由表：把 port 名路由到 driver 名、把实现名解析成可执行 + 参数。
-    /// 数据来自 <c>Config/创作管线/下游.json</c>，该文件进 git、只存密钥「名」不存密钥「值」。
+    /// 数据来自 <c>Tools/CreationPipeline/Config/downstream.json</c>，该文件进 git、只存密钥「名」不存密钥「值」。
     /// 文件不存在是正常状态（表为空）；文件存在但解析失败才是坏（Loaded=false，整份表不可信）。
     /// </summary>
     public sealed class BridgeRouteTable
@@ -195,10 +195,10 @@ namespace Template.Toolkit.CreationPipeline
             return false;
         }
 
-        /// <summary>路由表文件的路径：Config/创作管线/下游.json。</summary>
+        /// <summary>路由表文件的路径：Tools/CreationPipeline/Config/downstream.json。</summary>
         internal static string RouteTableFile(string repositoryRoot)
         {
-            return Path.Combine(repositoryRoot, "Config", "创作管线", "下游.json");
+            return Path.Combine(repositoryRoot, "Tools", "CreationPipeline", "Config", "downstream.json");
         }
 
         /// <summary>解析一条实现：必须给出「可执行」字符串与「参数」字符串数组；参数里的相对路径按仓库根展开。</summary>

@@ -51,11 +51,11 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(repositoryRoot, "_Tasks", requirementIdentifier, "状态.json");
         }
 
-        /// <summary>同步水位文件：Config/创作管线/同步水位.json。</summary>
+        /// <summary>同步水位文件：Tools/CreationPipeline/Config/sync-watermark.json。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         public static string SyncWatermarkFile(string repositoryRoot)
         {
-            return Path.Combine(repositoryRoot, "Config", "创作管线", "同步水位.json");
+            return Path.Combine(repositoryRoot, "Tools", "CreationPipeline", "Config", "sync-watermark.json");
         }
 
         /// <summary>某需求某版次的需求快照：_Tasks/&lt;需求id&gt;/00-需求.v&lt;N&gt;.json。</summary>

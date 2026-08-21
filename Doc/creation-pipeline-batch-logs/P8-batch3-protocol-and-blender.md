@@ -31,10 +31,10 @@ Blender 自己往 stdout 狂打东西，`BlenderRunner` 必须把它当数据读
 | 文件 | 内容 |
 |---|---|
 | `Tools/CreationPipeline/BridgeCallEnvelope.cs` | 信封三件套 + 可读的解析失败原因 |
-| `Tools/CreationPipeline/BridgeRouteTable.cs` | 读 `Config/创作管线/下游.json`；**不存在与坏掉是两支** |
-| `Tools/CreationPipeline/LocalBridgeSettings.cs` | 读 `本机.json`；密钥值只从 out 参数出去 |
+| `Tools/CreationPipeline/BridgeRouteTable.cs` | 读 `Tools/CreationPipeline/Config/downstream.json`；**不存在与坏掉是两支** |
+| `Tools/CreationPipeline/LocalBridgeSettings.cs` | 读 `local.json`；密钥值只从 out 参数出去 |
 | `Tools/CreationPipeline/BridgeInvoker.cs` | 起子进程、关 stdin、异步读、超时必杀 |
-| `Config/创作管线/下游.json` | 域路由 + 实现表（进 git，零密钥） |
+| `Tools/CreationPipeline/Config/downstream.json` | 域路由 + 实现表（进 git，零密钥） |
 | `Bridges/blender/src/BridgeBlender/` | driver 实现（决策 84：落 `Bridges/`，不落 `Tools/`） |
 | `Bridges/blender/scripts/{probe,process}.py` | 能力探测 + 八步加工 |
 | `Tools/Cli/CommandHost/Commands/BridgeCommands.cs` | `bridge.probe` / `bridge.process` |

@@ -2438,7 +2438,7 @@ namespace Template.Toolkit.Dashboard
         /// <summary>
         /// 读下游页：扫 Bridges/ 下每个带 driver.json 的目录（目录名即 driver 名，按序数序）。
         /// driver.json 读不动或坏时该行仍然产出，只填名称与 LoadFailureReason（决策 43）；
-        /// 密钥（决策 5）只判 Config/创作管线/本机.json 里键在不在，值永不读取、永不输出；
+        /// 密钥（决策 5）只判 Tools/CreationPipeline/Config/local.json 里键在不在，值永不读取、永不输出；
         /// 能力对账只对本地形态 driver 跑，没跑成时不渲染成「全部满足」（决策 42）。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
@@ -2594,7 +2594,7 @@ namespace Template.Toolkit.Dashboard
         {
             return File.Exists(LocalConfigFilePath(repositoryRoot))
                 ? ""
-                : "本机配置文件不存在：Config/创作管线/本机.json（本行字段全部按「未配」处理）";
+                : "本机配置文件不存在：Tools/CreationPipeline/Config/local.json（本行字段全部按「未配」处理）";
         }
 
         /// <summary>
@@ -2676,13 +2676,13 @@ namespace Template.Toolkit.Dashboard
             return (fields, probeCommand);
         }
 
-        /// <summary>本机配置文件路径：Config/创作管线/本机.json（密钥与非密钥字段都从这里读）。</summary>
+        /// <summary>本机配置文件路径：Tools/CreationPipeline/Config/local.json（密钥与非密钥字段都从这里读）。</summary>
         private static string LocalConfigFilePath(string repositoryRoot)
         {
-            return Path.Combine(repositoryRoot, "Config", "创作管线", "本机.json");
+            return Path.Combine(repositoryRoot, "Tools", "CreationPipeline", "Config", "local.json");
         }
 
-        /// <summary>判一个密钥字段在 Config/创作管线/本机.json 里配没配。只判键在不在，一次都不取它的值（决策 5、78）。</summary>
+        /// <summary>判一个密钥字段在 Tools/CreationPipeline/Config/local.json 里配没配。只判键在不在，一次都不取它的值（决策 5、78）。</summary>
         private static string SecretStateOf(string repositoryRoot, string secretFieldName)
         {
             var localFilePath = LocalConfigFilePath(repositoryRoot);
@@ -2712,7 +2712,7 @@ namespace Template.Toolkit.Dashboard
         }
 
         /// <summary>
-        /// 判一个非密钥字段在 Config/创作管线/本机.json 的「下游配置.&lt;driver&gt;.&lt;字段名&gt;」里配没配。
+        /// 判一个非密钥字段在 Tools/CreationPipeline/Config/local.json 的「下游配置.&lt;driver&gt;.&lt;字段名&gt;」里配没配。
         /// 判据是「键在不在、且不是空串」：缺失、空串、文件不存在统一算「未配」（决策 78 的精神——
         /// 非密钥字段也只报配没配，值不显示、不出现在任何返回字段）。「文件不存在」与「没填」两支
         /// 由 LocalConfigNoteOf 的说明行区分，这里不合并成同一个原因。

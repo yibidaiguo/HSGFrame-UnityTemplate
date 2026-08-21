@@ -19,8 +19,8 @@
 | 冲突 | `冲突列表.json` | 裁决按钮(补选三选一)→ conflict.resolve |
 | 资产 | 产物 + 项目资产目录 + 边车 | 网格预览、按需求/定稿筛选、离风格报告 |
 | 门禁 | `_Generated/门禁报告.json` | 重跑按钮、棘轮余额曲线 |
-| 下游 | `Config/下游.json` + `本机.json` + 各 driver.json | 动态表单、试跑、能力对账、provision |
-| 引擎 | `Config/引擎.json` + `Pools/组织/` + 队列 + 预算记账 | 模式切换、成员默认职责分配、确认权、卡片路由表、追加预算 |
+| 下游 | `Config/downstream.json` + `local.json` + 各 driver.json | 动态表单、试跑、能力对账、provision |
+| 引擎 | `Config/engine.json` + `Pools/组织/` + 队列 + 预算记账 | 模式切换、成员默认职责分配、确认权、卡片路由表、追加预算 |
 | 审查 | PR/分支 + `_Tasks/` + `规范/*/放行策略.json` | 见 §三·五 |
 | 规范(管理员) | `规范/` + `提案/` + `Designs/定稿/` | 见 §四 |
 
@@ -54,7 +54,7 @@
 
 ## 五、下游页动态表单
 
-driver.json 的 `配置schema`(string/number/bool/enum/secret)→ 控件映射;`secret` 写 `Config/本机.json`,界面只显「已配/未配」。「试跑」行内显示结果;本地形态多一块能力对账(缺项清单 + 安装指引)。
+driver.json 的 `配置schema`(string/number/bool/enum/secret)→ 控件映射;`secret` 写 `Config/local.json`,界面只显「已配/未配」。「试跑」行内显示结果;本地形态多一块能力对账(缺项清单 + 安装指引)。
 
 ## 六、卡片回链
 

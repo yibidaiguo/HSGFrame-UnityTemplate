@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Template.Toolkit.CreationPipeline.Tests
 {
-    /// <summary>下游路由表（Config/创作管线/下游.json）的解析测试：两支语义、port/实现解析、路径展开。</summary>
+    /// <summary>下游路由表（Tools/CreationPipeline/Config/downstream.json）的解析测试：两支语义、port/实现解析、路径展开。</summary>
     public class BridgeRouteTableTests
     {
         private const string RouteTableJson = """
@@ -139,7 +139,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
         private static void WriteRouteTable(string root, string json)
         {
-            var path = Path.Combine(root, "Config", "创作管线", "下游.json");
+            var path = Path.Combine(root, "Tools", "CreationPipeline", "Config", "downstream.json");
             var directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(directory))
             {

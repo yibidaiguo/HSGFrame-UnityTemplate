@@ -5,12 +5,12 @@
 
 ## 一、怎么填
 
-`Config/创作管线/本机.json` **已经建好了**，里面预填了两条机器路径
+`Tools/CreationPipeline/Config/local.json` **已经建好了**，里面预填了两条机器路径
 （ComfyUI 地址、Blender 可执行文件）——那两条是 Claude 装的，值它知道。
 你只要**往里面加**，不用重建。用记事本打开就行：
 
 ```
-notepad "D:\Projects\Unity\GameTemplate\Config\创作管线\本机.json"
+notepad "D:\Projects\Unity\GameTemplate\Config\创作管线\local.json"
 ```
 
 三条注意，每条都踩过：

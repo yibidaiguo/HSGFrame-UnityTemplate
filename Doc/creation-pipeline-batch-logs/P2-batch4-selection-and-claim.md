@@ -106,7 +106,7 @@
 - **隐式认领没有被任何调用方自动触发。** `EpicClaimWriter.RecordImplicitClaim` 写好了，
   但「首次处理该专项卡片」这个时机点在引擎里，引擎还没接（P4）。
   现在只能由 `pool.claim --IsImplicit` 手动触发。
-- **同步水位仍未做**（`Config/创作管线/同步水位.json`）。`pool.claimpull` 和 `pool.pull` 一样，
+- **同步水位仍未做**（`Tools/CreationPipeline/Config/sync-watermark.json`）。`pool.claimpull` 和 `pool.pull` 一样，
   只从已经躺在收件箱里的文件读，不负责把文件弄进来。
 - **`art.` 命令族不在 `POST /cmd` 白名单里**（白名单是 `task.` / `pool.` / `bridge.` /
   `engine.` / `conflict.` / `spec.` 六族，锁定决策 19），所以面板点不了 `art.select`。

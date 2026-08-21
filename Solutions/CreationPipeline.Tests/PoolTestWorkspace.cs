@@ -195,7 +195,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         }
 
         /// <summary>
-        /// 把引擎配置 JSON 写到 &lt;Root&gt;/Config/创作管线/引擎.json，目录不存在先创建。
+        /// 把引擎配置 JSON 写到 &lt;Root&gt;/Tools/CreationPipeline/Config/engine.json，目录不存在先创建。
         /// </summary>
         /// <param name="json">引擎配置 JSON 文本。</param>
         public void WriteEngineSettings(string json)

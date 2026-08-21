@@ -1,7 +1,7 @@
 # 路径去中文化 · 设计审查与迁移账本
 
 > 上游：[待办账本](Backlog.md) 第 1 条（文件名与目录名去中文化）与第 2 条（`Config/` 分层）。
-> 这两条**必须合批**——都要挪 `Config/创作管线/`、都要改 `.gitignore` 的密钥路径、
+> 这两条**必须合批**——都要挪 `Tools/CreationPipeline/Config/`、都要改 `.gitignore` 的密钥路径、
 > 都要改路径常量与门禁配置。分两次做等于把同一批危险改动做两遍。
 
 ## 一、设计审查
@@ -27,7 +27,7 @@ git 在不同 `core.quotepath` 下显示不一致；CI 容器 locale 不是 UTF-
 | `UnityProject` | 76 | Unity 靠 GUID 引用，`.meta` 跟着一起挪就安全，但**要真开 Unity 验** |
 | `Doc` | 48 | 互相有大量中文文件名的交叉链接，改名要同步改链接 |
 | `Pools` | 14 | 目录名进了代码常量（`PoolPaths` 那一族） |
-| `Config` | 11 | 含 `Config/创作管线/`，还进了 `.gitignore` |
+| `Config` | 11 | 含 `Tools/CreationPipeline/Config/`，还进了 `.gitignore` |
 | `_Generated` | 11 | 产物，重生成即可；但**指纹要重算** |
 | `Tools` | 9 | |
 | `规范` | 8 | 目录名本身就是中文，且写死在 CLAUDE.md 与多份规范文档里 |
@@ -39,7 +39,7 @@ git 在不同 `core.quotepath` 下显示不一致；CI 容器 locale 不是 UTF-
 新写法：**全仓的目录名与文件名一律 ASCII；中文只许出现在文件内容里**
 （注释、文案、数据值、JSON 的键都不受限）。适用范围从「含 `.cs` 的目录」扩到全仓。
 
-**决策 2** 原文：「配置落 `Config/创作管线/`，不落 `Config/` 根」。
+**决策 2** 原文：「配置落 `Tools/CreationPipeline/Config/`，不落 `Config/` 根」。
 新写法：**工具链配置落 `Tools/<工具>/Config/`，`Config/` 只留业务数据。**
 这不是发明新规矩，是**回到仓库里早就有的惯例**——`Tools/Gates/Config/`、
 `Tools/AssetPipeline/Config/`、`Tools/CodeGen/Config/`、`Tools/Indexing/Config/`
@@ -65,17 +65,19 @@ git 在不同 `core.quotepath` 下显示不一致；CI 容器 locale 不是 UTF-
 |---|---|---|---|
 | a | 加 `gate.pathascii` 门禁 + 配成 warn 只列不拦 | 门禁自己跑一次，列出存量 | **已完成** |
 | b | `Doc/`（纯文档；`规范/` 挪到 c 批，它底下有代码要读的数据文件） | 全仓搜旧名零命中；链接逐条解析；`gate.doc` 绿 | **已完成** |
-| c | `Config/` + `规范/` + `.gitignore` + 门禁配置 + 路径常量（**待办 2 的落点**） | `dotnet test` + `gate.ps1`；**盯死密钥那条** | 待 |
+| c1 | `Config/创作管线/` → `Tools/CreationPipeline/Config/` + `.gitignore` 密钥路径 + 路径常量 | `dotnet test` + `gate.ps1` + 真跑一条要读密钥的命令；**盯死密钥那条** | **已完成** |
+| c2 | `规范/` → `Specifications/` + `SpecificationPaths` | 同上 + 面板规范页真开一次 | 待 |
+| c3 | `Config/Luban/` → `Tools/Luban/Config/` + `Tools/` 下的中文文件名 | 同上；**Luban 那条 gitignore 会把新目录整个吞掉，要同步放行** | 待 |
 | d | `Pools/` + `_Generated/` + 指纹重算 | `pool.validate` / `gate.provision` 绿 | 待 |
 | e | `UnityProject/` | **必须跑 `gate-unity.ps1`** | 待 |
 | f | 门禁从 warn 改成 block | 门禁自己判红一次再改对 | 待 |
 
 ### 6. 风险与回滚
 
-- **最危险的一步是 `.gitignore` 里那条密钥路径**：`Config/创作管线/本机.json` 一旦挪走
+- **最危险的一步是 `.gitignore` 里那条密钥路径**：`Tools/CreationPipeline/Config/local.json` 一旦挪走
   而 gitignore 没跟上，密钥文件当场变成可入库（决策 5 要防的正是这件事）。
   **对策**：c 批里那两个改动必须同一个提交，且提交前跑 `git status` 确认
-  `本机.json` 仍然不出现在待提交列表里。
+  `local.json` 仍然不出现在待提交列表里。
 - **改名用 `git mv`**，让 git 认出是重命名而不是「删一个加一个」——历史才跟得住。
 - **每批一个提交**，出问题 `git revert` 单批即可。
 - **Unity 那批**：`.meta` 必须跟着同名文件一起挪，漏一个就是资产引用断链。
@@ -89,6 +91,40 @@ git 在不同 `core.quotepath` 下显示不一致；CI 容器 locale 不是 UTF-
 对照表随各批落地逐步补进本文件第三节。
 
 ## 三、各批落地记录
+
+### c1 批 · `Tools/CreationPipeline/Config/`（2026-08-21）
+
+`Config/创作管线/` 整个挪进工具自己的目录下，文件名一并去中文——**待办 2 的第一半**。
+
+| 旧 | 新 |
+|---|---|
+| `Config/创作管线/本机.json` | `Tools/CreationPipeline/Config/local.json`（仍在 .gitignore 里） |
+| `Config/创作管线/本机.示例.json` | `Tools/CreationPipeline/Config/local.example.json` |
+| `Config/创作管线/下游.json` | `Tools/CreationPipeline/Config/downstream.json` |
+| `Config/创作管线/引擎.json` | `Tools/CreationPipeline/Config/engine.json` |
+| `Config/创作管线/同步水位.json` | `Tools/CreationPipeline/Config/sync-watermark.json` |
+
+**最危险那一步的验收**（密钥不入库，决策 5）：
+
+```
+git check-ignore -v Tools/CreationPipeline/Config/local.json
+→ .gitignore:80:Tools/CreationPipeline/Config/local.json
+git status --porcelain | grep local.json
+→ 空
+```
+
+**两条 `Path.Combine` 的写法都要改**：C# 里是按段写的（`"Config", "创作管线"`），
+文档与脚本里是正斜杠（`Config/创作管线`）。只改一种，另一种会静默留在原地。
+
+引用同步改了 38 个文件，含 5 处路径常量（`PipelinePaths` / `EngineSettings` /
+`LocalBridgeSettings` / `BridgeRouteTable` / `SyncWatermark`）、7 份测试、
+飞书长连接旁路那个 Python 脚本、面板读取器。
+
+**旁路进程重启过**：它在启动时读一次配置，不重启就还拿着旧路径。
+重启后日志确认「会话目录」那一行出现（这是批次 12 加的），并重新连上长连接。
+
+真跑验收：`bridge.balance` 真发一次请求（它要读 `local.json` 里的密钥）→ HTTP 200。
+**这条比测试绿有力**：测试用的是临时目录造的假结构，真读的是新路径的真文件。
 
 ### b 批 · `Doc/` 全部改名（2026-08-21）
 

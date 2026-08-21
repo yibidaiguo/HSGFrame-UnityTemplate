@@ -5,15 +5,15 @@
 
 
 1. **全仓路径一律 ASCII：目录名与文件名都不许有中文，中文只留在文件内容里**（注释、文案、数据值、JSON 的键都不受限）。2026-08-21 改过一次：原文只管「含 `.cs` 的目录」，还明说中文可以出现在文件名里；实测全仓有 206 个中文路径，而中文路径是一类低频但很贵的故障源（git quotepath、CI locale、MSBuild/Unity 的历史坑）。命名门禁的 `directoryNamePattern` 仍只作用于含 `.cs` 的目录，全仓那一道是新增的 `gate.pathascii`。迁移见 [路径去中文化](ascii-path-migration.md)。
-2. **工具链配置落 `Tools/<工具>/Config/`，`Config/` 只留业务数据**（`Tables` `Schema` `Mirror`）。2026-08-21 改过一次：原文写的是「落 `Config/创作管线/`」，那是当年撞见「`Config/` 已被 Luban 占满」时开子目录绕过去的权宜。真正的规矩仓库里早就有——`Tools/Gates/Config/`、`Tools/AssetPipeline/Config/`、`Tools/CodeGen/Config/`、`Tools/Indexing/Config/` 四个工具都这么放，只有创作管线破了例。现在还这笔账，顺带回到总纲 §四给 `Config/` 的定义。
+2. **工具链配置落 `Tools/<工具>/Config/`，`Config/` 只留业务数据**（`Tables` `Schema` `Mirror`）。2026-08-21 改过一次：原文写的是「落 `Tools/CreationPipeline/Config/`」，那是当年撞见「`Config/` 已被 Luban 占满」时开子目录绕过去的权宜。真正的规矩仓库里早就有——`Tools/Gates/Config/`、`Tools/AssetPipeline/Config/`、`Tools/CodeGen/Config/`、`Tools/Indexing/Config/` 四个工具都这么放，只有创作管线破了例。现在还这笔账，顺带回到总纲 §四给 `Config/` 的定义。
 3. **schema 用自定义精简格式，不用标准 JSON Schema。** 标准 JSON Schema 表达不了「字段所有权」「锁定后可改」「状态机转换权限」这三样，而它们正是这套机器的核心。
 4. **模板仓库零池子内容。** `Pools/` 下只铺空目录骨架（`.gitkeep`）与**基线 schema**；`Requirements/` `Inbox/` `专项/` `知识/` 一条真实数据都不许进。
-5. **密钥永不入库。** `Config/创作管线/本机.json` 进 `.gitignore`，共享的 `下游.json` 只存密钥**名**。
+5. **密钥永不入库。** `Tools/CreationPipeline/Config/local.json` 进 `.gitignore`，共享的 `downstream.json` 只存密钥**名**。
 6. **飞书 API 不在可验范围。** driver 只落契约与离线产物，真调用留桩；任何声称「已连通飞书」的验收结论都不算数。
 7. **幂等靠已入池需求的 `来源.修订`，不另立账本。** Inbox 文件处理后不删——留证据，靠幂等跳过。
 8. **卡片路由的默认表是代码内建值**（`CardRouteTable.Default()`），`Pools/组织/卡片路由.json` 存在才逐键覆盖。
 9. **`提出人` 是伪职责**：先查成员表姓名，查不到退化成 `策划`，再走第②③④步。
-10. **值守是默认模式**：`Config/创作管线/引擎.json` 缺失时返回值守——配置读不到时最安全的行为是永不自动。
+10. **值守是默认模式**：`Tools/CreationPipeline/Config/engine.json` 缺失时返回值守——配置读不到时最安全的行为是永不自动。
 11. **字段类型映射住 driver.json，不住 C#。** 供给引擎完全泛化，driver 名永远是参数——这是下游边界门禁能绿的前提。基线 schema 的类型是中文（`数组`/`对象`），映射表中英文键都要有。
 12. **`_Generated/Bridges/` 的产物进 git。** 生成层按数据分层表本来就「进 git（对账）」；产物进库，供给对账门禁才有牙。
 13. **指纹只比两个哈希，不比产物文件。** `生成时间` 不参与哈希与对账；指纹不存在判「未供给」= 跳过，不判红。
@@ -169,7 +169,7 @@
     只调 `TryGetProperty(..., out _)`，不放进任何返回字段、不写日志、不回显、
     不输出长度。密钥字段**不给输入框、不给保存按钮**——保存等于把密钥落盘，
     那不是面板该做的事（决策 5）。
-    **`Config/创作管线/本机.json` 必须真的在 `.gitignore` 里**：这句话从 P1 就写在
+    **`Tools/CreationPipeline/Config/local.json` 必须真的在 `.gitignore` 里**：这句话从 P1 就写在
     决策 5 上，却直到 P7 批次三才有人去补那一行。写在决策里不等于落了地。
 79. **定稿是一稿一目录**：`Designs/定稿/<名>/定稿.json`（子文档 06 §五，
     `FinalPalette.Load` 也照这个找）。只扫平铺的 `*.json` 会永远扫不到任何一份真定稿，

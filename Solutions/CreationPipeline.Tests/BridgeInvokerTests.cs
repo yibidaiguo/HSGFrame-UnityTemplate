@@ -95,7 +95,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 + "  \"域路由\": { \"模型加工\": \"testdriver\" },\n"
                 + "  \"实现\": { \"bridge-test\": { \"可执行\": \"" + executable + "\", \"参数\": [" + argumentsJson + "] } }\n"
                 + "}";
-            var path = Path.Combine(root, "Config", "创作管线", "下游.json");
+            var path = Path.Combine(root, "Tools", "CreationPipeline", "Config", "downstream.json");
             var directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(directory))
             {

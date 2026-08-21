@@ -7,7 +7,7 @@
 
 长连接的好处是**不需要公网回调地址**，本机 NAT 后面也能收事件。
 
-密钥从 Config/创作管线/本机.json 读，**只进 SDK 的构造参数，不打印、不写日志**
+密钥从 Tools/CreationPipeline/Config/local.json 读，**只进 SDK 的构造参数，不打印、不写日志**
 （决策 5、78）。
 """
 
@@ -20,7 +20,7 @@ from pathlib import Path
 import lark_oapi as lark
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-LOCAL_CONFIG = REPOSITORY_ROOT / "Config" / "创作管线" / "本机.json"
+LOCAL_CONFIG = REPOSITORY_ROOT / "Tools" / "CreationPipeline" / "Config" / "local.json"
 WAKE_DIRECTORY = REPOSITORY_ROOT / "_Tasks" / "唤醒"
 CONVERSATION_DIRECTORY = REPOSITORY_ROOT / "_Tasks" / "会话"
 

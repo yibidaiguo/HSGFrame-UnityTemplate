@@ -21,7 +21,7 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 引擎配置：Config/创作管线/引擎.json 的内存形态。
+    /// 引擎配置：Tools/CreationPipeline/Config/engine.json 的内存形态。
     /// 文件缺失或坏掉时返回一份默认配置（值守 / 60 / 2 / 500000 / 60），原因记在 LoadFailureReason；
     /// 单个键缺失时该键取默认值，其余键照读。默认模式必须是值守——配置缺失时最安全的行为是永不自动。
     /// </summary>
@@ -52,15 +52,15 @@ namespace Template.Toolkit.CreationPipeline
             LoadFailureReason = loadFailureReason ?? "";
         }
 
-        /// <summary>引擎配置文件的路径：&lt;仓库根&gt;/Config/创作管线/引擎.json。</summary>
+        /// <summary>引擎配置文件的路径：&lt;仓库根&gt;/Tools/CreationPipeline/Config/engine.json。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         public static string SettingsFile(string repositoryRoot)
         {
-            return Path.Combine(repositoryRoot, "Config", "创作管线", "引擎.json");
+            return Path.Combine(repositoryRoot, "Tools", "CreationPipeline", "Config", "engine.json");
         }
 
         /// <summary>
-        /// 从仓库根加载引擎配置：读 &lt;仓库根&gt;/Config/创作管线/引擎.json。
+        /// 从仓库根加载引擎配置：读 &lt;仓库根&gt;/Tools/CreationPipeline/Config/engine.json。
         /// 文件不存在、JSON 语法错误或根不是对象时返回默认配置不抛异常，原因记进 LoadFailureReason；
         /// 单个键缺失或类型不对时该键取默认值，其余键照读。
         /// </summary>
@@ -108,7 +108,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 把配置写回 &lt;仓库根&gt;/Config/创作管线/引擎.json，目录不存在就建；缩进 + 不转义中文。
+        /// 把配置写回 &lt;仓库根&gt;/Tools/CreationPipeline/Config/engine.json，目录不存在就建；缩进 + 不转义中文。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="settings">要写盘的引擎配置。</param>

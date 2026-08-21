@@ -86,7 +86,7 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 同步水位表（Config/创作管线/同步水位.json）：按 driver 名分键，每个 driver 记一条
+    /// 同步水位表（Tools/CreationPipeline/Config/sync-watermark.json）：按 driver 名分键，每个 driver 记一条
     /// 「最后修改时间 + 最后记录 id」。读不到进度时返回空水位——空水位的语义是「全量拉」：
     /// 重拉一遍最安全（幂等会把重复的挡掉），不是不拉。这与决策 10（配置缺失返回值守）
     /// 方向相反是**故意的**——水位缺了最坏结果是多拉，值守缺了最坏结果是永不自动，两件事的

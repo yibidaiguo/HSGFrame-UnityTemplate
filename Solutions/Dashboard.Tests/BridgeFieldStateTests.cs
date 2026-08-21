@@ -13,7 +13,7 @@ namespace Template.Toolkit.DashboardTests
     /// 下游页字段「配没配」状态测试（P8-8）：
     /// 非密钥字段读本机配置的「下游配置.&lt;driver&gt;.&lt;字段名&gt;」，判「键在不在且非空串」；
     /// 密钥字段只判键在不在、值一次都不取（决策 5、78）；
-    /// 「本机.json 不存在」与「文件有但这项没填」是两支，必须分开报（决策 42、77）。
+    /// 「local.json 不存在」与「文件有但这项没填」是两支，必须分开报（决策 42、77）。
     /// 全部用系统临时目录建仓库根，跑完自删。
     /// </summary>
     public sealed class BridgeFieldStateTests : IDisposable
@@ -74,12 +74,12 @@ namespace Template.Toolkit.DashboardTests
             Assert.Equal("未配", Field(row, "超时秒").State);
         }
 
-        /// <summary>本机.json 不存在 → 密钥与非密钥字段全部未配，且行上有「本机配置文件不存在」的说明（决策 42、77，本批最重要的一条）。</summary>
+        /// <summary>local.json 不存在 → 密钥与非密钥字段全部未配，且行上有「本机配置文件不存在」的说明（决策 42、77，本批最重要的一条）。</summary>
         [Fact]
         public void MissingLocalConfigMarksAllFieldsUnconfiguredWithNote()
         {
             WriteDriver("feishu", FeishuDriverJson());
-            // 刻意不写 Config/创作管线/本机.json。
+            // 刻意不写 Tools/CreationPipeline/Config/local.json。
 
             var row = Assert.Single(CreationPanelReader.ReadBridges(_repositoryRoot, _poolRoot));
 
@@ -156,7 +156,7 @@ namespace Template.Toolkit.DashboardTests
 
         private void WriteLocalConfig(string json)
         {
-            WriteFile(Path.Combine(_repositoryRoot, "Config", "创作管线", "本机.json"), json);
+            WriteFile(Path.Combine(_repositoryRoot, "Tools", "CreationPipeline", "Config", "local.json"), json);
         }
 
         private static string BlenderDriverJson()
