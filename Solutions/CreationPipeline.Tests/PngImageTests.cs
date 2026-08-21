@@ -287,6 +287,126 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Contains("tRNS", result.FailureReason);
         }
 
+        /// <summary>编解码往返：3×2 渐变图 → Encode → Decode → 逐像素相等。</summary>
+        [Fact]
+        public void EncodeDecodeRoundTripsPixels()
+        {
+            var pixels = new byte[3 * 2 * 4];
+            for (var y = 0; y < 2; y++)
+            {
+                for (var x = 0; x < 3; x++)
+                {
+                    var i = (y * 3 + x) * 4;
+                    pixels[i] = (byte)(x * 100);
+                    pixels[i + 1] = (byte)(y * 100);
+                    pixels[i + 2] = (byte)(x * y * 50);
+                    pixels[i + 3] = 255;
+                }
+            }
+
+            var encoded = PngEncoder.Encode(new PngImage(3, 2, pixels));
+            var decoded = PngDecoder.Decode(encoded);
+
+            Assert.True(decoded.Succeeded, decoded.FailureReason);
+            Assert.Equal(3, decoded.Image.Width);
+            Assert.Equal(2, decoded.Image.Height);
+            Assert.Equal(pixels, decoded.Image.Pixels);
+        }
+
+        /// <summary>确定性：同一张图连编两次，字节数组逐字节相同。</summary>
+        [Fact]
+        public void EncodeIsDeterministic()
+        {
+            var pixels = new byte[4 * 4 * 4];
+            for (var i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] = (byte)(i * 7);
+            }
+
+            var image = new PngImage(4, 4, pixels);
+            var first = PngEncoder.Encode(image);
+            var second = PngEncoder.Encode(image);
+
+            Assert.Equal(first, second);
+        }
+
+        /// <summary>带 alpha 的像素往返后 alpha 不变。</summary>
+        [Fact]
+        public void EncodeDecodePreservesAlpha()
+        {
+            var pixels = new byte[]
+            {
+                10, 20, 30, 0,
+                40, 50, 60, 128,
+                70, 80, 90, 255,
+                11, 22, 33, 77
+            };
+
+            var encoded = PngEncoder.Encode(new PngImage(2, 2, pixels));
+            var decoded = PngDecoder.Decode(encoded);
+
+            Assert.True(decoded.Succeeded, decoded.FailureReason);
+            Assert.Equal(pixels, decoded.Image.Pixels);
+        }
+
+        /// <summary>编出来的每个块的 CRC32 都按 IEEE 0xEDB88320 算对（浏览器与飞书会校验）。</summary>
+        [Fact]
+        public void EncodedPngHasValidChunkCrcs()
+        {
+            var pixels = new byte[] { 255, 0, 0, 255 };
+            var bytes = PngEncoder.Encode(new PngImage(1, 1, pixels));
+
+            var offset = 8;
+            var chunkCount = 0;
+            while (offset < bytes.Length)
+            {
+                var length = ReadInt32BE(bytes, offset);
+                var typeAndDataLength = 4 + length;
+                var crcOffset = offset + 8 + length;
+                var expected = ReadUInt32BE(bytes, crcOffset);
+                var actual = Crc32(bytes, offset + 4, typeAndDataLength);
+                Assert.Equal(expected, actual);
+                chunkCount++;
+                offset = crcOffset + 4;
+            }
+
+            Assert.True(chunkCount >= 3, "至少应有 IHDR / IDAT / IEND 三个块");
+        }
+
+        /// <summary>按位直算 CRC32（与编码器的查表法独立实现，用来交叉验证查表没写错）。</summary>
+        private static uint Crc32(byte[] data, int offset, int count)
+        {
+            var crc = 0xFFFFFFFFu;
+            for (var i = 0; i < count; i++)
+            {
+                crc ^= data[offset + i];
+                for (var k = 0; k < 8; k++)
+                {
+                    crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
+                }
+            }
+
+            return crc ^ 0xFFFFFFFFu;
+        }
+
+        /// <summary>读 4 字节大端有符号整数。</summary>
+        private static int ReadInt32BE(byte[] bytes, int offset)
+        {
+            return (bytes[offset] << 24)
+                | (bytes[offset + 1] << 16)
+                | (bytes[offset + 2] << 8)
+                | bytes[offset + 3];
+        }
+
+        /// <summary>读 4 字节大端无符号整数。</summary>
+        private static uint ReadUInt32BE(byte[] bytes, int offset)
+        {
+            return ((uint)bytes[offset] << 24)
+                | ((uint)bytes[offset + 1] << 16)
+                | ((uint)bytes[offset + 2] << 8)
+                | bytes[offset + 3];
+        }
+
         /// <summary>手工拼一个合法 PNG 字节流；omitIdat 为 true 时不放 IDAT 块。</summary>
         private static byte[] BuildPng(
             int width,

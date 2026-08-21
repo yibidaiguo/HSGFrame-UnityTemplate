@@ -9,6 +9,7 @@ namespace Template.Bridges.Feishu
     /// <summary>
     /// 发卡片动作（card）：把一张选片卡（SelectionCard 出的数据）拼成飞书 interactive 卡片，
     /// 发给「测试收件人」。收件人只从配置的测试收件人取，不去通讯录捞人、不群发。
+    /// 卡片上的九宫格预览图先经 image_key 上传，img 元素只引用 image_key，不直接塞图片字节。
     /// 调试卡片格式用干跑——干跑把要发的卡片 JSON 打出来，别靠反复真发去试（决策 92）。
     /// 整个验收过程只许真发一条。
     /// </summary>
@@ -53,21 +54,44 @@ namespace Template.Bridges.Feishu
                 return Failure("请求不合协议", reason, retryable: false);
             }
 
-            var cardJson = BuildCardJson(cardData);
-
             if (isDryRun)
             {
+                var imageKey = cardData.SheetPath.Length > 0 ? "<待上传>" : "";
+                var cardJson = BuildCardJson(cardData, imageKey);
                 var payload = new JsonObject
                 {
                     ["干跑"] = true,
                     ["要发的卡片JSON"] = cardJson
                 };
+                if (cardData.SheetPath.Length > 0)
+                {
+                    payload["拼图路径"] = cardData.SheetPath;
+                }
+
                 return Success(JsonSerializer.SerializeToElement(payload));
             }
 
+            var effectiveImageKey = "";
+            if (cardData.SheetPath.Length > 0)
+            {
+                var upload = FeishuClient.UploadImage(cardData.SheetPath, appId, secretKey, timeoutSeconds);
+                if (!upload.Succeeded)
+                {
+                    return upload.Response;
+                }
+
+                effectiveImageKey = ReadString(upload.ResponseBody, "data", "image_key");
+                if (effectiveImageKey.Length == 0)
+                {
+                    return Failure("下游报错", "飞书上传图片的响应里没有 image_key", retryable: false);
+                }
+            }
+
+            var cardJsonReal = BuildCardJson(cardData, effectiveImageKey);
+
             var body = "{\"receive_id\":" + JsonSerializer.Serialize(recipient)
                 + ",\"msg_type\":\"interactive\""
-                + ",\"content\":" + JsonSerializer.Serialize(cardJson) + "}";
+                + ",\"content\":" + JsonSerializer.Serialize(cardJsonReal) + "}";
 
             var call = FeishuClient.Send("POST", FeishuClient.ImMessagesUrl(), body, appId, secretKey, timeoutSeconds);
             if (!call.Succeeded)
@@ -89,8 +113,8 @@ namespace Template.Bridges.Feishu
             return Success(JsonSerializer.SerializeToElement(result));
         }
 
-        /// <summary>拼一张飞书 interactive 选片卡：标题、资产/轮次/数量摘要、变体清单与按钮。</summary>
-        private static string BuildCardJson(CardData card)
+        /// <summary>拼一张飞书 interactive 选片卡：标题、九宫格图（可选）、资产/轮次/数量摘要、变体清单与按钮。</summary>
+        private static string BuildCardJson(CardData card, string imageKey)
         {
             var summaryLines = new List<string>
             {
@@ -103,14 +127,25 @@ namespace Template.Bridges.Feishu
                 summaryLines.Add(card.Hint);
             }
 
-            var elements = new JsonArray
+            var elements = new JsonArray();
+
+            if (!string.IsNullOrEmpty(imageKey))
             {
-                new JsonObject
+                elements.Add(new JsonObject
                 {
-                    ["tag"] = "div",
-                    ["text"] = new JsonObject { ["tag"] = "lark_md", ["content"] = string.Join("\n", summaryLines) }
-                }
-            };
+                    ["tag"] = "img",
+                    ["img_key"] = imageKey,
+                    ["alt"] = new JsonObject { ["tag"] = "plain_text", ["content"] = "选片九宫格" },
+                    ["mode"] = "fit_horizontal",
+                    ["preview"] = true
+                });
+            }
+
+            elements.Add(new JsonObject
+            {
+                ["tag"] = "div",
+                ["text"] = new JsonObject { ["tag"] = "lark_md", ["content"] = string.Join("\n", summaryLines) }
+            });
 
             if (card.QualifiedVariants.Count > 0)
             {
@@ -164,6 +199,7 @@ namespace Template.Bridges.Feishu
             public int RejectedCount;
             public IReadOnlyList<string> Buttons;
             public string Hint;
+            public string SheetPath;
         }
 
         /// <summary>从载荷读卡片数据；缺必填键或类型不对给可读原因。</summary>
@@ -209,7 +245,8 @@ namespace Template.Bridges.Feishu
                 QualifiedVariants = qualifiedVariants,
                 RejectedCount = ReadInt(cardElement, "弃置数"),
                 Buttons = buttons,
-                Hint = ReadString(cardElement, "提示")
+                Hint = ReadString(cardElement, "提示"),
+                SheetPath = ReadString(cardElement, "拼图路径")
             };
             return true;
         }

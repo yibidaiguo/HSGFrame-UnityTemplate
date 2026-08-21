@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Template.Toolkit.CreationPipeline;
 
 namespace Template.Bridges.Blender
@@ -28,6 +29,15 @@ namespace Template.Bridges.Blender
 
         /// <summary>stderr 末尾最多带几行进错误人话。</summary>
         private const int StderrTailLineCount = 8;
+
+        /// <summary>三视图的缺省边长，像素。</summary>
+        private const int DefaultSideLength = 512;
+
+        /// <summary>三视图边长的下限，像素。再小就看不出形了。</summary>
+        private const int MinimumSideLength = 64;
+
+        /// <summary>三视图边长的上限，像素。再大对着卡片看没有意义，只是让上传变慢。</summary>
+        private const int MaximumSideLength = 2048;
 
         /// <summary>
         /// 能力探测：跑 probe.py，把脚本回传的探测 JSON 写到载荷「输出路径」。
@@ -145,6 +155,90 @@ namespace Template.Bridges.Blender
             }
         }
 
+        /// <summary>
+        /// 三视图批渲：跑 render_views.py，返回
+        /// {"输出图":[{"视角":"front","路径":…},{"视角":"side",…},{"视角":"iso",…}]}
+        /// 出图的文件名是跨环硬约定「&lt;模型文件名（带后缀）&gt;.&lt;视角&gt;.png」，
+        /// 下一环的九宫格按 AssetPaths.VariantViewFile 去找，名字对不上就等于没渲。
+        /// </summary>
+        /// <param name="request">请求信封，载荷含 输入模型 / 输出目录 / 边长（可选）。</param>
+        public static BridgeResponse RunRender(BridgeRequest request)
+        {
+            if (!TryGetPayloadString(request, "输入模型", out var inputModel, out var reason))
+            {
+                return FailureResponse("载荷缺「输入模型」或它不是字符串：" + reason);
+            }
+
+            if (!TryGetPayloadString(request, "输出目录", out var outputDirectory, out reason))
+            {
+                return FailureResponse("载荷缺「输出目录」或它不是字符串：" + reason);
+            }
+
+            if (!File.Exists(inputModel))
+            {
+                return FailureResponse($"输入模型不存在：{inputModel}");
+            }
+
+            try
+            {
+                Directory.CreateDirectory(outputDirectory);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is ArgumentException || exception is NotSupportedException)
+            {
+                return FailureResponse($"输出目录建不出来：{exception.Message}");
+            }
+
+            // 边长的缺省与钳制在这里定死后写进参数文件——脚本侧另有一道同样的兜底，
+            // 两边同源，谁被单独调用都不会渲出一张尺寸离谱的图。
+            var sideLength = ReadPayloadInt(request, "边长", DefaultSideLength);
+            if (sideLength < MinimumSideLength)
+            {
+                sideLength = MinimumSideLength;
+            }
+
+            if (sideLength > MaximumSideLength)
+            {
+                sideLength = MaximumSideLength;
+            }
+
+            var argumentsObject = new JsonObject
+            {
+                ["输入模型"] = inputModel,
+                ["输出目录"] = outputDirectory,
+                ["边长"] = sideLength
+            };
+
+            var argumentsFile = WriteTemporaryArgumentsFile(argumentsObject.ToJsonString());
+            try
+            {
+                var run = RunBlender(request, "render_views.py", argumentsFile);
+                if (!run.Succeeded)
+                {
+                    return run.Response;
+                }
+
+                if (!TryParseJson(run.ResultJson, out var document, out var parseReason))
+                {
+                    return FailureResponse($"加工站回传的不是合法 JSON：{parseReason}");
+                }
+
+                using (document)
+                {
+                    var root = document.RootElement;
+                    if (!IsRenderShape(root))
+                    {
+                        return FailureResponse("加工站回传的结果不是「输出图」数组，或数组里有项缺 视角 / 路径");
+                    }
+
+                    return BridgeResponse.Success("1.0.0", root.Clone());
+                }
+            }
+            finally
+            {
+                TryDelete(argumentsFile);
+            }
+        }
+
         /// <summary>一次 Blender 子进程执行的结果：成功时带回传的 JSON 文本，失败时带协议响应。</summary>
         private sealed class BlenderRun
         {
@@ -170,7 +264,13 @@ namespace Template.Bridges.Blender
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                UseShellExecute = false
+                UseShellExecute = false,
+
+                // 脚本回传的 BRIDGE_RESULT 里全是中文键，而重定向流不钉编码就跟着控制台走
+                // （本机是 GBK）——那样收回来的 JSON 是乱码，报错还会指到「JSON 不合法」上，
+                // 根本看不出是编码问题。脚本侧是 UTF-8，这里必须对上。
+                StandardOutputEncoding = new UTF8Encoding(false),
+                StandardErrorEncoding = new UTF8Encoding(false)
             };
 
             startInfo.ArgumentList.Add("--background");
@@ -356,6 +456,44 @@ namespace Template.Bridges.Blender
                 && IsArray(root, "节点")
                 && IsArray(root, "模型")
                 && IsArray(root, "lora");
+        }
+
+        /// <summary>三视图结果形状：顶层有「输出图」数组，且每一项都是含 视角 / 路径 两个字符串键的对象。</summary>
+        private static bool IsRenderShape(JsonElement root)
+        {
+            if (root.ValueKind != JsonValueKind.Object || !IsArray(root, "输出图"))
+            {
+                return false;
+            }
+
+            foreach (var item in root.GetProperty("输出图").EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object || !IsString(item, "视角") || !IsString(item, "路径"))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>读载荷里的整数键；缺失、类型不对给缺省值。</summary>
+        private static int ReadPayloadInt(BridgeRequest request, string key, int fallback)
+        {
+            if (request.Payload.ValueKind == JsonValueKind.Object
+                && request.Payload.TryGetProperty(key, out var element)
+                && element.ValueKind == JsonValueKind.Number)
+            {
+                try
+                {
+                    return element.GetInt32();
+                }
+                catch (Exception exception) when (exception is FormatException || exception is InvalidOperationException || exception is OverflowException)
+                {
+                }
+            }
+
+            return fallback;
         }
 
         /// <summary>加工结果形状：四个必填键。</summary>

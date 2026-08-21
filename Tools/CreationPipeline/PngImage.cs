@@ -551,4 +551,177 @@ namespace Template.Toolkit.CreationPipeline
             return new PngDecodeResult(false, null, reason);
         }
     }
+
+    /// <summary>
+    /// 最小 PNG 编码器：只出位深 8、颜色类型 6（真彩 + alpha）、非隔行这一种形态，
+    /// 块顺序签名 → IHDR → IDAT → IEND，不写 tIME 也不写任何文本块——同输入必出逐字节相同的字节流
+    /// （确定性，与决策 45 同源）。每行前置 filter 0（None），整块压成一个 IDAT。
+    /// 每个块的 CRC32 按 IEEE 反射多项式 0xEDB88320 算对（解码器不校验，但浏览器与飞书会校验）。
+    /// </summary>
+    public static class PngEncoder
+    {
+        /// <summary>PNG 文件签名：89 50 4E 47 0D 0A 1A 0A。</summary>
+        private static readonly byte[] Signature = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+
+        /// <summary>CRC32 的 256 项查找表（IEEE 反射多项式 0xEDB88320）。</summary>
+        private static readonly uint[] CrcTable = BuildCrcTable();
+
+        /// <summary>
+        /// 把一张 RGBA8 图编成 PNG 字节流。
+        /// </summary>
+        /// <param name="image">要编码的图。</param>
+        public static byte[] Encode(PngImage image)
+        {
+            if (image == null)
+            {
+                throw new ArgumentNullException(nameof(image));
+            }
+
+            if (image.Width < 1 || image.Height < 1)
+            {
+                throw new ArgumentException($"宽高必须至少为 1，实际 {image.Width}×{image.Height}");
+            }
+
+            if (image.Pixels == null || image.Pixels.Count != (long)image.Width * image.Height * 4)
+            {
+                throw new ArgumentException("像素长度必须是宽×高×4");
+            }
+
+            // 每行一个 filter 字节 0（None）+ 宽×4 字节 RGBA，按行从上到下。
+            var rowBytes = image.Width * 4;
+            var scanlines = new byte[(rowBytes + 1) * image.Height];
+            for (var y = 0; y < image.Height; y++)
+            {
+                var rowStart = y * (rowBytes + 1);
+                scanlines[rowStart] = 0;
+                var pixelStart = y * rowBytes;
+                for (var x = 0; x < rowBytes; x++)
+                {
+                    scanlines[rowStart + 1 + x] = image.Pixels[pixelStart + x];
+                }
+            }
+
+            byte[] compressed;
+            using (var output = new MemoryStream())
+            {
+                using (var zlib = new ZLibStream(output, CompressionLevel.Optimal, leaveOpen: true))
+                {
+                    zlib.Write(scanlines, 0, scanlines.Length);
+                }
+
+                compressed = output.ToArray();
+            }
+
+            var ihdr = new byte[13];
+            WriteInt32BE(ihdr, 0, image.Width);
+            WriteInt32BE(ihdr, 4, image.Height);
+            ihdr[8] = 8;   // 位深
+            ihdr[9] = 6;   // 颜色类型：真彩 + alpha
+            ihdr[10] = 0;  // 压缩法
+            ihdr[11] = 0;  // 滤波法
+            ihdr[12] = 0;  // 非隔行
+
+            var result = new List<byte>(Signature.Length + ihdr.Length + compressed.Length + 32);
+            result.AddRange(Signature);
+            AppendChunk(result, "IHDR", ihdr);
+            AppendChunk(result, "IDAT", compressed);
+            AppendChunk(result, "IEND", Array.Empty<byte>());
+            return result.ToArray();
+        }
+
+        /// <summary>
+        /// 把一张 RGBA8 图编码后写盘；编码失败或 IO 失败都转成 false + reason（原因照抄异常消息，不加猜测）。
+        /// </summary>
+        /// <param name="image">要编码的图。</param>
+        /// <param name="filePath">目标文件路径。</param>
+        /// <param name="reason">失败原因；成功时为空串。</param>
+        public static bool EncodeToFile(PngImage image, string filePath, out string reason)
+        {
+            reason = "";
+            try
+            {
+                var bytes = Encode(image);
+                var directory = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                File.WriteAllBytes(filePath, bytes);
+                return true;
+            }
+            catch (Exception exception) when (exception is ArgumentException
+                || exception is IOException
+                || exception is UnauthorizedAccessException
+                || exception is NotSupportedException)
+            {
+                reason = exception.Message;
+                return false;
+            }
+        }
+
+        /// <summary>往块列表追加一个块：长度（大端）+ 类型 + 数据 + 4 字节 CRC32（对类型 + 数据算）。</summary>
+        private static void AppendChunk(List<byte> target, string type, byte[] data)
+        {
+            var length = data.Length;
+            target.Add((byte)(length >> 24));
+            target.Add((byte)(length >> 16));
+            target.Add((byte)(length >> 8));
+            target.Add((byte)length);
+
+            var typeBytes = Encoding.ASCII.GetBytes(type);
+            target.AddRange(typeBytes);
+            target.AddRange(data);
+
+            var crc = ComputeCrc32(typeBytes, data);
+            target.Add((byte)(crc >> 24));
+            target.Add((byte)(crc >> 16));
+            target.Add((byte)(crc >> 8));
+            target.Add((byte)crc);
+        }
+
+        /// <summary>建 CRC32 查找表。</summary>
+        private static uint[] BuildCrcTable()
+        {
+            var table = new uint[256];
+            for (uint i = 0; i < 256; i++)
+            {
+                var c = i;
+                for (var k = 0; k < 8; k++)
+                {
+                    c = (c & 1) != 0 ? 0xEDB88320u ^ (c >> 1) : c >> 1;
+                }
+
+                table[i] = c;
+            }
+
+            return table;
+        }
+
+        /// <summary>对「类型 + 数据」算 CRC32（查表法）。</summary>
+        private static uint ComputeCrc32(byte[] type, byte[] data)
+        {
+            var crc = 0xFFFFFFFFu;
+            for (var i = 0; i < type.Length; i++)
+            {
+                crc = CrcTable[(crc ^ type[i]) & 0xFF] ^ (crc >> 8);
+            }
+
+            for (var i = 0; i < data.Length; i++)
+            {
+                crc = CrcTable[(crc ^ data[i]) & 0xFF] ^ (crc >> 8);
+            }
+
+            return crc ^ 0xFFFFFFFFu;
+        }
+
+        /// <summary>写 4 字节大端有符号整数。</summary>
+        private static void WriteInt32BE(byte[] target, int offset, int value)
+        {
+            target[offset] = (byte)(value >> 24);
+            target[offset + 1] = (byte)(value >> 16);
+            target[offset + 2] = (byte)(value >> 8);
+            target[offset + 3] = (byte)value;
+        }
+    }
 }

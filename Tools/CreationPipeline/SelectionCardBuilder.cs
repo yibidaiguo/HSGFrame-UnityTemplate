@@ -27,7 +27,7 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 扫某资产的变体目录装配一张选片卡片：只收顶层合格变体（图片 + 溯源边车齐全），
+    /// 扫某资产的变体目录装配一张选片卡片：只收顶层合格变体（图片或模型 + 溯源边车齐全），
     /// 数弃置文件，按轮次定提示语。本类不做尺寸/格式/命名的机检——那是资产规格检查器的活。
     /// </summary>
     public static class SelectionCardBuilder
@@ -37,6 +37,9 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>允许的图片后缀，比较时大小写不敏感。</summary>
         private static readonly string[] AllowedImageExtensions = { ".png", ".jpg", ".jpeg", ".webp" };
+
+        /// <summary>允许的模型后缀，比较时大小写不敏感。</summary>
+        private static readonly string[] AllowedModelExtensions = { ".glb", ".gltf", ".fbx" };
 
         /// <summary>
         /// 装配一张选片卡片。
@@ -78,7 +81,7 @@ namespace Template.Toolkit.CreationPipeline
             foreach (var filePath in Directory.EnumerateFiles(variantDirectory, "*", SearchOption.TopDirectoryOnly))
             {
                 var fileName = Path.GetFileName(filePath);
-                if (!IsImageFile(fileName))
+                if (!IsVariantFile(fileName))
                 {
                     // 「*.provenance.json」不是变体，后缀过滤自然排除，这里只是明确写出这条规则。
                     continue;
@@ -127,10 +130,28 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>文件名后缀是否属于允许的图片格式，大小写不敏感。</summary>
-        private static bool IsImageFile(string fileName)
+        public static bool IsImageFile(string fileName)
+        {
+            return HasAllowedExtension(fileName, AllowedImageExtensions);
+        }
+
+        /// <summary>文件名后缀是否属于允许的模型格式，大小写不敏感。</summary>
+        public static bool IsModelFile(string fileName)
+        {
+            return HasAllowedExtension(fileName, AllowedModelExtensions);
+        }
+
+        /// <summary>文件名后缀是否属于可接受的变体格式（图片或模型），大小写不敏感。</summary>
+        private static bool IsVariantFile(string fileName)
+        {
+            return IsImageFile(fileName) || IsModelFile(fileName);
+        }
+
+        /// <summary>文件名后缀是否命中一组允许后缀，大小写不敏感。</summary>
+        private static bool HasAllowedExtension(string fileName, string[] allowedExtensions)
         {
             var extension = Path.GetExtension(fileName);
-            foreach (var allowed in AllowedImageExtensions)
+            foreach (var allowed in allowedExtensions)
             {
                 if (string.Equals(extension, allowed, StringComparison.OrdinalIgnoreCase))
                 {

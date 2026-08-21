@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -27,6 +28,9 @@ namespace Template.Bridges.Feishu
 
         /// <summary>发消息的端点（receive_id_type=open_id）。</summary>
         private const string ImMessagesEndpoint = "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=open_id";
+
+        /// <summary>上传图片的端点（image_type=message）。</summary>
+        private const string ImImagesEndpoint = "https://open.feishu.cn/open-apis/im/v1/images";
 
         /// <summary>飞书对取 token 有频率限制，token 缓存在进程内、过期前 5 分钟视为过期。</summary>
         private static readonly TimeSpan TokenRefreshAhead = TimeSpan.FromMinutes(5);
@@ -75,6 +79,120 @@ namespace Template.Bridges.Feishu
             }
 
             return SendWithToken(method, url, bodyJson, token, timeoutSeconds);
+        }
+
+        /// <summary>
+        /// 上传一张本地 PNG 给飞书（image_type=message），拿到 data.image_key 供卡片 img 元素引用。
+        /// 文件不存在直接失败（请求不合协议）；其余沿用 SendWithToken 那套错误映射（连不上→下游不可达、
+        /// 99991672→凭据无效、code 非 0→下游报错带 msg 与 log_id）。密钥红线照旧：token 只进 Authorization 头。
+        /// </summary>
+        /// <param name="filePath">本地 PNG 文件路径。</param>
+        /// <param name="appId">飞书应用标识。</param>
+        /// <param name="appSecret">飞书应用密钥，只进 token 请求体，绝不出现在任何文案里。</param>
+        /// <param name="timeoutSeconds">单次 HTTP 超时秒数。</param>
+        public static HttpCall UploadImage(string filePath, string appId, string appSecret, int timeoutSeconds)
+        {
+            if (!File.Exists(filePath))
+            {
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = BridgeResponse.Failure("1.0.0", "请求不合协议", $"图片文件不存在：{filePath}", retryable: false)
+                };
+            }
+
+            byte[] imageBytes;
+            try
+            {
+                imageBytes = File.ReadAllBytes(filePath);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = BridgeResponse.Failure("1.0.0", "请求不合协议", $"图片读不出来：{filePath}（{exception.Message}）", retryable: false)
+                };
+            }
+
+            if (!TryGetToken(appId, appSecret, timeoutSeconds, out var token, out var tokenError))
+            {
+                return new HttpCall { Succeeded = false, Response = tokenError };
+            }
+
+            try
+            {
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(Math.Max(1, timeoutSeconds)) };
+                using var request = new HttpRequestMessage(HttpMethod.Post, ImImagesEndpoint);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                using var content = new MultipartFormDataContent();
+                content.Add(new StringContent("message"), "image_type");
+                var imageContent = new ByteArrayContent(imageBytes);
+                imageContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+                content.Add(imageContent, "image", Path.GetFileName(filePath));
+                request.Content = content;
+
+                using var response = client.SendAsync(request).GetAwaiter().GetResult();
+                var responseText = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                var logId = ReadLogIdFromHeaders(response);
+
+                var statusCode = (int)response.StatusCode;
+                if (statusCode >= 200 && statusCode < 300)
+                {
+                    if (!TryParseBody(responseText, out var body))
+                    {
+                        return new HttpCall
+                        {
+                            Succeeded = false,
+                            Response = BridgeResponse.Failure("1.0.0", "下游报错", "飞书返回的响应体不是合法 JSON", retryable: false)
+                        };
+                    }
+
+                    if (body.TryGetProperty("code", out var codeElement))
+                    {
+                        if (codeElement.ValueKind != JsonValueKind.Number || !TryParseCode(codeElement, out var code))
+                        {
+                            return new HttpCall
+                            {
+                                Succeeded = false,
+                                Response = BridgeResponse.Failure("1.0.0", "下游报错", "飞书响应的 code 不是合法整数", retryable: false)
+                            };
+                        }
+
+                        if (code != 0)
+                        {
+                            return new HttpCall { Succeeded = false, Response = MapCodeError(body, code, logId) };
+                        }
+                    }
+
+                    return new HttpCall { Succeeded = true, ResponseBody = body.Clone() };
+                }
+
+                // 调试日志走 stderr：只打方法、URL 与状态码，绝不含请求头（Authorization 里有 token）。
+                Console.Error.WriteLine($"BridgeFeishu HTTP {statusCode}：POST {ImImagesEndpoint}");
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = MapHttpError(statusCode, responseText, logId, "POST", ImImagesEndpoint)
+                };
+            }
+            catch (TaskCanceledException)
+            {
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = BridgeResponse.Failure("1.0.0", "超时", $"飞书超过 {timeoutSeconds} 秒未响应，已放弃本次调用", retryable: true)
+                };
+            }
+            catch (HttpRequestException)
+            {
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = BridgeResponse.Failure("1.0.0", "下游不可达", "连不上飞书，请检查网络", retryable: true)
+                };
+            }
         }
 
         /// <summary>

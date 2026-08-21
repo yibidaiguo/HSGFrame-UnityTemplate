@@ -57,9 +57,16 @@ _Scratch/*
 
 # 生图/建模的变体本体不进仓库，边车进——变体可由边车重生成，算力换体积
 # （创作管线子文档 06 §二 第 8 步）。目录要放行，否则 git 不会往里走。
+# 目录名早就从「变体」改成 variants 了（AssetPaths.VariantDirectory），中文那三行是留给
+# 迁移前的老目录的；真正生效的是 variants 这三行，改名时漏改会让变体本体直接进库。
+# 三视图（variants/views/）与九宫格（variants/sheets/）都是从变体派生的中间产物，
+# 落在 variants 子树下，被同一条规则一并忽略。
 _Tasks/*/30-outputs/*/变体/**
 !_Tasks/*/30-outputs/*/变体/**/
 !_Tasks/*/30-outputs/*/变体/**/*.provenance.json
+_Tasks/*/30-outputs/*/variants/**
+!_Tasks/*/30-outputs/*/variants/**/
+!_Tasks/*/30-outputs/*/variants/**/*.provenance.json
 
 # 引擎守护的运行时状态跟机器走，不跟仓库走（创作管线锁定决策 81、82）：
 # 轮次账本是这台机器跑了什么的流水，锁文件带的是本机进程号，
@@ -77,6 +84,9 @@ _Tasks/wake/
 # 助手常驻会话的运行时状态同理：收到的消息、发出去的草稿留底与会话流水都是
 # 「这台机器上发生过什么」，跟机器走不跟仓库走（决策 95）。
 _Tasks/conversations/
+# 旁路与助手常驻的运行时状态：单实例锁、PID 记录、生成的参数文件、已见事件表。
+# 全是本机 per-run 的东西，一个都不该进 git。
+_Tasks/sidecar/
 
 # 下游的密钥配置永不入库（创作管线锁定决策 5）。共享的 downstream.json 只存密钥「名」，
 # 可以进 git；local.json 存的是值，一进 git 就是决策 5 要防的那件事。

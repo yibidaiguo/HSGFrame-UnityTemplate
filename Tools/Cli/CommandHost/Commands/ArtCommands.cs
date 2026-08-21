@@ -136,6 +136,38 @@ namespace Template.Toolkit.CommandHost.Commands
         public string OutputPath { get; set; }
     }
 
+    /// <summary>三视图命令 art.views 的参数。</summary>
+    public sealed class ArtViewsArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>要调用的下游 driver 名，对应 Bridges/&lt;名&gt;/ 目录。必填，不给缺省值——
+        /// driver 名只能是运行时参数，写进引擎代码就把加工站钉死在某一家上了（子文档 05）。</summary>
+        [Summary("要调用的下游 driver 名，对应 Bridges/<名>/ 目录")]
+        public string Driver { get; set; }
+
+        /// <summary>要渲的模型路径（绝对或相对路径），支持 .glb / .gltf / .fbx。</summary>
+        [Summary("要渲的模型路径（绝对或相对路径），支持 .glb / .gltf / .fbx")]
+        public string InputModelPath { get; set; }
+
+        /// <summary>三张视图的输出目录；一般给该资产的 variants/views/。</summary>
+        [Summary("三张视图的输出目录；一般给该资产的 variants/views/")]
+        public string OutputDirectory { get; set; }
+
+        /// <summary>单张视图的边长，像素；小于 64 或大于 2048 会被钳回区间。</summary>
+        [Summary("单张视图的边长，像素；小于 64 或大于 2048 会被钳回区间")]
+        [DefaultValue(512)]
+        public int SideLength { get; set; }
+
+        /// <summary>子进程超时秒数。</summary>
+        [Summary("子进程超时秒数")]
+        [DefaultValue(900)]
+        public int TimeoutSeconds { get; set; }
+    }
+
     /// <summary>加工计划命令 art.plan 的参数。</summary>
     public sealed class ArtPlanArguments
     {
@@ -706,6 +738,90 @@ namespace Template.Toolkit.CommandHost.Commands
             return CommandResult.Failure(
                 $"能力对账未通过（依赖 {report.DependencyCount} 项，缺 {report.DependencyCount - report.SatisfiedCount} 项）",
                 report.Findings.Select(finding => finding.ToDisplayText()).ToList());
+        }
+
+        /// <summary>
+        /// 渲模型三视图：调加工站的 render 动作，出前 / 侧 / 45° 三张 PNG。
+        /// 出图落在指定目录，文件名是「&lt;模型文件名（带后缀）&gt;.&lt;视角&gt;.png」——
+        /// 选片卡的九宫格按 AssetPaths.VariantViewFile 到那儿去找，所以输出目录一般直接给
+        /// 该资产的 variants/views/，别随手指到别处。
+        /// </summary>
+        /// <param name="arguments">三视图命令参数。</param>
+        [EditorCommand("art.views")]
+        [Summary("渲模型三视图：前 / 侧 / 45° 各一张 PNG，落到指定目录")]
+        public static CommandResult Views(ArtViewsArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.Driver))
+            {
+                return CommandResult.Failure("参数 Driver 为必填项，值取 Bridges/ 下的目录名");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.InputModelPath))
+            {
+                return CommandResult.Failure("参数 InputModelPath 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.OutputDirectory))
+            {
+                return CommandResult.Failure("参数 OutputDirectory 为必填项");
+            }
+
+            string repositoryRoot;
+            string inputModelPath;
+            string outputDirectory;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+                inputModelPath = Path.GetFullPath(arguments.InputModelPath);
+                outputDirectory = Path.GetFullPath(arguments.OutputDirectory);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"路径参数无法解析为绝对路径：{exception.Message}");
+            }
+
+            if (!File.Exists(inputModelPath))
+            {
+                return CommandResult.Failure($"输入模型不存在：{inputModelPath}");
+            }
+
+            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["输入模型"] = inputModelPath,
+                ["输出目录"] = outputDirectory,
+                ["边长"] = arguments.SideLength
+            });
+
+            var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "render", payload, arguments.TimeoutSeconds);
+            if (!result.Succeeded)
+            {
+                return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
+            }
+
+            var lines = new List<string>();
+            if (result.Payload.ValueKind == JsonValueKind.Object
+                && result.Payload.TryGetProperty("输出图", out var views)
+                && views.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var view in views.EnumerateArray())
+                {
+                    if (view.ValueKind != JsonValueKind.Object)
+                    {
+                        continue;
+                    }
+
+                    var viewName = view.TryGetProperty("视角", out var name) && name.ValueKind == JsonValueKind.String ? name.GetString() : "";
+                    var viewPath = view.TryGetProperty("路径", out var path) && path.ValueKind == JsonValueKind.String ? path.GetString() : "";
+                    lines.Add($"{viewName}：{RelativeTo(repositoryRoot, viewPath)}");
+                }
+            }
+
+            return CommandResult.Success($"已渲出 {lines.Count} 张视图", lines);
         }
 
         /// <summary>

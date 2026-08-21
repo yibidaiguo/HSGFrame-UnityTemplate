@@ -1326,6 +1326,55 @@ namespace Template.Toolkit.CommandHost.Commands
                 buttons.Add(button);
             }
 
+            // 组九宫格拼图：图片变体一格，模型变体三格（F/S/I 三视图）。
+            var cells = new List<ContactSheetCell>();
+            var hasModelVariant = false;
+            for (var index = 0; index < buildResult.Card.QualifiedVariants.Count; index++)
+            {
+                var variantName = buildResult.Card.QualifiedVariants[index];
+                var sequence = (index + 1).ToString();
+                if (SelectionCardBuilder.IsImageFile(variantName))
+                {
+                    var imagePath = Path.Combine(AssetPaths.VariantDirectory(repositoryRoot, arguments.RequirementIdentifier, arguments.AssetIdentifier), variantName);
+                    cells.Add(new ContactSheetCell(sequence, imagePath));
+                }
+                else if (SelectionCardBuilder.IsModelFile(variantName))
+                {
+                    hasModelVariant = true;
+                    var variantPath = Path.Combine(AssetPaths.VariantDirectory(repositoryRoot, arguments.RequirementIdentifier, arguments.AssetIdentifier), variantName);
+                    var viewDirectory = AssetPaths.VariantViewDirectory(repositoryRoot, arguments.RequirementIdentifier, arguments.AssetIdentifier);
+                    var views = new[] { ("front", "F"), ("side", "S"), ("iso", "I") };
+                    foreach (var (viewName, viewLabel) in views)
+                    {
+                        var viewPath = AssetPaths.VariantViewFile(repositoryRoot, arguments.RequirementIdentifier, arguments.AssetIdentifier, variantName, viewName);
+                        if (!File.Exists(viewPath))
+                        {
+                            return CommandResult.Failure(
+                                $"变体「{variantName}」缺「{viewName}」视图，拼不出三视图",
+                                // driver 名不写死在这句提示里——加工站换一家，这句话不该跟着骗人（子文档 05）。
+                                new[] { $"art.views --Driver <加工站driver名> --InputModelPath {variantPath} --OutputDirectory {viewDirectory}" });
+                        }
+
+                        cells.Add(new ContactSheetCell(sequence + " " + viewLabel, viewPath));
+                    }
+                }
+            }
+
+            var columnCount = hasModelVariant ? 3 : ContactSheetComposer.ColumnCountFor(cells.Count);
+            var sheetPath = AssetPaths.ContactSheetFile(repositoryRoot, arguments.RequirementIdentifier, arguments.AssetIdentifier, buildResult.Card.Round);
+
+            var composeResult = ContactSheetComposer.Compose(cells, columnCount, sheetPath);
+            if (!composeResult.Succeeded)
+            {
+                var composeFailureLines = new List<string>();
+                foreach (var finding in composeResult.Findings)
+                {
+                    composeFailureLines.Add(finding.ToDisplayText());
+                }
+
+                return CommandResult.Failure("九宫格拼不出来，没有可发的卡片", composeFailureLines);
+            }
+
             var cardNode = new JsonObject
             {
                 ["需求id"] = buildResult.Card.RequirementIdentifier,
@@ -1334,7 +1383,8 @@ namespace Template.Toolkit.CommandHost.Commands
                 ["合格变体"] = variants,
                 ["弃置数"] = buildResult.Card.RejectedCount,
                 ["按钮"] = buttons,
-                ["提示"] = buildResult.Card.Hint
+                ["提示"] = buildResult.Card.Hint,
+                ["拼图路径"] = sheetPath
             };
 
             var payload = JsonSerializer.SerializeToElement(new JsonObject
@@ -1352,11 +1402,27 @@ namespace Template.Toolkit.CommandHost.Commands
             if (arguments.DryRun)
             {
                 var cardJson = ReadString(result.Payload, "要发的卡片JSON");
-                return CommandResult.Success("干跑：以下是卡片 JSON，没有真发", new[] { cardJson });
+                var lines = new List<string>
+                {
+                    cardJson,
+                    $"九宫格：{sheetPath}"
+                };
+                foreach (var finding in composeResult.Findings)
+                {
+                    lines.Add(finding.ToDisplayText());
+                }
+
+                return CommandResult.Success("干跑：以下是卡片 JSON，没有真发", lines);
             }
 
             var messageId = ReadString(result.Payload, "message_id");
-            return CommandResult.Success($"已发送一条选片卡，message_id={messageId}", new[] { $"message_id={messageId}" });
+            var sendLines = new List<string> { $"message_id={messageId}" };
+            foreach (var finding in composeResult.Findings)
+            {
+                sendLines.Add(finding.ToDisplayText());
+            }
+
+            return CommandResult.Success($"已发送一条选片卡，message_id={messageId}", sendLines);
         }
 
         /// <summary>

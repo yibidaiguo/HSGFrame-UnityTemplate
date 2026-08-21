@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Template.Toolkit.CreationPipeline;
 
 namespace Template.Bridges.Blender
@@ -21,6 +21,10 @@ namespace Template.Bridges.Blender
         /// <param name="args">命令行参数，本桥不消费。</param>
         public static int Main(string[] args)
         {
+            // 三条流先钉成 UTF-8，再碰 stdin 一个字节——协议 JSON 的键是中文，
+            // 编码没对上时收回来就是乱码，而报错完全指不到编码上。
+            BridgeProtocolConsole.PinUtf8();
+
             try
             {
                 var input = Console.In.ReadToEnd();
@@ -39,8 +43,11 @@ namespace Template.Bridges.Blender
                     case "process":
                         response = BlenderRunner.RunProcess(request);
                         break;
+                    case "render":
+                        response = BlenderRunner.RunRender(request);
+                        break;
                     default:
-                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥只支持 caps / process", retryable: false);
+                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥只支持 caps / process / render", retryable: false);
                         break;
                 }
 

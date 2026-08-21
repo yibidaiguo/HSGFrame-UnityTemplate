@@ -19,5 +19,6 @@
   <ItemGroup>
     <None Include="../../scripts/probe.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../scripts/process.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../scripts/render_views.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
