@@ -116,31 +116,51 @@
 | P7 批次 2 面板审查与规范页 | [P7-batch2-dashboard-review-and-specs.md](creation-pipeline-batch-logs/P7-batch2-dashboard-review-and-specs.md) |
 | P7 批次 3 面板收尾 | [P7-batch3-dashboard-finish.md](creation-pipeline-batch-logs/P7-batch3-dashboard-finish.md) |
 
-## 六、P5–P7 之外还剩什么
+## 六、P8 之后：那六项现在各是什么状态
 
-原第六节那份「规格已有但没落地」清单**已经排成 P5–P7**，见第一节。
-剩下的全部是**可验范围之外的**——有环境才能做，不是排期问题。
-**P8 正在把这张表逐行销掉：环境自己装，装不出来的如实留「未验证」。
-计划与设计审查见 [创作管线P8计划](creation-pipeline-p8-plan.md)，新决策（80 起）见
-[创作管线锁定决策P8](creation-pipeline-decisions-p8.md)，要用户填的密钥见
-[创作管线要你填的](creation-pipeline-user-setup.md)。**
+原来这一节是一张「缺什么 / 卡在哪」的表，六行全是「没有可用实例，验不了」。
+**P8 把环境装出来之后，逐行重写如下。判据只有一条：有没有真调用的真回执。**
 
-| 缺什么 | 卡在哪 |
-|---|---|
-| `bridge-feishu` / `bridge-comfyui` / `bridge-blender` / `bridge-tripo` 四个实现 | 四个下游一个都没有可用实例；按决策 23 一律不写桩 |
-| 四个 driver 的「试跑绿」 | 同上——新增 driver 的四步接入，第 3 步都跑不到底 |
-| 真资产、真模型、真加工报告 | 同上 |
-| AI 对抗预审、执行后端评估一轮 | 要真调一次 LLM |
-| 常驻 daemon 与唤醒事件源 | daemon 在门禁里没法验；事件订阅要经飞书 port |
-| 冲突探测与设计池汇总的比对 | 那一半要语义判断，确定性算法做不了（P6 批次 1 只做「与存量需求比对」） |
+| 原来那一行 | 现在 | 凭据 |
+|---|---|---|
+| 四个 driver 实现 | **五个都写了**（多一个 `oaicompat`） | 各自的批次日志 |
+| driver 的「试跑绿」 | **四绿一未点**：blender / comfyui / feishu / oaicompat 真跑过；tripo 只干跑（真跑要花积分） | [批次 13](creation-pipeline-batch-logs/P8-batch13-gap-sweep.md) |
+| 真资产 | **真出图**：文生图 3 张、图生图 1 张，都是真 PNG 真尺寸 | [批次 4](creation-pipeline-batch-logs/P8-batch4-comfyui-generation.md)、[批次 14](creation-pipeline-batch-logs/P8-batch14-img2img.md) |
+| 真模型 | **没有**——tripo 代码通了，卡在账号 API 积分（不是代码问题） | [批次 10](creation-pipeline-batch-logs/P8-batch10-tripo-v3.md) |
+| 真加工报告 | **真加工过**：Blender 真跑，产物能再被读回来 | [批次 3](creation-pipeline-batch-logs/P8-batch3-protocol-and-blender.md) |
+| AI 对抗预审、执行后端评估 | **都真调过 LLM**，产的是报告不是判定（决策 89） | [批次 5](creation-pipeline-batch-logs/P8-batch5-backend-and-prereview.md)、[批次 5b](creation-pipeline-batch-logs/P8-batch5b-semantic-eval.md) |
+| 常驻 daemon 与唤醒事件源 | **daemon 有限轮可验**；文件唤醒源通了，**飞书消息事件真唤醒过一次** | [批次 1](creation-pipeline-batch-logs/P8-batch1-daemon-and-wake.md)、[批次 9](creation-pipeline-batch-logs/P8-batch9-feishu-longconn-wake.md) |
+| 语义冲突比对 | **真调过**，产报告 | [批次 5b](creation-pipeline-batch-logs/P8-batch5b-semantic-eval.md) |
+
+**另外多做了一件当初没在表上的**：助手 B 形态（常驻会话）。
+飞书机器人现在**真会回话**：收消息 → 执行后端 → 现场跑 `req.validate` → 回话 →
+写下游草稿 → 投唤醒信号叫醒引擎，整条链真跑通过（[批次 12](creation-pipeline-batch-logs/P8-batch12-assistant-serve.md)）。
+
+## 七、还卡着的四件事，各卡在谁手里
+
+| 卡什么 | 卡在谁手里 | 补验要做什么 |
+|---|---|---|
+| **tripo 真出模型** + 端到端（粗模 → 加工 → 机检） | **用户**：API credits 要在开发者门户单独买（网页版订阅是另一套额度） | 买完跑一条 `bridge.model --DryRun false`，**代码一个字不用改** |
+| **飞书表格记录变更事件** | **用户**：应用在那张多维表格上的权限要从「可编辑」提到「可管理」 | 提完我重跑一次订阅接口 |
+| **助手 A 形态（Aily 配置包程序化导入）** | 外部平台能不能程序化导入，P1 批次 6 的结论至今没变 | — |
+| **面板的像素级观感** | 截图通道两条都不通，得用户自己开一眼 | — |
+
+## 八、还有三件事等用户点头（都是策略，不是活）
+
+1. **`art.` 要不要进面板命令白名单**（决策 19 那六族里没有它，能力对账在面板上点不了）。
+2. **`spec.` 这个空族要不要从白名单里收窄**（至今一条命令都没有）。
+3. **资产名归一化器仍然产中文名**，与新的路径 ASCII 门禁打架
+   （见 [路径去中文化 e 批](ascii-path-migration-logs/e-unity-and-runtime.md) 末节）。
 
 **每一批的「已知缺口」那节是细账**，动手前先翻对应的批次日志。
 
 ---
 
-> **交接提示：第一节的状态表已经全部「已完成」——方案定义的范围到此走完。**
-> 接手时先读 [创作管线P8计划](creation-pipeline-p8-plan.md)：第六节那六项正在被 P8 逐行销掉，
-> 环境（ComfyUI / Blender / LLM）自己装，真租户真花钱的那几项等用户填凭据。
+> **交接提示：P1–P8 全部走完，第六节那六项已逐行销账（销不掉的写清卡在谁手里）。**
+> 接手时按这个顺序读：本文第六、七、八节（现状 / 还卡着什么 / 等谁点头）→
+> [创作管线P8计划](creation-pipeline-p8-plan.md) 的批次表 → 对应的批次日志。
+> **路径去中文化那笔待办也做完了**（`gate.pathascii` 现在是 block 模式），
+> 设计审查见 [路径去中文化](ascii-path-migration.md)。
 >
 > 两条从 P7 换来的教训，动面板或动「写在决策里但没人验过」的东西之前先看一眼：
 > **决策 76**（面板 JS 的语法错，编译/测试/门禁全绿也照样一页不渲染，
