@@ -38,6 +38,20 @@ dotnet run --project Tools/Cli/CommandHost/CommandHost.csproj -- run project.cre
 
 生成完 Unity Hub → **Add project from disk** → 选 `D:/Projects/Unity/我的游戏/UnityProject/`。
 
+## 装到能用：一条命令的安装向导
+
+clone 完（或生成完新项目）先跑这一条：
+
+```powershell
+./Tools/setup.ps1
+```
+
+它会：生成 `local.json` 骨架（**刻意不带密钥键**——键在就算已配，带空值生出来是假绿）→
+全面体检（密钥文件是否被 .gitignore 保护且未被 git 跟踪、逐下游的密钥键 / 配置节 / 供给状态、
+Unity 编辑器按 `ProjectVersion.txt` 的版本能不能找到）→ 逐条报红/黄/绿和下一步。
+红项清完重跑一遍确认。密钥去哪拿、飞书平台侧要点什么，见
+`Doc/creation-pipeline-user-setup.md`——**密钥值永远不经过任何脚本，体检只看键在不在**。
+
 ## 环境怎么装
 
 **UPM 包不用管**：`UnityProject/Packages/manifest.json` 里写着的包，Unity 打开工程时自己会去拉。
