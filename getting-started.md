@@ -119,6 +119,14 @@ pwsh Tools/dispatch.ps1 -Role implementer -TaskFile <任务书路径>
 四个角色（implementer / verifier / operator / explore）的档案在 `Tools/AgentRunner/Roles/`，
 任务书模板在 `.claude/skills/dev-cycle/templates/`，围栏在 `Tools/AgentRunner/Config/agent-policy.json`。
 
+## 用起来之后往哪写
+
+| 遇到什么 | 写哪 |
+|---|---|
+| 踩到问题、行为不对 | [BUG 反馈簿](Doc/Bugs.md)——六项填全就行，不用判断根因；要修就说「修 BUG-XXXX」 |
+| 想要但现在做不了的事 | [待办账本](Doc/Backlog.md)——每条要写足「为什么值得做 / 影响面 / 动手前要先解决什么」 |
+| 上线前的核对 | [正式版说明](Doc/release-notes-v1.md) 第三节检查单 |
+
 ## 版本对照
 
 | 组件 | 版本 | 装在哪 |
