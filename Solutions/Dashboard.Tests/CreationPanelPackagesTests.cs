@@ -160,6 +160,54 @@ namespace Template.Toolkit.DashboardTests
             Assert.Equal("D:/Tools/Blender/blender.exe", field.Value);
         }
 
+        /// <summary>
+        /// 身份接口报出自己挂在哪个仓库根上。探活的脚本靠它区分「这是我的面板」与
+        /// 「这是隔壁项目的面板」——只探端口的话，8766 上跑着别的仓库时会被当成自己的，
+        /// 人被送进另一个项目的数据里，而页面看着一切正常（真踩过）。
+        /// </summary>
+        [Fact]
+        public async Task IdentityRouteReportsTheRepositoryItServes()
+        {
+            Directory.CreateDirectory(_repositoryRoot);
+            using var server = new DashboardServer(
+                new LogEventChannel(),
+                0,
+                _repositoryRoot,
+                Path.Combine(_repositoryRoot, "Pools"),
+                null);
+            server.Start();
+
+            using var client = new HttpClient();
+            var response = await client.GetAsync($"http://localhost:{server.Port}/api/panel/identity");
+            var body = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var document = JsonDocument.Parse(body);
+            Assert.Equal(_repositoryRoot, document.RootElement.GetProperty("仓库根").GetString());
+            Assert.Equal(Path.GetFileName(_repositoryRoot), document.RootElement.GetProperty("仓库名").GetString());
+            Assert.Equal(server.Port, document.RootElement.GetProperty("端口").GetInt32());
+        }
+
+        /// <summary>
+        /// 没配仓库根的面板，身份接口仍然回 200、仓库根给空串——**不能**跟着别的接口回 503。
+        /// 探活的人要能区分「没配仓库根的面板」与「别的仓库的面板」：两者都不该被当成自己的，
+        /// 但 503 会让调用方以为是接口坏了，进而走上「当成自己的」那条路。
+        /// </summary>
+        [Fact]
+        public async Task IdentityRouteAnswersEvenWithoutARepositoryRoot()
+        {
+            using var server = new DashboardServer(new LogEventChannel(), 0);
+            server.Start();
+
+            using var client = new HttpClient();
+            var response = await client.GetAsync($"http://localhost:{server.Port}/api/panel/identity");
+            var body = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var document = JsonDocument.Parse(body);
+            Assert.Equal("", document.RootElement.GetProperty("仓库根").GetString());
+        }
+
         /// <summary>清理临时仓库根。</summary>
         public void Dispose()
         {

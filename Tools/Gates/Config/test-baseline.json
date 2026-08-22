@@ -122,7 +122,7 @@
     "Solutions/Dashboard.Tests/CreationPanelBridgeTests.cs": "676ce0d8e8aa70d0e9c95c41c199bf9527650b21c874ce05d3d8f236768b0acb",
     "Solutions/Dashboard.Tests/CreationPanelDesignTests.cs": "3b6fb14254625e573fe9b4449969a3e66ec4451df377c9a87ab11d9536476763",
     "Solutions/Dashboard.Tests/CreationPanelDesignsTests.cs": "fc63971981753c89eb9e78a002290fe8c32126c882f3e9d47eb245e21fe2e62b",
-    "Solutions/Dashboard.Tests/CreationPanelPackagesTests.cs": "2789a87a93186bb93cbf77c3235ab8a320c4ae2851bb8a2ddf0f9f6a2857d0fb",
+    "Solutions/Dashboard.Tests/CreationPanelPackagesTests.cs": "fe3d081dbc5e2d6860fc37be6638b3ca75c245ec6609802f09b506106cfd1f73",
     "Solutions/Dashboard.Tests/CreationPanelProvisionTests.cs": "8206b9da1ad065029ac46f516166834fa1fd7472430c8917826dca03c69d9b43",
     "Solutions/Dashboard.Tests/CreationPanelReaderTests.cs": "bb54fe9af35d8710b851a58fbc0e8b9acf45e80fd34f98d13d94487cb298dfca",
     "Solutions/Dashboard.Tests/CreationPanelReviewTests.cs": "24e1f32d239b2364e46c2f1d8b72562cb6aa5547561f82a2f8eb0d17e612a1d7",
