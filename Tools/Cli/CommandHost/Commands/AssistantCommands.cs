@@ -69,7 +69,8 @@ namespace Template.Toolkit.CommandHost.Commands
     /// 3. 文字消息：读这条会话的历史 → 连同这句话一起交给执行后端 → 变成「回话 + 需求草稿」；
     /// 4. **现场跑 req.validate**，不过就不摆确认卡，把校验发现翻成人话；
     /// 5. 回一张卡（至少带「开新话题」按钮）。草稿齐了只留底等人点，
-    ///    **写表发生在人点「一键创建任务」那一刻**，写完再往唤醒目录投信号叫醒引擎。
+    ///    **写表发生在人点「一键创建任务」那一刻**：写下游 → 投唤醒信号 →
+    ///    拉回池子（下游 pull 落信封 + 入站），一路做完才算「一键」。
     ///
     /// 与引擎守护一样是**有限轮**的（决策 81）：跑满 N 轮自己退出，无限只是 N=0 的特例——
     /// 常驻进程在门禁里没法验，有限轮把这条前提解掉了。
@@ -628,8 +629,22 @@ namespace Template.Toolkit.CommandHost.Commands
                             DateTimeOffset.Now);
                         lines.Add($"已投唤醒信号：{(wakePath.Length == 0 ? "写失败" : Path.GetFileName(wakePath))}");
 
-                        replyText = "建好了：" + identifier + "，已经交给引擎排活。要改就直接说改哪里。";
-                        result = "已建需求";
+                        // 按钮上写着「一键」，那就得一路到池子。只写下游表就收手的话，
+                        // 人还得自己去命令行敲 bridge.pull 与 pool.pull 两条——那个「一键」是假的。
+                        var decision = LandInPool(
+                            repositoryRoot,
+                            poolRoot,
+                            assistantDriver,
+                            schema,
+                            identifier,
+                            arguments,
+                            lines,
+                            out var landFailure);
+
+                        replyText = AssistantServeTurn.DescribeLanding(identifier, decision, landFailure);
+                        result = decision == IntakeDecision.Accepted || decision == IntakeDecision.Updated
+                            ? "已建需求"
+                            : "写了表没入池";
                     }
                 }
             }
@@ -657,6 +672,91 @@ namespace Template.Toolkit.CommandHost.Commands
             });
 
             return lines;
+        }
+
+        /// <summary>
+        /// 把刚写进下游表的那条需求拉回池子：读水位 → 下游 pull 落信封 → 入站 → 进水位。
+        ///
+        /// 走 pull 而不是拿手里那份草稿直接写池子：**池子是事实源，但「下游到底收下了什么」
+        /// 只有下游说了算**。拿本地草稿绕过去，等于把「我以为写进去的」当成「真写进去的」。
+        ///
+        /// 带水位是为了别把整张表重拉一遍——那会把别人几个月前的旧记录一起翻出来重新入站。
+        /// 水位只在入站真跑完之后才前进：中途崩了宁可下次多拉一点，也不许漏掉这一段。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="assistantDriver">助手 port 路由到的 driver 名。</param>
+        /// <param name="schema">合并后的需求 schema。</param>
+        /// <param name="identifier">这次要看的需求 id。</param>
+        /// <param name="arguments">常驻会话命令参数。</param>
+        /// <param name="lines">这一轮的日志行。</param>
+        /// <param name="failureReason">整步失败的原因；成功时为空串。</param>
+        private static IntakeDecision? LandInPool(
+            string repositoryRoot,
+            string poolRoot,
+            string assistantDriver,
+            PoolSchema schema,
+            string identifier,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            out string failureReason)
+        {
+            failureReason = "";
+
+            var watermark = SyncWatermark.Load(repositoryRoot);
+            watermark.Entries.TryGetValue(assistantDriver, out var entry);
+            var since = entry?.Moment ?? "";
+
+            var pullPayload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["干跑"] = false,
+                ["水位"] = since,
+                ["输出目录"] = PoolPaths.InboxDirectory(poolRoot)
+            });
+
+            var pullCall = BridgeInvoker.Invoke(repositoryRoot, assistantDriver, "pull", pullPayload, arguments.TimeoutSeconds);
+            if (!pullCall.Succeeded)
+            {
+                failureReason = pullCall.ErrorCode + "：" + pullCall.HumanText;
+                lines.Add($"入站拉取失败（{pullCall.ErrorCode}）：{pullCall.HumanText}");
+                return null;
+            }
+
+            lines.Add($"入站拉取完成：拉到 {ReadPayloadInt(pullCall.Payload, "拉到")} 条");
+
+            IReadOnlyList<IntakeOutcome> outcomes;
+            try
+            {
+                outcomes = RequirementIntake.Run(repositoryRoot, poolRoot, schema, DateTimeOffset.Now);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                failureReason = "入站跑失败：" + exception.Message;
+                lines.Add(failureReason);
+                return null;
+            }
+
+            IntakeDecision? mine = null;
+            foreach (var outcome in outcomes)
+            {
+                lines.Add($"入站：{outcome.ToDisplayText()}");
+                if (string.Equals(outcome.RequirementIdentifier, identifier, StringComparison.Ordinal))
+                {
+                    mine = outcome.Decision;
+                }
+            }
+
+            // 水位放在入站之后前进：拉到了却没入站成，下次还得把这一段再拉一遍。
+            var newWatermark = ReadPayloadString(pullCall.Payload, "新水位");
+            if (newWatermark.Length > 0)
+            {
+                var advance = SyncWatermark.Advance(repositoryRoot, assistantDriver, newWatermark, identifier);
+                lines.Add(advance.Succeeded
+                    ? $"水位{(advance.Advanced ? "前进到 " + newWatermark : "没动（幂等重放）")}"
+                    : $"水位没写成：{advance.FailureReason}");
+            }
+
+            return mine;
         }
 
         /// <summary>
@@ -755,6 +855,20 @@ namespace Template.Toolkit.CommandHost.Commands
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
             {
             }
+        }
+
+        /// <summary>读响应载荷里整数键的值；缺失或类型不对给 0。</summary>
+        private static int ReadPayloadInt(JsonElement element, string propertyName)
+        {
+            if (element.ValueKind == JsonValueKind.Object
+                && element.TryGetProperty(propertyName, out var value)
+                && value.ValueKind == JsonValueKind.Number
+                && value.TryGetInt32(out var number))
+            {
+                return number;
+            }
+
+            return 0;
         }
 
         /// <summary>读响应载荷里字符串键的值；缺失或类型不对给空串。</summary>

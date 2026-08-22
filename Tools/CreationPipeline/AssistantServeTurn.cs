@@ -438,6 +438,55 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
+        /// 点完「一键创建任务」之后，这条需求到底落到哪一步，翻成一句给人的话。
+        ///
+        /// **一句都不许含糊**：写进下游表与拉进池子是两件事，前者成了后者没成时，
+        /// 人要知道「表里那条在，补跑一次入站就行」，而不是以为白干了或者以为全好了。
+        ///
+        /// 末尾那句关于「排活」的话是**如实交代**：池子里躺着一条草稿，离引擎真接手还差
+        /// 「确认 → 入队」，而那一段现在没有命令能做（`queue.json` 至今没有写入方）。
+        /// 早先这里写的是「已经交给引擎排活」——那是句吹牛，删掉了。
+        /// </summary>
+        /// <param name="identifier">需求 id。</param>
+        /// <param name="decision">入站决策；这一轮没在入站结果里看到它时给 null。</param>
+        /// <param name="failureReason">入池整步失败的原因；成功时给空串。</param>
+        public static string DescribeLanding(string identifier, IntakeDecision? decision, string failureReason)
+        {
+            var name = string.IsNullOrWhiteSpace(identifier) ? "这条" : identifier;
+            const string NextStep = "\n\n它现在是「草稿」。再往后（确认 → 排活）还得人来，引擎不会自己接。";
+
+            if (!string.IsNullOrWhiteSpace(failureReason))
+            {
+                return name + " 已经写进需求表了，但拉进需求池这一步没成：" + failureReason
+                    + "\n\n表里那条不会丢，补跑一次 pool.pull 就能入池。";
+            }
+
+            if (decision == null)
+            {
+                return name + " 已经写进需求表了，但这一轮入站里没看见它——下游可能还没同步好。"
+                    + "\n\n过一会儿补跑一次 pool.pull 就行，表里那条不会丢。";
+            }
+
+            switch (decision.Value)
+            {
+                case IntakeDecision.Accepted:
+                    return "建好了：" + name + "，已经写进需求表，也拉进了需求池。" + NextStep;
+                case IntakeDecision.Updated:
+                    return name + " 已经写进需求表，池子里那条也按新内容更新了。" + NextStep;
+                case IntakeDecision.Skipped:
+                    return name + " 已经写进需求表；池子里那条内容没变，这次没动它。" + NextStep;
+                case IntakeDecision.Rejected:
+                    return name + " 写进需求表了，但入池被拒收——校验没过。"
+                        + "\n\n拒收单在 Pools/Inbox 旁边，改完内容再点一次。";
+                case IntakeDecision.Diverted:
+                    return name + " 写进需求表了；池子里那条已经锁定，所以这次落成了一条变更请求，等重规划处理。";
+                default:
+                    return name + " 写进需求表了，但那份入站信封读不了，没能入池。"
+                        + "\n\n看一眼 Pools/Inbox 里那个文件，补跑 pool.pull。";
+            }
+        }
+
+        /// <summary>
         /// 这句话是不是在说「开新话题」。**按钮之外还留一条文字入口**：
         /// 卡片按钮要走回调，回调链路没通、或人在手机上把卡片折叠了，就点不着——
         /// 那时人只会打字。留这条口子的成本是几个词，收益是这个功能不依赖单一通道。
