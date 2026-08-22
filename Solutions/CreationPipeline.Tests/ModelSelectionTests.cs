@@ -83,6 +83,56 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Contains("https://例子/v1", note);
         }
 
+        /// <summary>
+        /// 记过一笔「这个模型真跑成功过」之后，「自动」优先挑它——**哪怕它不是序数序第一项**。
+        /// 这条守的是真实踩到的坑：中转的 /models 里混着别的域的模型，
+        /// 生图地址上序数序第一项可能是个代码审查模型，按顺序挑就挑出个用不了的值。
+        /// </summary>
+        [Fact]
+        public void AutoPrefersLastGoodModelOverFirstOrdinal()
+        {
+            using var workspace = new Workspace();
+            WriteProbeResult(workspace.Root, "testdriver", new[] { "a-审查模型", "z-出图模型" }, "https://例子/v1");
+            ModelSelection.RecordSuccess(workspace.Root, "testdriver", "z-出图模型");
+
+            var chosen = ModelSelection.Resolve(workspace.Root, "testdriver", ModelSelection.AutoSentinel, "", out var note);
+
+            Assert.Equal("z-出图模型", chosen);
+            Assert.Contains("真跑成功过", note);
+        }
+
+        /// <summary>记账里那个已经不在清单里（换了地址、下游下架了）：退回序数序第一项，并说清它过期了。</summary>
+        [Fact]
+        public void AutoFallsBackWhenLastGoodModelLeftTheCatalog()
+        {
+            using var workspace = new Workspace();
+            WriteProbeResult(workspace.Root, "testdriver", new[] { "a-新模型", "b-新模型" }, "https://例子/v1");
+            ModelSelection.RecordSuccess(workspace.Root, "testdriver", "已下架的模型");
+
+            var chosen = ModelSelection.Resolve(workspace.Root, "testdriver", ModelSelection.AutoSentinel, "", out var note);
+
+            Assert.Equal("a-新模型", chosen);
+            Assert.Contains("已下架的模型", note);
+            Assert.Contains("不在清单里", note);
+        }
+
+        /// <summary>哨兵与空串不许被记成「成功用过的模型」——记进去下次就会把哨兵当模型名挑出来。</summary>
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        [InlineData("自动")]
+        public void RecordSuccessIgnoresSentinelAndBlank(string value)
+        {
+            using var workspace = new Workspace();
+            WriteProbeResult(workspace.Root, "testdriver", new[] { "甲-模型" }, "");
+
+            ModelSelection.RecordSuccess(workspace.Root, "testdriver", value);
+            var chosen = ModelSelection.Resolve(workspace.Root, "testdriver", ModelSelection.AutoSentinel, "", out var note);
+
+            Assert.Equal("甲-模型", chosen);
+            Assert.DoesNotContain("真跑成功过", note);
+        }
+
         /// <summary>配「自动」时给了 --Model：覆盖优先，压根不去读探测产出。</summary>
         [Fact]
         public void OverrideWinsEvenWhenConfiguredAuto()
