@@ -394,6 +394,52 @@ namespace Template.Toolkit.CreationPipeline.Tests
             }
         }
 
+        /// <summary>入池成了就说建好了，同时如实交代「再往后还得人来」——不许写成已经排活。</summary>
+        [Fact]
+        public void LandingDescriptionSaysDraftLandedAndStopsThere()
+        {
+            var text = AssistantServeTurn.DescribeLanding("REQ-0007", IntakeDecision.Accepted, "");
+
+            Assert.Contains("REQ-0007", text);
+            Assert.Contains("需求池", text);
+            Assert.Contains("草稿", text);
+            Assert.Contains("还得人来", text);
+            Assert.DoesNotContain("排活。", text);
+        }
+
+        /// <summary>写进了表却没入池，要说清「表里那条不会丢」与补救办法——成了与没成之间那条线得看得见。</summary>
+        [Fact]
+        public void LandingDescriptionSeparatesWrittenFromLanded()
+        {
+            var text = AssistantServeTurn.DescribeLanding("REQ-0007", null, "下游不可达：多维表格标识未配置");
+
+            Assert.Contains("已经写进需求表", text);
+            Assert.Contains("多维表格标识未配置", text);
+            Assert.Contains("pool.pull", text);
+            Assert.DoesNotContain("建好了", text);
+        }
+
+        /// <summary>拉回来了却没看见这条，与「整步失败」是两支，说法不许混。</summary>
+        [Fact]
+        public void LandingDescriptionTellsMissingApartFromFailure()
+        {
+            var missing = AssistantServeTurn.DescribeLanding("REQ-0007", null, "");
+            var failed = AssistantServeTurn.DescribeLanding("REQ-0007", null, "凭据无效");
+
+            Assert.Contains("入站里没看见它", missing);
+            Assert.DoesNotContain("入站里没看见它", failed);
+        }
+
+        /// <summary>入站拒收要说拒收，不许含糊成「建好了」。</summary>
+        [Fact]
+        public void LandingDescriptionReportsRejection()
+        {
+            var text = AssistantServeTurn.DescribeLanding("REQ-0007", IntakeDecision.Rejected, "");
+
+            Assert.Contains("拒收", text);
+            Assert.DoesNotContain("建好了", text);
+        }
+
         /// <summary>一份能过校验的模型回答，几处测试共用。</summary>
         private static AssistantServeReply ValidReply()
         {

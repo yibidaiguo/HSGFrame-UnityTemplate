@@ -33,7 +33,7 @@
     "Solutions/CreationPipeline.Tests/AssetRequestTests.cs": "d3b35248501074145f820d5074f073ab8603b2fdecf9a2a60845b94bd3a06e68",
     "Solutions/CreationPipeline.Tests/AssetSpecCatalogTests.cs": "75e39bd91938ae91be55972dc607436a12ddc696c244760c8c808b84811f765f",
     "Solutions/CreationPipeline.Tests/AssetSpecInspectorTests.cs": "a10665ea58f8ce65ab1e6a48e48b1f890b9512f85093f449e2416eec9b99188a",
-    "Solutions/CreationPipeline.Tests/AssistantConversationTests.cs": "65fdea96fb716387dd9f1d6d7e42e79b194831903252f609741933e21fcebcbd",
+    "Solutions/CreationPipeline.Tests/AssistantConversationTests.cs": "86348db4ada77c6db030b20aeb3a715f9925995e94cc1b51d71ca5f912a9abb7",
     "Solutions/CreationPipeline.Tests/AssistantPackageBuilderTests.cs": "8367203bd8e0d47768f2de699c75482fe1e397181dfad1fc141f0d134c6126c8",
     "Solutions/CreationPipeline.Tests/AssistantPackageInspectorTests.cs": "210515b2917cd51493b9edcd09fdfe9314f9e962acce067c2662895960b73102",
     "Solutions/CreationPipeline.Tests/AssistantServeTests.cs": "dee67db91d2835bac5e3fc1484deed80bccf8ebae10416b2f2b701e0352e606c",
