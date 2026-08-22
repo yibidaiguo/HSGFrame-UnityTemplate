@@ -26,6 +26,8 @@
 | 事 | 命令 |
 |---|---|
 | 新机器装到能用 | `pwsh Tools/setup.ps1`（体检红项清完为止） |
+| 只打开面板 | **双击 `panel.bat`**（只编两个工程、起面板、等端口应答再开浏览器；`panel.bat /skip` 用现成产物） |
+| 关面板 | **双击 `panel-stop.bat`**（面板走停止文件优雅退出，超时才强杀） |
 | 起面板 + 飞书助手 | `pwsh Tools/start.ps1`（影子拷贝跑服务，开着照样编译/跑门禁） |
 | 全停 | `pwsh Tools/stop.ps1` |
 | 改一批代码后 | `pwsh Tools/Gates/gate.ps1`；碰了 Unity 侧再跑 `pwsh Tools/Gates/gate-unity.ps1` |

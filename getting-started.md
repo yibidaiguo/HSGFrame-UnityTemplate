@@ -97,6 +97,12 @@ Unity 编辑器按 `ProjectVersion.txt` 的版本能不能找到）→ 逐条报
 
 ## 日常起服务：一键启停
 
+最省事的一条：**双击仓库根的 `panel.bat`**——它只编面板要跑的那两个工程、起面板、
+等端口真应答了再把浏览器打开。停：双击 `panel-stop.bat`。
+（编译时 DLL 被别的进程占着起不来，就用 `panel.bat /skip`，拿上次编好的产物起。）
+
+要连飞书助手一起起，还是走脚本：
+
 ```powershell
 ./Tools/start.ps1               # 编译一次 → 影子拷贝 → 起面板 + 飞书助手
 ./Tools/start.ps1 -NoAssistant  # 没配飞书密钥就只起面板

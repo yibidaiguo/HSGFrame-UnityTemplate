@@ -22,6 +22,8 @@
     "Specifications/",
     "Proposals/",
     "getting-started.md",
+    "panel.bat",
+    "panel-stop.bat",
     ".claude/",
     ".mcp.json",
     ".gitignore",
