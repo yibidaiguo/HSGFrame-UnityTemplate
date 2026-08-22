@@ -245,7 +245,8 @@ namespace Template.Bridges.Feishu
                 return new HttpCall
                 {
                     Succeeded = false,
-                    Response = MapHttpError(statusCode, responseText, logId, "POST", ImImagesEndpoint)
+                    BusinessCode = ReadCodeFromText(responseText),
+                Response = MapHttpError(statusCode, responseText, logId, "POST", ImImagesEndpoint)
                 };
             }
             catch (TaskCanceledException)
@@ -408,7 +409,8 @@ namespace Template.Bridges.Feishu
                 return new HttpCall
                 {
                     Succeeded = false,
-                    Response = MapHttpError(statusCode, responseText, logId, method, url)
+                    BusinessCode = ReadCodeFromText(responseText),
+                Response = MapHttpError(statusCode, responseText, logId, method, url)
                 };
             }
             catch (TaskCanceledException)
@@ -479,8 +481,21 @@ namespace Template.Bridges.Feishu
             return new HttpCall
             {
                 Succeeded = false,
+                BusinessCode = ReadCodeFromText(responseText),
                 Response = MapHttpError(statusCode, responseText, logId, "POST", url)
             };
+        }
+
+        /// <summary>
+        /// 从响应体文本里取飞书业务码；解析不了给 0。
+        /// **非 2xx 那几支也要取**：飞书把「没权限」放在 HTTP 400 + code 131006 里，
+        /// 只看 HTTP 状态的话，调用方分不出「没权限」与「不存在」——
+        /// 而这两支的处置正好相反（前者该停下来授权，后者该重新建一个）。
+        /// </summary>
+        /// <param name="responseText">响应体原文。</param>
+        private static int ReadCodeFromText(string responseText)
+        {
+            return TryParseBody(responseText, out var body) ? ReadCode(body) : 0;
         }
 
         /// <summary>这个业务码有没有一句「该去点哪里」可说；只有说得出的才值得盖掉 HTTP 状态那句话。</summary>
