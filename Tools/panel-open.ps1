@@ -5,17 +5,22 @@
     1. 端口已经有人应答就先问一句「你是谁的面板」（/api/panel/identity 里的仓库根）：
        是这个仓库的才叫「已经在跑」，直接开浏览器；是别的仓库的就当场说清并停下——
        只看端口不看仓库，会把人送进另一个项目的面板，而且页面看着一切正常。
-    2. 没在跑就调 Tools/start.ps1 -NoAssistant。只起面板不起助手是有意的：
-       助手要飞书密钥，没配密钥的机器上它起不来，而那跟「看面板」这件事无关。
+    2. 没在跑就调 Tools/start.ps1 -NoAssistant 把面板拉起来。
     3. 等端口真应答了再开浏览器。起进程只说明进程起来了，不说明它在听端口——
        早开一秒，浏览器给的是「无法访问此网站」，人以为面板坏了。
     4. 起不来就把日志路径与最可能的原因说出来，不静悄悄地退。
+    5. 面板确定活着之后，再单独起飞书助手（长连接旁路 + 常驻会话）。
+       这一步原本不在这里，代价是真的：「双击 panel.bat」只起面板，机器人是死的，
+       而长连接没连上时飞书那头的消息**当场就丢，事后重启也补不回来**——踩过一次，
+       三条消息全丢，日志里一个字都没有。面板与助手本来就是一起用的，默认一并起。
+       没配密钥的机器上它本来就起不来，那种情况自动跳过（原来 -NoAssistant 就是为这个留的）。
 
   用法：
     pwsh Tools/panel-open.ps1                 # 起面板并打开浏览器
     pwsh Tools/panel-open.ps1 -SkipBuild      # 不编译，直接用现成产物（编译被占用时的兜底）
     pwsh Tools/panel-open.ps1 -Port 8790      # 指定端口（多个项目并行时各用各的）
     pwsh Tools/panel-open.ps1 -NoBrowser      # 只起，不开浏览器
+    pwsh Tools/panel-open.ps1 -NoAssistant    # 只起面板，不起飞书助手
 #>
 [CmdletBinding()]
 param(
@@ -29,7 +34,10 @@ param(
     [switch]$NoBrowser,
 
     # 等端口应答最多几秒。
-    [int]$TimeoutSeconds = 60
+    [int]$TimeoutSeconds = 60,
+
+    # 不起飞书助手，只起面板。没配密钥的机器不必传——那种情况这个脚本自己会跳过。
+    [switch]$NoAssistant
 )
 
 $ErrorActionPreference = 'Stop'
@@ -79,6 +87,133 @@ function Test-同一个仓库 {
     $规范 = { param($路径) $路径.TrimEnd([char]92, [char]47).Replace([char]47, [char]92) }
     return [string]::Equals((& $规范 $甲), (& $规范 $乙), [StringComparison]::OrdinalIgnoreCase)
 }
+
+<#
+  这台机器能不能起飞书助手。返回空串表示能起，否则返回不能起的原因（原样说给人听）。
+
+  **只判空、不打印内容**：local.json 里装的是真的 App Secret（决策 5、78）。
+#>
+function Get-助手起不来的原因 {
+    if ($NoAssistant) { return '传了 -NoAssistant（panel.bat /nobot）' }
+
+    $本机配置文件 = Join-Path $repositoryRoot 'Tools/CreationPipeline/Config/local.json'
+    if (-not (Test-Path $本机配置文件)) {
+        return '本机没有 Tools/CreationPipeline/Config/local.json'
+    }
+
+    try {
+        $本机配置 = Get-Content $本机配置文件 -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        return "local.json 读不动（$($_.Exception.Message)）"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($本机配置.'飞书应用密钥')) {
+        return 'local.json 里没有「飞书应用密钥」'
+    }
+
+    if ([string]::IsNullOrWhiteSpace($本机配置.'下游配置'.feishu.'应用标识')) {
+        return 'local.json 里没有「下游配置 → feishu → 应用标识」'
+    }
+
+    return ''
+}
+
+# 这个 PID 还是当初记下的那个进程吗。只比 PID 会认错：PID 会被回收，
+# 而「助手其实死了，PID 却被别的进程占了」这个假阳性的代价，是机器人从此一直不回话。
+function Test-还是那个进程 {
+    param([int]$进程号, [string[]]$进程名)
+    if (-not $进程号) { return $false }
+    $进程 = Get-Process -Id $进程号 -ErrorAction SilentlyContinue
+    if (-not $进程) { return $false }
+    return $进程名 -contains $进程.ProcessName
+}
+
+# 助手（长连接旁路 + 常驻会话）现在什么状态：在跑 / 没在跑 / 半死（两个只活了一个）。
+function Get-助手状态 {
+    $助手pid文件 = Join-Path $repositoryRoot '_Tasks/sidecar/assistant-pids.json'
+    if (-not (Test-Path $助手pid文件)) { return '没在跑' }
+    try {
+        $记录 = Get-Content $助手pid文件 -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        return '没在跑'
+    }
+
+    $旁路活着 = Test-还是那个进程 -进程号 $记录.旁路 -进程名 @('python', 'pythonw')
+    $会话活着 = Test-还是那个进程 -进程号 $记录.助手 -进程名 @('dotnet')
+    if ($旁路活着 -and $会话活着) { return '在跑' }
+    if ($旁路活着 -or $会话活着) { return '半死' }
+    return '没在跑'
+}
+
+<#
+  起飞书助手：长连接旁路收消息，常驻会话取消息、回话。
+
+  为什么归这个脚本管：以前双击 panel.bat 只起面板，机器人是死的，
+  而长连接没连上时飞书那头的消息**当场就丢**，事后再起也补不回来。
+  面板与助手本来就是一起用的，分成两条命令只会让人以为「面板开着＝机器人活着」。
+
+  这里出的任何岔子都不算失败：这个脚本的主职是把面板打开，不该被助手拖垮。
+#>
+function Start-助手 {
+    $状态 = Get-助手状态
+    if ($状态 -eq '在跑') {
+        Write-Host '  飞书助手已经在跑，不重起（重起会多一份，同一条消息回两遍）。'
+        return
+    }
+
+    if ($状态 -eq '半死') {
+        Write-Host ''
+        Write-Host '  飞书助手只剩半条命：旁路与常驻会话活了一个死了一个，没敢在这个状态上再起一份。'
+        Write-Host '    先停干净再来：双击 panel-stop.bat，或 pwsh Tools/stop.ps1'
+        return
+    }
+
+    # 助手要用的两个桥在这里编。assistant-start.ps1 是带 -SkipBuild 起的
+    # （常驻期间一行 MSBuild 输出都不许有——那会插在协议 JSON 前面，整次调用被判不合协议），
+    # 而上面那段只编面板要跑的工程。命令宿主一并带上：面板已经在跑的那条路径根本没走到上面的编译。
+    if (-not $SkipBuild) {
+        New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
+        foreach ($工程 in @(
+            'Tools/Cli/CommandHost/CommandHost.csproj',
+            'Bridges/feishu/src/BridgeFeishu/BridgeFeishu.csproj',
+            'Bridges/oaicompat/src/BridgeOaicompat/BridgeOaicompat.csproj')) {
+            $名 = [System.IO.Path]::GetFileNameWithoutExtension($工程)
+            $退出码 = Invoke-带进度 -标题 ("编译 " + $名) -文件 'dotnet' -参数 @(
+                'build', (Join-Path $repositoryRoot $工程), '-v', 'q', '--nologo'
+            ) -工作目录 $repositoryRoot -日志路径 (Join-Path $logDirectory ("panel-build-" + $名 + ".log"))
+            if ($退出码 -ne 0) {
+                Write-Host ''
+                Write-Host "  飞书助手没起：编译失败（$工程）。面板不受影响，照常能用。"
+                Write-Host "    日志：$logDirectory\panel-build-$名.log"
+                return
+            }
+        }
+    }
+
+    Write-Host '起飞书助手（长连接旁路 + 常驻会话）...'
+    $global:LASTEXITCODE = 0
+    try {
+        & (Join-Path $PSScriptRoot 'start.ps1') -NoDashboard -SkipBuild
+    } catch {
+        Write-Host ''
+        Write-Host "  飞书助手没起来：$($_.Exception.Message)"
+        Write-Host '    面板不受影响，照常能用。'
+        return
+    }
+
+    # 判据是「两个进程都还在」，不是退出码——退出码在跨脚本调用里本来就不牢靠。
+    if ((Get-助手状态) -eq '在跑') {
+        Write-Host '  飞书助手起来了：机器人现在收得到消息、回得了话。'
+    } else {
+        Write-Host ''
+        Write-Host '  飞书助手没起来（两个常驻进程没能都留下）。面板不受影响，照常能用。'
+        Write-Host "    日志：$(Join-Path $repositoryRoot 'Logs/assistant')　serve.out.log 与 sidecar.err.log"
+    }
+}
+
+# 「要不要起助手」先定下来，后面几处都看它。
+$助手起不来的原因 = Get-助手起不来的原因
+$要起助手 = [string]::IsNullOrEmpty($助手起不来的原因)
 
 $端口有人应答 = Test-面板在跑 -探测端口 $Port
 $占着端口的 = if ($端口有人应答) { Get-面板身份 -探测端口 $Port } else { $null }
@@ -179,10 +314,20 @@ if ($端口有人应答) {
     }
 }
 
+# 走到这里面板一定是活的了，助手才单独起——顺序不许换：
+# 助手那一步慢（要编两个桥、要连长连接），排在前面会让「打开面板」白等。
+if ($要起助手) {
+    Start-助手
+} else {
+    Write-Host ''
+    Write-Host "飞书助手没起：$助手起不来的原因"
+    Write-Host '  只看面板的话这条不必管；要机器人能回话，把密钥配进 Tools/CreationPipeline/Config/local.json 再来。'
+}
+
 Write-Host ''
 Write-Host "  面板　$panelUrl"
 Write-Host "  日志页　http://localhost:$Port/"
-Write-Host '  停　　双击 panel-stop.bat，或跑 pwsh Tools/stop.ps1'
+Write-Host '  停　　双击 panel-stop.bat，或跑 pwsh Tools/stop.ps1（面板与助手一起停）'
 
 if (-not $NoBrowser) {
     Start-Process $panelUrl | Out-Null
