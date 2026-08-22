@@ -53,6 +53,9 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>动作：按这张卡上的出图请求，真去下游生一批图回来。</summary>
         public const string GenerateAction = "出图";
 
+        /// <summary>动作：把出来的那张界面设计图按元素拆成一张张单图，落进正式环境。</summary>
+        public const string CutAction = "拆图";
+
         /// <summary>动作：丢掉这条会话的上下文，从头聊。</summary>
         public const string NewTopicAction = "开新话题";
 
@@ -379,18 +382,32 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>
         /// 组一张「图出来了」的卡：把变体贴上去让人挑。
+        /// UI 那一类还带一个「拆图」按钮——整屏定了方向，下一步才是按元素切成单图。
         /// </summary>
         /// <param name="bodyText">说明。</param>
         /// <param name="imagePaths">变体图的本地路径。</param>
-        public static AssistantCard ForGeneratedImages(string bodyText, IReadOnlyList<string> imagePaths)
+        /// <param name="assetIdentifier">出来的资产 id；给了且是 UI 类才配「拆图」按钮。</param>
+        /// <param name="canCut">这一批能不能拆（只有界面设计图才谈得上按元素拆）。</param>
+        public static AssistantCard ForGeneratedImages(
+            string bodyText,
+            IReadOnlyList<string> imagePaths,
+            string assetIdentifier = "",
+            bool canCut = false)
         {
-            var buttons = new List<AssistantCardButton>
+            var buttons = new List<AssistantCardButton>();
+
+            // 拆图是「定稿之后」的一步：先出一张整屏定方向，方向对了才谈按元素切开。
+            // 所以按钮挂在**结果卡**上，不挂在出图请求卡上。
+            if (canCut && !string.IsNullOrWhiteSpace(assetIdentifier))
             {
-                new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false)
-            };
+                buttons.Add(new AssistantCardButton(
+                    "拆图", CutAction, new JsonObject { ["资产id"] = assetIdentifier }, isPrimary: true));
+            }
+
+            buttons.Add(new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false));
 
             return new AssistantCard(
-                "出图完成",
+                canCut ? "出图完成　对了就点拆图" : "出图完成",
                 bodyText,
                 Array.Empty<KeyValuePair<string, string>>(),
                 Array.Empty<string>(),

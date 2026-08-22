@@ -25,6 +25,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="intentSummary">模型对「这个人想干什么」的一句话复述；没有时为空串。</param>
         /// <param name="wantedThing">这一轮人要的是什么：功能 / 图；没说时为空串。</param>
         /// <param name="imageRequest">出图请求；不是要图那一支时为 null。</param>
+        /// <param name="cutFeedback">拆图意见；不是改拆图那一支时为空串。</param>
         public AssistantServeReply(
             bool parsed,
             string replyText,
@@ -34,10 +35,12 @@ namespace Template.Toolkit.CreationPipeline
             string parseFailureReason,
             string intentSummary = "",
             string wantedThing = "",
-            JsonObject imageRequest = null)
+            JsonObject imageRequest = null,
+            string cutFeedback = "")
         {
             WantedThing = wantedThing ?? "";
             ImageRequest = imageRequest;
+            CutFeedback = cutFeedback ?? "";
             Parsed = parsed;
             ReplyText = replyText ?? "";
             WantsRequirement = wantsRequirement;
@@ -76,6 +79,22 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>「要什么」的取值：人要的是一张图。</summary>
         public const string WantImage = "图";
+
+        /// <summary>「要什么」的取值：人在说上一次拆图哪儿不对。</summary>
+        public const string WantRecut = "改拆图";
+
+        /// <summary>人这次说的拆图意见；不是改拆图那一支时为空串。</summary>
+        public string CutFeedback { get; }
+
+        /// <summary>
+        /// 这一轮是不是「上次拆得不对，改一改」。
+        /// **判据是「要什么」加「拆图意见」两样都在**：说要改却没说哪儿不对，
+        /// 那就没有可改的依据，该接着问而不是拿一句空话去重拆。
+        /// </summary>
+        public bool WantsRecut
+        {
+            get { return string.Equals(WantedThing, WantRecut, StringComparison.Ordinal) && CutFeedback.Length > 0; }
+        }
 
         /// <summary>
         /// 这一轮是不是「要一张图」。**判据是「要什么」加「出图请求」两样都在**：
@@ -162,6 +181,7 @@ namespace Template.Toolkit.CreationPipeline
 
             var intent = ReadString(root, "我理解你想干的");
             var wanted = ReadString(root, "要什么");
+            var cutFeedback = ReadString(root, "拆图意见");
 
             JsonObject imageRequest = null;
             if (root.TryGetPropertyValue("出图请求", out var imageNode) && imageNode is JsonObject imageObject)
@@ -188,11 +208,13 @@ namespace Template.Toolkit.CreationPipeline
                     parseFailureReason: "",
                     intentSummary: intent,
                     wantedThing: wanted,
-                    imageRequest: imageRequest);
+                    imageRequest: imageRequest,
+                    cutFeedback: cutFeedback);
                 return true;
             }
 
-            reply = new AssistantServeReply(true, replyText, wants, missing, draft, "", intent, wanted, imageRequest);
+            reply = new AssistantServeReply(
+                true, replyText, wants, missing, draft, "", intent, wanted, imageRequest, cutFeedback);
             return true;
         }
 

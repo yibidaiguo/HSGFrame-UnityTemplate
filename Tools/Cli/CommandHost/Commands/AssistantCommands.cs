@@ -338,6 +338,7 @@ namespace Template.Toolkit.CommandHost.Commands
                     repositoryRoot,
                     poolRoot,
                     assistantDriver,
+                    backendDriver,
                     schema,
                     signalFilePath,
                     message,
@@ -429,6 +430,14 @@ namespace Template.Toolkit.CommandHost.Commands
             var modelName = ReadPayloadString(call.Payload, "模型");
             AssistantServeReply.TryParse(modelText, out var reply);
             lines.Add($"执行后端回答：模型={modelName}　读懂了={reply.Parsed}　要建需求={reply.WantsRequirement}");
+
+            // 「上次拆得不对」这一支不走需求也不走出图：它改的是已经拆出来的那些层。
+            if (reply.WantsRecut)
+            {
+                return HandleRecut(
+                    repositoryRoot, assistantDriver, backendDriver, signalFilePath, message, reply,
+                    arguments, lines, out replyDelivered, out replyRetryable);
+            }
 
             var outcome = AssistantServeTurn.Decide(repositoryRoot, poolRoot, message, reply, schema, DateTimeOffset.Now);
             if (outcome.BlockedFields.Count > 0)
@@ -532,6 +541,7 @@ namespace Template.Toolkit.CommandHost.Commands
             string repositoryRoot,
             string poolRoot,
             string assistantDriver,
+            string backendDriver,
             PoolSchema schema,
             string signalFilePath,
             AssistantConversationMessage message,
@@ -547,6 +557,13 @@ namespace Template.Toolkit.CommandHost.Commands
             if (string.Equals(message.ActionName, AssistantCard.NewTopicAction, StringComparison.Ordinal))
             {
                 return StartNewTopic(repositoryRoot, assistantDriver, signalFilePath, message, arguments, lines, out replyDelivered, out replyRetryable);
+            }
+
+            if (string.Equals(message.ActionName, AssistantCard.CutAction, StringComparison.Ordinal))
+            {
+                return HandleCut(
+                    repositoryRoot, assistantDriver, backendDriver, signalFilePath, message, arguments, lines,
+                    out replyDelivered, out replyRetryable);
             }
 
             if (string.Equals(message.ActionName, AssistantCard.GenerateAction, StringComparison.Ordinal))
@@ -1201,7 +1218,9 @@ namespace Template.Toolkit.CommandHost.Commands
                 body += "\n" + normalizeNotes;
             }
 
-            card = AssistantCard.ForGeneratedImages(body, images);
+            // UI 那一类才谈得上按元素拆——一个图标没有「层」。
+            var canCut = assetType.StartsWith("界面", StringComparison.Ordinal) || assetType.StartsWith("UI", StringComparison.Ordinal);
+            card = AssistantCard.ForGeneratedImages(body, images, assetIdentifier, canCut);
             return card.ToPlainText();
         }
 
@@ -1383,6 +1402,321 @@ namespace Template.Toolkit.CommandHost.Commands
                 ? number
                 : fallback;
         }
+
+        /// <summary>
+        /// 人在聊天里说「上次拆得不对」：带着上一次的框与他的意见重拆一遍。
+        ///
+        /// **不必再点一次按钮**：他刚看完那批图，接着说话是最自然的动作；
+        /// 让他回去翻聊天记录找那张卡再点一下，只会把一句「关闭按钮框大了」变成三步操作。
+        /// 改的是哪一份靠会话最近一次拆图的留底认——认不出来就如实说，不瞎猜一个资产去拆。
+        /// </summary>
+        private static IReadOnlyList<string> HandleRecut(
+            string repositoryRoot,
+            string assistantDriver,
+            string backendDriver,
+            string signalFilePath,
+            AssistantConversationMessage message,
+            AssistantServeReply reply,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            out bool replyDelivered,
+            out bool replyRetryable)
+        {
+            var assetIdentifier = AssistantServeTurn.ReadLastCutAsset(repositoryRoot, message.ConversationIdentifier);
+            string replyText;
+            AssistantCard card = null;
+            var result = "重拆失败";
+
+            if (assetIdentifier.Length == 0)
+            {
+                replyText = "我这边没记着这条会话最近拆的是哪一张，接不上你说的「上次」。"
+                    + "把那张出图完成的卡翻出来点一次「拆图」，之后再说改哪儿。";
+            }
+            else if (arguments.DryRun || !arguments.WriteDownstream)
+            {
+                var why = arguments.DryRun ? "--dry-run true" : "--write-downstream false";
+                replyText = "本机是只读模式（" + why + "），没有真重拆。";
+                result = "只读模式没拆";
+            }
+            else
+            {
+                replyText = RunCut(
+                    repositoryRoot, backendDriver, assetIdentifier, arguments, lines, out card, out var cut,
+                    message.ConversationIdentifier, reply.CutFeedback);
+                result = cut ? "已重拆" : "重拆失败";
+            }
+
+            var replyOutcome = SendReply(repositoryRoot, assistantDriver, message, replyText, arguments, lines, card);
+            replyDelivered = replyOutcome.Delivered;
+            replyRetryable = replyOutcome.Retryable;
+
+            AssistantConversationHistory.Append(
+                repositoryRoot, message.ConversationIdentifier, AssistantHistoryTurn.AssistantRole, replyText, DateTimeOffset.Now);
+
+            AppendLedger(repositoryRoot, new JsonObject
+            {
+                ["时间"] = DateTimeOffset.Now.ToString("o"),
+                ["信号"] = Path.GetFileName(signalFilePath),
+                ["结果"] = result,
+                ["回话送出"] = replyOutcome.Delivered,
+                ["资产id"] = assetIdentifier,
+                ["拆图意见"] = reply.CutFeedback,
+                ["回话"] = replyText
+            });
+
+            return lines;
+        }
+
+        /// <summary>
+        /// 人点了「拆图」：把那张整屏设计图按元素拆成一张张透明底单图，落进正式环境，
+        /// 顺带写一份面板定义，让程序侧读 UXML 就懂这个界面怎么用。
+        ///
+        /// **拆是裁，不是重新生成**：每层重生一次，十层就是十种画风，拼回去不像一个界面。
+        /// 框由视觉模型标——**框准不准是模型的事**，这里只保证不合法的框一律不用，
+        /// 并且把每层的名字与框都摆到卡上，人看得见、不对能重来。
+        /// </summary>
+        private static IReadOnlyList<string> HandleCut(
+            string repositoryRoot,
+            string assistantDriver,
+            string backendDriver,
+            string signalFilePath,
+            AssistantConversationMessage message,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            out bool replyDelivered,
+            out bool replyRetryable)
+        {
+            var assetIdentifier = message.ReadActionValue("资产id");
+            string replyText;
+            AssistantCard card = null;
+            var result = "拆图失败";
+
+            if (assetIdentifier.Length == 0)
+            {
+                replyText = "按钮没带资产 id，不知道拆哪张图。";
+            }
+            else if (arguments.DryRun || !arguments.WriteDownstream)
+            {
+                var why = arguments.DryRun ? "--dry-run true" : "--write-downstream false";
+                replyText = "本机是只读模式（" + why + "），没有真拆。开了开关再点一次。";
+                result = "只读模式没拆";
+            }
+            else
+            {
+                replyText = RunCut(
+                    repositoryRoot, backendDriver, assetIdentifier, arguments, lines, out card, out var cut,
+                    message.ConversationIdentifier);
+                result = cut ? "已拆图" : "拆图失败";
+            }
+
+            var reply = SendReply(repositoryRoot, assistantDriver, message, replyText, arguments, lines, card);
+            replyDelivered = reply.Delivered;
+            replyRetryable = reply.Retryable;
+
+            AssistantConversationHistory.Append(
+                repositoryRoot, message.ConversationIdentifier, AssistantHistoryTurn.AssistantRole, replyText, DateTimeOffset.Now);
+
+            AppendLedger(repositoryRoot, new JsonObject
+            {
+                ["时间"] = DateTimeOffset.Now.ToString("o"),
+                ["信号"] = Path.GetFileName(signalFilePath),
+                ["结果"] = result,
+                ["回话送出"] = reply.Delivered,
+                ["资产id"] = assetIdentifier,
+                ["回话"] = replyText
+            });
+
+            return lines;
+        }
+
+        /// <summary>真跑一次拆图：问视觉模型要框 → 裁 → 按 UI元素 规格归一 → 落正式环境 → 写面板定义。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="backendDriver">执行后端 driver 名（要它看图）。</param>
+        /// <param name="assetIdentifier">要拆的那份资产 id。</param>
+        /// <param name="arguments">常驻会话命令参数。</param>
+        /// <param name="lines">这一轮的日志行。</param>
+        /// <param name="card">拆成了时带图的卡片；没拆成为 null。</param>
+        /// <param name="cut">真拆出东西了没有。</param>
+        private static string RunCut(
+            string repositoryRoot,
+            string backendDriver,
+            string assetIdentifier,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            out AssistantCard card,
+            out bool cut,
+            string conversationIdentifier = "",
+            string feedback = "")
+        {
+            card = null;
+            cut = false;
+
+            var variantDirectory = AssetPaths.VariantDirectory(
+                repositoryRoot, AssetRequest.UnownedRequirementIdentifier, assetIdentifier);
+            var images = ListVariantImages(variantDirectory);
+            if (images.Count == 0)
+            {
+                return "拆不了：" + assetIdentifier + " 的变体目录里一张图都没有（" + variantDirectory + "）。";
+            }
+
+            var sourcePath = images[0];
+
+            // 改拆图时把上一次的框原样喂回去，只动人说的那几处——从头再标一遍等于把
+            // 已经标对的也重掷一次骰子，人明明只说了一句「关闭按钮框大了」，结果整套框全变。
+            var previousLayers = feedback.Length == 0
+                ? Array.Empty<UiLayer>()
+                : AssistantServeTurn.ReadCut(repositoryRoot, assetIdentifier, out _);
+            var prompt = feedback.Length > 0 && previousLayers.Count > 0
+                ? UiLayerCutter.BuildRecutPrompt(previousLayers, feedback)
+                : UiLayerCutter.LayerPrompt;
+
+            if (feedback.Length > 0)
+            {
+                lines.Add($"重拆：带上一次 {previousLayers.Count} 层 + 意见「{Shorten(feedback)}」");
+            }
+
+            // 问视觉模型要每个元素的框。图以 data: URL 内联发过去，不经任何第三方图床。
+            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["提示"] = prompt,
+                ["上下文"] = "你是给游戏 UI 切图的助手，只回 JSON，不回别的。宁可多框一个，也别漏。",
+                ["图片"] = new JsonArray { sourcePath }
+            });
+
+            var call = BridgeInvoker.Invoke(repositoryRoot, backendDriver, "complete", payload, Math.Max(arguments.TimeoutSeconds, 300));
+            if (!call.Succeeded)
+            {
+                lines.Add($"视觉模型调用失败（{call.ErrorCode}）：{call.HumanText}");
+                return "拆图失败：视觉模型没能看这张图（" + call.ErrorCode + "）：" + call.HumanText;
+            }
+
+            var layers = UiLayerCutter.ParseLayers(ReadPayloadString(call.Payload, "文本"), out var parseFailure);
+            if (layers.Count == 0)
+            {
+                lines.Add($"层解析失败：{parseFailure}");
+                return "拆图失败：" + parseFailure;
+            }
+
+            var decoded = PngDecoder.DecodeFile(sourcePath);
+            if (!decoded.Succeeded)
+            {
+                return "拆图失败：读不动那张整屏图（" + decoded.FailureReason + "）";
+            }
+
+            var catalog = AssetSpecCatalog.Load(repositoryRoot, "");
+            var spec = catalog.Find(UiElementAssetType);
+            var destination = spec?.Destination ?? "Assets/Game/ResourceArt/UI/Elements/";
+            var outputRoot = Path.Combine(repositoryRoot, "UnityProject", destination.Replace('/', Path.DirectorySeparatorChar));
+
+            spec?.Values.TryGetValue("规格.需要透明", out var transparentText);
+            var needsTransparency = spec != null
+                && spec.Values.TryGetValue("规格.需要透明", out var transparent)
+                && string.Equals(transparent, "true", StringComparison.OrdinalIgnoreCase);
+
+            var written = new List<string>();
+            var elements = new List<UiPanelElement>();
+            var skipped = new List<string>();
+
+            try
+            {
+                Directory.CreateDirectory(outputRoot);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return "拆图失败：建不了落点目录 " + outputRoot + "（" + exception.Message + "）";
+            }
+
+            foreach (var layer in layers)
+            {
+                if (!layer.IsUsable)
+                {
+                    skipped.Add(layer.Name.Length == 0 ? "（没名字的一层）" : layer.Name);
+                    continue;
+                }
+
+                var piece = UiLayerCutter.Cut(decoded.Image, layer);
+                if (piece == null)
+                {
+                    skipped.Add(layer.Name);
+                    continue;
+                }
+
+                var naming = AssetNamingNormalizer.Normalize(layer.Name, spec?.NamingPattern ?? "").Naming;
+                var filePath = Path.Combine(outputRoot, naming + ".png");
+                if (!PngEncoder.EncodeToFile(piece, filePath, out var encodeReason))
+                {
+                    lines.Add($"写不出 {naming}.png：{encodeReason}");
+                    skipped.Add(layer.Name);
+                    continue;
+                }
+
+                // 切下来的那块也要按 UI元素 规格走一遍：抠透明。**尺寸不缩**——
+                // 每个元素本来就大小不一，硬塞进 512×512 会把它拉变形。
+                if (needsTransparency)
+                {
+                    var normalized = AssetImageNormalizer.Normalize(filePath, 0, 0, needsTransparency: true);
+                    foreach (var note in normalized.Remaining)
+                    {
+                        lines.Add($"{naming} 还差：{note}");
+                    }
+                }
+
+                layer.ToPixels(decoded.Image.Width, decoded.Image.Height, out var x, out var y, out var w, out var h);
+                elements.Add(new UiPanelElement(
+                    layer.Name,
+                    UiPanelDefinitionWriter.GuessIdentifier(layer.Name),
+                    UiPanelDefinitionWriter.GuessElementType(layer.Name),
+                    destination.TrimEnd('/') + "/" + naming + ".png",
+                    x, y, w, h));
+                written.Add(filePath);
+                lines.Add($"拆出 {naming}.png（{w}×{h}）");
+            }
+
+            if (written.Count == 0)
+            {
+                return "拆图失败：一层都没能拆出来（模型给的框全都不合法）。可以再点一次重试。";
+            }
+
+            var panelIdentifier = UiPanelDefinitionWriter.GuessIdentifier(assetIdentifier) + "Panel";
+            var definitionPath = UiPanelDefinitionWriter.Write(
+                repositoryRoot, assetIdentifier + " 界面", panelIdentifier, elements);
+            lines.Add($"面板定义：{(definitionPath.Length == 0 ? "写失败" : definitionPath)}");
+
+            // 留底：下一次人说「那层框大了」时，要靠它把上一次的框喂回给模型。
+            if (!AssistantServeTurn.SaveCut(repositoryRoot, conversationIdentifier, assetIdentifier, sourcePath, layers))
+            {
+                lines.Add("拆图留底写失败——下次说「改一改」时接不上上一次的框");
+            }
+
+            cut = true;
+            var builder = new StringBuilder();
+            builder.Append("拆出 ").Append(written.Count).Append(" 层，已经落进正式环境：\n")
+                .Append(destination).Append('\n');
+            foreach (var element in elements)
+            {
+                builder.Append("· ").Append(element.DisplayName).Append("　")
+                    .Append(element.Width).Append('×').Append(element.Height)
+                    .Append("　→ ").Append(element.ElementType).Append('\n');
+            }
+
+            if (skipped.Count > 0)
+            {
+                builder.Append("没拆出来的：").Append(string.Join("、", skipped)).Append("（框不合法）\n");
+            }
+
+            builder.Append("\n哪层框得不对、漏了什么、多切了什么，直接说，我在这一版基础上改。\n");
+            builder.Append(definitionPath.Length == 0
+                ? "面板定义没写成，得人看一眼磁盘。"
+                : "面板定义写好了：UI/Definitions/" + panelIdentifier + ".uidef.json。\n"
+                    + "跑一次 ui.scaffold 就出 UXML/USS/C#——程序侧读那份 UXML 就知道这个界面怎么用，不用读图。\n"
+                    + "元素类型是按层名猜的，不对改 uidef 一行再重跑。");
+
+            card = AssistantCard.ForGeneratedImages(builder.ToString(), written);
+            return card.ToPlainText();
+        }
+
+        /// <summary>拆出来的单个 UI 元素在资产规格里叫什么。</summary>
+        private const string UiElementAssetType = "UI元素";
 
         /// <summary>
         /// 开一个新话题：往历史里插一条分隔线，并回一句说明。

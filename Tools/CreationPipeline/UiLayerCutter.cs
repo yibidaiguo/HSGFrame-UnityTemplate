@@ -98,6 +98,37 @@ namespace Template.Toolkit.CreationPipeline
             + "4. 认不出是什么的不要硬编名字，用 deco_1 这种；**但别漏**——漏一个就少一张图。";
 
         /// <summary>
+        /// 组一份「重拆」的提示词：把上一次的框原样摆出来，加上人的意见，让模型在此基础上改。
+        ///
+        /// **给它看上一次的框，而不是从头再标一遍**：从头标等于把已经标对的那些也重掷一次骰子，
+        /// 人明明只说了「关闭按钮框大了」，结果整套框全变——那不是「改」，是「重来」。
+        /// </summary>
+        /// <param name="previousLayers">上一次的层清单。</param>
+        /// <param name="feedback">人这次说的意见。</param>
+        public static string BuildRecutPrompt(IReadOnlyList<UiLayer> previousLayers, string feedback)
+        {
+            var builder = new System.Text.StringBuilder();
+            builder.Append(LayerPrompt);
+            builder.Append("\n\n上一次你是这么框的：\n");
+
+            foreach (var layer in previousLayers ?? Array.Empty<UiLayer>())
+            {
+                builder.Append("· ").Append(layer.Name)
+                    .Append("：左 ").Append(layer.Left.ToString("0.###", CultureInfo.InvariantCulture))
+                    .Append("，上 ").Append(layer.Top.ToString("0.###", CultureInfo.InvariantCulture))
+                    .Append("，右 ").Append(layer.Right.ToString("0.###", CultureInfo.InvariantCulture))
+                    .Append("，下 ").Append(layer.Bottom.ToString("0.###", CultureInfo.InvariantCulture))
+                    .Append('\n');
+            }
+
+            builder.Append("\n人看完说：").Append(feedback ?? "").Append('\n');
+            builder.Append("**在上一次的基础上改**：他没提到的那些层原样保留（名字与框都别动），"
+                + "只动他说的那几处；说漏了就补一层，说多了就删掉那一层。"
+                + "照旧只回那份 JSON。");
+            return builder.ToString();
+        }
+
+        /// <summary>
         /// 解析视觉模型的回答，取出层清单。
         /// 解析不出来给空表**并带上原因**——空表与「读不懂」是两支，
         /// 合并的话人只会看到「没拆出东西」，查不到是模型没回还是回了个读不懂的形状。

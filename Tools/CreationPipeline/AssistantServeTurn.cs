@@ -639,6 +639,152 @@ namespace Template.Toolkit.CreationPipeline
             }
         }
 
+        /// <summary>拆图留底目录：&lt;仓库根&gt;/_Tasks/conversations/cuts。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static string CutDirectory(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "_Tasks", "conversations", "cuts");
+        }
+
+        /// <summary>
+        /// 留一份拆图底：源图 + 这一次的层清单。
+        ///
+        /// **重拆要靠它**：人说「关闭按钮框大了」时，得把上一次的框原样喂回给模型，
+        /// 只动他说的那几处；没有底就只能从头再标一遍，结果整套框全变——那是重来不是改。
+        /// 同时记一笔「这条会话最近拆的是哪个」，人直接说话就能接上，不必再点一次按钮。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="conversationIdentifier">会话标识。</param>
+        /// <param name="assetIdentifier">资产 id。</param>
+        /// <param name="sourceImagePath">被拆的那张整屏图。</param>
+        /// <param name="layers">这一次的层清单。</param>
+        public static bool SaveCut(
+            string repositoryRoot,
+            string conversationIdentifier,
+            string assetIdentifier,
+            string sourceImagePath,
+            IReadOnlyList<UiLayer> layers)
+        {
+            var array = new JsonArray();
+            foreach (var layer in layers ?? Array.Empty<UiLayer>())
+            {
+                array.Add(new JsonObject
+                {
+                    ["名字"] = layer.Name,
+                    ["左"] = layer.Left,
+                    ["上"] = layer.Top,
+                    ["右"] = layer.Right,
+                    ["下"] = layer.Bottom
+                });
+            }
+
+            var record = new JsonObject
+            {
+                ["资产id"] = assetIdentifier ?? "",
+                ["源图"] = sourceImagePath ?? "",
+                ["层"] = array
+            };
+
+            try
+            {
+                var directory = CutDirectory(repositoryRoot);
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(
+                    Path.Combine(directory, (assetIdentifier ?? "") + ".json"),
+                    record.ToJsonString(WriteOptions),
+                    new UTF8Encoding(false));
+
+                // 「这条会话最近拆的是哪个」——人接着说话时靠它认出改的是谁。
+                File.WriteAllText(
+                    Path.Combine(directory, "last-" + AssistantConversationHistory.SafeFileName(conversationIdentifier) + ".txt"),
+                    assetIdentifier ?? "",
+                    new UTF8Encoding(false));
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>读这条会话最近一次拆的资产 id；没有给空串。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="conversationIdentifier">会话标识。</param>
+        public static string ReadLastCutAsset(string repositoryRoot, string conversationIdentifier)
+        {
+            try
+            {
+                var filePath = Path.Combine(
+                    CutDirectory(repositoryRoot),
+                    "last-" + AssistantConversationHistory.SafeFileName(conversationIdentifier) + ".txt");
+                return File.Exists(filePath) ? File.ReadAllText(filePath).Trim() : "";
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return "";
+            }
+        }
+
+        /// <summary>读某次拆图的底：源图与层清单。读不到时源图为空串、层为空表。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="assetIdentifier">资产 id。</param>
+        /// <param name="sourceImagePath">被拆的那张整屏图。</param>
+        public static IReadOnlyList<UiLayer> ReadCut(
+            string repositoryRoot, string assetIdentifier, out string sourceImagePath)
+        {
+            sourceImagePath = "";
+            var layers = new List<UiLayer>();
+
+            try
+            {
+                var filePath = Path.Combine(CutDirectory(repositoryRoot), (assetIdentifier ?? "") + ".json");
+                if (!File.Exists(filePath))
+                {
+                    return layers;
+                }
+
+                if (JsonNode.Parse(File.ReadAllText(filePath)) is not JsonObject root)
+                {
+                    return layers;
+                }
+
+                sourceImagePath = root["源图"]?.ToString() ?? "";
+                if (root["层"] is JsonArray array)
+                {
+                    foreach (var item in array)
+                    {
+                        if (item is not JsonObject layer)
+                        {
+                            continue;
+                        }
+
+                        layers.Add(new UiLayer(
+                            layer["名字"]?.ToString() ?? "",
+                            ReadDouble(layer, "左"),
+                            ReadDouble(layer, "上"),
+                            ReadDouble(layer, "右"),
+                            ReadDouble(layer, "下")));
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return layers;
+            }
+
+            return layers;
+        }
+
+        /// <summary>读一个 JSON 对象里的数字键；缺失或不是数字给 -1（那会让这一层判成不可用）。</summary>
+        private static double ReadDouble(JsonObject node, string key)
+        {
+            return node.TryGetPropertyValue(key, out var value)
+                && value is JsonValue jsonValue
+                && jsonValue.TryGetValue<double>(out var number)
+                ? number
+                : -1;
+        }
+
         /// <summary>
         /// 这句话是不是在说「开新话题」。**按钮之外还留一条文字入口**：
         /// 卡片按钮要走回调，回调链路没通、或人在手机上把卡片折叠了，就点不着——
