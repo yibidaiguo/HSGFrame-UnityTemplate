@@ -125,7 +125,9 @@ namespace Template.Bridges.Feishu
                 link = ReadString(node.ResponseBody, "data", "node", "url");
                 if (link.Length == 0)
                 {
-                    link = QueryDocumentUrl(documentId, appId, secretKey, timeoutSeconds);
+                    link = ComposeWikiLink(
+                        QueryDocumentUrl(documentId, appId, secretKey, timeoutSeconds),
+                        nodeToken);
                 }
                 if (effectiveSpace.Length == 0)
                 {
@@ -346,6 +348,31 @@ namespace Template.Bridges.Feishu
             }
 
             return "";
+        }
+
+        /// <summary>
+        /// 把云空间查回来的文档地址换成知识库地址：域名照抄，路径换成 <c>/wiki/&lt;节点&gt;</c>。
+        ///
+        /// 两条地址都能打开同一份文档，但**这份文档是住在知识库里的**——
+        /// 知识库那条带左侧目录，人点进去看得见它挂在「需求」底下；
+        /// 云空间那条是一份孤零零的文档，看不出它属于哪儿。
+        /// 抠不出域名时原样返回查到的地址：能打开的链接好过没有链接。
+        /// </summary>
+        /// <param name="documentUrl">云空间查回来的地址。</param>
+        /// <param name="nodeToken">知识库节点 token。</param>
+        private static string ComposeWikiLink(string documentUrl, string nodeToken)
+        {
+            if (documentUrl.Length == 0 || nodeToken.Length == 0)
+            {
+                return documentUrl;
+            }
+
+            if (!Uri.TryCreate(documentUrl, UriKind.Absolute, out var parsed))
+            {
+                return documentUrl;
+            }
+
+            return parsed.Scheme + "://" + parsed.Host + "/wiki/" + nodeToken;
         }
 
         /// <summary>把一次写子块响应里的 block_id 按顺序收进清单。</summary>
