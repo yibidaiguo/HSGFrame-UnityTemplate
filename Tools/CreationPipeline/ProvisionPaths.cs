@@ -63,6 +63,20 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(repositoryRoot, "_Generated", "Probes", driverName, "probe-result.json");
         }
 
+        /// <summary>
+        /// 「上次真跑成功用的那个模型」的记账文件：<c>_Generated/Probes/&lt;driver&gt;/last-good-model.json</c>。
+        ///
+        /// 跟探测产出住一起，理由一样：它是**从真实调用里读回来的机器本地事实**，跟着这台机器的
+        /// 地址与账号走，不进 git。「自动」那一档拿它当首选——清单里第一项只是可复算，
+        /// 而「上次真跑成功的那个」是**这台机器上已经被现实验证过的那个**。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        public static string LastGoodModelFile(string repositoryRoot, string driverName)
+        {
+            return Path.Combine(repositoryRoot, "_Generated", "Probes", driverName, "last-good-model.json");
+        }
+
         /// <summary>assistant-package目录：_Generated/Bridges/&lt;driver&gt;/assistant-package。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="driverName">driver 名称。</param>

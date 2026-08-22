@@ -307,7 +307,20 @@ namespace Template.Toolkit.CreationPipeline
 
             var request = new BridgeRequest("1.0.0", descriptor.Ports[0], action, JsonSerializer.SerializeToElement(configuration), payload);
 
-            return RunSubprocess(repositoryRoot, executable, arguments, request, timeoutSeconds).WithModelNote(modelNote);
+            var callResult = RunSubprocess(repositoryRoot, executable, arguments, request, timeoutSeconds).WithModelNote(modelNote);
+
+            // 真用上了模型、而且这一次真跑成功了，就记一笔——「自动」下次优先挑它。
+            // caps 排除在外：探测那一趟压根不使唤模型，它成功不能证明这个模型能干活。
+            if (callResult.Succeeded
+                && descriptor.ModelFieldName.Length > 0
+                && !string.Equals(action, "caps", StringComparison.Ordinal)
+                && configuration[descriptor.ModelFieldName] is JsonValue usedModel
+                && usedModel.TryGetValue<string>(out var usedModelName))
+            {
+                ModelSelection.RecordSuccess(repositoryRoot, driverName, usedModelName);
+            }
+
+            return callResult;
         }
 
         /// <summary>把 driver 的本机配置与密钥字段拼成请求信封的「配置」对象（还没定稿，模型那一格随后还要解析）。</summary>
