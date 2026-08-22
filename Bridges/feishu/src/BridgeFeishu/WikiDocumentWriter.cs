@@ -164,7 +164,7 @@ namespace Template.Bridges.Feishu
             }
 
             var mediaOutcome = UploadPendingMedia(
-                pendingMedia, createdBlockIds, mediaRoot, appId, secretKey, timeoutSeconds);
+                pendingMedia, createdBlockIds, mediaRoot, documentId, appId, secretKey, timeoutSeconds);
 
             var result = new JsonObject
             {
@@ -427,6 +427,7 @@ namespace Template.Bridges.Feishu
             IReadOnlyList<FeishuBlockCodec.PendingMedia> pendingMedia,
             IReadOnlyList<string> createdBlockIds,
             string mediaRoot,
+            string documentId,
             string appId,
             string secretKey,
             int timeoutSeconds)
@@ -470,16 +471,67 @@ namespace Template.Bridges.Feishu
                 }
 
                 var call = FeishuClient.UploadMedia(filePath, media.ParentType, blockId, appId, secretKey, timeoutSeconds);
-                if (call.Succeeded)
+                if (!call.Succeeded)
                 {
-                    outcome.UploadedCount++;
+                    outcome.Failures.Add(media.RelativePath + "：" + (call.Response?.Error?.HumanText ?? "上传失败"));
                     continue;
                 }
 
-                outcome.Failures.Add(media.RelativePath + "：" + (call.Response?.Error?.HumanText ?? "上传失败"));
+                // 第三步：把 file_token 打回块上。**传完不等于挂上了**——
+                // 少这一刀，接口一路 code 0，而文档里留着一个空图框，人打开才发现。
+                var fileToken = ReadString(call.ResponseBody, "data", "file_token");
+                if (fileToken.Length == 0)
+                {
+                    outcome.Failures.Add(media.RelativePath + "：传上去了但没回 file_token，没法挂到块上");
+                    continue;
+                }
+
+                var bind = BindMediaToBlock(documentId, blockId, fileToken, media.IsImage, appId, secretKey, timeoutSeconds);
+                if (bind.Length > 0)
+                {
+                    outcome.Failures.Add(media.RelativePath + "：" + bind);
+                    continue;
+                }
+
+                outcome.UploadedCount++;
             }
 
             return outcome;
+        }
+
+        /// <summary>
+        /// 把传好的素材挂到块上（图片走 replace_image，文件走 replace_file）。
+        /// 成功给空串，失败给一句人话。
+        /// </summary>
+        /// <param name="documentId">文档 id。</param>
+        /// <param name="blockId">那个空块的 id。</param>
+        /// <param name="fileToken">素材上传回来的 file_token。</param>
+        /// <param name="isImage">图片块还是文件块。</param>
+        /// <param name="appId">飞书应用标识。</param>
+        /// <param name="secretKey">飞书应用密钥。</param>
+        /// <param name="timeoutSeconds">单次调用超时秒数。</param>
+        private static string BindMediaToBlock(
+            string documentId,
+            string blockId,
+            string fileToken,
+            bool isImage,
+            string appId,
+            string secretKey,
+            int timeoutSeconds)
+        {
+            var body = new JsonObject
+            {
+                [isImage ? "replace_image" : "replace_file"] = new JsonObject { ["token"] = fileToken }
+            }.ToJsonString();
+
+            var call = FeishuClient.Send(
+                "PATCH",
+                FeishuClient.DocxBlockUrl(documentId, blockId),
+                body,
+                appId,
+                secretKey,
+                timeoutSeconds);
+            return call.Succeeded ? "" : (call.Response?.Error?.HumanText ?? "挂到块上失败");
         }
 
         private static BridgeResponse Success(JsonElement payload)

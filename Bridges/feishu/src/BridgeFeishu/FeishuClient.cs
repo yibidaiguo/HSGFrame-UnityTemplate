@@ -131,6 +131,15 @@ namespace Template.Bridges.Feishu
                 + "/blocks/" + Uri.EscapeDataString(blockId) + "/children";
         }
 
+        /// <summary>改一个块的 URL：素材传完要把 file_token 打回块上，走的就是它。</summary>
+        /// <param name="documentId">文档 id。</param>
+        /// <param name="blockId">要改的块 id。</param>
+        public static string DocxBlockUrl(string documentId, string blockId)
+        {
+            return DocxDocumentsPrefix + Uri.EscapeDataString(documentId)
+                + "/blocks/" + Uri.EscapeDataString(blockId);
+        }
+
         /// <summary>按下标区间批量删子块的 URL。</summary>
         /// <param name="documentId">文档 id。</param>
         /// <param name="blockId">父块 id。</param>
