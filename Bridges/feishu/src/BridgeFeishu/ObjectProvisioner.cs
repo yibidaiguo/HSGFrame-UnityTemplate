@@ -155,7 +155,13 @@ namespace Template.Bridges.Feishu
                     return true;
                 }
 
-                // 台账里那个空间已经不在了（多半是人在飞书里删了）。死号不留：当作没有，重新建一个。
+                if (IsPermissionDenied(probe))
+                {
+                    failure = PermissionFailure(SpaceKey, state.SpaceId, "这个知识空间");
+                    return false;
+                }
+
+                // 空间真的不在了（多半是人在飞书里删了）。死号不留：当作没有，重新建一个。
                 state.Recreated.Add(SpaceKey + "（旧的 " + state.SpaceId + " 已经不在了）");
                 state.SpaceId = "";
             }
@@ -248,6 +254,12 @@ namespace Template.Bridges.Feishu
                     state.Reused.Add(key + "=" + current);
                     assign(current);
                     return true;
+                }
+
+                if (IsPermissionDenied(probe))
+                {
+                    failure = PermissionFailure(key, current, "这个节点");
+                    return false;
                 }
 
                 state.Recreated.Add(key + "（旧的 " + current + " 已经不在了）");
@@ -557,6 +569,33 @@ namespace Template.Bridges.Feishu
 
             /// <summary>建不出来的列，要如实报。</summary>
             public readonly List<string> SkippedColumns = new List<string>();
+        }
+
+        /// <summary>
+        /// 这次失败是不是「有这个东西但应用没权限」。**它与「不存在」处置完全相反**：
+        /// 不存在该重新建一个，没权限该停下来让人去授权——把没权限当成不存在，
+        /// 每跑一次就在人家知识库里多建一个空间，越建越多还谁都没发现。
+        /// 131006 是知识库那支的权限码；99991672 是凭据整个不对，那更不该往下建。
+        /// </summary>
+        /// <param name="call">一次探测调用的结果。</param>
+        private static bool IsPermissionDenied(FeishuClient.HttpCall call)
+        {
+            return call != null && (call.BusinessCode == 131006 || call.BusinessCode == 99991672);
+        }
+
+        /// <summary>没权限时的失败响应：说清是哪一格、哪个 id，以及两条出路。</summary>
+        /// <param name="key">台账里的键名。</param>
+        /// <param name="identifier">那个对象的 id。</param>
+        /// <param name="what">人话说这是个什么东西。</param>
+        private static BridgeResponse PermissionFailure(string key, string identifier, string what)
+        {
+            return Failure(
+                "凭据无效",
+                what + "（" + key + "=" + identifier + "）是在的，但这个应用没权限读它，所以我没敢当它不存在去重建——"
+                + "重建会在你的知识库里多出一个空壳。两条路：一是去飞书把应用加成协作者并给编辑权，"
+                + "二是把台账（" + DownstreamObjectLedger.RelativeLedgerPath() + "）与 local.json 里的这个 id 清掉，"
+                + "让链路自己建一个属于它的。",
+                retryable: false);
         }
 
         /// <summary>把一串字符串摊成 JSON 数组。</summary>

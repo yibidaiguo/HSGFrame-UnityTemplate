@@ -47,12 +47,21 @@ namespace Template.Bridges.Feishu
         /// <summary>缓存 token 的过期时刻；已过期（含提前量）时视为没有缓存。</summary>
         private static DateTimeOffset _tokenExpiresAt = DateTimeOffset.MinValue;
 
-        /// <summary>一次带鉴权请求的结果：成功时带解析好的响应体，失败时带协议响应。</summary>
+        /// <summary>一次带鉴权请求的结果：成功时带解析好的响应体，失败时带协议响应与飞书业务码。</summary>
         public sealed class HttpCall
         {
             public bool Succeeded;
             public BridgeResponse Response;
             public JsonElement ResponseBody;
+
+            /// <summary>
+            /// 飞书自己的业务码（响应体里的 code），失败时才有意义，拿不到给 0。
+            /// **调用方要靠它分「不存在」与「没权限」**：这两支的处置完全相反——
+            /// 不存在该重新建一个，没权限该停下来让人去授权。
+            /// 合并成一句「调用失败」的话，一个没权限的对象会被当成不存在，
+            /// 于是每跑一次就在下游多建一个，越建越多。
+            /// </summary>
+            public int BusinessCode;
         }
 
         /// <summary>拼多维表格 app 下的子路径 URL：BitableAppsPrefix + appToken + "/" + 相对路径。</summary>
@@ -224,7 +233,7 @@ namespace Template.Bridges.Feishu
 
                         if (code != 0)
                         {
-                            return new HttpCall { Succeeded = false, Response = MapCodeError(body, code, logId) };
+                            return new HttpCall { Succeeded = false, Response = MapCodeError(body, code, logId), BusinessCode = code };
                         }
                     }
 
@@ -387,7 +396,7 @@ namespace Template.Bridges.Feishu
 
                         if (code != 0)
                         {
-                            return new HttpCall { Succeeded = false, Response = MapCodeError(body, code, logId) };
+                            return new HttpCall { Succeeded = false, Response = MapCodeError(body, code, logId), BusinessCode = code };
                         }
                     }
 
@@ -458,7 +467,7 @@ namespace Template.Bridges.Feishu
 
                     if (code != 0)
                     {
-                        return new HttpCall { Succeeded = false, Response = MapCodeError(body, code, logId) };
+                        return new HttpCall { Succeeded = false, Response = MapCodeError(body, code, logId), BusinessCode = code };
                     }
                 }
 
