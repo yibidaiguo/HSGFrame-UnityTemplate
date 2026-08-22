@@ -1,0 +1,16 @@
+{
+  "_说明": "插件声明清单：只收**包管理器看不见**的那类编辑器插件——双击解包进 Assets/ 的 .unitypackage、手动丢进 addons/ 的 Blender 插件、照来源页面手装的东西。进 git；这里面一个密钥都不许有。Unity 的 UPM 包不写进来：UnityProject/Packages/manifest.json 已经是那份真相，再写一份迟早各说各话。面板「桥接包」页与 bridge.inventory 读这份清单。",
+  "_字段": "名称=插件名；宿主=unity 或 Bridges/ 下的目录名；标志路径=装完之后会出现的目录或文件（仓库相对、正斜杠），空串表示还没填、页面记「未验」而不是「缺」；版本；来源=下载页；安装步骤=点哪里，一句话说清；说明=它是干嘛的。",
+  "契约版本": "1.0.0",
+  "插件": [
+    {
+      "名称": "Tripo3d_Unity_Bridge",
+      "宿主": "unity",
+      "标志路径": "",
+      "版本": "latest",
+      "来源": "https://www.tripo3d.ai/",
+      "安装步骤": "下载 Tripo3d_Unity_Bridge-latest.unitypackage → Unity 里 Assets > Import Package > Custom Package > 选它 > 全选 Import → 装完把它在 Assets/ 下的落点填进本条的「标志路径」",
+      "说明": "把 tripo 的文生模/图生模接进 Unity 编辑器里直接出资产。与 Bridges/tripo 那条命令行链路各走各的：这个是给人在编辑器里点的，那个是管线自动跑的。"
+    }
+  ]
+}

@@ -25,6 +25,15 @@ notepad "Tools\CreationPipeline\Config\local.json"
 存完跟 Claude 说一声，它跑一次只查「键在不在」的检查，
 把哪几批能开工报回来——**它不会读你的值**。
 
+填完之后，面板的「桥接包」页（`http://localhost:8766/panel#/packages`）自己就能看：
+每个编辑器与每个下游的**本体装没装、要往它里面塞的包装没装、还差什么、下一步干嘛**。
+命令行同一份账：`bridge.inventory`。那一页只报告与指路，不代你安装，也不读密钥的值。
+
+**厂商的编辑器插件**（Tripo3d_Unity_Bridge 那种双击解包进 `Assets/` 的 .unitypackage）
+包管理器看不见，得先在 `Tools/CreationPipeline/Config/editor-plugins.json` 里声明一条：
+写清**装完之后哪个路径会出现**（「标志路径」），页面才判得了它装没装。
+路径没填就是「未验」——那是「还没查」，不是「没装」。UPM 包不用往这里写，manifest.json 已经管着。
+
 ## 二、要填什么，去哪拿
 
 | 键 | 去哪拿（具体到点哪里） | 缺了会怎样 |

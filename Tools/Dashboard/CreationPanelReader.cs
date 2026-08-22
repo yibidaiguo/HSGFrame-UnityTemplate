@@ -816,6 +816,161 @@ namespace Template.Toolkit.Dashboard
         public string FailureReason { get; }
     }
 
+    /// <summary>
+    /// 桥接包页里的一件东西：编辑器包、下游节点/模型、随仓库走的驱动脚本。
+    /// 「状态」四选一：已装 / 缺 / 未验 / 无需安装——「未验」是本机还没查过，不是没有，
+    /// 页面上它既不染绿也不染红（决策 42 的又一处长相）。
+    /// </summary>
+    public sealed class PanelHostPackageRow
+    {
+        /// <summary>
+        /// 构造一行桥接包。
+        /// </summary>
+        /// <param name="name">包名 / 依赖名 / 脚本名。</param>
+        /// <param name="category">类别：编辑器包 / 节点 / 模型 / lora / 驱动脚本。</param>
+        /// <param name="versionRequirement">要的版本或 git 记号；没写是空串。</param>
+        /// <param name="state">状态：已装 / 缺 / 未验 / 无需安装。</param>
+        /// <param name="evidence">判成这个状态的依据。</param>
+        /// <param name="source">来源：git 地址、下载页；没有是空串。</param>
+        /// <param name="installCommand">安装命令；空串表示清单没给。</param>
+        /// <param name="nextStep">下一步动作；已装时是空串。</param>
+        public PanelHostPackageRow(
+            string name,
+            string category,
+            string versionRequirement,
+            string state,
+            string evidence,
+            string source,
+            string installCommand,
+            string nextStep)
+        {
+            Name = name ?? "";
+            Category = category ?? "";
+            VersionRequirement = versionRequirement ?? "";
+            State = state ?? "";
+            Evidence = evidence ?? "";
+            Source = source ?? "";
+            InstallCommand = installCommand ?? "";
+            NextStep = nextStep ?? "";
+        }
+
+        /// <summary>包名 / 依赖名 / 脚本名。</summary>
+        [JsonPropertyName("名")]
+        public string Name { get; }
+
+        /// <summary>类别：编辑器包 / 节点 / 模型 / lora / 驱动脚本。</summary>
+        [JsonPropertyName("类别")]
+        public string Category { get; }
+
+        /// <summary>要的版本或 git 记号；没写是空串。</summary>
+        [JsonPropertyName("版本")]
+        public string VersionRequirement { get; }
+
+        /// <summary>状态：已装 / 缺 / 未验 / 无需安装。</summary>
+        [JsonPropertyName("状态")]
+        public string State { get; }
+
+        /// <summary>判成这个状态的依据。</summary>
+        [JsonPropertyName("依据")]
+        public string Evidence { get; }
+
+        /// <summary>来源：git 地址、下载页；没有是空串。</summary>
+        [JsonPropertyName("来源")]
+        public string Source { get; }
+
+        /// <summary>安装命令；空串表示清单没给。</summary>
+        [JsonPropertyName("安装命令")]
+        public string InstallCommand { get; }
+
+        /// <summary>下一步动作；已装时是空串。</summary>
+        [JsonPropertyName("下一步")]
+        public string NextStep { get; }
+    }
+
+    /// <summary>
+    /// 桥接包页里的一个宿主：一个编辑器，或一个下游服务。
+    /// 「本体」与「桥接包」分两栏报——软件装了但包没解析、包在仓库里但软件没装，是两种不同的卡壳。
+    /// </summary>
+    public sealed class PanelHostRow
+    {
+        /// <summary>
+        /// 构造一行宿主。
+        /// </summary>
+        /// <param name="name">宿主名。</param>
+        /// <param name="kind">种类：编辑器 / 本机服务 / 线上服务。</param>
+        /// <param name="hostState">本体状态：已装 / 缺 / 未验 / 无需安装。</param>
+        /// <param name="hostDetail">本体状态的依据。</param>
+        /// <param name="hostVersion">本体版本；判不出来是空串。</param>
+        /// <param name="hostNextStep">本体的下一步动作；已装时是空串。</param>
+        /// <param name="packages">这个宿主的桥接包 / 插件 / 脚本。</param>
+        /// <param name="notes">补充说明。</param>
+        /// <param name="trialCommand">能在面板上跑一次的命令；没有是空串。</param>
+        /// <param name="loadFailureReason">这一行读不出来时的原因；正常是空串。</param>
+        public PanelHostRow(
+            string name,
+            string kind,
+            string hostState,
+            string hostDetail,
+            string hostVersion,
+            string hostNextStep,
+            IReadOnlyList<PanelHostPackageRow> packages,
+            IReadOnlyList<string> notes,
+            string trialCommand,
+            string loadFailureReason)
+        {
+            Name = name ?? "";
+            Kind = kind ?? "";
+            HostState = hostState ?? "";
+            HostDetail = hostDetail ?? "";
+            HostVersion = hostVersion ?? "";
+            HostNextStep = hostNextStep ?? "";
+            Packages = packages ?? Array.Empty<PanelHostPackageRow>();
+            Notes = notes ?? Array.Empty<string>();
+            TrialCommand = trialCommand ?? "";
+            LoadFailureReason = loadFailureReason ?? "";
+        }
+
+        /// <summary>宿主名。</summary>
+        [JsonPropertyName("宿主")]
+        public string Name { get; }
+
+        /// <summary>种类：编辑器 / 本机服务 / 线上服务。</summary>
+        [JsonPropertyName("种类")]
+        public string Kind { get; }
+
+        /// <summary>本体状态：已装 / 缺 / 未验 / 无需安装。</summary>
+        [JsonPropertyName("本体")]
+        public string HostState { get; }
+
+        /// <summary>本体状态的依据。</summary>
+        [JsonPropertyName("本体依据")]
+        public string HostDetail { get; }
+
+        /// <summary>本体版本；判不出来是空串。</summary>
+        [JsonPropertyName("版本")]
+        public string HostVersion { get; }
+
+        /// <summary>本体的下一步动作；已装时是空串。</summary>
+        [JsonPropertyName("本体下一步")]
+        public string HostNextStep { get; }
+
+        /// <summary>这个宿主的桥接包 / 插件 / 脚本。</summary>
+        [JsonPropertyName("包")]
+        public IReadOnlyList<PanelHostPackageRow> Packages { get; }
+
+        /// <summary>补充说明。</summary>
+        [JsonPropertyName("知会")]
+        public IReadOnlyList<string> Notes { get; }
+
+        /// <summary>能在面板上跑一次的命令；没有是空串。</summary>
+        [JsonPropertyName("试跑")]
+        public string TrialCommand { get; }
+
+        /// <summary>这一行读不出来时的原因；正常是空串。</summary>
+        [JsonPropertyName("读失败")]
+        public string LoadFailureReason { get; }
+    }
+
     /// <summary>供给对账页的一行：driver 名、形态、端口、供给状态、对账状态、依赖清单与配方/问题计数。</summary>
     public sealed class PanelProvisionRow
     {
@@ -2599,6 +2754,44 @@ namespace Template.Toolkit.Dashboard
             foreach (var driverName in driverNames)
             {
                 rows.Add(ReadBridgeRow(repositoryRoot, driverName));
+            }
+
+            return rows;
+        }
+
+        /// <summary>
+        /// 读桥接包页：每个编辑器 / 每个下游的本体装没装、要往里塞的包装没装、还差什么。
+        /// 判定全在 <see cref="HostPackageInventory"/> 那一份，这里只做形状转换——
+        /// 面板与 bridge.inventory 命令看到的必须是同一份判定，不许各算各的。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static IReadOnlyList<PanelHostRow> ReadHostPackages(string repositoryRoot)
+        {
+            var rows = new List<PanelHostRow>();
+            foreach (var host in HostPackageInventory.Build(repositoryRoot))
+            {
+                var packages = host.Packages
+                    .Select(package => new PanelHostPackageRow(
+                        package.Name,
+                        package.Category,
+                        package.VersionRequirement,
+                        package.State,
+                        package.Evidence,
+                        package.Source,
+                        package.InstallCommand,
+                        package.NextStep))
+                    .ToList();
+                rows.Add(new PanelHostRow(
+                    host.Name,
+                    host.Kind,
+                    host.HostState,
+                    host.HostDetail,
+                    host.HostVersion,
+                    host.HostNextStep,
+                    packages,
+                    host.Notes,
+                    host.TrialCommand,
+                    host.LoadFailureReason));
             }
 
             return rows;

@@ -221,6 +221,9 @@ namespace Template.Toolkit.Dashboard
                     case "/api/panel/bridges":
                         WritePanelPage(response, () => CreationPanelReader.ReadBridges(_repositoryRoot, _poolRoot));
                         break;
+                    case "/api/panel/packages":
+                        WritePanelPage(response, () => CreationPanelReader.ReadHostPackages(_repositoryRoot));
+                        break;
                     case "/api/panel/deviation":
                         // 键同时收中文与 ASCII 别名（决策 57）：中文键要客户端把它按 UTF-8 百分号编码才认得出来，
                         // 浏览器会编、手敲的 curl 常常不编——不给别名的话，参数没认出来和
@@ -260,7 +263,7 @@ namespace Template.Toolkit.Dashboard
             }
         }
 
-        /// <summary>写创作管线面板页面：十六页装在一份自包含 HTML 里。</summary>
+        /// <summary>写创作管线面板页面：十七页装在一份自包含 HTML 里。</summary>
         private void WritePanelHtml(HttpListenerResponse response)
         {
             var bytes = Encoding.UTF8.GetBytes(CreationPanelPage.Html);

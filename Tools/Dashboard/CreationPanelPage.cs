@@ -7,12 +7,12 @@ namespace Template.Toolkit.Dashboard
 {
     /// <summary>
     /// 创作管线面板页面：总览 / 需求池 / 任务 / 任务图 / 引擎 / 资产 / 设计池 / 门禁 / 审查 / 冲突 /
-    /// 放行流水 / 规范 / 晋升 / 提案待批 / 供给对账 / 下游 十六页装在一份自包含 HTML 里，
+    /// 放行流水 / 规范 / 晋升 / 提案待批 / 供给对账 / 下游 / 桥接包 十七页装在一份自包含 HTML 里，
     /// 零外部依赖、零 CDN。每页都是「拉一次 /api/panel/* 再渲染」，页面自己不存业务状态。
     ///
     /// 页面正文住在 Web/panel.html 与 Web/panel.js 两个真文件里，编译时嵌进程序集，
     /// 装配时把脚本填进 HTML 的占位处。从前这两样是拼在 C# verbatim 字符串里的：
-    /// 一个写错的引号转义就会吐出半个字面量，整份脚本语法错、十六页一页都不渲染，
+    /// 一个写错的引号转义就会吐出半个字面量，整份脚本语法错、十七页一页都不渲染，
     /// 而 C# 编译、单元测试、全量门禁全是绿的——因为没人解析过那段 JS。
     /// 挪成真文件之后，那类雷从根上不存在了：JS 就是 JS，引号是什么就是什么。
     /// </summary>
@@ -34,7 +34,7 @@ namespace Template.Toolkit.Dashboard
             if (document.IndexOf(ScriptPlaceholder, StringComparison.Ordinal) < 0)
             {
                 // 占位记号被人从 panel.html 里删掉了：这时装配出来的页面会是一份没有脚本的空壳，
-                // 十六页全白——而编译与测试照样绿。宁可当场炸，也不交一份看着正常的死页面。
+                // 十七页全白——而编译与测试照样绿。宁可当场炸，也不交一份看着正常的死页面。
                 throw new InvalidOperationException(
                     $"panel.html 里找不到脚本占位记号 {ScriptPlaceholder}，装配不出可用的面板页面");
             }

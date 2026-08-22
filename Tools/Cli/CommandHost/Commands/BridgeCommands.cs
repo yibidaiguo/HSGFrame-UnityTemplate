@@ -45,6 +45,20 @@ namespace Template.Toolkit.CommandHost.Commands
         public string RepositoryRoot { get; set; }
     }
 
+    /// <summary>装机清单命令 bridge.inventory 的参数。</summary>
+    public sealed class BridgeInventoryArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>只列还没装好的：把「已装」「无需安装」的条目收起来，剩下要动手的。</summary>
+        [Summary("只列还没装好的（缺 / 未验），已装与无需安装的不列")]
+        [DefaultValue(false)]
+        public bool OnlyPending { get; set; }
+    }
+
     /// <summary>下游能力探测命令 bridge.probe 的参数。</summary>
     public sealed class BridgeProbeArguments
     {
@@ -345,6 +359,79 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             return CommandResult.Success($"产物齐全，共 {inspection.Artifacts.Count} 份", lines);
+        }
+
+        /// <summary>
+        /// 列一遍装机清单：每个编辑器 / 每个下游的本体装没装、桥接包装没装、还差什么。
+        /// 与面板「桥接包」页同源——命令行与面板看到的是同一份 <see cref="HostPackageInventory"/>。
+        /// 有「缺」项按失败退出（缺的没补完不算装好）；「未验」不算失败，那是还没查过，不是没有。
+        /// </summary>
+        /// <param name="arguments">装机清单命令参数。</param>
+        [EditorCommand("bridge.inventory")]
+        [Summary("列每个编辑器与下游的装机清单：本体、桥接包、还差什么与下一步")]
+        public static CommandResult Inventory(BridgeInventoryArguments arguments)
+        {
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments?.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            var onlyPending = arguments != null && arguments.OnlyPending;
+            var rows = HostPackageInventory.Build(repositoryRoot);
+            var lines = new List<string>();
+            var missingCount = 0;
+            var unverifiedCount = 0;
+
+            foreach (var row in rows)
+            {
+                lines.Add($"[{row.HostState}] {row.Name}（{row.Kind}）：{row.HostDetail}"
+                    + (row.HostNextStep.Length == 0 ? "" : $"　→ {row.HostNextStep}"));
+                if (row.LoadFailureReason.Length > 0)
+                {
+                    lines.Add($"  读不出来：{row.LoadFailureReason}");
+                }
+
+                foreach (var package in row.Packages)
+                {
+                    if (string.Equals(package.State, HostPackageInventory.StateMissing, StringComparison.Ordinal))
+                    {
+                        missingCount++;
+                    }
+                    else if (string.Equals(package.State, HostPackageInventory.StateUnverified, StringComparison.Ordinal))
+                    {
+                        unverifiedCount++;
+                    }
+                    else if (onlyPending)
+                    {
+                        continue;
+                    }
+
+                    var version = package.VersionRequirement.Length == 0 ? "" : $" {package.VersionRequirement}";
+                    var next = package.NextStep.Length == 0 ? "" : $"　→ {package.NextStep}";
+                    lines.Add($"  [{package.State}] {package.Name}（{package.Category}{version}）：{package.Evidence}{next}");
+                    if (package.InstallCommand.Length > 0)
+                    {
+                        lines.Add($"      安装命令：{package.InstallCommand}");
+                    }
+                }
+
+                foreach (var note in row.Notes)
+                {
+                    lines.Add($"  知会：{note}");
+                }
+            }
+
+            lines.Add($"—— 宿主 {rows.Count} 个；桥接包缺 {missingCount} 项、未验 {unverifiedCount} 项 ——");
+            lines.Add("「未验」不是「缺」：本机还没探过或编辑器还没解析过，跑一次探测再看。");
+
+            return missingCount > 0
+                ? CommandResult.Failure($"桥接包缺 {missingCount} 项", lines)
+                : CommandResult.Success($"没有缺项；未验 {unverifiedCount} 项", lines);
         }
 
         /// <summary>

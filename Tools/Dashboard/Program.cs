@@ -33,9 +33,9 @@ namespace Template.Toolkit.Dashboard
                 Console.WriteLine($"创作管线面板：http://localhost:{server.Port}/panel");
                 if (repositoryRoot == null)
                 {
-                    // 面板十六页全靠现读仓库里的文件，找不到仓库根就只剩日志页能用——这件事必须说出来，
-                    // 不然用户看到的是十六页齐刷刷的「取数据失败」，却不知道是没找到仓库根。
-                    Console.WriteLine("知会：没找到仓库根（当前目录往上找不到 .git），面板十六页会返回未配置；可用 --repository-root 指定。");
+                    // 面板十七页全靠现读仓库里的文件，找不到仓库根就只剩日志页能用——这件事必须说出来，
+                    // 不然用户看到的是十七页齐刷刷的「取数据失败」，却不知道是没找到仓库根。
+                    Console.WriteLine("知会：没找到仓库根（当前目录往上找不到 .git），面板十七页会返回未配置；可用 --repository-root 指定。");
                 }
 
                 var stopFilePath = ReadOption(args, "--stop-file");
