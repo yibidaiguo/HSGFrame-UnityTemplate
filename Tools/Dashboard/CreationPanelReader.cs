@@ -888,6 +888,42 @@ namespace Template.Toolkit.Dashboard
     }
 
     /// <summary>
+    /// 面板的身份：这一份面板是**给哪个仓库**跑的。
+    ///
+    /// 存在的理由只有一个：端口应答不等于「这是我的面板」。一台机器上并行开几个项目时，
+    /// 8766 上很可能跑着另一个仓库的面板——只探端口的脚本会说「已经在跑」，
+    /// 然后把人送进别的项目的面板里，看着一切正常，看的却是别人的数据（真踩过）。
+    /// 有了这个接口，探活就能问一句「你是谁的」，对不上就说清楚而不是默认是自己的。
+    /// </summary>
+    public sealed class PanelIdentityRow
+    {
+        /// <summary>
+        /// 构造一份面板身份。
+        /// </summary>
+        /// <param name="repositoryRoot">这份面板挂着的仓库根；没配置时是空串。</param>
+        /// <param name="repositoryName">仓库根的目录名，给人看的短名；没配置时是空串。</param>
+        /// <param name="port">监听端口。</param>
+        public PanelIdentityRow(string repositoryRoot, string repositoryName, int port)
+        {
+            RepositoryRoot = repositoryRoot ?? "";
+            RepositoryName = repositoryName ?? "";
+            Port = port;
+        }
+
+        /// <summary>这份面板挂着的仓库根；没配置时是空串。</summary>
+        [JsonPropertyName("仓库根")]
+        public string RepositoryRoot { get; }
+
+        /// <summary>仓库根的目录名，给人看的短名。</summary>
+        [JsonPropertyName("仓库名")]
+        public string RepositoryName { get; }
+
+        /// <summary>监听端口。</summary>
+        [JsonPropertyName("端口")]
+        public int Port { get; }
+    }
+
+    /// <summary>
     /// 桥接包页里一个能就地改的配置字段。密钥与非密钥的差别只在「值」这一栏：
     /// 非密钥带当前值（页面预填进输入框），密钥的「值」**恒为空串**——写放开了，读没放开，
     /// 页面上密钥永远只有「已配 / 未配」和一个空输入框。

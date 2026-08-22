@@ -168,6 +168,18 @@ namespace Template.Toolkit.Dashboard
                     case "/panel":
                         WritePanelHtml(response);
                         break;
+                    case "/api/panel/identity":
+                        // 身份接口刻意**不**走 WritePanelPage：那条路在没配仓库根时回 503，
+                        // 而探活的人恰恰要能区分「没配仓库根的面板」与「别的仓库的面板」，
+                        // 两者都不该被当成自己的。所以这里一律 200，仓库根为空就如实给空串。
+                        WritePanelJson(
+                            response,
+                            new PanelIdentityRow(
+                                _repositoryRoot ?? "",
+                                _repositoryRoot == null ? "" : new DirectoryInfo(_repositoryRoot).Name,
+                                Port),
+                            HttpStatusCode.OK);
+                        break;
                     case "/api/panel/overview":
                         WritePanelPage(response, () => CreationPanelReader.ReadOverview(_repositoryRoot, _poolRoot));
                         break;

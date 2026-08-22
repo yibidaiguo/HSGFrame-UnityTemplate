@@ -2,8 +2,9 @@
   一键打开管理面板：没起就起，起了就直接开浏览器。
 
   这个脚本是 panel.bat 的正身——双击那个 bat 走到这里。它做四件事：
-    1. 面板已经在跑（端口应答）就什么都不起，直接开浏览器。这一步要紧：
-       重复起一份会去抢同一个端口，第二份起不来，而人以为自己「又打开了一次」。
+    1. 端口已经有人应答就先问一句「你是谁的面板」（/api/panel/identity 里的仓库根）：
+       是这个仓库的才叫「已经在跑」，直接开浏览器；是别的仓库的就当场说清并停下——
+       只看端口不看仓库，会把人送进另一个项目的面板，而且页面看着一切正常。
     2. 没在跑就调 Tools/start.ps1 -NoAssistant。只起面板不起助手是有意的：
        助手要飞书密钥，没配密钥的机器上它起不来，而那跟「看面板」这件事无关。
     3. 等端口真应答了再开浏览器。起进程只说明进程起来了，不说明它在听端口——
@@ -13,7 +14,7 @@
   用法：
     pwsh Tools/panel-open.ps1                 # 起面板并打开浏览器
     pwsh Tools/panel-open.ps1 -SkipBuild      # 不编译，直接用现成产物（编译被占用时的兜底）
-    pwsh Tools/panel-open.ps1 -Port 8790      # 指定端口
+    pwsh Tools/panel-open.ps1 -Port 8790      # 指定端口（多个项目并行时各用各的）
     pwsh Tools/panel-open.ps1 -NoBrowser      # 只起，不开浏览器
 #>
 [CmdletBinding()]
@@ -39,8 +40,7 @@ $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $panelUrl = "http://localhost:$Port/panel"
 $logDirectory = Join-Path $repositoryRoot 'Logs/services'
 
-# 端口应答不应答：面板在跑的唯一可信判据。PID 文件会过期（进程被杀、机器重启），
-# 端口不会——它要么真的有人在听，要么没有。
+# 端口应答不应答：面板**在不在**的判据。PID 文件会过期（进程被杀、机器重启），端口不会。
 function Test-面板在跑 {
     param([int]$探测端口)
     try {
@@ -51,8 +51,58 @@ function Test-面板在跑 {
     }
 }
 
-if (Test-面板在跑 -探测端口 $Port) {
-    Write-Host "面板已经在跑（端口 $Port），直接开浏览器。"
+<#
+  问一句「你是谁的面板」。
+
+  只探端口是不够的：一台机器上并行开几个项目时，8766 上很可能跑着**另一个仓库**的面板。
+  只看端口的脚本会说「已经在跑」，然后把人送进别人的项目——页面一切正常，数据全是别人的。
+  这条踩过一次，所以探活必须连仓库根一起比。
+
+  返回身份对象；端口没人应答、或应答的东西认不出自己是谁（旧版面板没有这个接口），返回 $null。
+  这两种情况在调用处要分开处理：前者是「可以起」，后者是「不知道是谁，不许当成自己的」。
+#>
+function Get-面板身份 {
+    param([int]$探测端口)
+    try {
+        $响应 = Invoke-WebRequest -Uri "http://localhost:$探测端口/api/panel/identity" -UseBasicParsing -TimeoutSec 3
+        if ($响应.StatusCode -ne 200) { return $null }
+        return $响应.Content | ConvertFrom-Json
+    } catch {
+        return $null
+    }
+}
+
+# 两个路径指的是不是同一个地方：大小写不敏感、忽略末尾分隔符（Windows 上 D:\X 与 D:\X\ 是一个地方）。
+function Test-同一个仓库 {
+    param([string]$甲, [string]$乙)
+    if (-not $甲 -or -not $乙) { return $false }
+    $规范 = { param($路径) $路径.TrimEnd([char]92, [char]47).Replace([char]47, [char]92) }
+    return [string]::Equals((& $规范 $甲), (& $规范 $乙), [StringComparison]::OrdinalIgnoreCase)
+}
+
+$端口有人应答 = Test-面板在跑 -探测端口 $Port
+$占着端口的 = if ($端口有人应答) { Get-面板身份 -探测端口 $Port } else { $null }
+if ($端口有人应答) {
+    # 端口有人应答了，先问清楚是谁的：是自己的才叫「已经在跑」。
+    if ($null -eq $占着端口的) {
+        Write-Host ''
+        Write-Host "端口 $Port 上有东西在应答，但它认不出自己属于哪个仓库（多半是改造前的旧版面板，没有身份接口）。"
+        Write-Host '  不敢当成这个仓库的面板——那可能把你送进别的项目。'
+        Write-Host '  要么去停掉它，要么换个端口：panel.bat 8790（或 pwsh Tools/panel-open.ps1 -Port 8790）'
+        exit 1
+    }
+
+    if (-not (Test-同一个仓库 $占着端口的.仓库根 $repositoryRoot)) {
+        Write-Host ''
+        Write-Host "端口 $Port 上跑的是**另一个仓库**的面板，不是这一个："
+        Write-Host ("    它挂着：{0}（{1}）" -f $占着端口的.仓库根, $占着端口的.仓库名)
+        Write-Host ("    这里是：{0}" -f $repositoryRoot)
+        Write-Host '  没给你开浏览器：开了你看到的会是另一个项目的数据，而且看着一切正常。'
+        Write-Host '  两条路：去那个仓库跑 panel-stop.bat 停掉它，或者这里换端口——panel.bat 8790'
+        exit 1
+    }
+
+    Write-Host "面板已经在跑（端口 $Port，仓库 $($占着端口的.仓库名)），直接开浏览器。"
 } else {
     # 同一个仓库只许有一份面板：两份共用同一个 PID 文件与同一个停止文件，
     # 起第二份会把第一份的 PID 记录覆盖掉，之后 stop.ps1 一停停俩、或者漏掉一个成孤儿进程。
@@ -105,6 +155,17 @@ if (Test-面板在跑 -探测端口 $Port) {
     # 而退出码在跨脚本调用里本来就不牢靠（上面那句清零只是让它别更离谱）。
     $听上了 = Wait-带进度 -标题 ("等面板开始听端口 " + $Port) -超时秒 $TimeoutSeconds -判据 {
         Test-面板在跑 -探测端口 $Port
+    }
+
+    if ($听上了) {
+        # 起完再核一次身份：等端口的那几秒里，抢先占上这个端口的完全可能是别人。
+        $起来的 = Get-面板身份 -探测端口 $Port
+        if ($null -ne $起来的 -and -not (Test-同一个仓库 $起来的.仓库根 $repositoryRoot)) {
+            Write-Host ''
+            Write-Host ("端口 $Port 现在应答的是另一个仓库的面板（{0}），不是刚起的这一份。" -f $起来的.仓库根)
+            Write-Host '  多半是端口被抢了。换个端口再来：panel.bat 8790'
+            exit 1
+        }
     }
 
     if (-not $听上了) {
