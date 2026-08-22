@@ -69,8 +69,8 @@ namespace Template.Toolkit.CommandHost.Commands
     /// 3. 文字消息：读这条会话的历史 → 连同这句话一起交给执行后端 → 变成「回话 + 需求草稿」；
     /// 4. **现场跑 req.validate**，不过就不摆确认卡，把校验发现翻成人话；
     /// 5. 回一张卡（至少带「开新话题」按钮）。草稿齐了只留底等人点，
-    ///    **写表发生在人点「一键建需求」那一刻**：写下游 → 投唤醒信号 →
-    ///    拉回池子（下游 pull 落信封 + 入站），一路做完才算「一键」。
+    ///    **建发生在人点「一键建需求」那一刻**：写需求池 → 投唤醒信号 → 出需求文档并推成
+    ///    知识库节点 → 任务表加一行挂上文档链接，一路做完才算「一键」。不派活——那是 PM 的事。
     ///
     /// 与引擎守护一样是**有限轮**的（决策 81）：跑满 N 轮自己退出，无限只是 N=0 的特例——
     /// 常驻进程在门禁里没法验，有限轮把这条前提解掉了。
@@ -88,6 +88,13 @@ namespace Template.Toolkit.CommandHost.Commands
 
         /// <summary>轮询间隔为 0（不歇）时的心跳轮数兜底：这时用时间折算会除出个荒唐的大数。</summary>
         private const int HeartbeatFallbackRounds = 150;
+
+        /// <summary>写进池子的 JSON 选项：**缩进**。池子里那份要给人读、也要能看 git diff。</summary>
+        private static readonly JsonSerializerOptions PoolWriteOptions = new JsonSerializerOptions(JsonSerializerOptions.Default)
+        {
+            WriteIndented = true,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
 
         /// <summary>写 JSON 的选项：本机是 .NET 10 preview SDK，必须从 Default 复制着构造。</summary>
         private static readonly JsonSerializerOptions WriteOptions = new JsonSerializerOptions(JsonSerializerOptions.Default)
@@ -584,32 +591,25 @@ namespace Template.Toolkit.CommandHost.Commands
                 else if (arguments.DryRun || !arguments.WriteDownstream)
                 {
                     var why = arguments.DryRun ? "--dry-run true" : "--write-downstream false";
-                    replyText = "本机是只读模式（" + why + "），" + identifier + " 没有真写进需求表。开了写表开关再点一次。";
+                    replyText = "本机是只读模式（" + why + "），" + identifier + " 没有真建。开了写表开关再点一次。";
                     result = "只读模式没写";
-                    lines.Add($"只读模式（{why}），按钮点了但没写下游");
+                    lines.Add($"只读模式（{why}），按钮点了但什么都没写");
                 }
                 else
                 {
-                    var records = new JsonArray { JsonNode.Parse(draft.ToJsonString(WriteOptions)) };
-                    var pushPayload = JsonSerializer.SerializeToElement(new JsonObject
+                    // 一路做完：写池子 → 出文档 → 推知识库 → 任务表加一行。
+                    // 池子是第一步也是最要紧的一步——它是事实源，后面几步都是它的视图，
+                    // 哪一步挂了都不影响「这条需求已经立住了」。
+                    if (!TryLandRequirement(poolRoot, identifier, draft, lines, out var landFailure))
                     {
-                        ["干跑"] = false,
-                        ["记录"] = records,
-                        ["幂等键字段"] = "id"
-                    });
-
-                    var pushCall = BridgeInvoker.Invoke(repositoryRoot, assistantDriver, "push", pushPayload, arguments.TimeoutSeconds);
-                    if (!pushCall.Succeeded)
-                    {
-                        lines.Add($"写下游失败（{pushCall.ErrorCode}）：{pushCall.HumanText}");
-                        replyText = "写需求表失败了（" + pushCall.ErrorCode + "）：" + pushCall.HumanText + "。这条没建成，再点一次可以重试。";
+                        replyText = identifier + " 没建成：写需求池失败——" + landFailure + "。再点一次可以重试。";
                     }
                     else
                     {
                         wroteDownstream = true;
-                        lines.Add($"已写下游草稿：{identifier}");
+                        result = "已建需求";
 
-                        // 台账先记：记不上就等于下次点还会再写一遍。
+                        // 台账先记：记不上就等于下次点还会再来一遍。
                         var recorded = AssistantServeTurn.RecordConfirmed(
                             repositoryRoot,
                             identifier,
@@ -618,10 +618,9 @@ namespace Template.Toolkit.CommandHost.Commands
                             DateTimeOffset.Now);
                         if (!recorded)
                         {
-                            lines.Add("已确认台账写失败——再点一次会重复写下游，需要人看一眼磁盘");
+                            lines.Add("已确认台账写失败——再点一次会重复建，需要人看一眼磁盘");
                         }
 
-                        // 真建了东西才叫醒引擎——没建就叫醒等于让引擎白跑一轮。
                         var wakePath = WakeSignalSource.Emit(
                             repositoryRoot,
                             "助手产出草稿",
@@ -629,22 +628,10 @@ namespace Template.Toolkit.CommandHost.Commands
                             DateTimeOffset.Now);
                         lines.Add($"已投唤醒信号：{(wakePath.Length == 0 ? "写失败" : Path.GetFileName(wakePath))}");
 
-                        // 按钮上写着「一键」，那就得一路到池子。只写下游表就收手的话，
-                        // 人还得自己去命令行敲 bridge.pull 与 pool.pull 两条——那个「一键」是假的。
-                        var decision = LandInPool(
-                            repositoryRoot,
-                            poolRoot,
-                            assistantDriver,
-                            schema,
-                            identifier,
-                            arguments,
-                            lines,
-                            out var landFailure);
+                        var documentLink = PublishDocument(repositoryRoot, poolRoot, identifier, arguments, lines, out var documentFailure);
+                        var rowFailure = AddTaskRow(repositoryRoot, assistantDriver, identifier, draft, documentLink, arguments, lines);
 
-                        replyText = AssistantServeTurn.DescribeLanding(identifier, decision, landFailure);
-                        result = decision == IntakeDecision.Accepted || decision == IntakeDecision.Updated
-                            ? "已建需求"
-                            : "写了表没入池";
+                        replyText = DescribeCreation(identifier, documentLink, documentFailure, rowFailure);
                     }
                 }
             }
@@ -672,6 +659,220 @@ namespace Template.Toolkit.CommandHost.Commands
             });
 
             return lines;
+        }
+
+        /// <summary>
+        /// 把这条需求落进池子：<c>Pools/Requirements/&lt;id&gt;/requirement.json</c>。
+        ///
+        /// **直接写，不绕下游**。上一版是「写下游表 → 再 pull 回来入池」，
+        /// 那是因为当时下游有一张结构化的需求表、而人会在表里改它，所以「下游收下了什么」才有意义。
+        /// 现在需求在下游只是一份**文档**（人看的，不回流），池子才是唯一事实源——
+        /// 绕一圈只会平白多两次网络调用与两处能失败的地方。
+        /// </summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="identifier">需求 id。</param>
+        /// <param name="draft">补全后的草稿。</param>
+        /// <param name="lines">这一轮的日志行。</param>
+        /// <param name="failureReason">失败原因；成功时为空串。</param>
+        private static bool TryLandRequirement(
+            string poolRoot,
+            string identifier,
+            JsonObject draft,
+            List<string> lines,
+            out string failureReason)
+        {
+            failureReason = "";
+            try
+            {
+                var directory = PoolPaths.RequirementDirectory(poolRoot, identifier);
+                Directory.CreateDirectory(directory);
+                var filePath = PoolPaths.RequirementFile(poolRoot, identifier);
+                File.WriteAllText(filePath, draft.ToJsonString(PoolWriteOptions), new UTF8Encoding(false));
+                lines.Add($"已写进需求池：{filePath}");
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                failureReason = exception.Message;
+                lines.Add($"写需求池失败：{exception.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 出文档并推上去：<c>doc.render</c> 生成 index.md，<c>doc.push</c> 推成知识库里的一个节点，
+        /// 回来的链接挂到任务行上。
+        ///
+        /// 推失败**不算这条需求没建成**——需求已经在池子里了，文档只是它的一个视图。
+        /// 所以这里不返回成败，只把「有没有链接」与「为什么没有」分别交出去，由回话如实说。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="identifier">需求 id。</param>
+        /// <param name="arguments">常驻会话命令参数。</param>
+        /// <param name="lines">这一轮的日志行。</param>
+        /// <param name="failureReason">没推成时的原因；推成了为空串。</param>
+        private static string PublishDocument(
+            string repositoryRoot,
+            string poolRoot,
+            string identifier,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            out string failureReason)
+        {
+            failureReason = "";
+
+            var render = RequirementDocCommands.Render(new RequirementDocRenderArguments
+            {
+                RequirementIdentifier = identifier,
+                RepositoryRoot = repositoryRoot,
+                PoolRoot = poolRoot,
+                DryRun = false
+            });
+            lines.Add($"出需求文档：{render.Message}");
+            if (!render.IsSuccess)
+            {
+                failureReason = render.Message;
+                return "";
+            }
+
+            var push = RequirementDocCommands.Push(new RequirementDocPushArguments
+            {
+                RequirementIdentifier = identifier,
+                RepositoryRoot = repositoryRoot,
+                PoolRoot = poolRoot,
+                DryRun = false,
+                TimeoutSeconds = arguments.TimeoutSeconds
+            });
+            lines.Add($"推需求文档：{push.Message}");
+            if (!push.IsSuccess)
+            {
+                failureReason = push.Message;
+                return "";
+            }
+
+            // 链接由推送回写进 index.md 的 frontmatter「同步」块，从那儿读回来最可靠——
+            // 它是「真推上去的那一份」的地址，不是我们拼出来的。
+            var link = ReadDocumentLink(poolRoot, identifier, repositoryRoot);
+            if (link.Length == 0)
+            {
+                failureReason = "推上去了但没读回文档链接";
+            }
+
+            return link;
+        }
+
+        /// <summary>从需求文档的同步块里读回文档链接；读不到给空串。</summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="identifier">需求 id。</param>
+        /// <param name="repositoryRoot">仓库根目录，读文档规范要用。</param>
+        private static string ReadDocumentLink(string poolRoot, string identifier, string repositoryRoot)
+        {
+            try
+            {
+                var documentPath = PoolPaths.RequirementDocument(poolRoot, identifier);
+                if (!File.Exists(documentPath))
+                {
+                    return "";
+                }
+
+                var specification = RequirementDocumentSpec.Load(repositoryRoot);
+                if (!RequirementDocument.TryParse(File.ReadAllText(documentPath), specification, out var parsed, out _))
+                {
+                    return "";
+                }
+
+                return RequirementDocumentSyncState.Read(parsed).Link;
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is InvalidOperationException)
+            {
+                return "";
+            }
+        }
+
+        /// <summary>往任务表加一行，等 PM 派。失败只报原因，不影响「需求已经建成」这件事。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="assistantDriver">助手 port 路由到的 driver 名。</param>
+        /// <param name="identifier">需求 id。</param>
+        /// <param name="draft">补全后的草稿，取标题当任务描述。</param>
+        /// <param name="documentLink">需求文档链接；没有就不挂。</param>
+        /// <param name="arguments">常驻会话命令参数。</param>
+        /// <param name="lines">这一轮的日志行。</param>
+        private static string AddTaskRow(
+            string repositoryRoot,
+            string assistantDriver,
+            string identifier,
+            JsonObject draft,
+            string documentLink,
+            AssistantServeArguments arguments,
+            List<string> lines)
+        {
+            var title = draft != null && draft.TryGetPropertyValue("标题", out var value) && value is JsonValue titleValue
+                && titleValue.TryGetValue<string>(out var text)
+                ? text
+                : identifier;
+
+            var payload = new JsonObject
+            {
+                ["干跑"] = false,
+                ["需求id"] = identifier,
+                ["任务描述"] = title
+            };
+
+            if (documentLink.Length > 0)
+            {
+                payload["需求文档链接"] = documentLink;
+            }
+
+            var call = BridgeInvoker.Invoke(
+                repositoryRoot,
+                assistantDriver,
+                "task-row",
+                JsonSerializer.SerializeToElement(payload),
+                arguments.TimeoutSeconds);
+            if (!call.Succeeded)
+            {
+                lines.Add($"加任务行失败（{call.ErrorCode}）：{call.HumanText}");
+                return call.ErrorCode + "：" + call.HumanText;
+            }
+
+            lines.Add("已加任务行：" + identifier);
+            return "";
+        }
+
+        /// <summary>
+        /// 把「建到哪一步」翻成一句给人的话。三段分开说：需求在池子里了（这条一定成立，
+        /// 因为不成立就不会走到这里）、文档推没推上去、任务行加没加上。
+        /// 哪一段没成就说哪一段，不许一句「建好了」盖过去。
+        /// </summary>
+        /// <param name="identifier">需求 id。</param>
+        /// <param name="documentLink">需求文档链接；空表示没推成。</param>
+        /// <param name="documentFailure">文档那一步的失败原因。</param>
+        /// <param name="rowFailure">任务行那一步的失败原因。</param>
+        private static string DescribeCreation(string identifier, string documentLink, string documentFailure, string rowFailure)
+        {
+            var builder = new StringBuilder();
+            builder.Append("建好了：").Append(identifier).Append("，已经写进需求池。");
+
+            if (documentLink.Length > 0)
+            {
+                builder.Append("\n需求文档：").Append(documentLink);
+            }
+            else
+            {
+                builder.Append("\n需求文档没推上去：").Append(documentFailure.Length == 0 ? "原因不明" : documentFailure);
+            }
+
+            if (rowFailure.Length == 0)
+            {
+                builder.Append("\n任务表已经加了一行，等 PM 派。");
+            }
+            else
+            {
+                builder.Append("\n任务行没加上：").Append(rowFailure);
+            }
+
+            return builder.ToString();
         }
 
         /// <summary>
