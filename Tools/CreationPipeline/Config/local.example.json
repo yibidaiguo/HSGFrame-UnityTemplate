@@ -5,6 +5,7 @@
   "飞书应用密钥": "把飞书自建应用的 App Secret 填这里",
   "模型生成密钥": "把 tripo 的 API Key 填这里",
   "执行后端密钥": "把 LLM 的 API Key 填这里（任何 OpenAI 兼容服务都行）",
+  "生图密钥": "把线上生图的 API Key 填这里（走 OpenAI 兼容的 /images/generations 与 /images/edits）",
 
   "下游配置": {
     "feishu": {
@@ -30,6 +31,12 @@
       "地址": "https://api.deepseek.com/v1",
       "模型": "deepseek-chat",
       "超时秒": 120
+    },
+    "oaiimage": {
+      "地址": "https://中转的域名/v1",
+      "模型": "gpt-image-1",
+      "尺寸": "1024x1024",
+      "超时秒": 180
     }
   }
 }

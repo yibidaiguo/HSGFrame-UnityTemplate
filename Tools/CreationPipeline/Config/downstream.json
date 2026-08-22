@@ -1,5 +1,5 @@
 {
-  "_说明": "下游域路由表与实现表（决策 85）。域路由把 port 名指到 driver 名，实现表把实现名解析成可执行 + 参数。进 git；密钥一个都不许有，密钥值全在 local.json（决策 5）。参数里的路径是仓库相对，按仓库根展开。dotnet run 一律带 --no-build：桥协议规定 stdout 上只许有那一份 JSON，而 dotnet run 触发编译时会把 MSBuild 警告打到 stdout，插在协议 JSON 前面直接把整次调用判成「响应不合协议」。五个桥都在 Template.sln 里，十秒级门禁本来就编，调用时不必再编一次。",
+  "_说明": "下游域路由表与实现表（决策 85）。域路由把 port 名指到 driver 名，实现表把实现名解析成可执行 + 参数。进 git；密钥一个都不许有，密钥值全在 local.json（决策 5）。参数里的路径是仓库相对，按仓库根展开。dotnet run 一律带 --no-build：桥协议规定 stdout 上只许有那一份 JSON，而 dotnet run 触发编译时会把 MSBuild 警告打到 stdout，插在协议 JSON 前面直接把整次调用判成「响应不合协议」。六个桥都在 Template.sln 里，十秒级门禁本来就编，调用时不必再编一次。生图域有两个 driver：域路由指向本地的 comfyui，线上的 oaiimage 靠 bridge.generate --Driver oaiimage 显式选，不抢默认。",
   "契约版本": "1.0.0",
   "域路由": {
     "生图": "comfyui",
@@ -14,6 +14,10 @@
     "bridge-comfyui": {
       "可执行": "dotnet",
       "参数": ["run", "--no-build", "--project", "Bridges/comfyui/src/BridgeComfyui", "--"]
+    },
+    "bridge-oaiimage": {
+      "可执行": "dotnet",
+      "参数": ["run", "--no-build", "--project", "Bridges/oaiimage/src/BridgeOaiimage", "--"]
     },
     "bridge-tripo": {
       "可执行": "dotnet",

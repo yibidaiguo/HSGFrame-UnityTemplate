@@ -52,6 +52,8 @@ notepad "Tools\CreationPipeline\Config\local.json"
 | `模型生成密钥` | [platform.tripo3d.ai](https://platform.tripo3d.ai) → 登录 → **API Keys** → 新建 | bridge-tripo 试跑跑不了 |
 | `执行后端密钥` | 你另配的那个 LLM key | AI 对抗预审、语义冲突比对跑不了 |
 | `下游配置.oaicompat.地址` + `.模型` | 那个 key 的 **OpenAI 兼容 base URL** 与模型 id。**判断 base URL 对不对只有一条标准：它加上 `/chat/completions` 能收 POST**。DeepSeek 就是 `https://api.deepseek.com/v1` + `deepseek-chat` | 同上 |
+| `生图密钥` | 线上生图那个中转的 API Key。**跟 `执行后端密钥` 是两把钥匙**——同一个中转也各算各的，别指望填一处两处都通 | `bridge.generate --Driver oaiimage` 跑不了；本地 comfyui 那条路不受影响 |
+| `下游配置.oaiimage.地址` + `.模型` | 那个 key 的 **OpenAI 兼容 base URL** 与图像模型 id。**判断 base URL 对不对只有一条标准：它加上 `/images/generations` 能收 POST**（`/v1` 结尾那一段要带上）。模型填 `gpt-image-1` 或 `dall-e-3`；填之前先跑一次 `bridge.probe --Driver oaiimage`，它只查 `/models`、不出图不花钱，回来的清单里有哪个就填哪个 | 同上 |
 
 **填完的完整长相**（照抄，把占位换成真值；填不了的整条删掉）：
 
@@ -60,6 +62,7 @@ notepad "Tools\CreationPipeline\Config\local.json"
   "飞书应用密钥": "粘贴 App Secret",
   "模型生成密钥": "粘贴 tripo API Key",
   "执行后端密钥": "粘贴 LLM key",
+  "生图密钥": "粘贴线上生图 key",
 
   "下游配置": {
     "comfyui": { "地址": "http://127.0.0.1:8188", "超时秒": 900 },
@@ -70,7 +73,8 @@ notepad "Tools\CreationPipeline\Config\local.json"
       "超时秒": 60
     },
     "tripo": { "地址": "https://openapi.tripo3d.ai/v3", "超时秒": 600 },
-    "oaicompat": { "地址": "https://api.deepseek.com/v1", "模型": "deepseek-chat", "超时秒": 120 }
+    "oaicompat": { "地址": "https://api.deepseek.com/v1", "模型": "deepseek-chat", "超时秒": 120 },
+    "oaiimage": { "地址": "https://中转域名/v1", "模型": "gpt-image-1", "尺寸": "1024x1024", "超时秒": 180 }
   }
 }
 ```
