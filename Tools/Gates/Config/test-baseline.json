@@ -30,6 +30,7 @@
     "Solutions/ConfigBridge.Tests/RoundTripTests.cs": "762726da8bdc571f4f7c2c8701ed28df06ab2c825451c517b768407844fc0f88",
     "Solutions/ConfigBridge.Tests/TypeCoverageTests.cs": "0a27603e4426b069e660c1cfd12ce40aae44a893d46602f106b6f7a84b8b3c2c",
     "Solutions/CreationPipeline.Tests/AnchorSlotTests.cs": "005ab01c07520bb769b85a56ffc90ecad182a722f5e65ddcdc062f4f89bc9f42",
+    "Solutions/CreationPipeline.Tests/AssetNamingNormalizerTests.cs": "9180102851081fbb4842385c4252c31ee677e56c506dfae0c03358e7310d253c",
     "Solutions/CreationPipeline.Tests/AssetRequestTests.cs": "d3b35248501074145f820d5074f073ab8603b2fdecf9a2a60845b94bd3a06e68",
     "Solutions/CreationPipeline.Tests/AssetSpecCatalogTests.cs": "75e39bd91938ae91be55972dc607436a12ddc696c244760c8c808b84811f765f",
     "Solutions/CreationPipeline.Tests/AssetSpecInspectorTests.cs": "a10665ea58f8ce65ab1e6a48e48b1f890b9512f85093f449e2416eec9b99188a",

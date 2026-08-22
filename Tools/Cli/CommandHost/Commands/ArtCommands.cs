@@ -357,6 +357,12 @@ namespace Template.Toolkit.CommandHost.Commands
             var destination = string.IsNullOrWhiteSpace(arguments.Destination) ? assetSpec.Destination : arguments.Destination;
             var domain = string.IsNullOrWhiteSpace(arguments.Domain) ? assetSpec.Domain : arguments.Domain;
 
+            // 命名模式是硬规则（图标 icon_*、界面底图 ui_*），而名字常常是助手从聊天里起的。
+            // 差一个前缀就把整份请求判红删掉，等于让人为一个前缀重说一遍需求——机器补得了的别推给人。
+            // 补的只有确定的那部分（模式开头的字面前缀），补完仍不匹配就原样放行，让规格门禁去判。
+            var namingOutcome = AssetNamingNormalizer.Normalize(arguments.NamingText, assetSpec.NamingPattern);
+            var namingText = namingOutcome.Naming;
+
             var identifier = AssetRequest.AllocateIdentifier(repositoryRoot, arguments.Requirement);
             var request = new AssetRequest(
                 identifier,
@@ -366,7 +372,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 arguments.AssetType,
                 specification,
                 destination,
-                arguments.NamingText,
+                namingText,
                 arguments.Description,
                 new Dictionary<string, string>(),
                 arguments.VariantCount,
@@ -403,6 +409,13 @@ namespace Template.Toolkit.CommandHost.Commands
                 $"规格来自：{assetSpec.SourceLayer} 层",
                 "校验：通过"
             };
+
+            // 替人补过前缀就**说出来**：名字是要进仓库、进 .meta、被别处引用的东西，
+            // 悄悄改掉等于让人手上那个名字与仓库里那个对不上。
+            if (namingOutcome.Note.Length > 0)
+            {
+                lines.Add(namingOutcome.Note);
+            }
 
             return CommandResult.Success($"变体数 {arguments.VariantCount}，域 {domain}", lines);
         }
