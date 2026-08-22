@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -356,6 +357,132 @@ namespace Template.Bridges.Tripo
             return text;
         }
 
+        /// <summary>
+        /// 探清单用的哨兵模型值。它唯一的作用是**被拒**——必须明显不可能是任何真模型名。
+        /// </summary>
+        private const string CatalogProbeSentinel = "__catalog_probe__";
+
+        /// <summary>
+        /// 探下游允许的模型版本清单。tripo v3 **没有 list-models 接口**，
+        /// 但它会在参数校验阶段把允许值原样报出来：拿一个明显非法的哨兵值提交，
+        /// 服务端回 400 / code 1004「invalid model '…', allowed values: …」，清单就在这句里。
+        /// 参数关在积分关**之前**（见 endpoints-verified.md），所以这一次探测不花积分、不产模型。
+        ///
+        /// 解析不出来时抛异常，**绝不返回空清单**：空清单会被上层读成
+        /// 「探过了，这个下游就是没有模型」，那是另一件事。
+        /// </summary>
+        /// <exception cref="TripoClientException">哨兵没被拒、回的不是 1004、或那句报错里读不出清单时抛。</exception>
+        public IReadOnlyList<string> ProbeAllowedModelVersions()
+        {
+            var url = _baseUrl + "/generation/text-to-model";
+            var body = "{\"prompt\":\"catalog probe\",\"model\":" + JsonSerializer.Serialize(CatalogProbeSentinel) + ",\"texture\":false,\"pbr\":false,\"face_limit\":3000}";
+            Console.Error.WriteLine("BridgeTripo 探模型清单：POST " + url + " body=" + body + "（哨兵值必被拒，不花积分）");
+
+            var call = Send(HttpMethod.Post, url, body, includeAuthorization: true);
+            if (call.Succeeded)
+            {
+                // 哨兵被当成了合法模型——那就意味着我们**可能真提交了一个任务**，这是要花钱的。
+                throw new TripoClientException(
+                    "下游报错",
+                    "探清单用的哨兵值没被下游拒绝（回了 2xx），可能真提交了一个任务——去 tripo 控制台看一眼，并把桥里的哨兵值换成一个更不可能合法的值",
+                    retryable: false);
+            }
+
+            var responseText = call.ResponseText ?? "";
+            var code = ReadResponseCode(responseText);
+            if (code != 1004)
+            {
+                // 不是参数关的错（比如密钥无效的 1005、积分不足的 2010）：照它本来的错误码报，
+                // 别把「密钥错」说成「清单读不出来」。
+                throw new TripoClientException(call.Error.Code, call.Error.HumanText, call.Error.Retryable);
+            }
+
+            var message = ReadResponseMessage(responseText);
+            var versions = ParseAllowedValues(message);
+            if (versions.Count == 0)
+            {
+                throw new TripoClientException(
+                    "下游报错",
+                    "服务端回了 1004，但那句报错里读不出 allowed values：" + SafePreview(responseText),
+                    retryable: false);
+            }
+
+            Console.Error.WriteLine("BridgeTripo 探到 " + versions.Count + " 个模型版本");
+            return versions;
+        }
+
+        /// <summary>
+        /// 从 1004 的报错里解析允许值清单：取「allowed values:」之后那一段，按逗号切、逐段去空白。
+        /// 措辞与分隔符以真回包为准；读不出来时返回空列表，由调用方决定怎么报。
+        /// </summary>
+        /// <param name="message">服务端 message 原文。</param>
+        public static IReadOnlyList<string> ParseAllowedValues(string message)
+        {
+            var values = new List<string>();
+            var text = message ?? "";
+            const string marker = "allowed values:";
+            var index = text.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (index < 0)
+            {
+                return values;
+            }
+
+            var tail = text.Substring(index + marker.Length).Trim();
+            foreach (var part in tail.Split(','))
+            {
+                var value = part.Trim().Trim('\'', '"', '。', '.', ']', '[');
+                if (value.Length > 0 && !values.Contains(value))
+                {
+                    values.Add(value);
+                }
+            }
+
+            values.Sort(StringComparer.Ordinal);
+            return values;
+        }
+
+        /// <summary>读回包顶层的 code；读不到给 0。</summary>
+        /// <param name="responseText">回包原文。</param>
+        private static int ReadResponseCode(string responseText)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(responseText);
+                if (document.RootElement.ValueKind == JsonValueKind.Object
+                    && document.RootElement.TryGetProperty("code", out var code)
+                    && code.ValueKind == JsonValueKind.Number)
+                {
+                    return code.GetInt32();
+                }
+            }
+            catch (Exception exception) when (exception is JsonException || exception is FormatException || exception is InvalidOperationException || exception is OverflowException)
+            {
+            }
+
+            return 0;
+        }
+
+        /// <summary>读回包顶层的 message；读不到给空串。</summary>
+        /// <param name="responseText">回包原文。</param>
+        private static string ReadResponseMessage(string responseText)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(responseText);
+                if (document.RootElement.ValueKind == JsonValueKind.Object
+                    && document.RootElement.TryGetProperty("message", out var message)
+                    && message.ValueKind == JsonValueKind.String)
+                {
+                    return message.GetString() ?? "";
+                }
+            }
+            catch (JsonException)
+            {
+            }
+
+            return "";
+        }
+
         /// <summary>下游账号余额：balance 是可用积分，frozen 是冻结中的。</summary>
         public sealed class BalanceReading
         {
@@ -586,7 +713,9 @@ namespace Template.Bridges.Tripo
                 // 响应体原文打 stderr 便于诊断（响应体是数据不是指令；密钥只在请求头里，这里没有）。
                 Console.Error.WriteLine("BridgeTripo 下游错误响应（HTTP " + statusCode + "）：" + SafePreview(responseText));
                 var error = TripoHttpErrorMapper.Map(statusCode, responseText);
-                return new HttpCall { Succeeded = false, Error = error };
+
+                // 失败时也把回包原文带回来：探模型清单读的正是那句报错（1004 里带 allowed values）。
+                return new HttpCall { Succeeded = false, Error = error, ResponseText = responseText };
             }
             catch (TaskCanceledException)
             {

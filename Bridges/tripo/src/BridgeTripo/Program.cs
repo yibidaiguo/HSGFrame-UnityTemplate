@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Template.Toolkit.CreationPipeline;
@@ -50,6 +51,9 @@ namespace Template.Bridges.Tripo
                 {
                     case "generate":
                         response = RunGenerate(request);
+                        break;
+                    case "caps":
+                        response = RunCaps(request);
                         break;
                     case "balance":
                         response = RunBalance(request);
@@ -117,6 +121,14 @@ namespace Template.Bridges.Tripo
             var secretKey = ReadConfigurationString(request, "模型生成密钥", "");
             var modelVersion = ReadConfigurationString(request, "模型版本", "");
 
+            // 「自动」是配置层的哨兵，正常路径上调用方已经把它换成了真模型版本；这里再挡一道，
+            // 是防着有人手改 local.json 之后直接调桥——哨兵绝不许当成模型版本发给下游。
+            if (string.Equals(modelVersion.Trim(), ModelSelection.AutoSentinel, StringComparison.Ordinal))
+            {
+                modelVersion = "";
+            }
+
+
             if (baseUrl.Length == 0)
             {
                 return Failure("下游不可达", "下游地址未配置（配置键「地址」为空）", retryable: false);
@@ -182,6 +194,82 @@ namespace Template.Bridges.Tripo
         /// 它的用处是把「2010 到底是不是真没钱」这件事一次问清楚，省得去换 key、查权限。
         /// </summary>
         /// <param name="request">请求信封，配置含 地址/超时秒/模型生成密钥。</param>
+        /// <summary>
+        /// caps：探下游允许的模型版本清单，写进载荷「输出路径」指的文件，同一份对象作为响应载荷返回。
+        /// tripo 没有 list-models 接口，清单是从参数校验的报错里读回来的（见 TripoClient.ProbeAllowedModelVersions）：
+        /// **不产模型、不花积分**。「节点」与「lora」恒空数组——线上服务没这两样，空数组是实话。
+        /// </summary>
+        /// <param name="request">请求信封，载荷 {"输出路径":"…"}。</param>
+        private static BridgeResponse RunCaps(BridgeRequest request)
+        {
+            if (!TryGetPayloadString(request, "输出路径", out var outputPath, out var reason))
+            {
+                return Failure("请求不合协议", "载荷缺「输出路径」或它不是字符串：" + reason, retryable: false);
+            }
+
+            var baseUrl = ReadConfigurationString(request, "地址", DefaultBaseUrl);
+            var timeoutSeconds = ReadConfigurationInt(request, "超时秒", DefaultTimeoutSeconds);
+            var secretKey = ReadConfigurationString(request, "模型生成密钥", "");
+
+            if (baseUrl.Length == 0)
+            {
+                return Failure("下游不可达", "下游地址未配置（配置键「地址」为空）", retryable: false);
+            }
+
+            if (secretKey.Length == 0)
+            {
+                return Failure("凭据无效", "模型生成密钥未配置（配置键「模型生成密钥」为空）", retryable: false);
+            }
+
+            try
+            {
+                // 构造时模型版本传空串走它的缺省：哨兵只出现在探测请求体里，不进客户端状态。
+                using var client = new TripoClient(baseUrl, secretKey, timeoutSeconds, "");
+                var versions = client.ProbeAllowedModelVersions();
+
+                var models = new JsonArray();
+                foreach (var version in versions)
+                {
+                    // tripo 的「模型」本来就是一个版本号，「名」与「版本」同值是实话，不是偷懒。
+                    models.Add(new JsonObject
+                    {
+                        ["名"] = version,
+                        ["版本"] = version,
+                        ["hash"] = ""
+                    });
+                }
+
+                var root = new JsonObject
+                {
+                    ["节点"] = new JsonArray(),
+                    ["模型"] = models,
+                    ["lora"] = new JsonArray()
+                };
+
+                try
+                {
+                    var directory = Path.GetDirectoryName(outputPath);
+                    if (!string.IsNullOrEmpty(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+
+                    File.WriteAllText(outputPath, root.ToJsonString(), new UTF8Encoding(false));
+                }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+                {
+                    return Failure("请求不合协议", $"探测输出写盘失败：{exception.Message}", retryable: false);
+                }
+
+                Console.Error.WriteLine($"BridgeTripo 探测到 {versions.Count} 个模型版本");
+                return BridgeResponse.Success(ContractVersion, JsonSerializer.SerializeToElement(root));
+            }
+            catch (TripoClientException exception)
+            {
+                return Failure(exception.ErrorCode, exception.Message, exception.Retryable);
+            }
+        }
+
         private static BridgeResponse RunBalance(BridgeRequest request)
         {
             var baseUrl = ReadConfigurationString(request, "地址", DefaultBaseUrl);

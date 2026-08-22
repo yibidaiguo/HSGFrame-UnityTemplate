@@ -134,9 +134,17 @@ namespace Template.Bridges.Oaiimage
             }
 
             var modelName = preset.ModelName.Length > 0 ? preset.ModelName : ReadConfigurationString(request, "模型", "");
+
+            // 「自动」是配置层的哨兵，正常路径上调用方已经把它换成了真模型名；这里再挡一道，
+            // 是防着有人手改 local.json 之后直接调桥——哨兵绝不许当成模型名发给下游。
+            if (string.Equals(modelName.Trim(), ModelSelection.AutoSentinel, StringComparison.Ordinal))
+            {
+                modelName = "";
+            }
+
             if (modelName.Length == 0)
             {
-                return InvalidRequest("模型未配置：预设的「模型」为空，本机配置的「模型」也为空");
+                return InvalidRequest($"模型未配置：预设的「模型」为空，本机配置的「模型」也为空。配成「自动」但还没探过时也是这一句——先跑一次 bridge.probe --Driver {DriverName}，或这次调用带 --Model");
             }
 
             if (!TryResolveSize(preset, request, assetRequest, out var size, out var sizeReason))

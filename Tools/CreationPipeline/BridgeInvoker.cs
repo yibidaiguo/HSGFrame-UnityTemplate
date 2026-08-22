@@ -23,7 +23,8 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="humanText">失败时给人看的人话；成功时为 ""。</param>
         /// <param name="retryable">失败时是否值得重试；成功时为 false。</param>
         /// <param name="payload">成功时的载荷。</param>
-        public BridgeCallResult(bool succeeded, bool timedOut, string errorCode, string humanText, bool retryable, JsonElement payload)
+        /// <param name="modelNote">这次用了哪个模型、依据是什么；没什么可说时为空串。</param>
+        public BridgeCallResult(bool succeeded, bool timedOut, string errorCode, string humanText, bool retryable, JsonElement payload, string modelNote = "")
         {
             Succeeded = succeeded;
             TimedOut = timedOut;
@@ -31,6 +32,7 @@ namespace Template.Toolkit.CreationPipeline
             HumanText = humanText ?? "";
             Retryable = retryable;
             Payload = payload;
+            ModelNote = modelNote ?? "";
         }
 
         /// <summary>是否成功。</summary>
@@ -50,6 +52,21 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>成功时的载荷。</summary>
         public JsonElement Payload { get; }
+
+        /// <summary>
+        /// 这次用了哪个模型、依据是什么。空串 = 没什么可说的（配置里钉死了一个具体模型）。
+        /// 「自动」那一档挑了谁**必须摆给人看**——不摆，那一档就成了黑箱。
+        /// </summary>
+        public string ModelNote { get; }
+
+        /// <summary>复制一份，换上模型账。</summary>
+        /// <param name="modelNote">模型账。</param>
+        public BridgeCallResult WithModelNote(string modelNote)
+        {
+            return string.IsNullOrEmpty(modelNote)
+                ? this
+                : new BridgeCallResult(Succeeded, TimedOut, ErrorCode, HumanText, Retryable, Payload, modelNote);
+        }
 
         /// <summary>构造成功结果。</summary>
         public static BridgeCallResult Success(JsonElement payload)
@@ -147,12 +164,14 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="action">动作，如「caps」「generate」。</param>
         /// <param name="payload">业务载荷。</param>
         /// <param name="timeoutSeconds">单个候选的超时秒数；失败转移时**每个候选各算各的**。</param>
+        /// <param name="modelOverride">本次调用指定的模型；空串表示按本机配置来（配「自动」时现挑）。</param>
         public static BridgePortCallResult InvokeByPort(
             string repositoryRoot,
             string portName,
             string action,
             JsonElement payload,
-            int timeoutSeconds)
+            int timeoutSeconds,
+            string modelOverride = "")
         {
             var routeTable = BridgeRouteTable.Load(repositoryRoot);
             if (!routeTable.Loaded)
@@ -182,7 +201,7 @@ namespace Template.Toolkit.CreationPipeline
             foreach (var candidate in candidates)
             {
                 lastDriverName = candidate;
-                var result = Invoke(repositoryRoot, candidate, action, payload, timeoutSeconds);
+                var result = Invoke(repositoryRoot, candidate, action, payload, timeoutSeconds, modelOverride);
                 if (result.Succeeded)
                 {
                     return new BridgePortCallResult(result, candidate, attempts);
@@ -242,7 +261,8 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="action">动作，如「caps」「process」。</param>
         /// <param name="payload">业务载荷，拼进请求信封的「载荷」。</param>
         /// <param name="timeoutSeconds">超时秒数；超过即强制终止整棵进程树。</param>
-        public static BridgeCallResult Invoke(string repositoryRoot, string driverName, string action, JsonElement payload, int timeoutSeconds)
+        /// <param name="modelOverride">本次调用指定的模型；空串表示按本机配置来（配「自动」时现挑）。</param>
+        public static BridgeCallResult Invoke(string repositoryRoot, string driverName, string action, JsonElement payload, int timeoutSeconds, string modelOverride = "")
         {
             BridgeDriverDescriptor descriptor;
             try
@@ -277,13 +297,21 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             var configuration = BuildConfiguration(localSettings, descriptor);
-            var request = new BridgeRequest("1.0.0", descriptor.Ports[0], action, configuration, payload);
 
-            return RunSubprocess(repositoryRoot, executable, arguments, request, timeoutSeconds);
+            // 「自动」这一档在这里落地：整条链路只有这一处把配置值换成真模型名，
+            // 桥永远收不到哨兵。哪个字段是模型字段由 driver 自述声明，不按 driver 名猜（决策 17）。
+            if (!ApplyModelSelection(repositoryRoot, driverName, descriptor, configuration, modelOverride, out var modelNote, out var selectionFailure))
+            {
+                return selectionFailure;
+            }
+
+            var request = new BridgeRequest("1.0.0", descriptor.Ports[0], action, JsonSerializer.SerializeToElement(configuration), payload);
+
+            return RunSubprocess(repositoryRoot, executable, arguments, request, timeoutSeconds).WithModelNote(modelNote);
         }
 
-        /// <summary>把 driver 的本机配置与密钥字段拼成请求信封的「配置」对象。</summary>
-        private static JsonElement BuildConfiguration(LocalBridgeSettings localSettings, BridgeDriverDescriptor descriptor)
+        /// <summary>把 driver 的本机配置与密钥字段拼成请求信封的「配置」对象（还没定稿，模型那一格随后还要解析）。</summary>
+        private static JsonObject BuildConfiguration(LocalBridgeSettings localSettings, BridgeDriverDescriptor descriptor)
         {
             var configuration = new JsonObject();
             if (localSettings.TryGetDriverConfiguration(descriptor.Name, out var driverConfiguration)
@@ -304,7 +332,59 @@ namespace Template.Toolkit.CreationPipeline
                 }
             }
 
-            return JsonSerializer.SerializeToElement(configuration);
+            return configuration;
+        }
+
+        /// <summary>
+        /// 把配置里的模型那一格定稿：本次调用指定的盖过配置，配「自动」时从上次探测的清单里现挑。
+        /// 解析结果为空串时**把这个键从配置里删掉**——留一个空串会被桥读成「配了个空模型」。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名。</param>
+        /// <param name="descriptor">driver 自述。</param>
+        /// <param name="configuration">正在拼的配置对象，就地改。</param>
+        /// <param name="modelOverride">本次调用指定的模型。</param>
+        /// <param name="modelNote">给人看的账。</param>
+        /// <param name="failure">判定失败时的结果；返回 true 时不要看它。</param>
+        private static bool ApplyModelSelection(
+            string repositoryRoot,
+            string driverName,
+            BridgeDriverDescriptor descriptor,
+            JsonObject configuration,
+            string modelOverride,
+            out string modelNote,
+            out BridgeCallResult failure)
+        {
+            modelNote = "";
+            failure = null;
+
+            var fieldName = descriptor.ModelFieldName;
+            if (fieldName.Length == 0)
+            {
+                if (!string.IsNullOrWhiteSpace(modelOverride))
+                {
+                    failure = BridgeCallResult.Failure(
+                        "本机配置错误",
+                        $"driver「{driverName}」的自述里没有哪个字段声明「选项来源: 探测.模型」，这次调用给的模型「{modelOverride.Trim()}」无处可放",
+                        retryable: false);
+                    return false;
+                }
+
+                return true;
+            }
+
+            var configuredValue = configuration[fieldName] is JsonValue value && value.TryGetValue<string>(out var text) ? text : "";
+            var resolved = ModelSelection.Resolve(repositoryRoot, driverName, configuredValue, modelOverride, out modelNote);
+            if (resolved.Length == 0)
+            {
+                configuration.Remove(fieldName);
+            }
+            else
+            {
+                configuration[fieldName] = resolved;
+            }
+
+            return true;
         }
 
         /// <summary>桥协议的流编码：UTF-8 无 BOM。三条流共用一份，别各写各的。</summary>

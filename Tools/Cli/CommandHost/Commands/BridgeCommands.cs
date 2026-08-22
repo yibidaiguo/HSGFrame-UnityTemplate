@@ -144,6 +144,11 @@ namespace Template.Toolkit.CommandHost.Commands
         [DefaultValue("")]
         public string ReferenceImagePath { get; set; }
 
+        /// <summary>本次调用用哪个模型；空串按本机配置来（配「自动」时从上次探测的清单里现挑）。</summary>
+        [Summary("本次调用用哪个模型；空串按本机配置来（配「自动」时从上次探测的清单里现挑）。可选值见 bridge.catalog --Driver <名>")]
+        [DefaultValue("")]
+        public string Model { get; set; }
+
         /// <summary>生成种子；空串让桥自己产随机种。种子是 64 位无符号量，用 string 接避免边界悄悄变号（决策 26 重生成的前提）。</summary>
         [Summary("生成种子；空串让桥自己产随机种")]
         [DefaultValue("")]
@@ -157,6 +162,29 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <summary>子进程超时秒数。</summary>
         [Summary("子进程超时秒数")]
         [DefaultValue(900)]
+        public int TimeoutSeconds { get; set; }
+    }
+
+    /// <summary>下游模型清单命令 bridge.catalog 的参数。</summary>
+    public sealed class BridgeCatalogArguments
+    {
+        /// <summary>要看清单的下游 driver 名，对应 Bridges/&lt;名&gt;/ 目录。</summary>
+        [Summary("要看清单的下游 driver 名，对应 Bridges/<名>/ 目录")]
+        public string Driver { get; set; }
+
+        /// <summary>先重探一次再列；默认只读上次探测的产出。</summary>
+        [Summary("先重探一次再列；默认 false，只读上次探测的产出")]
+        [DefaultValue(false)]
+        public bool Refresh { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>重探时的子进程超时秒数。</summary>
+        [Summary("重探时的子进程超时秒数")]
+        [DefaultValue(300)]
         public int TimeoutSeconds { get; set; }
     }
 
@@ -181,6 +209,11 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("参考图类型，如 png / jpg；空串按 png")]
         [DefaultValue("")]
         public string ReferenceImageType { get; set; }
+
+        /// <summary>本次调用用哪个模型；空串按本机配置来（配「自动」时从上次探测的清单里现挑）。</summary>
+        [Summary("本次调用用哪个模型；空串按本机配置来（配「自动」时从上次探测的清单里现挑）。可选值见 bridge.catalog --Driver <名>")]
+        [DefaultValue("")]
+        public string Model { get; set; }
 
         /// <summary>粗模的输出目录（绝对或相对路径）。</summary>
         [Summary("粗模的输出目录（绝对或相对路径）")]
@@ -218,6 +251,11 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("系统上下文")]
         [DefaultValue("你是连通性自检，用户让你回什么就回什么，不要多说。")]
         public string Context { get; set; }
+
+        /// <summary>本次调用用哪个模型；空串按本机配置来（配「自动」时从上次探测的清单里现挑）。</summary>
+        [Summary("本次调用用哪个模型；空串按本机配置来（配「自动」时从上次探测的清单里现挑）。可选值见 bridge.catalog --Driver <名>")]
+        [DefaultValue("")]
+        public string Model { get; set; }
 
         /// <summary>仓库根目录，相对当前工作目录。</summary>
         [Summary("仓库根目录，相对当前工作目录")]
@@ -887,7 +925,198 @@ namespace Template.Toolkit.CommandHost.Commands
                 $"节点 {nodeCount} 项、模型 {modelCount} 项、lora {loraCount} 项"
             };
 
+            // 给这份产出盖个来源章：它是对着哪个地址、什么时候探回来的。
+            // 没有这个章，面板就分不清「这批清单是现在这个地址的」还是「上一个地址留下的」——
+            // 换地址不重探是这条链路上最容易发生、也最不容易看出来的一件事。
+            var stampNote = StampProbeResult(repositoryRoot, arguments.Driver, outputPath);
+            if (stampNote.Length > 0)
+            {
+                lines.Add(stampNote);
+            }
+
             return CommandResult.Success($"探测输出已写到 {RelativeTo(repositoryRoot, outputPath)}", lines);
+        }
+
+        /// <summary>
+        /// 给探测产出盖来源章：往那份 JSON 顶层补「探于」（这个 driver 当前配的地址）与
+        /// 「探测时间」（UTC，ISO-8601 往返格式）。
+        /// **盖章失败不算探测失败**——清单本身已经拿回来了，只是面板判断不了它是哪个地址探的。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名。</param>
+        /// <param name="outputPath">探测产出文件路径。</param>
+        /// <returns>要摆给人看的一句话；顺利盖上时是空串。</returns>
+        private static string StampProbeResult(string repositoryRoot, string driverName, string outputPath)
+        {
+            try
+            {
+                var node = JsonNode.Parse(File.ReadAllText(outputPath));
+                if (node is not JsonObject root)
+                {
+                    return "探测产出盖章没成：产出顶层不是 JSON 对象；清单能用，但面板判断不了它是哪个地址探的";
+                }
+
+                root["探于"] = ReadDriverEndpoint(repositoryRoot, driverName);
+                root["探测时间"] = DateTime.UtcNow.ToString("o", System.Globalization.CultureInfo.InvariantCulture);
+                File.WriteAllText(outputPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new System.Text.UTF8Encoding(false));
+                return "";
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return $"探测产出盖章没成：{exception.Message}；清单能用，但面板判断不了它是哪个地址探的";
+            }
+        }
+
+        /// <summary>读一个 driver 现在配的「地址」；没配、读不到本机配置时给空串。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名。</param>
+        private static string ReadDriverEndpoint(string repositoryRoot, string driverName)
+        {
+            var localSettings = LocalBridgeSettings.Load(repositoryRoot);
+            if (!localSettings.Loaded
+                || !localSettings.TryGetDriverConfiguration(driverName, out var configuration)
+                || configuration.ValueKind != JsonValueKind.Object
+                || !configuration.TryGetProperty("地址", out var endpoint)
+                || endpoint.ValueKind != JsonValueKind.String)
+            {
+                return "";
+            }
+
+            return endpoint.GetString() ?? "";
+        }
+
+        /// <summary>
+        /// 下游模型清单：列一个 driver **现在能挑哪些模型**，并说清「自动」那一档现在会挑谁。
+        ///
+        /// 清单不是从代码或文档里抄的，是上一次能力探测时**下游自己报的**——
+        /// 所以它跟着「地址」走：换个地址就得重探一次（<c>--Refresh true</c>）。
+        /// 助手要按需求挑模型、人要在对话里点名一个模型，都从这条命令看有什么可挑。
+        /// </summary>
+        /// <param name="arguments">模型清单命令参数。</param>
+        [EditorCommand("bridge.catalog")]
+        [Summary("列一个下游现在能挑的模型清单（上次能力探测的产出），并说清「自动」这一档现在会挑谁")]
+        public static CommandResult Catalog(BridgeCatalogArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            {
+                return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
+            }
+
+            string repositoryRoot;
+            try
+            {
+                repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+            }
+            catch (Exception exception)
+            {
+                return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            var driverName = arguments.Driver.Trim();
+            var lines = new List<string>();
+
+            if (arguments.Refresh)
+            {
+                var probe = Probe(new BridgeProbeArguments
+                {
+                    Driver = driverName,
+                    OutputPath = "",
+                    RepositoryRoot = arguments.RepositoryRoot,
+                    TimeoutSeconds = arguments.TimeoutSeconds
+                });
+
+                // 重探没成也接着列旧清单：旧清单也是信息，只是它旧了——这件事说出来就行，
+                // 不必因此什么都不给。
+                lines.Add(probe.IsSuccess ? $"重探了一次：{probe.Message}" : $"这次重探没成：{probe.Message}（下面列的是上一次探的）");
+            }
+
+            BridgeDriverDescriptor descriptor;
+            try
+            {
+                descriptor = BridgeDriverDescriptor.Load(repositoryRoot, driverName);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return CommandResult.Failure(exception.Message);
+            }
+
+            if (descriptor.ModelFieldName.Length == 0)
+            {
+                lines.Add($"driver「{driverName}」没有声明可探的模型字段（配置schema 里没有哪个字段写「选项来源: 探测.模型」）");
+                return CommandResult.Success($"driver「{driverName}」没有模型字段", lines);
+            }
+
+            var localSettings = LocalBridgeSettings.Load(repositoryRoot);
+            var configuredModel = "";
+            if (localSettings.Loaded
+                && localSettings.TryGetDriverConfiguration(driverName, out var driverConfiguration)
+                && driverConfiguration.ValueKind == JsonValueKind.Object
+                && driverConfiguration.TryGetProperty(descriptor.ModelFieldName, out var modelValue)
+                && modelValue.ValueKind == JsonValueKind.String)
+            {
+                configuredModel = modelValue.GetString() ?? "";
+            }
+
+            lines.Add(configuredModel.Length == 0
+                ? $"本机没配「{descriptor.ModelFieldName}」这一格"
+                : $"本机配的模型（{descriptor.ModelFieldName}）：{configuredModel}");
+
+            var autoPick = ModelSelection.PreviewAuto(repositoryRoot, driverName, out var autoNote);
+            lines.Add(autoPick.Length == 0
+                ? $"「{ModelSelection.AutoSentinel}」现在挑不出来：{autoNote}"
+                : $"「{ModelSelection.AutoSentinel}」现在会挑：{autoPick}");
+            if (autoPick.Length > 0)
+            {
+                lines.Add($"　依据：{autoNote}");
+            }
+
+            var probePath = ProvisionPaths.ProbeResultFile(repositoryRoot, driverName);
+            if (!File.Exists(probePath))
+            {
+                lines.Add($"还没探过这个下游：先填好地址与密钥，再跑 bridge.probe --Driver {driverName}（或 bridge.catalog --Driver {driverName} --Refresh true）");
+                return CommandResult.Success($"{driverName} 还没探过，清单是空的", lines);
+            }
+
+            CapabilityProbeResult probeResult;
+            try
+            {
+                probeResult = CapabilityProbeResult.LoadFromFile(probePath);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return CommandResult.Failure($"探测产出读不了：{exception.Message}", lines);
+            }
+
+            var currentEndpoint = ReadDriverEndpoint(repositoryRoot, driverName);
+            lines.Add($"探于地址：{(probeResult.ProbedEndpoint.Length == 0 ? "（这份产出没盖章）" : probeResult.ProbedEndpoint)}");
+            lines.Add($"探测时间：{(probeResult.ProbedAtText.Length == 0 ? "（不详）" : probeResult.ProbedAtText)}");
+            lines.Add($"本机现在配的地址：{(currentEndpoint.Length == 0 ? "（没配）" : currentEndpoint)}");
+            if (probeResult.ProbedEndpoint.Length > 0
+                && currentEndpoint.Length > 0
+                && !string.Equals(probeResult.ProbedEndpoint, currentEndpoint, StringComparison.Ordinal))
+            {
+                lines.Add($"⚠ 这份清单是对着另一个地址探的，重探一次再挑：bridge.catalog --Driver {driverName} --Refresh true");
+            }
+
+            var models = probeResult.Models
+                .Where(item => item.Name.Length > 0)
+                .OrderBy(item => item.Name, StringComparer.Ordinal)
+                .ToList();
+
+            foreach (var item in models)
+            {
+                lines.Add(item.Version.Length == 0 ? $"  {item.Name}" : $"  {item.Name}（{item.Version}）");
+            }
+
+            lines.Add($"—— 共 {models.Count} 项 ——");
+
+            // 「清单是空的」不许说成「这个下游没有模型」：前者是「去点一次试跑 / 换个地址」，
+            // 后者是一句我们根本没资格下的结论。
+            return CommandResult.Success(
+                models.Count == 0
+                    ? $"{driverName} 上次探回来的模型清单是空的（地址对不对、这个账号开通了什么，都可能是原因）"
+                    : $"{driverName} 现在能挑 {models.Count} 个模型",
+                lines);
         }
 
         /// <summary>
@@ -1161,17 +1390,18 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var payload = JsonSerializer.SerializeToElement(payloadObject);
 
-            var call = InvokeExplicitOrRouted(repositoryRoot, explicitDriverName, "生图", "generate", payload, arguments.TimeoutSeconds);
+            var call = InvokeExplicitOrRouted(repositoryRoot, explicitDriverName, "生图", "generate", payload, arguments.TimeoutSeconds, arguments.Model ?? "");
             var result = call.Result;
             var driverName = call.DriverName;
             var attempts = call.Attempts;
 
             if (!result.Succeeded)
             {
-                return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
+                return CommandResult.Failure(result.HumanText, ModelNoteFirst(result, $"错误码：{result.ErrorCode}"));
             }
 
             var lines = new List<string>();
+            AddModelNote(lines, result);
             var variantCount = ReadArrayLength(result.Payload, "variants");
             lines.Add($"共出 {variantCount} 张图（driver={driverName}）");
 
@@ -1262,11 +1492,11 @@ namespace Template.Toolkit.CommandHost.Commands
                 ["输出目录"] = outputDirectory
             });
 
-            var modelCall = InvokeExplicitOrRouted(repositoryRoot, arguments.Driver, "模型生成", "generate", payload, arguments.TimeoutSeconds);
+            var modelCall = InvokeExplicitOrRouted(repositoryRoot, arguments.Driver, "模型生成", "generate", payload, arguments.TimeoutSeconds, arguments.Model ?? "");
             var result = modelCall.Result;
             if (!result.Succeeded)
             {
-                return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
+                return CommandResult.Failure(result.HumanText, ModelNoteFirst(result, $"错误码：{result.ErrorCode}"));
             }
 
             var modelFile = ReadString(result.Payload, "模型文件");
@@ -1274,7 +1504,9 @@ namespace Template.Toolkit.CommandHost.Commands
             var statusText = ReadString(result.Payload, "状态");
             var submitMode = ReadString(result.Payload, "提交方式");
 
-            var lines = new List<string>
+            var lines = new List<string>();
+            AddModelNote(lines, result);
+            lines.AddRange(new[]
             {
                 $"driver：{modelCall.DriverName}",
                 $"模型文件：{RelativeTo(repositoryRoot, modelFile)}",
@@ -1282,7 +1514,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 $"task_id：{taskId}",
                 $"状态：{statusText}",
                 $"提交方式：{(submitMode.Length == 0 ? "（桥没报）" : submitMode)}"
-            };
+            });
 
             foreach (var attempt in modelCall.Attempts)
             {
@@ -1336,21 +1568,23 @@ namespace Template.Toolkit.CommandHost.Commands
                 ["上下文"] = context
             });
 
-            var completeCall = InvokeExplicitOrRouted(repositoryRoot, arguments.Driver, "执行后端", "complete", payload, arguments.TimeoutSeconds);
+            var completeCall = InvokeExplicitOrRouted(repositoryRoot, arguments.Driver, "执行后端", "complete", payload, arguments.TimeoutSeconds, arguments.Model ?? "");
             var result = completeCall.Result;
             if (!result.Succeeded)
             {
-                return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
+                return CommandResult.Failure(result.HumanText, ModelNoteFirst(result, $"错误码：{result.ErrorCode}"));
             }
 
             var text = ReadString(result.Payload, "文本");
             var model = ReadString(result.Payload, "模型");
-            var completeLines = new List<string>
+            var completeLines = new List<string>();
+            AddModelNote(completeLines, result);
+            completeLines.AddRange(new[]
             {
                 $"服务端报的模型：{(model.Length == 0 ? "（没报）" : model)}",
                 $"回答字数：{text.Length}",
                 $"回答（截断到 200 字）：{(text.Length <= 200 ? text : text.Substring(0, 200) + "…")}"
-            };
+            });
 
             foreach (var attempt in completeCall.Attempts)
             {
@@ -1498,25 +1732,52 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <param name="action">动作。</param>
         /// <param name="payload">业务载荷。</param>
         /// <param name="timeoutSeconds">超时秒数；失败转移时每个候选各算各的。</param>
+        /// <param name="modelOverride">本次调用指定的模型；空串按本机配置来。</param>
         private static RoutedCallOutcome InvokeExplicitOrRouted(
             string repositoryRoot,
             string explicitDriverName,
             string portName,
             string action,
             JsonElement payload,
-            int timeoutSeconds)
+            int timeoutSeconds,
+            string modelOverride = "")
         {
             if (!string.IsNullOrWhiteSpace(explicitDriverName))
             {
                 var driverName = explicitDriverName.Trim();
                 return new RoutedCallOutcome(
-                    BridgeInvoker.Invoke(repositoryRoot, driverName, action, payload, timeoutSeconds),
+                    BridgeInvoker.Invoke(repositoryRoot, driverName, action, payload, timeoutSeconds, modelOverride),
                     driverName,
                     Array.Empty<string>());
             }
 
-            var portCall = BridgeInvoker.InvokeByPort(repositoryRoot, portName, action, payload, timeoutSeconds);
+            var portCall = BridgeInvoker.InvokeByPort(repositoryRoot, portName, action, payload, timeoutSeconds, modelOverride);
             return new RoutedCallOutcome(portCall.Result, portCall.DriverName, portCall.Attempts);
+        }
+
+        /// <summary>
+        /// 把「这次用了哪个模型、凭什么是它」摆在输出行的最前面。
+        /// 「自动」那一档挑了谁不摆出来，它就成了黑箱——人只会看到一个凭空冒出来的模型名。
+        /// </summary>
+        /// <param name="lines">输出行。</param>
+        /// <param name="result">调用结果。</param>
+        private static void AddModelNote(List<string> lines, BridgeCallResult result)
+        {
+            if (result != null && result.ModelNote.Length > 0)
+            {
+                lines.Add(result.ModelNote);
+            }
+        }
+
+        /// <summary>失败那一路的输出行：模型账在前，其余在后。</summary>
+        /// <param name="result">调用结果。</param>
+        /// <param name="rest">其余的行。</param>
+        private static IReadOnlyList<string> ModelNoteFirst(BridgeCallResult result, params string[] rest)
+        {
+            var lines = new List<string>();
+            AddModelNote(lines, result);
+            lines.AddRange(rest);
+            return lines;
         }
 
         /// <summary>读 JSON 对象里字符串键的值；缺失或类型不对给空串。</summary>

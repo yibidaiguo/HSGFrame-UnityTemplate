@@ -43,6 +43,14 @@ namespace Template.Bridges.Oaicompat
 
             var endpoint = ReadConfigurationString(request, "地址", "");
             var modelName = ReadConfigurationString(request, "模型", DefaultModelName);
+
+            // 「自动」是配置层的哨兵，正常路径上调用方已经把它换成了真模型名；这里再挡一道，
+            // 是防着有人手改 local.json 之后直接调桥——哨兵绝不许当成模型名发给下游。
+            if (string.Equals(modelName.Trim(), ModelSelection.AutoSentinel, StringComparison.Ordinal))
+            {
+                modelName = "";
+            }
+
             var timeoutSeconds = ReadConfigurationInt(request, "超时秒", DefaultTimeoutSeconds);
             var secretKey = ReadConfigurationString(request, "执行后端密钥", "");
 
@@ -80,6 +88,139 @@ namespace Template.Bridges.Oaicompat
             return BridgeResponse.Success(ContractVersion, payload);
         }
 
+        /// <summary>
+        /// caps：GET /models，把 {"节点":[],"模型":[{名,版本,hash}],"lora":[]} 写进载荷「输出路径」指的文件，
+        /// 同一份对象也作为响应载荷返回。这是「模型那一格的下拉从哪来」的唯一来源——
+        /// 清单**跟着地址走**：换个中转地址重探一次，清单就换一批。不产文本、不花 token。
+        /// 「节点」与「lora」恒空数组：线上服务没有自定义节点、也不暴露 lora 清单，空数组是实话。
+        /// </summary>
+        /// <param name="request">请求信封，载荷 {"输出路径":"…"}。</param>
+        public static BridgeResponse RunCaps(BridgeRequest request)
+        {
+            if (!TryGetPayloadString(request, "输出路径", out var outputPath, out var reason))
+            {
+                return Failure("请求不合协议", "载荷缺「输出路径」或它不是字符串：" + reason, retryable: false);
+            }
+
+            var endpoint = ReadConfigurationString(request, "地址", "");
+            var secretKey = ReadConfigurationString(request, "执行后端密钥", "");
+            var timeoutSeconds = ReadConfigurationInt(request, "超时秒", DefaultTimeoutSeconds);
+
+            if (endpoint.Length == 0)
+            {
+                return Failure("下游不可达", "执行后端地址未配置（配置键「地址」为空）", retryable: false);
+            }
+
+            if (secretKey.Length == 0)
+            {
+                return Failure("凭据无效", "执行后端密钥未配置（配置键「执行后端密钥」为空）", retryable: false);
+            }
+
+            var call = Send(HttpMethod.Get, endpoint.TrimEnd('/') + "/models", secretKey, null, timeoutSeconds);
+            if (!call.Succeeded)
+            {
+                return call.Response;
+            }
+
+            if (!TryParseModelNames(call.ResponseJson, out var names, out var parseReason))
+            {
+                return Failure("下游报错", parseReason, retryable: false);
+            }
+
+            var root = new JsonObject
+            {
+                ["节点"] = new JsonArray(),
+                ["模型"] = ToProbeArray(names),
+                ["lora"] = new JsonArray()
+            };
+
+            try
+            {
+                var directory = System.IO.Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    System.IO.Directory.CreateDirectory(directory);
+                }
+
+                System.IO.File.WriteAllText(outputPath, root.ToJsonString(), new UTF8Encoding(false));
+            }
+            catch (Exception exception) when (exception is System.IO.IOException || exception is UnauthorizedAccessException)
+            {
+                return Failure("请求不合协议", $"探测输出写盘失败：{exception.Message}", retryable: false);
+            }
+
+            Console.Error.WriteLine($"BridgeOaicompat 探测到 {names.Count} 个模型");
+            return BridgeResponse.Success(ContractVersion, JsonSerializer.SerializeToElement(root));
+        }
+
+        /// <summary>解析 /models 的响应：顶层 data 数组里逐项取字符串 id，去空、去重、按序数序排。</summary>
+        /// <param name="responseJson">响应体文本。</param>
+        /// <param name="names">解析出来的模型名。</param>
+        /// <param name="reason">解析不了时的人话。</param>
+        private static bool TryParseModelNames(string responseJson, out System.Collections.Generic.List<string> names, out string reason)
+        {
+            names = new System.Collections.Generic.List<string>();
+            reason = "";
+
+            JsonDocument document;
+            try
+            {
+                document = JsonDocument.Parse(responseJson);
+            }
+            catch (JsonException exception)
+            {
+                reason = $"/models 回来的不是合法 JSON：{exception.Message}";
+                return false;
+            }
+
+            using (document)
+            {
+                var root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object
+                    || !root.TryGetProperty("data", out var data)
+                    || data.ValueKind != JsonValueKind.Array)
+                {
+                    reason = "/models 回来的 JSON 里没有「data」数组";
+                    return false;
+                }
+
+                foreach (var item in data.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.Object
+                        && item.TryGetProperty("id", out var identifier)
+                        && identifier.ValueKind == JsonValueKind.String)
+                    {
+                        var name = identifier.GetString() ?? "";
+                        if (name.Length > 0 && !names.Contains(name))
+                        {
+                            names.Add(name);
+                        }
+                    }
+                }
+            }
+
+            names.Sort(StringComparer.Ordinal);
+            return true;
+        }
+
+        /// <summary>把模型名列表拼成探测产出的「模型」数组：线上服务不报版本与 hash，两个键留空串是实话。</summary>
+        /// <param name="names">模型名。</param>
+        private static JsonArray ToProbeArray(System.Collections.Generic.IReadOnlyList<string> names)
+        {
+            var array = new JsonArray();
+            foreach (var name in names)
+            {
+                array.Add(new JsonObject
+                {
+                    ["名"] = name,
+                    ["版本"] = "",
+                    ["hash"] = ""
+                });
+            }
+
+            return array;
+        }
+
         /// <summary>一次 HTTP 调用的结果：成功时带回传的响应体文本，失败时带协议响应。</summary>
         private sealed class HttpCall
         {
@@ -96,12 +237,29 @@ namespace Template.Bridges.Oaicompat
         /// </summary>
         private static HttpCall SendChatCompletion(string url, string secretKey, string requestBody, int timeoutSeconds)
         {
+            return Send(HttpMethod.Post, url, secretKey, requestBody, timeoutSeconds);
+        }
+
+        /// <summary>
+        /// 发一次 HTTP 并读响应体。**密钥只进 Authorization 头，这是它唯一被允许出现的地方**——
+        /// 所以这条路只许有这一处写法，POST 与 GET 共用它。错误分类见 <see cref="SendChatCompletion"/>。
+        /// </summary>
+        /// <param name="method">HTTP 方法。</param>
+        /// <param name="url">完整 URL。</param>
+        /// <param name="secretKey">执行后端密钥。</param>
+        /// <param name="requestBody">请求体；null 表示不带体（GET）。</param>
+        /// <param name="timeoutSeconds">超时秒数。</param>
+        private static HttpCall Send(HttpMethod method, string url, string secretKey, string requestBody, int timeoutSeconds)
+        {
             try
             {
                 using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(Math.Max(1, timeoutSeconds)) };
-                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url);
+                using var httpRequest = new HttpRequestMessage(method, url);
                 httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
-                httpRequest.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+                if (requestBody != null)
+                {
+                    httpRequest.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+                }
 
                 using var httpResponse = client.SendAsync(httpRequest).GetAwaiter().GetResult();
                 var responseText = httpResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult();

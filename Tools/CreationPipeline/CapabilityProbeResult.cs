@@ -44,14 +44,20 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="nodes">节点类能力列表。</param>
         /// <param name="models">模型类能力列表。</param>
         /// <param name="loras">lora 类能力列表。</param>
+        /// <param name="probedEndpoint">这份探测是对着哪个地址探的；探测产出没盖这个章时给空串。</param>
+        /// <param name="probedAtText">探测时间原文（ISO-8601 往返格式）；没盖章时给空串。</param>
         public CapabilityProbeResult(
             IReadOnlyList<CapabilityItem> nodes,
             IReadOnlyList<CapabilityItem> models,
-            IReadOnlyList<CapabilityItem> loras)
+            IReadOnlyList<CapabilityItem> loras,
+            string probedEndpoint = "",
+            string probedAtText = "")
         {
             Nodes = nodes ?? Array.Empty<CapabilityItem>();
             Models = models ?? Array.Empty<CapabilityItem>();
             Loras = loras ?? Array.Empty<CapabilityItem>();
+            ProbedEndpoint = probedEndpoint ?? "";
+            ProbedAtText = probedAtText ?? "";
         }
 
         /// <summary>节点类能力列表。</summary>
@@ -62,6 +68,17 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>lora 类能力列表。</summary>
         public IReadOnlyList<CapabilityItem> Loras { get; }
+
+        /// <summary>
+        /// 这份探测是对着哪个地址探的。**空串 = 这份产出没盖章**（老产出，或探测时本机没配地址），
+        /// 不是「地址为空」——两者差得远：前者说明我们判断不了清单是不是当前地址的，后者是配置缺失。
+        /// </summary>
+        public string ProbedEndpoint { get; }
+
+        /// <summary>
+        /// 探测时间的原文（ISO-8601 往返格式，UTC）。空串同样是「没盖章」，不是「时间为零」。
+        /// </summary>
+        public string ProbedAtText { get; }
 
         /// <summary>
         /// 从文件读一份能力探测输出；文件不存在或 JSON 坏掉抛 InvalidOperationException。
@@ -93,10 +110,14 @@ namespace Template.Toolkit.CreationPipeline
                     throw new InvalidOperationException($"能力探测输出文件不是合法 JSON：{filePath}");
                 }
 
+                // 「探于」「探测时间」是 bridge.probe 事后盖的章，**可选**：
+                // 老的产出文件里没有这两个键，缺了照样读得动，只是判断不了它是哪个地址探的。
                 return new CapabilityProbeResult(
                     ReadItems(root, "节点"),
                     ReadItems(root, "模型"),
-                    ReadItems(root, "lora"));
+                    ReadItems(root, "lora"),
+                    ReadStringOrEmpty(root, "探于"),
+                    ReadStringOrEmpty(root, "探测时间"));
             }
         }
 

@@ -51,11 +51,35 @@ notepad "Tools\CreationPipeline\Config\local.json"
 | `下游配置.feishu.多维表格标识` | **浏览器地址栏**里抠：`https://…/base/bascnXXXX?table=…`，`/base/` 后面、`?` 前面那一整段 | 铺表跑不了 |
 | `模型生成密钥` | [platform.tripo3d.ai](https://platform.tripo3d.ai) → 登录 → **API Keys** → 新建 | bridge-tripo 试跑跑不了 |
 | `执行后端密钥` | 你另配的那个 LLM key | AI 对抗预审、语义冲突比对跑不了 |
-| `下游配置.oaicompat.地址` + `.模型` | 那个 key 的 **OpenAI 兼容 base URL** 与模型 id。**判断 base URL 对不对只有一条标准：它加上 `/chat/completions` 能收 POST**。DeepSeek 就是 `https://api.deepseek.com/v1` + `deepseek-chat` | 同上 |
+| `下游配置.oaicompat.地址` | 那个 key 的 **OpenAI 兼容 base URL**。**判断对不对只有一条标准：它加上 `/chat/completions` 能收 POST**。DeepSeek 就是 `https://api.deepseek.com/v1` | 同上 |
+| `下游配置.oaicompat.模型` | **不用手打**，见下面「模型那一格怎么填」。存完地址会自动探一次，这一格就变成下拉 | 同上 |
 | `生图密钥` | 线上生图那个中转的 API Key。**跟 `执行后端密钥` 是两把钥匙**——同一个中转也各算各的，别指望填一处两处都通 | **生图整条路跑不了**：oaiimage 是「生图」域的默认 driver，`bridge.generate` 不给 `--Driver` 时走的就是它。要回本地那条路加 `--Driver comfyui` |
 | `下游配置.oaiimage.地址` | 那个 key 的 **OpenAI 兼容 base URL**。**判断对不对只有一条标准：它加上 `/images/generations` 能收 POST**（`/v1` 结尾那一段要带上） | 同上 |
-| `下游配置.oaiimage.模型` | **不用手打**：填好地址与密钥，点一次卡片上的「试跑一次」（只查 `/models`，不出图不花钱），这一格就变成下拉，列的是**那个地址自己报的模型**。换了地址要重探一次。列表里没有你要的就选「自己填…」 | 同上 |
+| `下游配置.oaiimage.模型` | **不用手打**，见下面「模型那一格怎么填」 | 同上 |
+| `下游配置.tripo.模型版本` | **不用手打**，同上。tripo 没有列模型的接口，清单是拿一个非法值去问服务端要回来的（不花积分） | 不填按桥里的缺省档走 |
 | `下游配置.oaiimage.尺寸` | **可以不填**。不填时尺寸按资产请求的 `规格.宽 × 规格.高` 走；资产请求也没写就一个 `size` 参数都不发，由下游按它自己的默认来。桥里没有写死的缺省尺寸——各家模型的档位不一样，替它猜只会撞上「参数非法」 | 不填不影响 |
+
+### 模型那一格怎么填
+
+**不要照着文档打模型名。**凡是带「模型」的那一格（`oaicompat.模型`、`oaiimage.模型`、
+`tripo.模型版本`）在面板上都是下拉，清单是**那个地址自己报的**：填好地址与密钥之后桥去问一次
+（前两个查 `/models`，tripo 拿一个非法值换服务端报的允许清单），不产图、不产模型、不花钱。
+**存完「地址」会自动重探一次**；想手动重来点那一格旁边的「重探」。
+
+下拉里永远有三类：**自动**（不钉死，每次调用现挑——平时就选它）、清单里的某一项（钉死成它，
+想按住成本时用）、**自己填…**（下游刚上了一个我们还没探到的模型）。
+
+「自动」没人指定时挑**清单序数序第一项**——不是「它最好」，是它**可复算、可解释**
+（按名字里的 `turbo`/`pro` 猜档位就等于把模型名写死进代码）。每次调用都把
+「这次用了谁、凭什么是它」摆在输出第一行，面板上那一格底下也写着「现在会挑 X」。
+看清单与落点：`bridge.catalog --Driver oaiimage`（加 `--Refresh true` 先重探）。
+
+**这次就想换一个**：`bridge.generate` / `bridge.complete` / `bridge.model` 都收 `--Model`，
+它盖过本机配置的一切——助手按需求挑模型走的就是这条路，你在对话里点名也是它。
+
+**还没探过的时候**那一格如实写「还没探过」，不是「没有可选的」。这时候选了「自动」，
+生图这类接口**一个 model 参数都不发**、由下游按自己的默认来；`chat/completions`
+这种必须带模型的会当场退回来，人话里写清就是这个原因。
 
 **填完的完整长相**（照抄，把占位换成真值；填不了的整条删掉）：
 
@@ -75,8 +99,8 @@ notepad "Tools\CreationPipeline\Config\local.json"
       "超时秒": 60
     },
     "tripo": { "地址": "https://openapi.tripo3d.ai/v3", "超时秒": 600 },
-    "oaicompat": { "地址": "https://api.deepseek.com/v1", "模型": "deepseek-chat", "超时秒": 120 },
-    "oaiimage": { "地址": "https://中转域名/v1", "模型": "gpt-image-1", "超时秒": 180 }
+    "oaicompat": { "地址": "https://api.deepseek.com/v1", "模型": "自动", "超时秒": 120 },
+    "oaiimage": { "地址": "https://中转域名/v1", "模型": "自动", "超时秒": 180 }
   }
 }
 ```

@@ -90,6 +90,8 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="hint">一句提示：这个字段该填什么。</param>
         /// <param name="options">可选值清单；空表示这一格是自由输入。</param>
         /// <param name="optionSourceNote">选项从哪来的一句话；没有选项来源时为空串。</param>
+        /// <param name="isModelField">这一格是不是这个 driver 的「模型」字段（声明了「选项来源: 探测.模型」）。</param>
+        /// <param name="autoNote">「自动」这一档现在会挑谁的一句话；不是模型格时为空串。</param>
         public HostConfigFieldEntry(
             string name,
             string fieldType,
@@ -98,7 +100,9 @@ namespace Template.Toolkit.CreationPipeline
             bool isConfigured,
             string hint,
             IReadOnlyList<string> options = null,
-            string optionSourceNote = "")
+            string optionSourceNote = "",
+            bool isModelField = false,
+            string autoNote = "")
         {
             Name = name ?? "";
             FieldType = fieldType ?? "";
@@ -108,6 +112,8 @@ namespace Template.Toolkit.CreationPipeline
             Hint = hint ?? "";
             Options = options ?? Array.Empty<string>();
             OptionSourceNote = optionSourceNote ?? "";
+            IsModelField = isModelField;
+            AutoNote = autoNote ?? "";
         }
 
         /// <summary>字段名。</summary>
@@ -142,6 +148,19 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>选项从哪来的一句话，给页面显示；没有选项来源时为空串。</summary>
         public string OptionSourceNote { get; }
+
+        /// <summary>
+        /// 这一格是不是这个 driver 的「模型」字段。是的话页面**永远**给它一个下拉，
+        /// 而且下拉里永远有「自动」这一档——哪怕清单是空的：
+        /// 「自动」不需要清单也能选（它只是「别钉死」），清单空只影响它挑不挑得出来。
+        /// </summary>
+        public bool IsModelField { get; }
+
+        /// <summary>
+        /// 「自动」这一档现在会挑谁，写成一句话；不是模型格时为空串。
+        /// 页面把它摆在那一格底下——不摆，人选了「自动」就只能猜将来会发生什么。
+        /// </summary>
+        public string AutoNote { get; }
     }
 
     /// <summary>
@@ -166,6 +185,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="notes">补充说明，逐条一句话。</param>
         /// <param name="trialCommand">能在面板上跑一次的命令（试跑 / 探测）；没有就是空串。</param>
         /// <param name="loadFailureReason">这一行读不出来时的原因；正常为空串。</param>
+        /// <param name="probeCommand">这个 driver 自述里写的能力探测命令；没有就是空串。</param>
         public HostInventoryRow(
             string name,
             string kind,
@@ -178,7 +198,8 @@ namespace Template.Toolkit.CreationPipeline
             IReadOnlyList<EditorPluginEntry> declarations,
             IReadOnlyList<string> notes,
             string trialCommand,
-            string loadFailureReason)
+            string loadFailureReason,
+            string probeCommand = "")
         {
             Name = name ?? "";
             Kind = kind ?? "";
@@ -192,6 +213,7 @@ namespace Template.Toolkit.CreationPipeline
             Notes = notes ?? Array.Empty<string>();
             TrialCommand = trialCommand ?? "";
             LoadFailureReason = loadFailureReason ?? "";
+            ProbeCommand = probeCommand ?? "";
         }
 
         /// <summary>宿主名。</summary>
@@ -229,6 +251,13 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>这一行读不出来时的原因；正常为空串。</summary>
         public string LoadFailureReason { get; }
+
+        /// <summary>
+        /// 这个 driver 自述里写的能力探测命令；没有就是空串。
+        /// 面板拿它做两件事：模型那一格旁边的「重探」按钮，以及**存完「地址」之后自动重探一次**——
+        /// 换了地址不重探，那一格的清单就还是上一个地址的，而这件事平时一点都看不出来。
+        /// </summary>
+        public string ProbeCommand { get; }
     }
 
     /// <summary>
@@ -656,7 +685,8 @@ namespace Template.Toolkit.CreationPipeline
                 DeclarationsFor(pluginManifest, driverName),
                 notes,
                 descriptor.TrialCommand,
-                "");
+                "",
+                ReadProbeCommand(repositoryRoot, driverName));
         }
 
         /// <summary>密钥键配没配写成一句说明。只报键名与「在不在」，值一次都不读（决策 5、78）。</summary>
@@ -835,9 +865,24 @@ namespace Template.Toolkit.CreationPipeline
 
                 var value = hasConfiguration ? ReadConfigurationValue(configuration, fieldName) : "";
                 var options = ReadFieldOptions(repositoryRoot, driverName, fieldName, optionSources, out var optionSourceNote);
+
+                // 模型格：声明了「选项来源: 探测.模型」的那一格。它比别的可选格多两样东西——
+                // 一档永远在的「自动」，和一句「自动现在会挑谁」。
+                var isModelField = optionSources != null
+                    && optionSources.TryGetValue(fieldName, out var source)
+                    && string.Equals(source, "探测.模型", StringComparison.Ordinal);
+                var autoNote = "";
+                if (isModelField)
+                {
+                    var autoPick = ModelSelection.PreviewAuto(repositoryRoot, driverName, out var note);
+                    autoNote = autoPick.Length == 0
+                        ? $"选「{ModelSelection.AutoSentinel}」的话，现在挑不出来：{note}"
+                        : $"选「{ModelSelection.AutoSentinel}」的话，现在会挑「{autoPick}」；{note}";
+                }
+
                 fields.Add(new HostConfigFieldEntry(
                     fieldName, fieldType.Length == 0 ? "string" : fieldType, false, value, value.Length > 0,
-                    HintFor(fieldName, driverName), options, optionSourceNote));
+                    HintFor(fieldName, driverName), options, optionSourceNote, isModelField, autoNote));
             }
 
             // 「密钥字段」数组点名、但配置 schema 里没有的密钥，照样得给一格——
@@ -991,8 +1036,62 @@ namespace Template.Toolkit.CreationPipeline
             names.Sort(StringComparer.Ordinal);
             note = names.Count == 0
                 ? "上次探测回来的清单是空的——地址对不对、这个账号开通了什么，都可能是原因"
-                : $"这 {names.Count} 项是上次「试跑一次」时下游自己报的；换了地址要重探一次";
+                : $"这 {names.Count} 项是上次探测时下游自己报的；换了地址要重探一次";
+
+            // 探测产出上盖着「探于哪个地址」的章。它跟现在配的地址对不上，就说明这批清单是
+            // 上一个地址留下的——这件事不点名，人根本看不出来（选项看上去一切正常）。
+            var currentEndpoint = ReadCurrentEndpoint(repositoryRoot, driverName);
+            if (probeResult.ProbedEndpoint.Length > 0
+                && currentEndpoint.Length > 0
+                && !string.Equals(probeResult.ProbedEndpoint, currentEndpoint, StringComparison.Ordinal))
+            {
+                note += $"。⚠ 这批是对着「{probeResult.ProbedEndpoint}」探的，现在配的是「{currentEndpoint}」——重探一次再挑";
+            }
+
             return names;
+        }
+
+        /// <summary>读一个 driver 现在配的「地址」；没配、读不到本机配置时给空串。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        private static string ReadCurrentEndpoint(string repositoryRoot, string driverName)
+        {
+            var settings = LocalBridgeSettings.Load(repositoryRoot);
+            if (!settings.Loaded
+                || !settings.TryGetDriverConfiguration(driverName, out var configuration)
+                || configuration.ValueKind != JsonValueKind.Object
+                || !configuration.TryGetProperty("地址", out var endpoint)
+                || endpoint.ValueKind != JsonValueKind.String)
+            {
+                return "";
+            }
+
+            return endpoint.GetString() ?? "";
+        }
+
+        /// <summary>读 driver.json 里写的「能力探测」命令；没写或读不动时给空串。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        private static string ReadProbeCommand(string repositoryRoot, string driverName)
+        {
+            try
+            {
+                using (var document = JsonDocument.Parse(File.ReadAllText(BridgeDriverDescriptor.DriverFile(repositoryRoot, driverName))))
+                {
+                    if (document.RootElement.ValueKind == JsonValueKind.Object
+                        && document.RootElement.TryGetProperty("能力探测", out var command)
+                        && command.ValueKind == JsonValueKind.String)
+                    {
+                        return command.GetString() ?? "";
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                // 自述已经 Load 过一次，这里再失败几乎不可能；当没有探测命令处理即可。
+            }
+
+            return "";
         }
 
         /// <summary>把一个非密钥配置值读成字符串：数字与布尔按原样文本给，缺失给空串。</summary>

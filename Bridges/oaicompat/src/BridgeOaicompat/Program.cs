@@ -42,8 +42,11 @@ namespace Template.Bridges.Oaicompat
                     case "complete":
                         response = ChatClient.RunComplete(request);
                         break;
+                    case "caps":
+                        response = ChatClient.RunCaps(request);
+                        break;
                     default:
-                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥只支持 complete", retryable: false);
+                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥只支持 complete 与 caps", retryable: false);
                         break;
                 }
 

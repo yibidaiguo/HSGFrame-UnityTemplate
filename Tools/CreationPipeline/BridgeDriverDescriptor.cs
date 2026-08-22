@@ -25,6 +25,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="fieldTypeMapping">逻辑类型到下游字段类型的映射，传 null 视为空字典。</param>
         /// <param name="formGroupingField">表单分组依据的字段名。</param>
         /// <param name="configurationFieldNames">配置 schema 的键名，排序后，传 null 视为空列表。</param>
+        /// <param name="modelFieldName">模型字段名：配置 schema 里声明了「选项来源: 探测.模型」的那个字段；没有声明时空串。</param>
         public BridgeDriverDescriptor(
             string name,
             IReadOnlyList<string> ports,
@@ -35,7 +36,8 @@ namespace Template.Toolkit.CreationPipeline
             string implementationName,
             IReadOnlyDictionary<string, string> fieldTypeMapping,
             string formGroupingField,
-            IReadOnlyList<string> configurationFieldNames)
+            IReadOnlyList<string> configurationFieldNames,
+            string modelFieldName = "")
         {
             Name = name ?? "";
             Ports = ports ?? Array.Empty<string>();
@@ -47,6 +49,7 @@ namespace Template.Toolkit.CreationPipeline
             FieldTypeMapping = fieldTypeMapping ?? new Dictionary<string, string>();
             FormGroupingField = formGroupingField ?? "";
             ConfigurationFieldNames = configurationFieldNames ?? Array.Empty<string>();
+            ModelFieldName = modelFieldName ?? "";
         }
 
         /// <summary>driver 名称，与目录名一致。</summary>
@@ -78,6 +81,15 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>配置 schema 的键名，按序数序排序。</summary>
         public IReadOnlyList<string> ConfigurationFieldNames { get; }
+
+        /// <summary>
+        /// 这个 driver 的**模型字段叫什么**：配置 schema 里声明了「选项来源: 探测.模型」的那个字段名；
+        /// 没有哪个字段声明它时是空串。
+        ///
+        /// 这是唯一的真相来源——调用侧不许按 driver 名去猜字段名叫「模型」还是「模型版本」（决策 17）。
+        /// 一个 driver 只能有一个模型字段，声明了两个及以上时 <see cref="Load"/> 当场抛。
+        /// </summary>
+        public string ModelFieldName { get; }
 
         /// <summary>
         /// driver 自述所在的目录：&lt;仓库根&gt;/Bridges/&lt;名&gt;。
@@ -153,15 +165,33 @@ namespace Template.Toolkit.CreationPipeline
                 }
 
                 var configurationFieldNames = new List<string>();
+                var modelFieldNames = new List<string>();
                 if (root.TryGetProperty("配置schema", out var configurationElement) && configurationElement.ValueKind == JsonValueKind.Object)
                 {
                     foreach (var property in configurationElement.EnumerateObject())
                     {
                         configurationFieldNames.Add(property.Name);
+
+                        // 「选项来源: 探测.模型」这一句声明的是「这一格的选项问下游要」，
+                        // 顺带也就说明了「这个 driver 的模型字段是哪一个」——两件事同一条声明。
+                        if (property.Value.ValueKind == JsonValueKind.Object
+                            && property.Value.TryGetProperty("选项来源", out var optionSource)
+                            && optionSource.ValueKind == JsonValueKind.String
+                            && string.Equals(optionSource.GetString(), ModelOptionSource, StringComparison.Ordinal))
+                        {
+                            modelFieldNames.Add(property.Name);
+                        }
                     }
                 }
 
                 configurationFieldNames.Sort(StringComparer.Ordinal);
+                modelFieldNames.Sort(StringComparer.Ordinal);
+
+                if (modelFieldNames.Count > 1)
+                {
+                    throw new InvalidOperationException(
+                        $"driver 自述里有 {modelFieldNames.Count} 个字段都声明了「选项来源: {ModelOptionSource}」（{string.Join("、", modelFieldNames)}），一个 driver 只能有一个模型字段：{filePath}");
+                }
 
                 return new BridgeDriverDescriptor(
                     name,
@@ -173,7 +203,8 @@ namespace Template.Toolkit.CreationPipeline
                     ReadStringOrEmpty(root, "实现"),
                     ReadStringDictionary(root, "字段类型映射"),
                     ReadStringOrEmpty(root, "表单分组字段"),
-                    configurationFieldNames);
+                    configurationFieldNames,
+                    modelFieldNames.Count == 1 ? modelFieldNames[0] : "");
             }
         }
 
@@ -196,6 +227,9 @@ namespace Template.Toolkit.CreationPipeline
 
             return logicalType;
         }
+
+        /// <summary>模型字段的「选项来源」声明值：认这一句的字段就是这个 driver 的模型字段。</summary>
+        private const string ModelOptionSource = "探测.模型";
 
         /// <summary>自述文件里必须存在的字段名。</summary>
         private static readonly string[] RequiredFieldNames =

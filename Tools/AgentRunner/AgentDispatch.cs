@@ -169,11 +169,26 @@ namespace Template.Toolkit.AgentRunner
             }
 
             var endpoint = ReadString(configuration, "地址");
-            var modelName = string.IsNullOrWhiteSpace(modelOverride) ? ReadString(configuration, "模型") : modelOverride;
             var timeoutSeconds = ReadInt(configuration, "超时秒", 180);
-            if (endpoint.Length == 0 || modelName.Length == 0)
+
+            // 模型这一格可能配的是哨兵「自动」：那就从这个 driver 上次能力探测回来的清单里现挑，
+            // 依据写进 stderr 的日志——挑了谁不说出来，这一档就成了黑箱。
+            // chat/completions 必须带 model，所以这里**挑不出来就得失败**，
+            // 不能像生图那样「不发 model 参数、由下游按自己的默认来」。
+            var modelName = ModelSelection.Resolve(repositoryRoot, driverName, ReadString(configuration, "模型"), modelOverride ?? "", out var modelNote);
+            if (modelNote.Length > 0)
             {
-                return Failure("「下游配置.oaicompat」缺「地址」或「模型」");
+                Console.Error.WriteLine("agent.dispatch 模型：" + modelNote);
+            }
+
+            if (endpoint.Length == 0)
+            {
+                return Failure($"「下游配置.{driverName}」缺「地址」");
+            }
+
+            if (modelName.Length == 0)
+            {
+                return Failure($"执行后端 {driverName} 的模型没法确定：{(modelNote.Length == 0 ? $"「下游配置.{driverName}」缺「模型」" : modelNote)}");
             }
 
             if (!settings.TryGetSecret("执行后端密钥", out var secretKey) || secretKey.Length == 0)

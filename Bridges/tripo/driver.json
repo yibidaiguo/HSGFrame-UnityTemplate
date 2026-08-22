@@ -6,11 +6,11 @@
   "配置schema": {
     "地址": { "类型": "string", "默认": "https://openapi.tripo3d.ai/v3" },
     "超时秒": { "类型": "number", "默认": 600 },
-    "模型版本": { "类型": "string", "默认": "v3.0-20250812" }
+    "模型版本": { "类型": "string", "默认": "v3.0-20250812", "选项来源": "探测.模型" }
   },
   "密钥字段": ["模型生成密钥"],
   "试跑": "bridge.model --Driver tripo --DryRun true",
-  "能力探测": "",
+  "能力探测": "bridge.probe --Driver tripo",
   "实现": "bridge-tripo",
   "字段类型映射": {},
   "表单分组字段": ""

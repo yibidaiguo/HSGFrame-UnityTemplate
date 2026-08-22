@@ -941,6 +941,8 @@ namespace Template.Toolkit.Dashboard
         /// <param name="hint">一句提示：这个字段该填什么。</param>
         /// <param name="options">可选值清单；空表示自由输入。</param>
         /// <param name="optionSourceNote">选项从哪来的一句话。</param>
+        /// <param name="isModelField">这一格是不是这个 driver 的模型字段。</param>
+        /// <param name="autoNote">「自动」这一档现在会挑谁的一句话；不是模型格时为空串。</param>
         public PanelHostFieldRow(
             string name,
             string fieldType,
@@ -949,7 +951,9 @@ namespace Template.Toolkit.Dashboard
             bool isConfigured,
             string hint,
             IReadOnlyList<string> options,
-            string optionSourceNote)
+            string optionSourceNote,
+            bool isModelField = false,
+            string autoNote = "")
         {
             Name = name ?? "";
             FieldType = fieldType ?? "";
@@ -959,6 +963,8 @@ namespace Template.Toolkit.Dashboard
             Hint = hint ?? "";
             Options = options ?? Array.Empty<string>();
             OptionSourceNote = optionSourceNote ?? "";
+            IsModelField = isModelField;
+            AutoNote = autoNote ?? "";
         }
 
         /// <summary>字段名。</summary>
@@ -995,6 +1001,17 @@ namespace Template.Toolkit.Dashboard
         /// <summary>选项从哪来的一句话，给页面显示。</summary>
         [JsonPropertyName("选项说明")]
         public string OptionSourceNote { get; }
+
+        /// <summary>
+        /// 这一格是不是模型字段。是的话页面永远给下拉，且下拉里永远有「自动」这一档——
+        /// 清单空只是「挑不出来」，不影响「别钉死」这个选择本身。
+        /// </summary>
+        [JsonPropertyName("模型格")]
+        public bool IsModelField { get; }
+
+        /// <summary>「自动」这一档现在会挑谁；不是模型格时为空串。</summary>
+        [JsonPropertyName("自动说明")]
+        public string AutoNote { get; }
     }
 
     /// <summary>路由页里的一个候选：driver 名，加一句「它接不了这个域」的毛病（没毛病时是空串）。</summary>
@@ -1152,6 +1169,7 @@ namespace Template.Toolkit.Dashboard
         /// <param name="declarations">这个宿主名下的插件声明原文；没有就是空表。</param>
         /// <param name="notes">补充说明。</param>
         /// <param name="trialCommand">能在面板上跑一次的命令；没有是空串。</param>
+        /// <param name="probeCommand">这个 driver 的能力探测命令；没有是空串。</param>
         /// <param name="loadFailureReason">这一行读不出来时的原因；正常是空串。</param>
         public PanelHostRow(
             string name,
@@ -1165,7 +1183,8 @@ namespace Template.Toolkit.Dashboard
             IReadOnlyList<PanelHostDeclarationRow> declarations,
             IReadOnlyList<string> notes,
             string trialCommand,
-            string loadFailureReason)
+            string loadFailureReason,
+            string probeCommand = "")
         {
             Name = name ?? "";
             Kind = kind ?? "";
@@ -1179,6 +1198,7 @@ namespace Template.Toolkit.Dashboard
             Notes = notes ?? Array.Empty<string>();
             TrialCommand = trialCommand ?? "";
             LoadFailureReason = loadFailureReason ?? "";
+            ProbeCommand = probeCommand ?? "";
         }
 
         /// <summary>宿主名。</summary>
@@ -1224,6 +1244,13 @@ namespace Template.Toolkit.Dashboard
         /// <summary>能在面板上跑一次的命令；没有是空串。</summary>
         [JsonPropertyName("试跑")]
         public string TrialCommand { get; }
+
+        /// <summary>
+        /// 这个 driver 的能力探测命令；没有是空串。
+        /// 页面拿它做「重探」按钮，以及**存完地址之后自动重探一次**。
+        /// </summary>
+        [JsonPropertyName("探测")]
+        public string ProbeCommand { get; }
 
         /// <summary>这一行读不出来时的原因；正常是空串。</summary>
         [JsonPropertyName("读失败")]
@@ -3145,7 +3172,9 @@ namespace Template.Toolkit.Dashboard
                         field.IsConfigured,
                         field.Hint,
                         field.Options,
-                        field.OptionSourceNote))
+                        field.OptionSourceNote,
+                        field.IsModelField,
+                        field.AutoNote))
                     .ToList();
                 rows.Add(new PanelHostRow(
                     host.Name,
@@ -3168,7 +3197,8 @@ namespace Template.Toolkit.Dashboard
                         .ToList(),
                     host.Notes,
                     host.TrialCommand,
-                    host.LoadFailureReason));
+                    host.LoadFailureReason,
+                    host.ProbeCommand));
             }
 
             return rows;

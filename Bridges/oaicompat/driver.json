@@ -12,7 +12,8 @@
     },
     "模型": {
       "类型": "string",
-      "默认": ""
+      "默认": "",
+      "选项来源": "探测.模型"
     },
     "超时秒": {
       "类型": "number",
@@ -23,7 +24,7 @@
     "执行后端密钥"
   ],
   "试跑": "bridge.complete --Driver oaicompat",
-  "能力探测": "",
+  "能力探测": "bridge.probe --Driver oaicompat",
   "实现": "bridge-oaicompat",
   "字段类型映射": {},
   "表单分组字段": ""
