@@ -52,7 +52,7 @@ notepad "Tools\CreationPipeline\Config\local.json"
 | `模型生成密钥` | [platform.tripo3d.ai](https://platform.tripo3d.ai) → 登录 → **API Keys** → 新建 | bridge-tripo 试跑跑不了 |
 | `执行后端密钥` | 你另配的那个 LLM key | AI 对抗预审、语义冲突比对跑不了 |
 | `下游配置.oaicompat.地址` + `.模型` | 那个 key 的 **OpenAI 兼容 base URL** 与模型 id。**判断 base URL 对不对只有一条标准：它加上 `/chat/completions` 能收 POST**。DeepSeek 就是 `https://api.deepseek.com/v1` + `deepseek-chat` | 同上 |
-| `生图密钥` | 线上生图那个中转的 API Key。**跟 `执行后端密钥` 是两把钥匙**——同一个中转也各算各的，别指望填一处两处都通 | `bridge.generate --Driver oaiimage` 跑不了；本地 comfyui 那条路不受影响 |
+| `生图密钥` | 线上生图那个中转的 API Key。**跟 `执行后端密钥` 是两把钥匙**——同一个中转也各算各的，别指望填一处两处都通 | **生图整条路跑不了**：oaiimage 是「生图」域的默认 driver，`bridge.generate` 不给 `--Driver` 时走的就是它。要回本地那条路加 `--Driver comfyui` |
 | `下游配置.oaiimage.地址` + `.模型` | 那个 key 的 **OpenAI 兼容 base URL** 与图像模型 id。**判断 base URL 对不对只有一条标准：它加上 `/images/generations` 能收 POST**（`/v1` 结尾那一段要带上）。模型填 `gpt-image-1` 或 `dall-e-3`；填之前先跑一次 `bridge.probe --Driver oaiimage`，它只查 `/models`、不出图不花钱，回来的清单里有哪个就填哪个 | 同上 |
 
 **填完的完整长相**（照抄，把占位换成真值；填不了的整条删掉）：

@@ -115,8 +115,9 @@ namespace Template.Toolkit.CommandHost.Commands
     /// <summary>下游生图命令 bridge.generate 的参数。</summary>
     public sealed class BridgeGenerateArguments
     {
-        /// <summary>要调用的下游 driver 名，对应 Bridges/&lt;名&gt;/ 目录。</summary>
-        [Summary("要调用的下游 driver 名，对应 Bridges/<名>/ 目录")]
+        /// <summary>要调用的下游 driver 名，对应 Bridges/&lt;名&gt;/ 目录；留空按域路由表的「生图」取默认。</summary>
+        [Summary("要调用的下游 driver 名，对应 Bridges/<名>/ 目录；留空按域路由表的「生图」取默认")]
+        [DefaultValue("")]
         public string Driver { get; set; }
 
         /// <summary>资产请求 JSON 文件的路径（art.request 产的）。</summary>
@@ -862,9 +863,9 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("下游生图：按配方把资产请求真出图，变体与溯源边车落输出目录")]
         public static CommandResult Generate(BridgeGenerateArguments arguments)
         {
-            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            if (arguments == null)
             {
-                return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
+                return CommandResult.Failure("必须给参数");
             }
 
             if (string.IsNullOrWhiteSpace(arguments.RequestPath))
@@ -885,6 +886,25 @@ namespace Template.Toolkit.CommandHost.Commands
             catch (Exception exception)
             {
                 return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+            }
+
+            // --Driver 留空就按域路由表的「生图」取默认 driver。
+            // 「默认生图驱动」这句话此前只写在路由表里没人读——路由表的「生图」那一行
+            // 全仓没有任何调用点，改它等于只改了一份注释。这里把它接上，
+            // 它才真的是默认；显式给了 --Driver 一律以显式的为准。
+            var driverName = (arguments.Driver ?? "").Trim();
+            if (driverName.Length == 0)
+            {
+                var routeTable = BridgeRouteTable.Load(repositoryRoot);
+                if (!routeTable.Loaded)
+                {
+                    return CommandResult.Failure($"没给 --Driver，而域路由表读不了：{routeTable.LoadFailureReason}");
+                }
+
+                if (!routeTable.TryResolvePort("生图", out driverName, out var routeReason))
+                {
+                    return CommandResult.Failure($"没给 --Driver，也没能从域路由表取到「生图」的默认 driver：{routeReason}");
+                }
             }
 
             string requestPath;
@@ -986,7 +1006,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var payload = JsonSerializer.SerializeToElement(payloadObject);
 
-            var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "generate", payload, arguments.TimeoutSeconds);
+            var result = BridgeInvoker.Invoke(repositoryRoot, driverName, "generate", payload, arguments.TimeoutSeconds);
             if (!result.Succeeded)
             {
                 return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
@@ -994,7 +1014,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var lines = new List<string>();
             var variantCount = ReadArrayLength(result.Payload, "variants");
-            lines.Add($"共出 {variantCount} 张图");
+            lines.Add($"共出 {variantCount} 张图（driver={driverName}）");
             lines.Add($"prompt id：{ReadString(result.Payload, "prompt_id")}");
 
             if (result.Payload.TryGetProperty("variants", out var variants) && variants.ValueKind == JsonValueKind.Array)
