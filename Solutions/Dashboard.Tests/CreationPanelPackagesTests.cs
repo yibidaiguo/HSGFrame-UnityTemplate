@@ -68,7 +68,7 @@ namespace Template.Toolkit.DashboardTests
                     Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
 
-            foreach (var key in new[] { "宿主", "种类", "本体", "本体依据", "版本", "本体下一步", "包", "知会", "试跑", "读失败" })
+            foreach (var key in new[] { "宿主", "种类", "本体", "本体依据", "版本", "本体下一步", "包", "字段", "声明", "知会", "试跑", "读失败" })
             {
                 Assert.Contains("\"" + key + "\":", json, StringComparison.Ordinal);
             }
@@ -115,6 +115,51 @@ namespace Template.Toolkit.DashboardTests
             Assert.Equal("blender", document.RootElement[0].GetProperty("宿主").GetString());
         }
 
+        /// <summary>
+        /// 密钥字段在接口里**永远没有值**：哪怕本机配置里真填了，「值」也是空串，只有「已配」为真。
+        /// 写这一侧 2026-08-22 放开了（面板能存密钥），读这一侧一寸没让——
+        /// 这条测试就是那一寸：值一旦漏进接口返回，它就会被预填进输入框、进截图、进聊天记录。
+        /// </summary>
+        [Fact]
+        public void SecretFieldNeverCarriesItsValue()
+        {
+            WriteDriver("demo", """["演示密钥"]""");
+            WriteFile(
+                Path.Combine(_repositoryRoot, "Tools", "CreationPipeline", "Config", "local.json"),
+                """{ "演示密钥": "不许出现在接口返回里" }""");
+
+            var row = Assert.Single(CreationPanelReader.ReadHostPackages(_repositoryRoot));
+            var secret = Assert.Single(row.Fields, field => field.IsSecret);
+
+            Assert.True(secret.IsConfigured);
+            Assert.Equal("", secret.Value);
+
+            var json = JsonSerializer.Serialize(
+                CreationPanelReader.ReadHostPackages(_repositoryRoot),
+                new JsonSerializerOptions(JsonSerializerOptions.Default)
+                {
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
+            Assert.DoesNotContain("不许出现在接口返回里", json, StringComparison.Ordinal);
+        }
+
+        /// <summary>非密钥字段带着当前值出来——页面要预填进输入框，才谈得上「就地改」。</summary>
+        [Fact]
+        public void PlainFieldCarriesItsCurrentValue()
+        {
+            WriteDriver("blender");
+            WriteFile(
+                Path.Combine(_repositoryRoot, "Tools", "CreationPipeline", "Config", "local.json"),
+                """{ "下游配置": { "blender": { "可执行文件": "D:/Tools/Blender/blender.exe" } } }""");
+
+            var row = Assert.Single(CreationPanelReader.ReadHostPackages(_repositoryRoot));
+            var field = Assert.Single(row.Fields, candidate => candidate.Name == "可执行文件");
+
+            Assert.False(field.IsSecret);
+            Assert.True(field.IsConfigured);
+            Assert.Equal("D:/Tools/Blender/blender.exe", field.Value);
+        }
+
         /// <summary>清理临时仓库根。</summary>
         public void Dispose()
         {
@@ -135,6 +180,11 @@ namespace Template.Toolkit.DashboardTests
 
         private void WriteDriver(string driverName)
         {
+            WriteDriver(driverName, "[]");
+        }
+
+        private void WriteDriver(string driverName, string secretFieldsJson)
+        {
             var driverJson = """
                 {
                   "名称": "%名%",
@@ -142,14 +192,14 @@ namespace Template.Toolkit.DashboardTests
                   "形态": "本地",
                   "契约版本": ">=1.0 <2.0",
                   "配置schema": { "可执行文件": { "类型": "string", "默认": "" } },
-                  "密钥字段": [],
+                  "密钥字段": %密钥%,
                   "试跑": "bridge.probe --Driver %名%",
                   "能力探测": "bridge.probe --Driver %名%",
                   "实现": "bridge-%名%",
                   "字段类型映射": {},
                   "表单分组字段": ""
                 }
-                """.Replace("%名%", driverName);
+                """.Replace("%名%", driverName).Replace("%密钥%", secretFieldsJson);
             WriteFile(Path.Combine(_repositoryRoot, "Bridges", driverName, "driver.json"), driverJson);
         }
 
