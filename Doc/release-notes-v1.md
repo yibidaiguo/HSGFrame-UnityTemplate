@@ -15,7 +15,8 @@
 - **执行层（本版新换）**：`agent.dispatch` 直调 OpenAI 兼容 API（函数调用工具循环），
   implementer / verifier / operator / explore 四角色，任务书模板化，verifier 与 explore
   机械只读，围栏在 `Tools/AgentRunner/Config/agent-policy.json`。不再依赖任何第三方 agent CLI。
-- **面板**：创作管线面板 17 页（新增「桥接包」装机页：每个编辑器与下游的本体与插件装没装、还差什么）
+- **面板**：创作管线面板 17 页（新增「桥接包」装机页：每个编辑器与下游的本体与插件装没装、还差什么；
+  配置就地改——非密钥预填当前值，密钥给空密码框，写得进读不回）
   + 日志看板 1 页 + 角色工作台（策划/美术/程序/管理四视图）+ 需求泳道看板 + 网页建需求
   （`pool.draft` 全链路）+ 需求详情页（阶段轴 / 验收标准 / 工作项）。
 - **Claude Code 接入**：`.mcp.json` 注册 110+ 条命令工具；仓库本地 `/dev-cycle` 技能。

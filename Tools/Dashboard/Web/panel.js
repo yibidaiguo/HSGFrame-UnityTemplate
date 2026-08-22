@@ -1990,6 +1990,7 @@ function 渲染桥接包(数据) {
     for (i = 0; i < 数据.length; i++) { 文本 += 宿主卡(数据[i]); }
     文本 += '</div>';
 
+    文本 += 插件表单(数据);
     文本 += 类别筛选条(全部包);
     return 文本 + 分类表(全部包);
 }
@@ -2085,19 +2086,21 @@ function 分类表(全部包) {
 
 function 一类表(类, 这类) {
     var 释 = 类别释义.hasOwnProperty(类) ? 类别释义[类] : '清单里出现的新类别，还没登记它的判据';
-    return '<div style="margin-bottom:16px;">' + 表格(类 + ' · ' + 这类.length + ' 件', [
-        '宿主', '名', '版本', '状态', '依据', '下一步 / 安装命令'
-    ], 这类, function (条) {
+    // 只有「编辑器插件」这一类的东西是我们自己声明出来的，所以只有它能改能删；
+    // 其余几类的真相在别处（manifest.json、dependencies.json、磁盘），在这里给按钮是骗人。
+    var 可改 = 类 === '编辑器插件';
+    var 列 = ['宿主', '名', '版本', '状态', '依据', '下一步 / 安装命令'];
+    if (可改) { 列.push('声明'); }
+    return '<div style="margin-bottom:16px;">' + 表格(类 + ' · ' + 这类.length + ' 件', 列, 这类, function (条) {
         var 包 = 条.包;
-        return {
-            类: 包['状态'] === '缺' ? '重' : '',
-            格: [
-                条.宿主, 包['名'], 包['版本'],
-                原样(态(包['状态'] || '未验', 装机色(包['状态']))),
-                包['依据'],
-                原样(装法(包))
-            ]
-        };
+        var 格 = [
+            条.宿主, 包['名'], 包['版本'],
+            原样(态(包['状态'] || '未验', 装机色(包['状态']))),
+            包['依据'],
+            原样(装法(包))
+        ];
+        if (可改) { 格.push(原样(声明按钮(条.宿主, 包['名']))); }
+        return { 类: 包['状态'] === '缺' ? '重' : '', 格: 格 };
     }, { 脚: 释 }) + '</div>';
 }
 
@@ -2126,6 +2129,7 @@ function 宿主卡(宿) {
     }
     卡 += 进度(已, 包们.length, 已 === 包们.length ? '绿' : '黄');
     卡 += 卡内类别小计(包们);
+    卡 += 配置块(宿);
     var 知会们 = 宿['知会'] || [];
     for (i = 0; i < 知会们.length; i++) {
         卡 += '<div class="弱 小字" style="margin-top:6px;">' + 转义(知会们[i]) + '</div>';
@@ -2197,6 +2201,217 @@ function 复制装法(按钮) {
     }).catch(function (错误) {
         吐司('复制没成：' + 错误.message, false);
     });
+}
+
+// ── 桥接包页：就地改配置 ──
+// 从前这一页只能看，改要人手开 local.json——一个漏掉的逗号就能把整页读成红的。
+// 现在字段就地改：非密钥预填当前值，密钥给一个永远空着的框。
+//
+// 密钥这一条 2026-08-22 由项目主人当面拍板放开（决策 78 原文是「不给输入框」）：
+// **写这一侧放开，读这一侧一寸不让**——值不进接口返回、不预填、不回显、不报长度，
+// 存完输入框自己清空，页面上永远只有「已配 / 未配」。
+// 密钥只走 /cmd 的 JSON 参数通道，绝不走命令行那条：命令行会被原样打进命令台和历史里。
+
+function 配置块(宿) {
+    var 字段们 = 宿['字段'] || [];
+    if (字段们.length === 0) { return ''; }
+    var 文本 = '<div style="margin-top:10px;border-top:1px solid var(--线);padding-top:9px;">';
+    文本 += '<div class="小字 次" style="margin-bottom:6px;">配置（就地改，直接写进 local.json）</div>';
+    for (var i = 0; i < 字段们.length; i++) {
+        文本 += 字段行(宿['宿主'], 字段们[i], i);
+    }
+    return 文本 + '</div>';
+}
+
+function 字段行(宿主, 字段, 序号) {
+    var 名 = 字段['名'];
+    var 密 = 字段['密钥'];
+    var 行 = '<div style="display:flex;gap:5px;align-items:center;margin-bottom:5px;flex-wrap:wrap;">';
+    行 += '<span class="小字" style="min-width:82px;">' + 转义(名) + (密 ? ' 🔒' : '') + '</span>';
+    行 += 态(字段['已配'] ? '已配' : '未配', 字段['已配'] ? '绿' : '黄');
+    if (!可拼实参(宿主) || !可拼实参(名)) {
+        行 += '<span class="黄 小字">这个字段名里有引号或反斜杠，面板改不了它，手开 local.json 改。</span>';
+        return 行 + '</div>';
+    }
+    var 标识 = '配_' + 宿主 + '_' + 序号;
+    行 += '<input class="输" id="' + 标识 + '" style="flex:1;min-width:160px;"';
+    行 += ' title="' + 转义(字段['提示']) + '"';
+    if (密) {
+        行 += ' type="password" placeholder="粘贴新值，存完不回显">';
+    } else {
+        行 += ' value="' + 转义(字段['值']) + '">';
+    }
+    var 实参 = 引(宿主) + ', ' + 引(名) + ', ' + 引(标识) + ', ' + (密 ? 'true' : 'false');
+    行 += '<button class="钮 细" onclick="存字段(' + 实参 + ')">保存</button>';
+    行 += '<button class="钮 细 危" onclick="清字段(' + 引(宿主) + ', ' + 引(名) + ', ' + (密 ? 'true' : 'false') + ')">清空</button>';
+    return 行 + '</div>';
+}
+
+// onclick 属性里拼实参：值里带引号或反斜杠就拼不出合法的 JS。
+// 与其给一个点下去报语法错的按钮，不如当场说清这个字段面板改不了（决策 48 的精神）。
+function 可拼实参(值) {
+    // 引号与反斜杠用字符码写，不写字面量：这段脚本要过「每行引号成对」那道健全性检查，
+    // 一个裸引号会让整行看着像没闭合（转义那个函数里也是这么写的）。
+    var 单引 = String.fromCharCode(39);
+    var 双引 = String.fromCharCode(34);
+    var 反斜杠 = String.fromCharCode(92);
+    var 文 = String(值 === null || 值 === undefined ? '' : 值);
+    return 文.indexOf(单引) < 0 && 文.indexOf(双引) < 0 && 文.indexOf(反斜杠) < 0;
+}
+
+function 存字段(宿主, 字段名, 输入标识, 密钥) {
+    var 节 = 元素(输入标识);
+    var 值 = 节 ? 节.value : '';
+    if (密钥 && !值) {
+        吐司('密钥输入框是空的。要删掉它请点「清空」', false);
+        return;
+    }
+    写配置(宿主, 字段名, 值, 密钥, 节);
+}
+
+function 清字段(宿主, 字段名, 密钥) {
+    var 问 = '清空 ' + 宿主 + ' 的「' + 字段名 + '」？' +
+        (密钥 ? '这会把这个密钥键从 local.json 里删掉。' : '这会把这个键删掉（不是留空串——留空串会被判成「已配」）。');
+    if (!window.confirm(问)) { return; }
+    写配置(宿主, 字段名, '', 密钥, null);
+}
+
+// 密钥与非密钥走两条命令：密钥写顶层（bridge.secret.set），其余写「下游配置」那一节。
+// 两条都走 JSON 参数通道，请求体不进命令台、不进命令历史。
+function 写配置(宿主, 字段名, 值, 密钥, 输入节) {
+    var 命令名 = 密钥 ? 'bridge.secret.set' : 'bridge.config.set';
+    var 参数 = 密钥
+        ? { Field: 字段名, Value: 值, RepositoryRoot: '.' }
+        : { Driver: 宿主, Field: 字段名, Value: 值, RepositoryRoot: '.' };
+    发命令JSON(命令名, 参数, function (结果) {
+        if (结果.成功 && 输入节 && 密钥) { 输入节.value = ''; }
+        吐司(结果.成功 ? 首行(结果.文本) : ('没存成：' + 首行(结果.文本)), 结果.成功);
+        if (结果.成功) { 刷新(); }
+    });
+}
+
+// 命令输出是多行的，吐司只放得下一句：取最后一句有内容的（命令的结论在末尾）。
+function 首行(文本) {
+    var 行们 = String(文本 || '').split('\n');
+    for (var i = 行们.length - 1; i >= 0; i--) {
+        if (行们[i].trim()) { return 行们[i].trim(); }
+    }
+    return '（命令没有输出）';
+}
+
+// ── 桥接包页：插件声明的增删改 ──
+// 声明清单是「我们要用哪些插件」这句话，改它就是改主意，所以给完整的增删改。
+// 删声明只删这句话，不卸载任何东西——磁盘上的文件面板一个字节都不动。
+
+function 插件表单(数据) {
+    var 宿主们 = [];
+    for (var i = 0; i < 数据.length; i++) {
+        if (数据[i]['种类'] !== '声明') { 宿主们.push(数据[i]['宿主']); }
+    }
+    var 文本 = '<div class="板" id="插件表单" style="margin-bottom:12px;">' +
+        '<div class="板题">加一条插件声明<span class="右 小字 弱">解包安装的那类；UPM 包不写这里，manifest.json 已经管着</span></div>';
+    文本 += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px;">';
+    文本 += '<select class="输" id="插_宿主" style="width:130px;">';
+    for (i = 0; i < 宿主们.length; i++) {
+        文本 += '<option value="' + 转义(宿主们[i]) + '">' + 转义(宿主们[i]) + '</option>';
+    }
+    文本 += '</select>';
+    文本 += '<input class="输" id="插_名称" placeholder="插件名（必填）" style="width:190px;">';
+    文本 += '<input class="输" id="插_版本" placeholder="版本" style="width:110px;">';
+    文本 += '<input class="输" id="插_标志路径" placeholder="标志路径（装完之后会出现的目录/文件，仓库相对）" style="flex:1;min-width:230px;">';
+    文本 += '</div><div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">';
+    文本 += '<input class="输" id="插_来源" placeholder="来源（下载页）" style="width:250px;">';
+    文本 += '<input class="输" id="插_安装步骤" placeholder="安装步骤：点哪里，一句话" style="flex:1;min-width:230px;">';
+    文本 += '<input class="输" id="插_说明" placeholder="这插件是干嘛的" style="width:200px;">';
+    文本 += '<button class="钮 主" onclick="存插件()">保存声明</button>';
+    文本 += '<button class="钮 细" onclick="清插件表单()">清空表单</button>';
+    文本 += '</div>';
+    文本 += '<p class="弱 小字" style="margin:7px 0 0 0;">标志路径可以先留空：那样这一条记「未验」，' +
+        '装完回来填上就变绿。同名同宿主再存一次就是改它。</p>';
+    return 文本 + '</div>';
+}
+
+function 存插件() {
+    var 值 = function (标识) { var 节 = 元素(标识); return 节 ? 节.value.trim() : ''; };
+    var 名称 = 值('插_名称');
+    var 宿主 = 值('插_宿主');
+    if (!名称 || !宿主) {
+        吐司('插件名与宿主是必填的', false);
+        return;
+    }
+    发命令JSON('bridge.plugin.set', {
+        Name: 名称,
+        Host: 宿主,
+        MarkerPath: 值('插_标志路径'),
+        Version: 值('插_版本'),
+        Source: 值('插_来源'),
+        InstallSteps: 值('插_安装步骤'),
+        Description: 值('插_说明'),
+        RepositoryRoot: '.'
+    }, function (结果) {
+        吐司(结果.成功 ? 首行(结果.文本) : ('没存成：' + 首行(结果.文本)), 结果.成功);
+        if (结果.成功) { 清插件表单(); 刷新(); }
+    });
+}
+
+function 清插件表单() {
+    var 标识们 = ['插_名称', '插_版本', '插_标志路径', '插_来源', '插_安装步骤', '插_说明'];
+    for (var i = 0; i < 标识们.length; i++) {
+        var 节 = 元素(标识们[i]);
+        if (节) { 节.value = ''; }
+    }
+}
+
+// 「改」= 把那条声明原样填回表单，人改完再存一次（同宿主同名即覆盖）。
+// 声明原文走接口带下来，不从表格里反解——表格里的「依据」是判定结果，不是声明本身。
+function 改插件(宿主, 名) {
+    var 条 = 找声明(宿主, 名);
+    if (!条) {
+        吐司('找不到这条声明，先刷新一下', false);
+        return;
+    }
+    var 填 = function (标识, 值) { var 节 = 元素(标识); if (节) { 节.value = 值 || ''; } };
+    var 宿主框 = 元素('插_宿主');
+    if (宿主框) { 宿主框.value = 条['宿主']; }
+    填('插_名称', 条['名']);
+    填('插_版本', 条['版本']);
+    填('插_标志路径', 条['标志路径']);
+    填('插_来源', 条['来源']);
+    填('插_安装步骤', 条['安装步骤']);
+    填('插_说明', 条['说明']);
+    var 表单 = 元素('插件表单');
+    if (表单 && 表单.scrollIntoView) { 表单.scrollIntoView({ block: 'center' }); }
+    吐司('这条声明填回表单了，改完点「保存声明」', true);
+}
+
+function 删插件(宿主, 名) {
+    if (!window.confirm('删掉声明 ' + 宿主 + ' / ' + 名 + '？只删这句声明，磁盘上装好的东西一个字节都不动。')) {
+        return;
+    }
+    发命令JSON('bridge.plugin.remove', { Host: 宿主, Name: 名, RepositoryRoot: '.' }, function (结果) {
+        吐司(结果.成功 ? 首行(结果.文本) : ('没删成：' + 首行(结果.文本)), 结果.成功);
+        if (结果.成功) { 刷新(); }
+    });
+}
+
+function 找声明(宿主, 名) {
+    var 数据 = 本页数据 || [];
+    for (var i = 0; i < 数据.length; i++) {
+        var 声明们 = 数据[i]['声明'] || [];
+        for (var k = 0; k < 声明们.length; k++) {
+            if (声明们[k]['宿主'] === 宿主 && 声明们[k]['名'] === 名) { return 声明们[k]; }
+        }
+    }
+    return null;
+}
+
+// 插件行的「改 / 删」两个按钮。名字里带引号拼不进 onclick，那种给不了按钮，如实说明。
+function 声明按钮(宿主, 名) {
+    if (!可拼实参(宿主) || !可拼实参(名)) {
+        return '<span class="弱 小字">名字里有引号，面板改不了它</span>';
+    }
+    var 文本 = '<button class="钮 细" onclick="改插件(' + 引(宿主) + ', ' + 引(名) + ')">改</button> ';
+    return 文本 + '<button class="钮 细 危" onclick="删插件(' + 引(宿主) + ', ' + 引(名) + ')">删</button>';
 }
 
 // ── 命令台 ──

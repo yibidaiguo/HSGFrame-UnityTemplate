@@ -233,6 +233,227 @@ namespace Template.Toolkit.CommandHost.Commands
         public int TimeoutSeconds { get; set; }
     }
 
+    /// <summary>改本机非密钥配置字段的命令参数。</summary>
+    public sealed class BridgeConfigSetArguments
+    {
+        /// <summary>要改哪个下游 driver，对应 Bridges/&lt;名&gt;/ 目录。</summary>
+        [Summary("要改哪个下游 driver，对应 Bridges/<名>/ 目录")]
+        public string Driver { get; set; }
+
+        /// <summary>字段名，必须在那份 driver.json 的「配置schema」里。</summary>
+        [Summary("字段名，必须在那份 driver.json 的「配置schema」里")]
+        public string Field { get; set; }
+
+        /// <summary>要写的值；空串表示删掉这个键（留空串会被判成「已配」，那是假绿）。</summary>
+        [Summary("要写的值；空串表示删掉这个键")]
+        [DefaultValue("")]
+        public string Value { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+    }
+
+    /// <summary>写密钥键的命令参数。值只往 local.json 落，不进任何返回文案。</summary>
+    public sealed class BridgeSecretSetArguments
+    {
+        /// <summary>密钥键名，必须是某个 driver.json 的「密钥字段」里声明过的名字。</summary>
+        [Summary("密钥键名，必须是某个 driver.json 的「密钥字段」里声明过的名字")]
+        public string Field { get; set; }
+
+        /// <summary>密钥值；空串表示删掉这个键。这个值只落进 local.json，不回显、不写日志。</summary>
+        [Summary("密钥值；空串表示删掉这个键。不回显、不写日志、不报长度")]
+        [DefaultValue("")]
+        public string Value { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+    }
+
+    /// <summary>加一条 / 改一条插件声明的命令参数。</summary>
+    public sealed class BridgePluginSetArguments
+    {
+        /// <summary>插件名。与「宿主」一起认领一条声明。</summary>
+        [Summary("插件名，与宿主一起认领一条声明")]
+        public string Name { get; set; }
+
+        /// <summary>装进哪个宿主：unity，或 Bridges/ 下的目录名。</summary>
+        [Summary("装进哪个宿主：unity，或 Bridges/ 下的目录名")]
+        public string Host { get; set; }
+
+        /// <summary>装完之后会出现的标志路径（仓库相对）；留空表示还不知道，页面记「未验」。</summary>
+        [Summary("装完之后会出现的标志路径（仓库相对）；留空则页面记「未验」")]
+        [DefaultValue("")]
+        public string MarkerPath { get; set; }
+
+        /// <summary>版本。</summary>
+        [Summary("版本")]
+        [DefaultValue("")]
+        public string Version { get; set; }
+
+        /// <summary>下载来源。</summary>
+        [Summary("下载来源")]
+        [DefaultValue("")]
+        public string Source { get; set; }
+
+        /// <summary>手工安装步骤，一句话说清点哪里。</summary>
+        [Summary("手工安装步骤，一句话说清点哪里")]
+        [DefaultValue("")]
+        public string InstallSteps { get; set; }
+
+        /// <summary>这个插件是干嘛的。</summary>
+        [Summary("这个插件是干嘛的")]
+        [DefaultValue("")]
+        public string Description { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+    }
+
+    /// <summary>删一条插件声明的命令参数。</summary>
+    public sealed class BridgePluginRemoveArguments
+    {
+        /// <summary>插件名。</summary>
+        [Summary("插件名")]
+        public string Name { get; set; }
+
+        /// <summary>宿主名。</summary>
+        [Summary("宿主名")]
+        public string Host { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+    }
+
+    /// <summary>
+    /// 配置写入命令：把从前要人手开 JSON 填的东西，变成面板上点得动的动作。
+    /// 四条命令共一条红线——**写得进，读不回**：
+    /// 密钥值只往 local.json 落一处，不进返回文案、不进日志、不报长度前缀（决策 5、78 的读侧）。
+    /// </summary>
+    public static class BridgeConfigCommands
+    {
+        /// <summary>
+        /// 改一个 driver 的非密钥配置字段（地址、可执行文件、超时秒这类）。
+        /// </summary>
+        /// <param name="arguments">命令参数。</param>
+        [EditorCommand("bridge.config.set")]
+        [Summary("改本机配置里某个 driver 的非密钥字段；空值表示删掉这个键")]
+        public static CommandResult ConfigSet(BridgeConfigSetArguments arguments)
+        {
+            var repositoryRoot = ResolveRepositoryRoot(arguments?.RepositoryRoot, out var failure);
+            if (failure != null)
+            {
+                return failure;
+            }
+
+            var outcome = LocalSettingsWriter.SetDriverField(
+                repositoryRoot,
+                arguments?.Driver ?? "",
+                arguments?.Field ?? "",
+                arguments?.Value ?? "");
+            return ToResult(outcome, repositoryRoot);
+        }
+
+        /// <summary>
+        /// 写一个密钥键。值只往文件里落，命令输出里只有键名——
+        /// 输出会被面板显示、会进命令输出区，把值拼进去等于让它跟着截图和日志到处跑。
+        /// </summary>
+        /// <param name="arguments">命令参数。</param>
+        [EditorCommand("bridge.secret.set")]
+        [Summary("写一个密钥键（值不回显、不写日志）；空值表示删掉这个键")]
+        public static CommandResult SecretSet(BridgeSecretSetArguments arguments)
+        {
+            var repositoryRoot = ResolveRepositoryRoot(arguments?.RepositoryRoot, out var failure);
+            if (failure != null)
+            {
+                return failure;
+            }
+
+            var outcome = LocalSettingsWriter.SetSecret(
+                repositoryRoot,
+                arguments?.Field ?? "",
+                arguments?.Value ?? "");
+            return ToResult(outcome, repositoryRoot);
+        }
+
+        /// <summary>
+        /// 加一条或改一条插件声明。
+        /// </summary>
+        /// <param name="arguments">命令参数。</param>
+        [EditorCommand("bridge.plugin.set")]
+        [Summary("加一条 / 改一条插件声明（解包安装的那类编辑器插件）")]
+        public static CommandResult PluginSet(BridgePluginSetArguments arguments)
+        {
+            var repositoryRoot = ResolveRepositoryRoot(arguments?.RepositoryRoot, out var failure);
+            if (failure != null)
+            {
+                return failure;
+            }
+
+            var entry = new EditorPluginEntry(
+                arguments?.Name ?? "",
+                arguments?.Host ?? "",
+                arguments?.MarkerPath ?? "",
+                arguments?.Version ?? "",
+                arguments?.Source ?? "",
+                arguments?.InstallSteps ?? "",
+                arguments?.Description ?? "");
+            return ToResult(EditorPluginWriter.Upsert(repositoryRoot, entry), repositoryRoot);
+        }
+
+        /// <summary>
+        /// 删一条插件声明；磁盘上装好的东西不动。
+        /// </summary>
+        /// <param name="arguments">命令参数。</param>
+        [EditorCommand("bridge.plugin.remove")]
+        [Summary("删一条插件声明；只删声明，不卸载任何东西")]
+        public static CommandResult PluginRemove(BridgePluginRemoveArguments arguments)
+        {
+            var repositoryRoot = ResolveRepositoryRoot(arguments?.RepositoryRoot, out var failure);
+            if (failure != null)
+            {
+                return failure;
+            }
+
+            var outcome = EditorPluginWriter.Remove(repositoryRoot, arguments?.Host ?? "", arguments?.Name ?? "");
+            return ToResult(outcome, repositoryRoot);
+        }
+
+        /// <summary>把写入结局翻成命令结果：成功带一行落点，失败只给原因。</summary>
+        private static CommandResult ToResult(ConfigWriteOutcome outcome, string repositoryRoot)
+        {
+            if (!outcome.Succeeded)
+            {
+                return CommandResult.Failure(outcome.Message);
+            }
+
+            var relativePath = Path.GetRelativePath(repositoryRoot, outcome.FilePath).Replace('\\', '/');
+            return CommandResult.Success(outcome.Message, new[] { outcome.Message, "落点：" + relativePath });
+        }
+
+        /// <summary>解析仓库根；解析不了时第二个出参给失败结果。</summary>
+        private static string ResolveRepositoryRoot(string raw, out CommandResult failure)
+        {
+            failure = null;
+            try
+            {
+                return Path.GetFullPath(string.IsNullOrWhiteSpace(raw) ? "." : raw);
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is PathTooLongException)
+            {
+                failure = CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
+                return null;
+            }
+        }
+    }
+
     /// <summary>下游供给命令：bridge.provision，一次产出建表描述、专项表、校验错误文案、assistant-package与指纹。</summary>
     public static class BridgeCommands
     {

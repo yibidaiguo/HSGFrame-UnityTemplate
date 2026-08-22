@@ -888,6 +888,120 @@ namespace Template.Toolkit.Dashboard
     }
 
     /// <summary>
+    /// 桥接包页里一个能就地改的配置字段。密钥与非密钥的差别只在「值」这一栏：
+    /// 非密钥带当前值（页面预填进输入框），密钥的「值」**恒为空串**——写放开了，读没放开，
+    /// 页面上密钥永远只有「已配 / 未配」和一个空输入框。
+    /// </summary>
+    public sealed class PanelHostFieldRow
+    {
+        /// <summary>
+        /// 构造一个可改字段。
+        /// </summary>
+        /// <param name="name">字段名。</param>
+        /// <param name="fieldType">类型：string / number / boolean / secret。</param>
+        /// <param name="isSecret">是不是密钥字段。</param>
+        /// <param name="value">当前值；密钥恒为空串。</param>
+        /// <param name="isConfigured">配没配。</param>
+        /// <param name="hint">一句提示：这个字段该填什么。</param>
+        public PanelHostFieldRow(string name, string fieldType, bool isSecret, string value, bool isConfigured, string hint)
+        {
+            Name = name ?? "";
+            FieldType = fieldType ?? "";
+            IsSecret = isSecret;
+            Value = isSecret ? "" : (value ?? "");
+            IsConfigured = isConfigured;
+            Hint = hint ?? "";
+        }
+
+        /// <summary>字段名。</summary>
+        [JsonPropertyName("名")]
+        public string Name { get; }
+
+        /// <summary>类型：string / number / boolean / secret。</summary>
+        [JsonPropertyName("类型")]
+        public string FieldType { get; }
+
+        /// <summary>是不是密钥字段。</summary>
+        [JsonPropertyName("密钥")]
+        public bool IsSecret { get; }
+
+        /// <summary>当前值；密钥恒为空串。</summary>
+        [JsonPropertyName("值")]
+        public string Value { get; }
+
+        /// <summary>配没配。</summary>
+        [JsonPropertyName("已配")]
+        public bool IsConfigured { get; }
+
+        /// <summary>一句提示：这个字段该填什么。</summary>
+        [JsonPropertyName("提示")]
+        public string Hint { get; }
+    }
+
+    /// <summary>
+    /// 桥接包页里的一条插件声明原文。页面拿它预填「改这一条」的表单——
+    /// 状态行（包）说的是「装没装」，这一条说的是「我们声明了什么」，两件事分开带。
+    /// </summary>
+    public sealed class PanelHostDeclarationRow
+    {
+        /// <summary>
+        /// 构造一条声明原文。
+        /// </summary>
+        /// <param name="name">插件名。</param>
+        /// <param name="hostName">宿主名。</param>
+        /// <param name="markerPath">标志路径；空串表示还没填。</param>
+        /// <param name="version">版本。</param>
+        /// <param name="source">来源。</param>
+        /// <param name="installSteps">安装步骤。</param>
+        /// <param name="description">说明。</param>
+        public PanelHostDeclarationRow(
+            string name,
+            string hostName,
+            string markerPath,
+            string version,
+            string source,
+            string installSteps,
+            string description)
+        {
+            Name = name ?? "";
+            HostName = hostName ?? "";
+            MarkerPath = markerPath ?? "";
+            Version = version ?? "";
+            Source = source ?? "";
+            InstallSteps = installSteps ?? "";
+            Description = description ?? "";
+        }
+
+        /// <summary>插件名。</summary>
+        [JsonPropertyName("名")]
+        public string Name { get; }
+
+        /// <summary>宿主名。</summary>
+        [JsonPropertyName("宿主")]
+        public string HostName { get; }
+
+        /// <summary>标志路径；空串表示还没填。</summary>
+        [JsonPropertyName("标志路径")]
+        public string MarkerPath { get; }
+
+        /// <summary>版本。</summary>
+        [JsonPropertyName("版本")]
+        public string Version { get; }
+
+        /// <summary>来源。</summary>
+        [JsonPropertyName("来源")]
+        public string Source { get; }
+
+        /// <summary>安装步骤。</summary>
+        [JsonPropertyName("安装步骤")]
+        public string InstallSteps { get; }
+
+        /// <summary>说明。</summary>
+        [JsonPropertyName("说明")]
+        public string Description { get; }
+    }
+
+    /// <summary>
     /// 桥接包页里的一个宿主：一个编辑器，或一个下游服务。
     /// 「本体」与「桥接包」分两栏报——软件装了但包没解析、包在仓库里但软件没装，是两种不同的卡壳。
     /// </summary>
@@ -903,6 +1017,8 @@ namespace Template.Toolkit.Dashboard
         /// <param name="hostVersion">本体版本；判不出来是空串。</param>
         /// <param name="hostNextStep">本体的下一步动作；已装时是空串。</param>
         /// <param name="packages">这个宿主的桥接包 / 插件 / 脚本。</param>
+        /// <param name="fields">能就地改的配置字段；没有就是空表。</param>
+        /// <param name="declarations">这个宿主名下的插件声明原文；没有就是空表。</param>
         /// <param name="notes">补充说明。</param>
         /// <param name="trialCommand">能在面板上跑一次的命令；没有是空串。</param>
         /// <param name="loadFailureReason">这一行读不出来时的原因；正常是空串。</param>
@@ -914,6 +1030,8 @@ namespace Template.Toolkit.Dashboard
             string hostVersion,
             string hostNextStep,
             IReadOnlyList<PanelHostPackageRow> packages,
+            IReadOnlyList<PanelHostFieldRow> fields,
+            IReadOnlyList<PanelHostDeclarationRow> declarations,
             IReadOnlyList<string> notes,
             string trialCommand,
             string loadFailureReason)
@@ -925,6 +1043,8 @@ namespace Template.Toolkit.Dashboard
             HostVersion = hostVersion ?? "";
             HostNextStep = hostNextStep ?? "";
             Packages = packages ?? Array.Empty<PanelHostPackageRow>();
+            Fields = fields ?? Array.Empty<PanelHostFieldRow>();
+            Declarations = declarations ?? Array.Empty<PanelHostDeclarationRow>();
             Notes = notes ?? Array.Empty<string>();
             TrialCommand = trialCommand ?? "";
             LoadFailureReason = loadFailureReason ?? "";
@@ -957,6 +1077,14 @@ namespace Template.Toolkit.Dashboard
         /// <summary>这个宿主的桥接包 / 插件 / 脚本。</summary>
         [JsonPropertyName("包")]
         public IReadOnlyList<PanelHostPackageRow> Packages { get; }
+
+        /// <summary>能就地改的配置字段；没有就是空表。</summary>
+        [JsonPropertyName("字段")]
+        public IReadOnlyList<PanelHostFieldRow> Fields { get; }
+
+        /// <summary>这个宿主名下的插件声明原文；没有就是空表。</summary>
+        [JsonPropertyName("声明")]
+        public IReadOnlyList<PanelHostDeclarationRow> Declarations { get; }
 
         /// <summary>补充说明。</summary>
         [JsonPropertyName("知会")]
@@ -2781,6 +2909,15 @@ namespace Template.Toolkit.Dashboard
                         package.InstallCommand,
                         package.NextStep))
                     .ToList();
+                var fields = host.EditableFields
+                    .Select(field => new PanelHostFieldRow(
+                        field.Name,
+                        field.FieldType,
+                        field.IsSecret,
+                        field.Value,
+                        field.IsConfigured,
+                        field.Hint))
+                    .ToList();
                 rows.Add(new PanelHostRow(
                     host.Name,
                     host.Kind,
@@ -2789,6 +2926,17 @@ namespace Template.Toolkit.Dashboard
                     host.HostVersion,
                     host.HostNextStep,
                     packages,
+                    fields,
+                    host.Declarations
+                        .Select(declaration => new PanelHostDeclarationRow(
+                            declaration.Name,
+                            declaration.HostName,
+                            declaration.MarkerPath,
+                            declaration.Version,
+                            declaration.Source,
+                            declaration.InstallSteps,
+                            declaration.Description))
+                        .ToList(),
                     host.Notes,
                     host.TrialCommand,
                     host.LoadFailureReason));

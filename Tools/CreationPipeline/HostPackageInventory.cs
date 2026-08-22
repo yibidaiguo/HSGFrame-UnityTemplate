@@ -70,6 +70,60 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
+    /// 装机清单里一个**能在面板上改**的配置字段。
+    ///
+    /// 密钥与非密钥在这里分成两种东西，差别只在「值」这一栏：
+    /// 非密钥（地址、可执行文件、超时秒）把当前值带出来，页面预填进输入框，改完就地保存；
+    /// 密钥的「值」**恒为空串**——写这一侧 2026-08-22 起放开了，读这一侧一寸没让：
+    /// 值不出现在任何接口返回里，页面上只显示「已配 / 未配」，输入框每次都是空的。
+    /// </summary>
+    public sealed class HostConfigFieldEntry
+    {
+        /// <summary>
+        /// 构造一个可改字段。
+        /// </summary>
+        /// <param name="name">字段名。</param>
+        /// <param name="fieldType">自述里写的类型：string / number / boolean / secret。</param>
+        /// <param name="isSecret">是不是密钥字段。</param>
+        /// <param name="value">当前值；**密钥恒为空串**，调用方不许往里塞密钥的值。</param>
+        /// <param name="isConfigured">配没配：非密钥看值非空，密钥看键在不在。</param>
+        /// <param name="hint">一句提示：这个字段该填什么。</param>
+        public HostConfigFieldEntry(
+            string name,
+            string fieldType,
+            bool isSecret,
+            string value,
+            bool isConfigured,
+            string hint)
+        {
+            Name = name ?? "";
+            FieldType = fieldType ?? "";
+            IsSecret = isSecret;
+            Value = isSecret ? "" : (value ?? "");
+            IsConfigured = isConfigured;
+            Hint = hint ?? "";
+        }
+
+        /// <summary>字段名。</summary>
+        public string Name { get; }
+
+        /// <summary>自述里写的类型：string / number / boolean / secret。</summary>
+        public string FieldType { get; }
+
+        /// <summary>是不是密钥字段。</summary>
+        public bool IsSecret { get; }
+
+        /// <summary>当前值；密钥恒为空串（值永不读出来）。</summary>
+        public string Value { get; }
+
+        /// <summary>配没配：非密钥看值非空，密钥看键在不在。</summary>
+        public bool IsConfigured { get; }
+
+        /// <summary>一句提示：这个字段该填什么。</summary>
+        public string Hint { get; }
+    }
+
+    /// <summary>
     /// 装机清单里的一个宿主：一个编辑器，或一个下游服务（driver 名由 Bridges/ 下的目录决定，这里不写死任何一个）。
     /// 「本体」与「桥接包」分开报：本体是那个软件本身装没装，桥接包是我们要往它里面塞的东西。
     /// 这两件事真的会分家——加工站装了但路径没填、编辑器装了但包没解析，都是每天会遇到的状态。
@@ -86,6 +140,8 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="hostVersion">本体版本；判不出来是空串。</param>
         /// <param name="hostNextStep">本体的下一步动作；已装时为空串。</param>
         /// <param name="packages">这个宿主要装的桥接包 / 插件 / 脚本。</param>
+        /// <param name="editableFields">能在面板上改的配置字段；没有就是空表。</param>
+        /// <param name="declarations">这个宿主名下的插件声明原文，供面板改它们用；没有就是空表。</param>
         /// <param name="notes">补充说明，逐条一句话。</param>
         /// <param name="trialCommand">能在面板上跑一次的命令（试跑 / 探测）；没有就是空串。</param>
         /// <param name="loadFailureReason">这一行读不出来时的原因；正常为空串。</param>
@@ -97,6 +153,8 @@ namespace Template.Toolkit.CreationPipeline
             string hostVersion,
             string hostNextStep,
             IReadOnlyList<HostPackageEntry> packages,
+            IReadOnlyList<HostConfigFieldEntry> editableFields,
+            IReadOnlyList<EditorPluginEntry> declarations,
             IReadOnlyList<string> notes,
             string trialCommand,
             string loadFailureReason)
@@ -108,6 +166,8 @@ namespace Template.Toolkit.CreationPipeline
             HostVersion = hostVersion ?? "";
             HostNextStep = hostNextStep ?? "";
             Packages = packages ?? Array.Empty<HostPackageEntry>();
+            EditableFields = editableFields ?? Array.Empty<HostConfigFieldEntry>();
+            Declarations = declarations ?? Array.Empty<EditorPluginEntry>();
             Notes = notes ?? Array.Empty<string>();
             TrialCommand = trialCommand ?? "";
             LoadFailureReason = loadFailureReason ?? "";
@@ -133,6 +193,12 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>这个宿主要装的桥接包 / 插件 / 脚本。</summary>
         public IReadOnlyList<HostPackageEntry> Packages { get; }
+
+        /// <summary>能在面板上改的配置字段；没有就是空表。</summary>
+        public IReadOnlyList<HostConfigFieldEntry> EditableFields { get; }
+
+        /// <summary>这个宿主名下的插件声明原文，供面板改它们用；没有就是空表。</summary>
+        public IReadOnlyList<EditorPluginEntry> Declarations { get; }
 
         /// <summary>补充说明，逐条一句话。</summary>
         public IReadOnlyList<string> Notes { get; }
@@ -220,7 +286,8 @@ namespace Template.Toolkit.CreationPipeline
                 return new HostInventoryRow(
                     "插件声明", "声明", StateUnverified, "插件声明清单坏了，一条都没查", "",
                     "把 Tools/CreationPipeline/Config/editor-plugins.json 修成合法 JSON 再来",
-                    Array.Empty<HostPackageEntry>(), Array.Empty<string>(), "", pluginManifest.LoadFailureReason);
+                    Array.Empty<HostPackageEntry>(), Array.Empty<HostConfigFieldEntry>(),
+                    Array.Empty<EditorPluginEntry>(), Array.Empty<string>(), "", pluginManifest.LoadFailureReason);
             }
 
             var hostNames = new HashSet<string>(rows.Select(row => row.Name), StringComparer.Ordinal);
@@ -240,6 +307,8 @@ namespace Template.Toolkit.CreationPipeline
                 $"有 {unclaimed.Count} 条声明的「宿主」在这个仓库里找不到", "",
                 "把「宿主」改成 unity 或 Bridges/ 下的目录名，否则这些声明谁都不管",
                 packages,
+                Array.Empty<HostConfigFieldEntry>(),
+                unclaimed,
                 new List<string> { "宿主名对不上的声明挂在这里，免得它们静悄悄地谁都不挂。" },
                 "",
                 "");
@@ -301,6 +370,8 @@ namespace Template.Toolkit.CreationPipeline
                 version,
                 hostNextStep,
                 packages,
+                Array.Empty<HostConfigFieldEntry>(),
+                DeclarationsFor(pluginManifest, "unity"),
                 notes,
                 "",
                 manifestFailure);
@@ -522,7 +593,8 @@ namespace Template.Toolkit.CreationPipeline
             {
                 return new HostInventoryRow(
                     driverName, "下游", StateUnverified, "driver.json 读不出来", "", "",
-                    Array.Empty<HostPackageEntry>(), Array.Empty<string>(), "", exception.Message);
+                    Array.Empty<HostPackageEntry>(), Array.Empty<HostConfigFieldEntry>(),
+                    Array.Empty<EditorPluginEntry>(), Array.Empty<string>(), "", exception.Message);
             }
 
             var isLocal = string.Equals(descriptor.Form, "本地", StringComparison.Ordinal);
@@ -559,6 +631,8 @@ namespace Template.Toolkit.CreationPipeline
                 "",
                 hostNextStep,
                 packages,
+                ReadEditableFields(repositoryRoot, driverName, descriptor, settings),
+                DeclarationsFor(pluginManifest, driverName),
                 notes,
                 descriptor.TrialCommand,
                 "");
@@ -703,6 +777,156 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             return entries;
+        }
+
+        /// <summary>
+        /// 读一个 driver 能在面板上改的配置字段：自述「配置schema」里的全部字段，加上「密钥字段」点名的那些。
+        ///
+        /// 非密钥字段把当前值带出来（路径、地址不是密钥，页面要预填进输入框才谈得上「改」）；
+        /// 密钥字段只判键在不在，值一次都不取——<see cref="LocalBridgeSettings.TryGetSecret"/> 的 out 参数
+        /// 在这里只用来判「有没有」，随即丢掉，绝不往外带（决策 5、78 的读侧）。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        /// <param name="descriptor">driver 自述。</param>
+        /// <param name="settings">本机配置。</param>
+        private static IReadOnlyList<HostConfigFieldEntry> ReadEditableFields(
+            string repositoryRoot,
+            string driverName,
+            BridgeDriverDescriptor descriptor,
+            LocalBridgeSettings settings)
+        {
+            var secretNames = new HashSet<string>(descriptor.SecretFieldNames, StringComparer.Ordinal);
+            var schemaTypes = ReadSchemaTypes(repositoryRoot, driverName);
+            var hasConfiguration = settings.TryGetDriverConfiguration(driverName, out var configuration);
+            var fields = new List<HostConfigFieldEntry>();
+
+            foreach (var fieldName in descriptor.ConfigurationFieldNames.OrderBy(name => name, StringComparer.Ordinal))
+            {
+                var fieldType = schemaTypes.TryGetValue(fieldName, out var declared) ? declared : "";
+                var isSecret = secretNames.Contains(fieldName) || string.Equals(fieldType, "secret", StringComparison.Ordinal);
+                if (isSecret)
+                {
+                    fields.Add(SecretField(fieldName, settings));
+                    continue;
+                }
+
+                var value = hasConfiguration ? ReadConfigurationValue(configuration, fieldName) : "";
+                fields.Add(new HostConfigFieldEntry(
+                    fieldName, fieldType.Length == 0 ? "string" : fieldType, false, value, value.Length > 0,
+                    HintFor(fieldName, driverName)));
+            }
+
+            // 「密钥字段」数组点名、但配置 schema 里没有的密钥，照样得给一格——
+            // 那才是最常见的长相（密钥住在顶层，schema 里通常压根不写它）。
+            foreach (var secretName in descriptor.SecretFieldNames.OrderBy(name => name, StringComparer.Ordinal))
+            {
+                if (fields.Any(field => string.Equals(field.Name, secretName, StringComparison.Ordinal)))
+                {
+                    continue;
+                }
+
+                fields.Add(SecretField(secretName, settings));
+            }
+
+            return fields;
+        }
+
+        /// <summary>拼一格密钥字段：只判键在不在，值不取、不带出去。</summary>
+        /// <param name="secretName">密钥键名。</param>
+        /// <param name="settings">本机配置。</param>
+        private static HostConfigFieldEntry SecretField(string secretName, LocalBridgeSettings settings)
+        {
+            // out 参数拿到的值在这一行之后就不再被引用：判完「有没有」就丢。
+            var isConfigured = settings.TryGetSecret(secretName, out var value) && value.Length > 0;
+            return new HostConfigFieldEntry(
+                secretName, "secret", true, "", isConfigured,
+                "密钥：写得进、永不读回。页面只报「已配 / 未配」，输入框每次都是空的。");
+        }
+
+        /// <summary>读 driver.json「配置schema」里每个字段声明的类型；读不动时给空表。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        private static Dictionary<string, string> ReadSchemaTypes(string repositoryRoot, string driverName)
+        {
+            var types = new Dictionary<string, string>(StringComparer.Ordinal);
+            try
+            {
+                using (var document = JsonDocument.Parse(File.ReadAllText(BridgeDriverDescriptor.DriverFile(repositoryRoot, driverName))))
+                {
+                    if (document.RootElement.TryGetProperty("配置schema", out var schema) && schema.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var property in schema.EnumerateObject())
+                        {
+                            if (property.Value.ValueKind == JsonValueKind.Object
+                                && property.Value.TryGetProperty("类型", out var type)
+                                && type.ValueKind == JsonValueKind.String)
+                            {
+                                types[property.Name] = type.GetString() ?? "";
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                // 自述已经 Load 过一次，这里再失败几乎不可能；类型当 string 处理即可。
+            }
+
+            return types;
+        }
+
+        /// <summary>把一个非密钥配置值读成字符串：数字与布尔按原样文本给，缺失给空串。</summary>
+        /// <param name="configuration">这个 driver 的配置对象。</param>
+        /// <param name="fieldName">字段名。</param>
+        private static string ReadConfigurationValue(JsonElement configuration, string fieldName)
+        {
+            if (!configuration.TryGetProperty(fieldName, out var value))
+            {
+                return "";
+            }
+
+            return value.ValueKind switch
+            {
+                JsonValueKind.String => value.GetString() ?? "",
+                JsonValueKind.Number => value.GetRawText(),
+                JsonValueKind.True => "true",
+                JsonValueKind.False => "false",
+                _ => ""
+            };
+        }
+
+        /// <summary>给几个常见字段配一句「该填什么」；不认识的字段不硬编一句废话。</summary>
+        /// <param name="fieldName">字段名。</param>
+        /// <param name="driverName">driver 名称。</param>
+        private static string HintFor(string fieldName, string driverName)
+        {
+            if (string.Equals(fieldName, "可执行文件", StringComparison.Ordinal))
+            {
+                return "本体装在哪：给到可执行文件本身的绝对路径";
+            }
+
+            if (string.Equals(fieldName, "地址", StringComparison.Ordinal))
+            {
+                return "服务地址：带协议与端口，填完点「试跑一次」验它通不通";
+            }
+
+            if (string.Equals(fieldName, "超时秒", StringComparison.Ordinal))
+            {
+                return "一次调用等多久算超时";
+            }
+
+            return $"写进 下游配置.{driverName}.{fieldName}";
+        }
+
+        /// <summary>某个宿主名下的插件声明原文。页面要拿它预填「改这一条」的表单，所以原样带出去。</summary>
+        /// <param name="pluginManifest">插件声明清单。</param>
+        /// <param name="hostName">宿主名。</param>
+        private static IReadOnlyList<EditorPluginEntry> DeclarationsFor(EditorPluginManifest pluginManifest, string hostName)
+        {
+            return pluginManifest.Entries
+                .Where(entry => string.Equals(entry.HostName, hostName, StringComparison.Ordinal))
+                .ToList();
         }
 
         /// <summary>某个宿主名下的插件声明，按清单里的顺序（已按宿主、名称排过）。</summary>
