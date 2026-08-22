@@ -182,7 +182,18 @@ namespace Template.Bridges.Feishu
             var call = FeishuClient.Send("POST", FeishuClient.WikiSpacesUrl(), body, state.AppId, state.SecretKey, state.TimeoutSeconds);
             if (!call.Succeeded)
             {
-                failure = call.Response;
+                // 建知识空间这一支飞书**只认用户身份**（user_access_token），应用身份一律回
+                // 「Invalid access token」。这不是配错了什么，是这个接口本来就不给应用建——
+                // 直接把原始 HTTP 400 抛给人，他会去翻密钥、翻权限，翻半天翻不到东西。
+                // 其余三样（节点、多维表格、表）没有这个限制，空间一旦到位就全能自动建。
+                failure = Failure(
+                    "凭据无效",
+                    "建知识空间这一步飞书只认用户身份，应用建不了（接口回的是「Invalid access token」）。"
+                    + "空间得你手工建一个：飞书 → 知识库 → 新建知识空间 → 设置 → 成员 → 把这个应用加进来给「可编辑」，"
+                    + "然后把 space_id 填进配置。**只有空间这一样要手工**——填完再跑一次，"
+                    + "需求父节点、多维表格、任务表都会自己建出来并回填台账。"
+                    + "（原始回复：" + (call.Response?.Error?.HumanText ?? "") + "）",
+                    retryable: false);
                 return false;
             }
 
