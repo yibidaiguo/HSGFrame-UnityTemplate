@@ -1022,7 +1022,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
                 // 显式点名生图 driver，不让域路由的失败转移替我们挑。
                 // 转移的前提是候选之间吃同一份调用参数，而**配方名恰恰不通用**——
-                // comfyui 的 icon@v5 转到 oaiimage 就是「找不到预设文件」。
+                // 一家的配方名转到另一家就是「找不到预设文件」。
                 // 点名之后配方查得准，转移这件事留给人显式换 driver。
                 var routeTable = BridgeRouteTable.Load(repositoryRoot);
                 if (!routeTable.TryResolvePort("生图", out var imageDriver, out var driverReason))

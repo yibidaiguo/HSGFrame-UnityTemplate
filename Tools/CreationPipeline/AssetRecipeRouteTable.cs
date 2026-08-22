@@ -13,8 +13,8 @@ namespace Template.Toolkit.CreationPipeline
     /// 它不知道图标该用哪份配方。这张表把「哪类资产用哪份配方」从代码里挪到配置里——
     /// 加一类资产、换一份配方都不用改代码。
     ///
-    /// **为什么要按 driver 分**：配方名不通用。同样是图标，comfyui 那边叫 `icon@v5`
-    /// （住 recipes/，还要一份 workflow.json），oaiimage 那边叫 `icon@v1`（住 presets/）。
+    /// **为什么要按 driver 分**：配方名不通用。同一类资产在本地形态与线上形态那两家
+    /// 叫法就不一样，连配方目录都不同（一边 recipes/ 还要一份节点图，一边 presets/）。
     /// 只按资产类型给一个名字，域路由一旦失败转移到另一个候选，配方名当场对不上，
     /// 回的是「读预设失败：找不到预设文件」——真跑撞过这一脚。
     ///
@@ -120,7 +120,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>
         /// 按 driver 与资产类型取配方名。查不到时给一句**能照做的话**，而不是回落到某个默认配方。
         /// </summary>
-        /// <param name="driverName">要用哪个下游，如「comfyui」。</param>
+        /// <param name="driverName">要用哪个下游，值来自域路由表，不在这里写死。</param>
         /// <param name="assetType">资产类型，如「图标」。</param>
         /// <param name="recipeName">配方名；查不到时为空串。</param>
         /// <param name="reason">查不到的原因与该怎么办；查到时为空串。</param>
@@ -151,7 +151,7 @@ namespace Template.Toolkit.CreationPipeline
             {
                 reason = "配方路由表里没有「" + driverName + "」这个下游那一节。"
                     + "在 " + RelativeRoutePath() + " 里给它加一节，写清它自己的配方名——"
-                    + "配方名不通用，comfyui 与 oaiimage 同一类资产的配方叫法都不一样。";
+                    + "配方名不通用，同一类资产在不同下游的配方叫法都不一样。";
                 return false;
             }
 
