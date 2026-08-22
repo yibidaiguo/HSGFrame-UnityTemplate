@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -939,7 +939,17 @@ namespace Template.Toolkit.Dashboard
         /// <param name="value">当前值；密钥恒为空串。</param>
         /// <param name="isConfigured">配没配。</param>
         /// <param name="hint">一句提示：这个字段该填什么。</param>
-        public PanelHostFieldRow(string name, string fieldType, bool isSecret, string value, bool isConfigured, string hint)
+        /// <param name="options">可选值清单；空表示自由输入。</param>
+        /// <param name="optionSourceNote">选项从哪来的一句话。</param>
+        public PanelHostFieldRow(
+            string name,
+            string fieldType,
+            bool isSecret,
+            string value,
+            bool isConfigured,
+            string hint,
+            IReadOnlyList<string> options,
+            string optionSourceNote)
         {
             Name = name ?? "";
             FieldType = fieldType ?? "";
@@ -947,6 +957,8 @@ namespace Template.Toolkit.Dashboard
             Value = isSecret ? "" : (value ?? "");
             IsConfigured = isConfigured;
             Hint = hint ?? "";
+            Options = options ?? Array.Empty<string>();
+            OptionSourceNote = optionSourceNote ?? "";
         }
 
         /// <summary>字段名。</summary>
@@ -972,6 +984,89 @@ namespace Template.Toolkit.Dashboard
         /// <summary>一句提示：这个字段该填什么。</summary>
         [JsonPropertyName("提示")]
         public string Hint { get; }
+
+        /// <summary>
+        /// 可选值清单；空表示这一格是自由输入。
+        /// 清单为空多半是**还没探过**，不是「没有可选的」——页面永远得留一条自己填的路。
+        /// </summary>
+        [JsonPropertyName("选项")]
+        public IReadOnlyList<string> Options { get; }
+
+        /// <summary>选项从哪来的一句话，给页面显示。</summary>
+        [JsonPropertyName("选项说明")]
+        public string OptionSourceNote { get; }
+    }
+
+    /// <summary>路由页里的一个候选：driver 名，加一句「它接不了这个域」的毛病（没毛病时是空串）。</summary>
+    public sealed class PanelRouteCandidateRow
+    {
+        /// <summary>
+        /// 构造一个候选行。
+        /// </summary>
+        /// <param name="name">driver 名。</param>
+        /// <param name="trouble">接不了这个域的原因；没毛病时空串。</param>
+        public PanelRouteCandidateRow(string name, string trouble)
+        {
+            Name = name ?? "";
+            Trouble = trouble ?? "";
+        }
+
+        /// <summary>driver 名。</summary>
+        [JsonPropertyName("名")]
+        public string Name { get; }
+
+        /// <summary>接不了这个域的原因；没毛病时空串。</summary>
+        [JsonPropertyName("毛病")]
+        public string Trouble { get; }
+    }
+
+    /// <summary>
+    /// 路由页里的一个域：候选清单（按优先级）、策略，以及**还有哪些 driver 能排进来**。
+    /// 「能排进来」那一栏是页面画可选项用的——没有它，改路由就退化成手打 driver 名。
+    /// </summary>
+    public sealed class PanelRouteRow
+    {
+        /// <summary>
+        /// 构造一个域的路由行。
+        /// </summary>
+        /// <param name="port">port 名。</param>
+        /// <param name="candidates">候选清单，按优先级。</param>
+        /// <param name="strategy">策略。</param>
+        /// <param name="availableDrivers">声明了这个 port 的全部 driver 名。</param>
+        /// <param name="trouble">整条读不出来时的原因。</param>
+        public PanelRouteRow(
+            string port,
+            IReadOnlyList<PanelRouteCandidateRow> candidates,
+            string strategy,
+            IReadOnlyList<string> availableDrivers,
+            string trouble)
+        {
+            Port = port ?? "";
+            Candidates = candidates ?? Array.Empty<PanelRouteCandidateRow>();
+            Strategy = strategy ?? "";
+            AvailableDrivers = availableDrivers ?? Array.Empty<string>();
+            Trouble = trouble ?? "";
+        }
+
+        /// <summary>port 名。</summary>
+        [JsonPropertyName("域")]
+        public string Port { get; }
+
+        /// <summary>候选清单，按优先级；第一个是首选。</summary>
+        [JsonPropertyName("候选")]
+        public IReadOnlyList<PanelRouteCandidateRow> Candidates { get; }
+
+        /// <summary>策略：首选固定 或 失败转移。</summary>
+        [JsonPropertyName("策略")]
+        public string Strategy { get; }
+
+        /// <summary>声明了这个 port 的全部 driver 名。</summary>
+        [JsonPropertyName("可选driver")]
+        public IReadOnlyList<string> AvailableDrivers { get; }
+
+        /// <summary>整条读不出来时的原因；正常时空串。</summary>
+        [JsonPropertyName("毛病")]
+        public string Trouble { get; }
     }
 
     /// <summary>
@@ -2924,6 +3019,102 @@ namespace Template.Toolkit.Dashboard
         }
 
         /// <summary>
+        /// 读路由页：每个域现在挂着哪几个候选下游、首选是谁、挂了换不换人，
+        /// 外加**这个域还有哪些 driver 可以排进来**（页面要拿它画可选项，不然只能手打名字）。
+        ///
+        /// 候选里有名字但那个 driver 不存在、或它没声明这个 port 时，这里就标出来——
+        /// 那种坏路由平时看不出来，只有真调用的那一刻才炸。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static IReadOnlyList<PanelRouteRow> ReadRoutes(string repositoryRoot)
+        {
+            var rows = new List<PanelRouteRow>();
+            var routeTable = BridgeRouteTable.Load(repositoryRoot);
+            if (!routeTable.Loaded)
+            {
+                rows.Add(new PanelRouteRow("（路由表读不了）", Array.Empty<PanelRouteCandidateRow>(), "", Array.Empty<string>(), routeTable.LoadFailureReason));
+                return rows;
+            }
+
+            // 每个 driver 声明了哪些 port，先摊平成一张表：后面每个域都要问一遍「谁能接这个域」。
+            var portToDrivers = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            var driverPorts = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+            foreach (var driverName in EnumerateDriverNames(repositoryRoot))
+            {
+                IReadOnlyList<string> ports;
+                try
+                {
+                    ports = BridgeDriverDescriptor.Load(repositoryRoot, driverName).Ports;
+                }
+                catch (InvalidOperationException)
+                {
+                    continue;
+                }
+
+                driverPorts[driverName] = ports;
+                foreach (var port in ports)
+                {
+                    if (!portToDrivers.TryGetValue(port, out var list))
+                    {
+                        list = new List<string>();
+                        portToDrivers[port] = list;
+                    }
+
+                    list.Add(driverName);
+                }
+            }
+
+            foreach (var pair in routeTable.PortRoutes.OrderBy(item => item.Key, StringComparer.Ordinal))
+            {
+                var candidates = new List<PanelRouteCandidateRow>();
+                foreach (var candidate in pair.Value.Candidates)
+                {
+                    string trouble;
+                    if (!driverPorts.TryGetValue(candidate, out var ports))
+                    {
+                        trouble = "这个 driver 不存在";
+                    }
+                    else if (!ports.Contains(pair.Key, StringComparer.Ordinal))
+                    {
+                        trouble = ports.Count == 0
+                            ? "它没声明任何 port"
+                            : "它没声明这个域，只声明了 " + string.Join("、", ports);
+                    }
+                    else
+                    {
+                        trouble = "";
+                    }
+
+                    candidates.Add(new PanelRouteCandidateRow(candidate, trouble));
+                }
+
+                var available = portToDrivers.TryGetValue(pair.Key, out var canServe)
+                    ? canServe.OrderBy(name => name, StringComparer.Ordinal).ToList()
+                    : new List<string>();
+
+                rows.Add(new PanelRouteRow(pair.Key, candidates, pair.Value.Strategy, available, ""));
+            }
+
+            return rows;
+        }
+
+        /// <summary>列出 Bridges/ 下有 driver.json 的目录名。</summary>
+        private static IReadOnlyList<string> EnumerateDriverNames(string repositoryRoot)
+        {
+            var bridges = Path.Combine(repositoryRoot, "Bridges");
+            if (!Directory.Exists(bridges))
+            {
+                return Array.Empty<string>();
+            }
+
+            return Directory.EnumerateDirectories(bridges)
+                .Where(directory => File.Exists(Path.Combine(directory, "driver.json")))
+                .Select(Path.GetFileName)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToList();
+        }
+
+        /// <summary>
         /// 读桥接包页：每个编辑器 / 每个下游的本体装没装、要往里塞的包装没装、还差什么。
         /// 判定全在 <see cref="HostPackageInventory"/> 那一份，这里只做形状转换——
         /// 面板与 bridge.inventory 命令看到的必须是同一份判定，不许各算各的。
@@ -2952,7 +3143,9 @@ namespace Template.Toolkit.Dashboard
                         field.IsSecret,
                         field.Value,
                         field.IsConfigured,
-                        field.Hint))
+                        field.Hint,
+                        field.Options,
+                        field.OptionSourceNote))
                     .ToList();
                 rows.Add(new PanelHostRow(
                     host.Name,

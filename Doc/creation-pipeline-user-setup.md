@@ -53,7 +53,9 @@ notepad "Tools\CreationPipeline\Config\local.json"
 | `执行后端密钥` | 你另配的那个 LLM key | AI 对抗预审、语义冲突比对跑不了 |
 | `下游配置.oaicompat.地址` + `.模型` | 那个 key 的 **OpenAI 兼容 base URL** 与模型 id。**判断 base URL 对不对只有一条标准：它加上 `/chat/completions` 能收 POST**。DeepSeek 就是 `https://api.deepseek.com/v1` + `deepseek-chat` | 同上 |
 | `生图密钥` | 线上生图那个中转的 API Key。**跟 `执行后端密钥` 是两把钥匙**——同一个中转也各算各的，别指望填一处两处都通 | **生图整条路跑不了**：oaiimage 是「生图」域的默认 driver，`bridge.generate` 不给 `--Driver` 时走的就是它。要回本地那条路加 `--Driver comfyui` |
-| `下游配置.oaiimage.地址` + `.模型` | 那个 key 的 **OpenAI 兼容 base URL** 与图像模型 id。**判断 base URL 对不对只有一条标准：它加上 `/images/generations` 能收 POST**（`/v1` 结尾那一段要带上）。模型填 `gpt-image-1` 或 `dall-e-3`；填之前先跑一次 `bridge.probe --Driver oaiimage`，它只查 `/models`、不出图不花钱，回来的清单里有哪个就填哪个 | 同上 |
+| `下游配置.oaiimage.地址` | 那个 key 的 **OpenAI 兼容 base URL**。**判断对不对只有一条标准：它加上 `/images/generations` 能收 POST**（`/v1` 结尾那一段要带上） | 同上 |
+| `下游配置.oaiimage.模型` | **不用手打**：填好地址与密钥，点一次卡片上的「试跑一次」（只查 `/models`，不出图不花钱），这一格就变成下拉，列的是**那个地址自己报的模型**。换了地址要重探一次。列表里没有你要的就选「自己填…」 | 同上 |
+| `下游配置.oaiimage.尺寸` | **可以不填**。不填时尺寸按资产请求的 `规格.宽 × 规格.高` 走；资产请求也没写就一个 `size` 参数都不发，由下游按它自己的默认来。桥里没有写死的缺省尺寸——各家模型的档位不一样，替它猜只会撞上「参数非法」 | 不填不影响 |
 
 **填完的完整长相**（照抄，把占位换成真值；填不了的整条删掉）：
 
@@ -74,21 +76,25 @@ notepad "Tools\CreationPipeline\Config\local.json"
     },
     "tripo": { "地址": "https://openapi.tripo3d.ai/v3", "超时秒": 600 },
     "oaicompat": { "地址": "https://api.deepseek.com/v1", "模型": "deepseek-chat", "超时秒": 120 },
-    "oaiimage": { "地址": "https://中转域名/v1", "模型": "gpt-image-1", "尺寸": "1024x1024", "超时秒": 180 }
+    "oaiimage": { "地址": "https://中转域名/v1", "模型": "gpt-image-1", "超时秒": 180 }
   }
 }
 ```
 
 ## 二点五、一个域有好几个下游时，怎么选用哪个
 
-每个域（生图、模型生成、模型加工、执行后端……）都可以挂**一串**候选下游，
-顺序就是优先级，第一个是首选。看现状：
+**在面板上改：** 起面板 → 左边「下游设施 › **路由**」页。每个域一张卡，卡上就是候选清单，
+`↑ ↓` 调优先级、`×` 移出、底下「还能排进来」那一排点一下加到队尾，选好策略点「保存」——
+直接写进 `downstream.json`，不用碰 JSON。
+
+> 那一页写的是 `downstream.json`（**进 git**，改它是改整个项目的选择），
+> 不是 `local.json`（各人机器上的地址与密钥）。两份别搞混。
+
+命令行同一份账：
 
 ```
 bridge.route.list
 ```
-
-换首选、或者加备选：
 
 ```
 bridge.route.set --Port 生图 --Candidates "comfyui,oaiimage"

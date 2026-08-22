@@ -236,6 +236,9 @@ namespace Template.Toolkit.Dashboard
                     case "/api/panel/packages":
                         WritePanelPage(response, () => CreationPanelReader.ReadHostPackages(_repositoryRoot));
                         break;
+                    case "/api/panel/routes":
+                        WritePanelPage(response, () => CreationPanelReader.ReadRoutes(_repositoryRoot));
+                        break;
                     case "/api/panel/deviation":
                         // 键同时收中文与 ASCII 别名（决策 57）：中文键要客户端把它按 UTF-8 百分号编码才认得出来，
                         // 浏览器会编、手敲的 curl 常常不编——不给别名的话，参数没认出来和

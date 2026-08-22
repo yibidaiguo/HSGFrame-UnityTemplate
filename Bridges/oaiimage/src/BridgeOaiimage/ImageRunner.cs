@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -20,9 +20,6 @@ namespace Template.Bridges.Oaiimage
 
         /// <summary>桥自己的 driver 名。桥住在 Bridges/（下游边界门禁的白名单），可以写自己的名字。</summary>
         private const string DriverName = "oaiimage";
-
-        /// <summary>缺省尺寸；预设与本机配置都没写时用它。</summary>
-        private const string DefaultSize = "1024x1024";
 
         /// <summary>缺省超时秒数：线上出图比对话慢得多，120 秒常常不够。</summary>
         private const int DefaultTimeoutSeconds = 180;
@@ -362,8 +359,20 @@ namespace Template.Bridges.Oaiimage
         }
 
         /// <summary>
-        /// 算这次要发的尺寸：预设写「规格」就从资产请求的「规格.宽 / 规格.高」拼，
-        /// 预设写别的非空值就用它，预设为空回落到本机配置的「尺寸」，再空给缺省值。
+        /// 算这次要发的尺寸，四级回落，**每一级都可以是「不指定」**：
+        ///
+        /// 1. 预设的「尺寸」写「规格」→ 从资产请求的「规格.宽 / 规格.高」现算（这是缺省做法：
+        ///    尺寸是资产请求说了算的东西，不该焊在预设里）；
+        /// 2. 预设写了别的非空值 → 就用它（要把某份预设钉死在一档上时用）；
+        /// 3. 都没有 → 用本机配置的「尺寸」；
+        /// 4. 连它也空 → <b>一个 size 参数都不发</b>，由下游按它自己的默认来。
+        ///
+        /// 第 4 级是关键：桥里**没有**写死的缺省尺寸。写一个进去就等于替下游决定了
+        /// 「这个模型该出多大的图」，而各家模型的档位根本不一样
+        /// （同一个中转后面挂什么模型也不由我们决定）。不发这个参数，下游自己会挑它支持的。
+        ///
+        /// 写「规格」但资产请求里没有规格时**不报错**，顺着往下回落——
+        /// 资产请求不带规格是常事（试跑、临时出一张图），为它整条失败不合算。
         /// </summary>
         private static bool TryResolveSize(ImagePreset preset, BridgeRequest request, JsonElement assetRequest, out string size, out string reason)
         {
@@ -372,29 +381,39 @@ namespace Template.Bridges.Oaiimage
 
             if (string.Equals(preset.Size, ImagePreset.SizeFromSpecification, StringComparison.Ordinal))
             {
-                if (!TryReadSpecificationLength(assetRequest, "宽", out var width, out reason)
-                    || !TryReadSpecificationLength(assetRequest, "高", out var height, out reason))
+                if (TryReadSpecificationLength(assetRequest, "宽", out var width, out reason)
+                    && TryReadSpecificationLength(assetRequest, "高", out var height, out reason))
+                {
+                    size = string.Format(CultureInfo.InvariantCulture, "{0}x{1}", width, height);
+                    return true;
+                }
+
+                // 规格里的宽高是**写了但写坏了**（负数、不是整数）时才算错；
+                // 压根没写规格只是「没指定」，回落到配置。
+                if (reason.Length > 0 && HasSpecificationSize(assetRequest))
                 {
                     return false;
                 }
 
-                size = string.Format(CultureInfo.InvariantCulture, "{0}x{1}", width, height);
-                return true;
+                reason = "";
             }
-
-            if (preset.Size.Length > 0)
+            else if (preset.Size.Length > 0)
             {
                 size = preset.Size;
                 return true;
             }
 
-            size = ReadConfigurationString(request, "尺寸", DefaultSize);
-            if (size.Length == 0)
-            {
-                size = DefaultSize;
-            }
-
+            size = ReadConfigurationString(request, "尺寸", "");
             return true;
+        }
+
+        /// <summary>资产请求里到底有没有写「规格.宽」或「规格.高」（不管写得对不对）。</summary>
+        private static bool HasSpecificationSize(JsonElement assetRequest)
+        {
+            return assetRequest.ValueKind == JsonValueKind.Object
+                && assetRequest.TryGetProperty("规格", out var specification)
+                && specification.ValueKind == JsonValueKind.Object
+                && (specification.TryGetProperty("宽", out _) || specification.TryGetProperty("高", out _));
         }
 
         /// <summary>读资产请求的「规格.宽」或「规格.高」；缺失或不是正整数时给出可读原因。</summary>

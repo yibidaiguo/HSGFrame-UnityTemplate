@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -88,13 +88,17 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="value">当前值；**密钥恒为空串**，调用方不许往里塞密钥的值。</param>
         /// <param name="isConfigured">配没配：非密钥看值非空，密钥看键在不在。</param>
         /// <param name="hint">一句提示：这个字段该填什么。</param>
+        /// <param name="options">可选值清单；空表示这一格是自由输入。</param>
+        /// <param name="optionSourceNote">选项从哪来的一句话；没有选项来源时为空串。</param>
         public HostConfigFieldEntry(
             string name,
             string fieldType,
             bool isSecret,
             string value,
             bool isConfigured,
-            string hint)
+            string hint,
+            IReadOnlyList<string> options = null,
+            string optionSourceNote = "")
         {
             Name = name ?? "";
             FieldType = fieldType ?? "";
@@ -102,6 +106,8 @@ namespace Template.Toolkit.CreationPipeline
             Value = isSecret ? "" : (value ?? "");
             IsConfigured = isConfigured;
             Hint = hint ?? "";
+            Options = options ?? Array.Empty<string>();
+            OptionSourceNote = optionSourceNote ?? "";
         }
 
         /// <summary>字段名。</summary>
@@ -121,6 +127,21 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>一句提示：这个字段该填什么。</summary>
         public string Hint { get; }
+
+        /// <summary>
+        /// 可选值清单；空表示这一格是自由输入。
+        ///
+        /// 来源由 driver.json 的「配置schema」里那个字段的「选项来源」声明，
+        /// 现在只认 <c>探测.模型</c>：值取自那份 driver 最近一次能力探测的产出。
+        /// 也就是说**它是跟着「地址」走的**——换个地址重跑一次试跑，这一格的选项就换一批。
+        ///
+        /// 清单为空**不等于没有可选值**，多半是还没探过。所以页面不许把它变成一个
+        /// 只能从空列表里挑的死格子：永远得留一条自己填的路。
+        /// </summary>
+        public IReadOnlyList<string> Options { get; }
+
+        /// <summary>选项从哪来的一句话，给页面显示；没有选项来源时为空串。</summary>
+        public string OptionSourceNote { get; }
     }
 
     /// <summary>
@@ -798,6 +819,7 @@ namespace Template.Toolkit.CreationPipeline
         {
             var secretNames = new HashSet<string>(descriptor.SecretFieldNames, StringComparer.Ordinal);
             var schemaTypes = ReadSchemaTypes(repositoryRoot, driverName);
+            var optionSources = ReadSchemaOptionSources(repositoryRoot, driverName);
             var hasConfiguration = settings.TryGetDriverConfiguration(driverName, out var configuration);
             var fields = new List<HostConfigFieldEntry>();
 
@@ -812,9 +834,10 @@ namespace Template.Toolkit.CreationPipeline
                 }
 
                 var value = hasConfiguration ? ReadConfigurationValue(configuration, fieldName) : "";
+                var options = ReadFieldOptions(repositoryRoot, driverName, fieldName, optionSources, out var optionSourceNote);
                 fields.Add(new HostConfigFieldEntry(
                     fieldName, fieldType.Length == 0 ? "string" : fieldType, false, value, value.Length > 0,
-                    HintFor(fieldName, driverName)));
+                    HintFor(fieldName, driverName), options, optionSourceNote));
             }
 
             // 「密钥字段」数组点名、但配置 schema 里没有的密钥，照样得给一格——
@@ -874,6 +897,102 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             return types;
+        }
+
+        /// <summary>读 driver.json「配置schema」里每个字段声明的「选项来源」；没声明的字段不进表。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        private static Dictionary<string, string> ReadSchemaOptionSources(string repositoryRoot, string driverName)
+        {
+            var sources = new Dictionary<string, string>(StringComparer.Ordinal);
+            try
+            {
+                using (var document = JsonDocument.Parse(File.ReadAllText(BridgeDriverDescriptor.DriverFile(repositoryRoot, driverName))))
+                {
+                    if (document.RootElement.TryGetProperty("配置schema", out var schema) && schema.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var property in schema.EnumerateObject())
+                        {
+                            if (property.Value.ValueKind == JsonValueKind.Object
+                                && property.Value.TryGetProperty("选项来源", out var source)
+                                && source.ValueKind == JsonValueKind.String)
+                            {
+                                sources[property.Name] = source.GetString() ?? "";
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                // 自述已经 Load 过一次，这里再失败几乎不可能；当没有选项来源处理即可。
+            }
+
+            return sources;
+        }
+
+        /// <summary>
+        /// 按「选项来源」取一个字段的可选值。现在只认 <c>探测.模型</c> / <c>探测.节点</c> / <c>探测.lora</c>：
+        /// 值取自那份 driver 最近一次能力探测的产出文件。
+        ///
+        /// **探测产出是跟着「地址」走的**——换个地址重跑一次试跑，这一格的选项就换一批。
+        /// 这正是「根据填的地址选模型」那件事的落点：不是把模型名写死在代码或自述里，
+        /// 而是问下游它自己有什么。
+        ///
+        /// 没探过 → 返回空清单，并在说明里写清「还没探过」而不是「没有可选的」。
+        /// 这两件事差得远：前者是「去点一下试跑」，后者是「这个下游没有模型」。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        /// <param name="fieldName">字段名。</param>
+        /// <param name="optionSources">字段名 → 选项来源。</param>
+        /// <param name="note">选项从哪来的一句话。</param>
+        private static IReadOnlyList<string> ReadFieldOptions(
+            string repositoryRoot,
+            string driverName,
+            string fieldName,
+            IReadOnlyDictionary<string, string> optionSources,
+            out string note)
+        {
+            note = "";
+            if (optionSources == null || !optionSources.TryGetValue(fieldName, out var source) || source.Length == 0)
+            {
+                return Array.Empty<string>();
+            }
+
+            const string probePrefix = "探测.";
+            if (!source.StartsWith(probePrefix, StringComparison.Ordinal))
+            {
+                note = $"自述里写的选项来源「{source}」还不认，这一格按自由输入处理";
+                return Array.Empty<string>();
+            }
+
+            var category = source.Substring(probePrefix.Length);
+            var probePath = ProvisionPaths.ProbeResultFile(repositoryRoot, driverName);
+            if (!File.Exists(probePath))
+            {
+                note = "还没探过下游，选项是空的——先填好地址与密钥，点一次「试跑一次」，这里就会列出它自己报的清单";
+                return Array.Empty<string>();
+            }
+
+            var probeResult = CapabilityProbeResult.LoadFromFile(probePath);
+            var items = string.Equals(category, "模型", StringComparison.Ordinal) ? probeResult.Models
+                : string.Equals(category, "节点", StringComparison.Ordinal) ? probeResult.Nodes
+                : string.Equals(category, "lora", StringComparison.OrdinalIgnoreCase) ? probeResult.Loras
+                : null;
+
+            if (items == null)
+            {
+                note = $"自述里写的选项来源「{source}」还不认，这一格按自由输入处理";
+                return Array.Empty<string>();
+            }
+
+            var names = items.Select(item => item.Name).Where(name => name.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+            names.Sort(StringComparer.Ordinal);
+            note = names.Count == 0
+                ? "上次探测回来的清单是空的——地址对不对、这个账号开通了什么，都可能是原因"
+                : $"这 {names.Count} 项是上次「试跑一次」时下游自己报的；换了地址要重探一次";
+            return names;
         }
 
         /// <summary>把一个非密钥配置值读成字符串：数字与布尔按原样文本给，缺失给空串。</summary>

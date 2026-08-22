@@ -1,4 +1,4 @@
-// 创作管线面板的全部前端逻辑。
+﻿// 创作管线面板的全部前端逻辑。
 // 三条约束：零外部依赖（不许出现 CDN、不许 import）；页面不存业务状态（每页都是拉一次接口再渲染）；
 // 没有的东西不说成有——取数失败、字段缺失一律如实写原因，绝不用默认值糊过去。
 
@@ -116,6 +116,11 @@ var 页面表 = [
         键: '桥接包', 别名: 'packages', 组: '下游设施', 图: '桥接', 地址: '/api/panel/packages',
         说明: '每个编辑器与每个下游要装什么、装没装、还差什么。「未验」是本机还没探过，不是没有——它既不染绿也不染红。',
         渲染: 渲染桥接包
+    },
+    {
+        键: '路由', 别名: 'routes', 组: '下游设施', 图: '路由', 地址: '/api/panel/routes',
+        说明: '每个域挂着哪几个下游、首选是谁、挂了换不换人。候选顺序就是优先级，改完点保存直接写进 downstream.json。',
+        渲染: 渲染路由
     }
 ];
 
@@ -1995,6 +2000,173 @@ function 渲染桥接包(数据) {
     return 文本 + 分类表(全部包);
 }
 
+// ── 路由页：改哪个域用哪个下游 ──
+// 这一页写的是 downstream.json（进 git，改它是改整个项目的选择），
+// 不是 local.json（各人机器上的地址与密钥）。两份别搞混。
+//
+// 页面自己不存状态：候选顺序改完先放在 DOM 里，点「保存」才发一条 bridge.route.set。
+// 没点保存就切页 = 没改过，这跟别的页一致。
+
+var 路由草稿 = {};
+
+// 保留草稿 = true 时不从数据重建草稿：调顺序、加减候选都是先落在草稿上的，
+// 重建一次就把人刚点的那几下全冲掉了（第一版就是这么错的，↑↓ 点了没反应）。
+function 渲染路由(数据, 保留草稿) {
+    if (!数据 || 数据.length === 0) {
+        记徽章('路由', 0, '');
+        return 空态('域路由表里一个域都没有', '看 Tools/CreationPipeline/Config/downstream.json 的「域路由」那一节。');
+    }
+    var 坏 = 0;
+    var i;
+    var k;
+    if (!保留草稿) { 路由草稿 = {}; }
+    for (i = 0; i < 数据.length; i++) {
+        var 候选们 = 数据[i]['候选'] || [];
+        var 名单 = [];
+        for (k = 0; k < 候选们.length; k++) {
+            名单.push(候选们[k]['名']);
+            if (候选们[k]['毛病']) { 坏++; }
+        }
+        if (!路由草稿.hasOwnProperty(数据[i]['域'])) {
+            路由草稿[数据[i]['域']] = { 候选: 名单, 策略: 数据[i]['策略'] };
+        }
+    }
+
+    var 文本 = '<div class="格">' +
+        指标(数据.length, '域', { 脚: '域路由表里有几条' }) +
+        指标(坏, '坏候选', { 边: 坏 > 0 ? '红' : '', 色: 坏 > 0 ? '红' : '', 脚: 'driver 不存在，或它没声明这个域' }) +
+        '</div>';
+    文本 += '<p class="弱 小字">候选顺序就是优先级，第一个是首选。' +
+        '「首选固定」= 首选挂了就挂；「失败转移」= 顺着往下试，全试完才算失败。' +
+        '开转移前请先读一句：候选之间得吃同一份调用参数，而且「超时」也算可转移——' +
+        '万一那次其实在下游跑完了，换人会重复计费一次。</p>';
+
+    文本 += '<div class="格 宽卡">';
+    for (i = 0; i < 数据.length; i++) { 文本 += 路由卡(数据[i]); }
+    记徽章('路由', 坏 > 0 ? String(坏) : '', 坏 > 0 ? '红' : '');
+    return 文本 + '</div>';
+}
+
+function 路由卡(行) {
+    var 域 = 行['域'];
+    var 边色 = 行['毛病'] ? 'var(--红)' : 'var(--线)';
+    var 卡 = '<div class="板" style="margin:0;border-color:' + 边色 + ';">' +
+        '<div class="板题"><span>' + 转义(域) + '</span><span class="右">' + 转义(行['策略'] || '') + '</span></div>';
+    if (行['毛病']) {
+        return 卡 + '<p class="红 小字">' + 转义(行['毛病']) + '</p></div>';
+    }
+    if (!可拼实参(域)) {
+        return 卡 + '<p class="黄 小字">这个域名里有引号或反斜杠，面板改不了它，手开 downstream.json 改。</p></div>';
+    }
+    卡 += '<div id="路由候选_' + 转义(域) + '">' + 候选列表(域) + '</div>';
+    卡 += 待排候选(域, 行['可选driver'] || []);
+    卡 += '<div style="display:flex;gap:5px;align-items:center;margin-top:9px;flex-wrap:wrap;">';
+    卡 += '<span class="小字" style="min-width:42px;">策略</span>';
+    var 当前策略 = (路由草稿[域] || {}).策略 || 行['策略'];
+    卡 += '<select class="输" id="路由策略_' + 转义(域) + '" onchange="记策略(' + 引(域) + ', this.value)" style="flex:1;min-width:120px;">';
+    卡 += 策略项('首选固定', 当前策略);
+    卡 += 策略项('失败转移', 当前策略);
+    卡 += '</select>';
+    卡 += '<button class="钮 细" onclick="存路由(' + 引(域) + ')">保存</button>';
+    卡 += '</div>';
+    return 卡 + '</div>';
+}
+
+function 策略项(值, 当前) {
+    return '<option value="' + 值 + '"' + (值 === 当前 ? ' selected' : '') + '>' + 值 + '</option>';
+}
+
+// 策略也进草稿：不进的话重画一次候选就把下拉打回原样，人以为自己没点中。
+function 记策略(域, 值) {
+    if (路由草稿[域]) { 路由草稿[域].策略 = 值; }
+}
+
+// 候选清单：上下箭头调优先级、× 移出。全是对草稿的操作，不发请求。
+function 候选列表(域) {
+    var 草 = 路由草稿[域];
+    if (!草 || 草.候选.length === 0) {
+        return '<p class="黄 小字">一个候选都没有——这个域现在没有下游可用。</p>';
+    }
+    var 文本 = '';
+    for (var i = 0; i < 草.候选.length; i++) {
+        var 名 = 草.候选[i];
+        文本 += '<div style="display:flex;gap:5px;align-items:center;margin-bottom:4px;">';
+        文本 += '<span class="小字" style="min-width:30px;">' + (i === 0 ? '首选' : String(i + 1)) + '</span>';
+        文本 += '<span class="等宽" style="flex:1;">' + 转义(名) + '</span>';
+        文本 += '<button class="钮 细" onclick="挪候选(' + 引(域) + ', ' + i + ', -1)"' + (i === 0 ? ' disabled' : '') + '>↑</button>';
+        文本 += '<button class="钮 细" onclick="挪候选(' + 引(域) + ', ' + i + ', 1)"' + (i === 草.候选.length - 1 ? ' disabled' : '') + '>↓</button>';
+        文本 += '<button class="钮 细 危" onclick="删候选(' + 引(域) + ', ' + i + ')">×</button>';
+        文本 += '</div>';
+    }
+    return 文本;
+}
+
+// 还没排进来、但声明了这个域的 driver。点一下加到队尾。
+function 待排候选(域, 可选们) {
+    var 草 = 路由草稿[域];
+    var 剩 = [];
+    for (var i = 0; i < 可选们.length; i++) {
+        if (草.候选.indexOf(可选们[i]) < 0) { 剩.push(可选们[i]); }
+    }
+    if (剩.length === 0) { return ''; }
+    var 文本 = '<div class="弱 小字" style="margin-top:7px;">还能排进来：</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:3px;">';
+    for (i = 0; i < 剩.length; i++) {
+        文本 += '<button class="钮 细" onclick="加候选(' + 引(域) + ', ' + 引(剩[i]) + ')">+ ' + 转义(剩[i]) + '</button>';
+    }
+    return 文本 + '</div>';
+}
+
+function 挪候选(域, 位置, 方向) {
+    var 草 = 路由草稿[域];
+    var 目标 = 位置 + 方向;
+    if (!草 || 目标 < 0 || 目标 >= 草.候选.length) { return; }
+    var 暂 = 草.候选[位置];
+    草.候选[位置] = 草.候选[目标];
+    草.候选[目标] = 暂;
+    重画路由卡(域);
+}
+
+function 删候选(域, 位置) {
+    var 草 = 路由草稿[域];
+    if (!草) { return; }
+    草.候选.splice(位置, 1);
+    重画路由卡(域);
+}
+
+function 加候选(域, 名) {
+    var 草 = 路由草稿[域];
+    if (!草 || 草.候选.indexOf(名) >= 0) { return; }
+    草.候选.push(名);
+    重画路由卡(域);
+}
+
+// 重画整页但**保留草稿**：不重取数据，也不重建草稿，
+// 所以别的卡上没保存的改动也还在。
+function 重画路由卡(域) {
+    内容区.innerHTML = 渲染路由(本页数据, true);
+}
+
+function 存路由(域) {
+    var 草 = 路由草稿[域];
+    if (!草) { return; }
+    if (草.候选.length === 0) {
+        吐司('候选是空的，这个域会没有下游可用——先加一个再保存', false);
+        return;
+    }
+    var 策略节 = 元素('路由策略_' + 域);
+    var 策略 = 策略节 ? 策略节.value : 草.策略;
+    发命令JSON('bridge.route.set', {
+        Port: 域,
+        Candidates: 草.候选.join(','),
+        Strategy: 策略,
+        RepositoryRoot: '.'
+    }, function (结果) {
+        吐司(结果.成功 ? 首行(结果.文本) : ('没存成：' + 首行(结果.文本)), 结果.成功);
+        // 存成了才把草稿丢掉：下一次取数会照文件里的新状态重建它。
+        if (结果.成功) { delete 路由草稿[域]; 刷新(); }
+    });
+}
+
 // 页内筛选：按类别切、以及「只看没装好的」。两个都不重新取数——数据就在眼前，
 // 再跑一趟文件只会让人以为自己点出了什么副作用。
 function 重画桥接包() {
@@ -2234,7 +2406,27 @@ function 字段行(宿主, 字段, 序号) {
         return 行 + '</div>';
     }
     var 标识 = '配_' + 宿主 + '_' + 序号;
-    行 += '<input class="输" id="' + 标识 + '" style="flex:1;min-width:160px;"';
+    var 选项们 = 字段['选项'] || [];
+    var 可选 = !密 && 选项们.length > 0;
+
+    if (可选) {
+        // 有可选清单时给下拉。但**永远留一条自己填的路**：清单是上次探测的快照，
+        // 下游随时可能多出一个我们还没探到的模型，把这一格做成只能从快照里挑就成了新的枷锁。
+        行 += '<select class="输" id="' + 标识 + '_选" style="flex:1;min-width:160px;"';
+        行 += ' title="' + 转义(字段['提示']) + '"';
+        行 += ' onchange="切换自填(' + 引(标识) + ')">';
+        var 命中 = false;
+        for (var k = 0; k < 选项们.length; k++) {
+            var 选中 = String(选项们[k]) === String(字段['值']);
+            if (选中) { 命中 = true; }
+            行 += '<option value="' + 转义(选项们[k]) + '"' + (选中 ? ' selected' : '') + '>' + 转义(选项们[k]) + '</option>';
+        }
+        行 += '<option value="__自己填__"' + (命中 ? '' : ' selected') + '>自己填…</option>';
+        行 += '</select>';
+    }
+
+    var 藏输入 = 可选 && 命中Of(字段, 选项们) ? 'display:none;' : '';
+    行 += '<input class="输" id="' + 标识 + '" style="flex:1;min-width:160px;' + 藏输入 + '"';
     行 += ' title="' + 转义(字段['提示']) + '"';
     if (密) {
         行 += ' type="password" placeholder="粘贴新值，存完不回显">';
@@ -2244,7 +2436,33 @@ function 字段行(宿主, 字段, 序号) {
     var 实参 = 引(宿主) + ', ' + 引(名) + ', ' + 引(标识) + ', ' + (密 ? 'true' : 'false');
     行 += '<button class="钮 细" onclick="存字段(' + 实参 + ')">保存</button>';
     行 += '<button class="钮 细 危" onclick="清字段(' + 引(宿主) + ', ' + 引(名) + ', ' + (密 ? 'true' : 'false') + ')">清空</button>';
+    if (字段['选项说明']) {
+        行 += '<div class="弱 小字" style="flex-basis:100%;">' + 转义(字段['选项说明']) + '</div>';
+    }
     return 行 + '</div>';
+}
+
+// 当前值在不在可选清单里。不在就说明是手填的值，那一格得让输入框露出来。
+function 命中Of(字段, 选项们) {
+    for (var i = 0; i < 选项们.length; i++) {
+        if (String(选项们[i]) === String(字段['值'])) { return true; }
+    }
+    return false;
+}
+
+// 下拉挑到「自己填…」时把输入框放出来；挑到具体一项时把值同步进输入框并收起来。
+// 保存那一路只读输入框，不读下拉——两个来源的地方留一个真相，省掉「存的到底是哪个」这类问题。
+function 切换自填(标识) {
+    var 下拉 = 元素(标识 + '_选');
+    var 输入 = 元素(标识);
+    if (!下拉 || !输入) { return; }
+    if (下拉.value === '__自己填__') {
+        输入.style.display = '';
+        输入.focus();
+        return;
+    }
+    输入.value = 下拉.value;
+    输入.style.display = 'none';
 }
 
 // onclick 属性里拼实参：值里带引号或反斜杠就拼不出合法的 JS。
