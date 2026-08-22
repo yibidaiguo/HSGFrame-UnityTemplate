@@ -295,14 +295,17 @@ namespace Template.Bridges.Tripo
 
         /// <summary>
         /// 提交时用的缺省模型版本：v3.0（定价表里 text_to_model 无纹理 10 积分，最省的档位）。
-        /// 调用方可用配置键「模型版本」覆盖，值必须在 <see cref="AllowedModelVersions"/> 里。
+        /// 调用方可用配置键「模型版本」覆盖；填「自动」则由调用侧从探测清单里现挑，桥收到的永远是真值。
         /// </summary>
         public const string DefaultModelVersion = "v3.0-20250812";
 
         /// <summary>
-        /// 下游允许的四个模型版本，由服务端 code 1004 的报错原文实证：
+        /// 2026-08-21 实证时服务端报的四个模型版本，由 code 1004 的报错原文记下：
         /// 「invalid model 'tripo-v3.1', allowed values: P1-20260311, v2.5-20250123, v3.0-20250812, v3.1-20260211」。
-        /// 官方快速开始那页写的 `tripo-v3.1` 不在其中——服务端当场拒（决策 94：以真回包为准）。
+        ///
+        /// **这是一份快照，不是白名单。**当前清单请跑 caps 探（<see cref="ProbeAllowedModelVersions"/>）——
+        /// 它问的是服务端此刻怎么说。这份快照只用来在日志里提醒一句「你填的不在上次实证的清单里」，
+        /// 不拦任何调用。
         /// </summary>
         public static readonly string[] AllowedModelVersions =
         {
@@ -335,7 +338,13 @@ namespace Template.Bridges.Tripo
         }
 
         /// <summary>
-        /// 校验并归一模型版本：空串给缺省值，不在允许列表里当场抛（省一次注定 1004 的调用）。
+        /// 归一模型版本：空串给缺省值，其余原样交给服务端判。
+        ///
+        /// **这里刻意不拦。**从前它拿 <see cref="AllowedModelVersions"/> 当白名单，
+        /// 不在里面就当场抛。那份名单是 2026-08-21 实证时的快照，而现在清单是**探出来的**：
+        /// 下游哪天多一个模型，探测就会把它列进面板的下拉，人挑了它却被本机的旧快照拦下来——
+        /// 那才是真的坏。判官交回服务端：真不合法它回 1004，报错里带着当时的 allowed values，
+        /// 比任何快照都新。不合法的值只多花一次注定被拒的调用，那一次不花积分。
         /// </summary>
         /// <param name="modelVersion">调用方给的模型版本。</param>
         public static string NormalizeModelVersion(string modelVersion)
@@ -348,10 +357,9 @@ namespace Template.Bridges.Tripo
 
             if (Array.IndexOf(AllowedModelVersions, text) < 0)
             {
-                throw new TripoClientException(
-                    "请求不合协议",
-                    "模型版本「" + text + "」不在下游允许的四个值里：" + string.Join("、", AllowedModelVersions),
-                    retryable: false);
+                Console.Error.WriteLine(
+                    "BridgeTripo 模型版本「" + text + "」不在上次实证的清单里（" + string.Join("、", AllowedModelVersions)
+                    + "）——照发，由服务端判。想看当前清单跑 bridge.catalog --Driver tripo --Refresh true");
             }
 
             return text;
