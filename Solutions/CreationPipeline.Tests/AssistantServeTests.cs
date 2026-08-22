@@ -42,7 +42,72 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal("u-1", message.SenderIdentifier);
             Assert.Equal("m-1", message.MessageIdentifier);
             Assert.Equal("想加个排序", message.Text);
-            Assert.True(message.IsHandleableText);
+            Assert.True(message.IsHandleable);
+        }
+
+        /// <summary>
+        /// 带图的富文本消息：正文与图片 key 都要读出来，且算「能处理」。
+        /// 从前判据是「类型是不是 text」，人发一张参考图配一句话（post）当场被回一句
+        /// 「我只认文字消息」——而他明明已经把要说的说完了。
+        /// </summary>
+        [Fact]
+        public void MessageWithImageAttachmentIsHandleable()
+        {
+            var signal = @"{
+              ""会话"": {
+                ""会话标识"": ""c-1"",
+                ""消息标识"": ""m-1"",
+                ""消息类型"": ""post"",
+                ""文本"": ""再出一张 可以参考"",
+                ""附件"": [{ ""类型"": ""image"", ""key"": ""img_v3_abc"", ""文件名"": """" }]
+              }
+            }";
+
+            Assert.True(AssistantConversationMessage.TryParse(signal, out var message, out _));
+            Assert.True(message.IsHandleable);
+            var attachment = Assert.Single(message.Attachments);
+            Assert.True(attachment.IsImage);
+            Assert.Equal("img_v3_abc", attachment.Key);
+            Assert.Equal(".png", attachment.FileExtension);
+        }
+
+        /// <summary>
+        /// 一句话都没有、只甩了个文件过来，照样算能处理——那也是他在说话。
+        /// 文件的扩展名跟着原名走，取不到才退回 .bin。
+        /// </summary>
+        [Fact]
+        public void MessageWithOnlyFileAttachmentIsHandleable()
+        {
+            var signal = @"{
+              ""会话"": {
+                ""会话标识"": ""c-1"",
+                ""消息标识"": ""m-1"",
+                ""消息类型"": ""file"",
+                ""文本"": """",
+                ""附件"": [{ ""类型"": ""file"", ""key"": ""file_x"", ""文件名"": ""参考.psd"" }]
+              }
+            }";
+
+            Assert.True(AssistantConversationMessage.TryParse(signal, out var message, out _));
+            Assert.True(message.IsHandleable);
+            Assert.False(message.Attachments[0].IsImage);
+            Assert.Equal(".psd", message.Attachments[0].FileExtension);
+        }
+
+        /// <summary>缺 key 的附件跳过，但整条消息照样读得出来——少一张图不该把这一轮判死。</summary>
+        [Fact]
+        public void AttachmentWithoutKeyIsSkippedWithoutFailingTheMessage()
+        {
+            var signal = @"{
+              ""会话"": {
+                ""会话标识"": ""c-1"",
+                ""文本"": ""看这个"",
+                ""附件"": [{ ""类型"": ""image"", ""key"": """" }, { ""类型"": ""image"", ""key"": ""img_ok"" }]
+              }
+            }";
+
+            Assert.True(AssistantConversationMessage.TryParse(signal, out var message, out _));
+            Assert.Equal("img_ok", Assert.Single(message.Attachments).Key);
         }
 
         /// <summary>没有「会话」块的信号解析失败，且原因要指出归一该由下游旁路做。</summary>
@@ -66,16 +131,30 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Contains("会话标识", reason);
         }
 
-        /// <summary>非文字消息与空正文都不算可处理。</summary>
+        /// <summary>
+        /// 真正处理不了的是**什么都没有**：正文空白、附件也空（表情包、语音落在这儿）。
+        ///
+        /// 「类型不是 text」不再是判据——类型空但有正文的那一条现在算能处理：
+        /// 归一那一步取不到类型是常有的事，凭它把一句实打实的话扔掉没道理。
+        /// </summary>
         [Theory]
-        [InlineData("image", "")]
+        [InlineData("sticker", "")]
         [InlineData("text", "   ")]
-        [InlineData("", "有字但类型空")]
-        public void NonTextMessagesAreNotHandleable(string kind, string text)
+        [InlineData("audio", "")]
+        public void MessagesWithNeitherTextNorAttachmentAreNotHandleable(string kind, string text)
         {
             var message = new AssistantConversationMessage("c", "u", "m", kind, text, "");
 
-            Assert.False(message.IsHandleableText);
+            Assert.False(message.IsHandleable);
+        }
+
+        /// <summary>类型取不到但有正文，照样处理——凭一个空类型把话扔掉没道理。</summary>
+        [Fact]
+        public void MessageWithUnknownKindButRealTextIsHandleable()
+        {
+            var message = new AssistantConversationMessage("c", "u", "m", "", "有字但类型空", "");
+
+            Assert.True(message.IsHandleable);
         }
 
         /// <summary>模型回答包在代码块里、前后有闲话，照样能抠出那份 JSON。</summary>

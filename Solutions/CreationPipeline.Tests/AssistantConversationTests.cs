@@ -223,7 +223,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             Assert.True(AssistantConversationMessage.TryParse(signal, out var message, out _));
             Assert.True(message.IsCardAction);
-            Assert.False(message.IsHandleableText);
+            Assert.False(message.IsHandleable);
             Assert.Equal(AssistantCard.CreateAction, message.ActionName);
             Assert.Equal("REQ-0007", message.ReadActionValue("需求id"));
         }

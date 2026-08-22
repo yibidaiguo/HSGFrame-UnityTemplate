@@ -113,15 +113,6 @@ namespace Template.Toolkit.CreationPipeline
         public const string CardActionKind = "card_action";
 
         /// <summary>
-        /// 是不是一条纯文字消息。**已被 <see cref="IsHandleable"/> 取代**，生产路径一处都不再用它；
-        /// 留着只为让「改测试断言」那一步单独走（铁律 3），下一次提交就删。
-        /// </summary>
-        public bool IsHandleableText
-        {
-            get { return string.Equals(MessageKind, "text", StringComparison.Ordinal) && Text.Trim().Length > 0; }
-        }
-
-        /// <summary>
         /// 这条消息能不能处理：有正文、或者带了附件。
         ///
         /// 判据**不是「类型是不是 text」**：人发一张参考图配一句「照这个再出一张」，
