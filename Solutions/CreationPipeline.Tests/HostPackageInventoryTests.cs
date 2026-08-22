@@ -573,6 +573,79 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.NotEqual("", last.LoadFailureReason);
         }
 
+        /// <summary>
+        /// 自述里给字段写了「说明」，那句话就是面板上这一格的提示——
+        /// 一串 token 长得都一样，认错了就把东西写进别人的地盘，所以说明得跟着字段走。
+        /// </summary>
+        [Fact]
+        public void FieldHintComesFromSchemaNote()
+        {
+            using var workspace = new Workspace();
+            WriteDriver(workspace.Root, "feishu", AnnotatedDriverJson);
+
+            var field = Field(Host(workspace.Root, "feishu"), "知识空间标识");
+
+            Assert.Equal("需求文档落脚的知识库空间：space_id，一串纯数字", field.Hint);
+        }
+
+        /// <summary>自述没写「说明」的通用格退回内置那句；两种格子在同一份自述里各走各的。</summary>
+        [Fact]
+        public void FieldWithoutSchemaNoteFallsBackToBuiltInHint()
+        {
+            using var workspace = new Workspace();
+            WriteDriver(workspace.Root, "feishu", AnnotatedDriverJson);
+
+            var host = Host(workspace.Root, "feishu");
+
+            Assert.Equal("一次调用等多久算超时", Field(host, "超时秒").Hint);
+            Assert.Equal("卡片发给谁：open_id", Field(host, "测试收件人").Hint);
+        }
+
+        /// <summary>「说明」这一句不影响别的：字段照样可填、类型照样按自述读。</summary>
+        [Fact]
+        public void SchemaNoteDoesNotDisturbTypeOrValue()
+        {
+            using var workspace = new Workspace();
+            WriteDriver(workspace.Root, "feishu", AnnotatedDriverJson);
+            WriteLocalSettings(workspace.Root, """
+                { "下游配置": { "feishu": { "知识空间标识": "7676450654847503634", "超时秒": 60 } } }
+                """);
+
+            var host = Host(workspace.Root, "feishu");
+
+            var space = Field(host, "知识空间标识");
+            Assert.Equal("string", space.FieldType);
+            Assert.Equal("7676450654847503634", space.Value);
+            Assert.True(space.IsConfigured);
+            Assert.Equal("number", Field(host, "超时秒").FieldType);
+            Assert.False(Field(host, "测试收件人").IsConfigured);
+        }
+
+        /// <summary>带「说明」的线上 driver 自述：一格写了说明、两格没写（一格有内置兜底，一格没有）。</summary>
+        private const string AnnotatedDriverJson = """
+            {
+              "名称": "feishu",
+              "port": ["需求编辑端"],
+              "形态": "线上",
+              "契约版本": ">=1.0 <2.0",
+              "配置schema": {
+                "知识空间标识": {
+                  "类型": "string",
+                  "默认": "",
+                  "说明": "需求文档落脚的知识库空间：space_id，一串纯数字"
+                },
+                "测试收件人": { "类型": "string", "默认": "", "说明": "卡片发给谁：open_id" },
+                "超时秒": { "类型": "number", "默认": 60 }
+              },
+              "密钥字段": [],
+              "试跑": "bridge.provision --Driver feishu --DryRun true",
+              "能力探测": "",
+              "实现": "bridge-feishu",
+              "字段类型映射": {},
+              "表单分组字段": ""
+            }
+            """;
+
         /// <summary>一条插件声明的 JSON：宿主与标志路径按参数填，其余固定。</summary>
         private static string PluginJson(string hostName, string markerPath)
         {
@@ -607,6 +680,11 @@ namespace Template.Toolkit.CreationPipeline.Tests
         private static HostPackageEntry Package(HostInventoryRow row, string name)
         {
             return row.Packages.Single(package => package.Name == name);
+        }
+
+        private static HostConfigFieldEntry Field(HostInventoryRow row, string name)
+        {
+            return row.EditableFields.Single(field => field.Name == name);
         }
 
         /// <summary>把一段路径包成 JSON 字符串字面量：反斜杠要转义，否则 Windows 路径直接把 JSON 写坏。</summary>

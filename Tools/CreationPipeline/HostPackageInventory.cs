@@ -902,6 +902,7 @@ namespace Template.Toolkit.CreationPipeline
         {
             var secretNames = new HashSet<string>(descriptor.SecretFieldNames, StringComparer.Ordinal);
             var schemaTypes = ReadSchemaTypes(repositoryRoot, driverName);
+            var schemaNotes = ReadSchemaNotes(repositoryRoot, driverName);
             var optionSources = ReadSchemaOptionSources(repositoryRoot, driverName);
             var hasConfiguration = settings.TryGetDriverConfiguration(driverName, out var configuration);
             var fields = new List<HostConfigFieldEntry>();
@@ -935,7 +936,7 @@ namespace Template.Toolkit.CreationPipeline
 
                 fields.Add(new HostConfigFieldEntry(
                     fieldName, fieldType.Length == 0 ? "string" : fieldType, false, value, value.Length > 0,
-                    HintFor(fieldName, driverName), options, optionSourceNote, isModelField, autoNote));
+                    HintFor(fieldName, driverName, schemaNotes), options, optionSourceNote, isModelField, autoNote));
             }
 
             // 「密钥字段」数组点名、但配置 schema 里没有的密钥，照样得给一格——
@@ -965,12 +966,43 @@ namespace Template.Toolkit.CreationPipeline
                 "密钥：写得进、永不读回。页面只报「已配 / 未配」，输入框每次都是空的。");
         }
 
-        /// <summary>读 driver.json「配置schema」里每个字段声明的类型；读不动时给空表。</summary>
+        /// <summary>读 driver.json「配置schema」里每个字段声明的类型；没声明的字段不进表，由调用方当 string 处理。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="driverName">driver 名称。</param>
         private static Dictionary<string, string> ReadSchemaTypes(string repositoryRoot, string driverName)
         {
-            var types = new Dictionary<string, string>(StringComparer.Ordinal);
+            return ReadSchemaDeclarations(repositoryRoot, driverName, "类型");
+        }
+
+        /// <summary>
+        /// 读 driver.json「配置schema」里每个字段声明的「说明」：这一格该填什么，一句话。
+        ///
+        /// **说明写在自述里而不是这份代码里**，因为「哪个键是哪个」是那个下游自己的事：
+        /// 飞书的「知识空间标识」「多维表格标识」「需求文档父节点」摆在一起全是一串 token，
+        /// 认错一个就把需求写进别人的地盘。这句话得跟着字段走——加一个字段顺手写一句，
+        /// 而不是回头改一个越堆越长的 switch。没声明的字段不进表，退回 <see cref="HintFor"/> 的兜底。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        private static Dictionary<string, string> ReadSchemaNotes(string repositoryRoot, string driverName)
+        {
+            return ReadSchemaDeclarations(repositoryRoot, driverName, "说明");
+        }
+
+        /// <summary>
+        /// 读 driver.json「配置schema」里每个字段的某一句声明（类型 / 说明 / 选项来源）。
+        /// 没声明、或值不是字符串的字段不进表；文件读不动时给空表——
+        /// 自述在这之前已经 Load 过一次，这里再失败几乎不可能，不值得为它把整张清单判红。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        /// <param name="declarationName">要读哪一句声明，给键名。</param>
+        private static Dictionary<string, string> ReadSchemaDeclarations(
+            string repositoryRoot,
+            string driverName,
+            string declarationName)
+        {
+            var declarations = new Dictionary<string, string>(StringComparer.Ordinal);
             try
             {
                 using (var document = JsonDocument.Parse(File.ReadAllText(BridgeDriverDescriptor.DriverFile(repositoryRoot, driverName))))
@@ -980,10 +1012,10 @@ namespace Template.Toolkit.CreationPipeline
                         foreach (var property in schema.EnumerateObject())
                         {
                             if (property.Value.ValueKind == JsonValueKind.Object
-                                && property.Value.TryGetProperty("类型", out var type)
-                                && type.ValueKind == JsonValueKind.String)
+                                && property.Value.TryGetProperty(declarationName, out var declaration)
+                                && declaration.ValueKind == JsonValueKind.String)
                             {
-                                types[property.Name] = type.GetString() ?? "";
+                                declarations[property.Name] = declaration.GetString() ?? "";
                             }
                         }
                     }
@@ -991,10 +1023,10 @@ namespace Template.Toolkit.CreationPipeline
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
             {
-                // 自述已经 Load 过一次，这里再失败几乎不可能；类型当 string 处理即可。
+                // 当这一句没声明处理即可。
             }
 
-            return types;
+            return declarations;
         }
 
         /// <summary>读 driver.json「配置schema」里每个字段声明的「选项来源」；没声明的字段不进表。</summary>
@@ -1002,31 +1034,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="driverName">driver 名称。</param>
         private static Dictionary<string, string> ReadSchemaOptionSources(string repositoryRoot, string driverName)
         {
-            var sources = new Dictionary<string, string>(StringComparer.Ordinal);
-            try
-            {
-                using (var document = JsonDocument.Parse(File.ReadAllText(BridgeDriverDescriptor.DriverFile(repositoryRoot, driverName))))
-                {
-                    if (document.RootElement.TryGetProperty("配置schema", out var schema) && schema.ValueKind == JsonValueKind.Object)
-                    {
-                        foreach (var property in schema.EnumerateObject())
-                        {
-                            if (property.Value.ValueKind == JsonValueKind.Object
-                                && property.Value.TryGetProperty("选项来源", out var source)
-                                && source.ValueKind == JsonValueKind.String)
-                            {
-                                sources[property.Name] = source.GetString() ?? "";
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
-            {
-                // 自述已经 Load 过一次，这里再失败几乎不可能；当没有选项来源处理即可。
-            }
-
-            return sources;
+            return ReadSchemaDeclarations(repositoryRoot, driverName, "选项来源");
         }
 
         /// <summary>
@@ -1167,11 +1175,26 @@ namespace Template.Toolkit.CreationPipeline
             };
         }
 
-        /// <summary>给几个常见字段配一句「该填什么」；不认识的字段不硬编一句废话。</summary>
+        /// <summary>
+        /// 给一个字段配一句「该填什么」。**自述里写了「说明」的，以自述为准**：那句话跟字段住在一起。
+        /// 这里剩下的几句是所有 driver 长得都一样的通用格（可执行文件 / 地址 / 超时秒）的兜底，
+        /// 都不认识就不硬编一句废话，只报它落在本机配置的哪个键上。
+        /// </summary>
         /// <param name="fieldName">字段名。</param>
         /// <param name="driverName">driver 名称。</param>
-        private static string HintFor(string fieldName, string driverName)
+        /// <param name="schemaNotes">自述里每个字段声明的「说明」；null 当作一句都没声明。</param>
+        private static string HintFor(
+            string fieldName,
+            string driverName,
+            IReadOnlyDictionary<string, string> schemaNotes = null)
         {
+            if (schemaNotes != null
+                && schemaNotes.TryGetValue(fieldName, out var declared)
+                && declared.Length > 0)
+            {
+                return declared;
+            }
+
             if (string.Equals(fieldName, "可执行文件", StringComparison.Ordinal))
             {
                 return "本体装在哪：给到可执行文件本身的绝对路径";
