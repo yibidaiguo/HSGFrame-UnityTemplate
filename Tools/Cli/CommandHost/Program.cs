@@ -131,6 +131,11 @@ namespace Template.Toolkit.CommandHost
             CommandExecutionContext.ProgressRootDirectory = ReadOption(args, "--progress-root") ?? Environment.CurrentDirectory;
             CommandExecutionContext.ArgumentsJson = json;
 
+            // 接上实时日志流：常驻命令（assist.serve）跑起来就不返回，等它返回再打日志
+            // 等于「跑着的时候日志文件是空的」——那次「机器人不回话」就是被这个假象带偏的。
+            // 接上之后命令边跑边交行，这里当场落盘；命令返回后立刻断开，不留给下一条命令。
+            CommandLogStream.Attach(line => EmitLog(commandName, "信息", line, success: null));
+
             // 命令抛异常时也要吐一条结构化日志再退出：挂机跑时裸栈回溯没人看，
             // 而调用方（gate.ps1 / 流水线）只认退出码与日志流。
             CommandResult result;
@@ -143,6 +148,10 @@ namespace Template.Toolkit.CommandHost
                 var inner = exception.InnerException ?? exception;
                 EmitLog(commandName, "错误", $"命令执行抛出 {inner.GetType().Name}：{inner.Message}", success: false);
                 return 1;
+            }
+            finally
+            {
+                CommandLogStream.Attach(null);
             }
 
             foreach (var line in result.OutputLines)
