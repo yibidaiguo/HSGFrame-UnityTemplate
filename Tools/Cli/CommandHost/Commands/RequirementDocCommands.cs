@@ -162,7 +162,11 @@ namespace Template.Toolkit.CommandHost.Commands
                     ["干跑"] = isDryRun,
                     ["标题"] = ComposeTitle(identifier, parsed),
                     ["节点token"] = syncState.NodeToken,
-                    ["块"] = RequirementDocumentOutline.ToJsonArray(blocks)
+                    ["块"] = RequirementDocumentOutline.ToJsonArray(blocks),
+
+                    // 媒体的相对路径（media/x.png）要有个根才展得开。给需求目录而不是 media 目录：
+                    // 正文里写的就是 media/… 这个相对写法，根给深一层就对不上了。
+                    ["媒体根目录"] = PoolPaths.RequirementDirectory(poolRoot, identifier)
                 });
 
                 var call = BridgeInvoker.InvokeByPort(repositoryRoot, DocumentPortName, "doc", payload, timeoutSeconds);

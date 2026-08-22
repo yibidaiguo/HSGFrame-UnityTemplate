@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text.Json.Nodes;
 using Template.Toolkit.CreationPipeline;
 
@@ -26,6 +28,48 @@ namespace Template.Bridges.Feishu
         private const int BlockTypeCode = 14;
         private const int BlockTypeQuote = 15;
 
+        /// <summary>图片块。素材要在块建出来之后再传（parent_type=docx_image）。</summary>
+        private const int BlockTypeImage = 27;
+
+        /// <summary>文件块。视频与其它附件都落它（parent_type=docx_file）。</summary>
+        private const int BlockTypeFile = 23;
+
+        /// <summary>按后缀认图片；认不出来的一律当文件——当图片传会被飞书拒收，当文件传最多是显示朴素点。</summary>
+        private static readonly HashSet<string> ImageExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"
+        };
+
+        /// <summary>一处要在块建好之后补传的素材：它是第几个 child、本体在哪、当图片还是当文件传。</summary>
+        public sealed class PendingMedia
+        {
+            /// <summary>构造一处待传素材。</summary>
+            /// <param name="childIndex">它在 children 数组里的下标。</param>
+            /// <param name="relativePath">相对需求目录的路径，如 media/x.png。</param>
+            /// <param name="isImage">当图片传还是当文件传。</param>
+            public PendingMedia(int childIndex, string relativePath, bool isImage)
+            {
+                ChildIndex = childIndex;
+                RelativePath = relativePath ?? "";
+                IsImage = isImage;
+            }
+
+            /// <summary>它在 children 数组里的下标。</summary>
+            public int ChildIndex { get; }
+
+            /// <summary>相对需求目录的路径。</summary>
+            public string RelativePath { get; }
+
+            /// <summary>当图片传还是当文件传。</summary>
+            public bool IsImage { get; }
+
+            /// <summary>素材挂在什么上：飞书要的 parent_type。</summary>
+            public string ParentType
+            {
+                get { return IsImage ? "docx_image" : "docx_file"; }
+            }
+        }
+
         /// <summary>
         /// 把一串中性块翻成 docx 的 children 数组，直接挂进
         /// <c>POST /docx/v1/documents/{id}/blocks/{id}/children</c> 的请求体。
@@ -33,7 +77,22 @@ namespace Template.Bridges.Feishu
         /// <param name="blocks">中性块。</param>
         public static JsonArray ToChildren(IReadOnlyList<RequirementDocumentOutlineBlock> blocks)
         {
+            return ToChildren(blocks, out _);
+        }
+
+        /// <summary>
+        /// 同上，另外交出**待传素材清单**：图片与文件块只能先建空的、拿到 block_id 再把本体传上去，
+        /// 所以这里只能告诉调用方「第几个 child 要补传哪个文件」，真传是写完块之后的事。
+        /// </summary>
+        /// <param name="blocks">中性块。</param>
+        /// <param name="pendingMedia">要在块建好后补传的素材。</param>
+        public static JsonArray ToChildren(
+            IReadOnlyList<RequirementDocumentOutlineBlock> blocks,
+            out IReadOnlyList<PendingMedia> pendingMedia)
+        {
             var children = new JsonArray();
+            var pending = new List<PendingMedia>();
+            pendingMedia = pending;
             if (blocks == null)
             {
                 return children;
@@ -41,10 +100,28 @@ namespace Template.Bridges.Feishu
 
             foreach (var block in blocks)
             {
+                if (string.Equals(block.Kind, RequirementDocumentOutline.KindMedia, StringComparison.Ordinal)
+                    && block.Target.Length > 0)
+                {
+                    var isImage = ImageExtensions.Contains(Path.GetExtension(block.Target));
+                    pending.Add(new PendingMedia(children.Count, block.Target, isImage));
+                    children.Add(MediaChild(isImage));
+                    continue;
+                }
+
                 children.Add(ToChild(block));
             }
 
             return children;
+        }
+
+        /// <summary>建一个空的图片 / 文件块：token 先留空，素材随后按 block_id 传上去补。</summary>
+        /// <param name="isImage">图片块还是文件块。</param>
+        private static JsonObject MediaChild(bool isImage)
+        {
+            return isImage
+                ? new JsonObject { ["block_type"] = BlockTypeImage, ["image"] = new JsonObject { ["token"] = "" } }
+                : new JsonObject { ["block_type"] = BlockTypeFile, ["file"] = new JsonObject { ["token"] = "" } };
         }
 
         /// <summary>翻一个块。</summary>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Template.Toolkit.CreationPipeline;
@@ -57,7 +58,8 @@ namespace Template.Bridges.Feishu
             }
 
             var blocks = RequirementDocumentOutline.FromJsonArray(blocksElement);
-            var children = FeishuBlockCodec.ToChildren(blocks);
+            var children = FeishuBlockCodec.ToChildren(blocks, out var pendingMedia);
+            var mediaRoot = ReadPayloadString(request, "媒体根目录");
             var willCreate = nodeToken.Length == 0;
 
             if (isDryRun)
@@ -145,11 +147,15 @@ namespace Template.Bridges.Feishu
                 }
             }
 
-            var written = WriteChildren(documentId, children, appId, secretKey, timeoutSeconds);
+            var createdBlockIds = new List<string>();
+            var written = WriteChildren(documentId, children, appId, secretKey, timeoutSeconds, createdBlockIds);
             if (written != null)
             {
                 return written;
             }
+
+            var mediaOutcome = UploadPendingMedia(
+                pendingMedia, createdBlockIds, mediaRoot, appId, secretKey, timeoutSeconds);
 
             var result = new JsonObject
             {
@@ -157,8 +163,21 @@ namespace Template.Bridges.Feishu
                 ["链接"] = link,
                 ["文档id"] = documentId,
                 ["块数"] = children.Count,
-                ["动作"] = willCreate ? "已新建" : "已刷新"
+                ["动作"] = willCreate ? "已新建" : "已刷新",
+                ["传上去的素材"] = mediaOutcome.UploadedCount
             };
+
+            if (mediaOutcome.Failures.Count > 0)
+            {
+                var failures = new JsonArray();
+                foreach (var failure in mediaOutcome.Failures)
+                {
+                    failures.Add(failure);
+                }
+
+                result["没传上去的素材"] = failures;
+            }
+
             return Success(JsonSerializer.SerializeToElement(result));
         }
 
@@ -239,7 +258,8 @@ namespace Template.Bridges.Feishu
         /// 返回 null 表示成功。
         /// </summary>
         private static BridgeResponse WriteChildren(
-            string documentId, JsonArray children, string appId, string secretKey, int timeoutSeconds)
+            string documentId, JsonArray children, string appId, string secretKey, int timeoutSeconds,
+            List<string> createdBlockIds)
         {
             var index = 0;
             while (index < children.Count)
@@ -263,10 +283,121 @@ namespace Template.Bridges.Feishu
                     return call.Response;
                 }
 
+                // 记下这一批建出来的块 id，顺序与请求里的 children 一一对应。
+                // 图片与文件块的本体要靠它才传得上去——没有块 id 就没有 parent_node。
+                CollectBlockIds(call.ResponseBody, createdBlockIds);
+
                 index += batch.Count;
             }
 
             return null;
+        }
+
+        /// <summary>把一次写子块响应里的 block_id 按顺序收进清单。</summary>
+        /// <param name="body">响应体。</param>
+        /// <param name="createdBlockIds">收集到哪里去。</param>
+        private static void CollectBlockIds(JsonElement body, List<string> createdBlockIds)
+        {
+            if (createdBlockIds == null
+                || body.ValueKind != JsonValueKind.Object
+                || !body.TryGetProperty("data", out var data)
+                || data.ValueKind != JsonValueKind.Object
+                || !data.TryGetProperty("children", out var children)
+                || children.ValueKind != JsonValueKind.Array)
+            {
+                return;
+            }
+
+            foreach (var child in children.EnumerateArray())
+            {
+                createdBlockIds.Add(
+                    child.ValueKind == JsonValueKind.Object
+                        && child.TryGetProperty("block_id", out var blockId)
+                        && blockId.ValueKind == JsonValueKind.String
+                        ? blockId.GetString() ?? ""
+                        : "");
+            }
+        }
+
+        /// <summary>一轮素材上传的结果：传上去几个、哪几个没传上去。</summary>
+        private sealed class MediaUploadOutcome
+        {
+            /// <summary>传上去了几个。</summary>
+            public int UploadedCount;
+
+            /// <summary>没传上去的，一条一句人话。</summary>
+            public readonly List<string> Failures = new List<string>();
+        }
+
+        /// <summary>
+        /// 把待传素材逐个传上去，挂到刚建出来的那个空块上。
+        ///
+        /// **单个素材失败不算整篇失败**：正文已经推上去了，少一张图是缺一块内容，
+        /// 而整篇判失败会让调用方以为文档没推成、下次又整篇重推一遍。所以这里只记账、不返回失败。
+        /// </summary>
+        /// <param name="pendingMedia">待传素材。</param>
+        /// <param name="createdBlockIds">按顺序建出来的块 id。</param>
+        /// <param name="mediaRoot">需求目录，素材的相对路径按它展开。</param>
+        /// <param name="appId">飞书应用标识。</param>
+        /// <param name="secretKey">飞书应用密钥。</param>
+        /// <param name="timeoutSeconds">单次调用超时秒数。</param>
+        private static MediaUploadOutcome UploadPendingMedia(
+            IReadOnlyList<FeishuBlockCodec.PendingMedia> pendingMedia,
+            IReadOnlyList<string> createdBlockIds,
+            string mediaRoot,
+            string appId,
+            string secretKey,
+            int timeoutSeconds)
+        {
+            var outcome = new MediaUploadOutcome();
+            if (pendingMedia == null || pendingMedia.Count == 0)
+            {
+                return outcome;
+            }
+
+            if (string.IsNullOrWhiteSpace(mediaRoot))
+            {
+                outcome.Failures.Add("载荷没给「媒体根目录」，素材的相对路径没法展开成真路径");
+                return outcome;
+            }
+
+            foreach (var media in pendingMedia)
+            {
+                if (media.ChildIndex < 0 || media.ChildIndex >= createdBlockIds.Count)
+                {
+                    outcome.Failures.Add(media.RelativePath + "：对不上块 id（建出来的块比请求里的少）");
+                    continue;
+                }
+
+                var blockId = createdBlockIds[media.ChildIndex];
+                if (blockId.Length == 0)
+                {
+                    outcome.Failures.Add(media.RelativePath + "：那个块没回 block_id");
+                    continue;
+                }
+
+                string filePath;
+                try
+                {
+                    filePath = Path.GetFullPath(Path.Combine(mediaRoot, media.RelativePath));
+                }
+                catch (Exception exception) when (exception is ArgumentException || exception is NotSupportedException || exception is PathTooLongException)
+                {
+                    outcome.Failures.Add(media.RelativePath + "：路径拼不出来（" + exception.Message + "）");
+                    continue;
+                }
+
+                var call = FeishuClient.UploadMedia(filePath, media.ParentType, blockId, appId, secretKey, timeoutSeconds);
+                if (call.Succeeded)
+                {
+                    outcome.UploadedCount++;
+                    continue;
+                }
+
+                outcome.Failures.Add(media.RelativePath + "：" + (call.Response?.Error?.HumanText ?? "上传失败"));
+            }
+
+            return outcome;
         }
 
         private static BridgeResponse Success(JsonElement payload)

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -150,6 +151,116 @@ namespace Template.Bridges.Feishu
             }
 
             return SendWithToken(method, url, bodyJson, token, timeoutSeconds);
+        }
+
+        /// <summary>云空间素材上传端点：文档里的图片与文件都走它。</summary>
+        private const string DriveMediasUploadEndpoint = "https://open.feishu.cn/open-apis/drive/v1/medias/upload_all";
+
+        /// <summary>
+        /// 把一个本地文件上传成文档块的素材，拿回 file_token。
+        ///
+        /// 飞书这条链是**两步的、有先后**：先在文档里建一个空的图片/文件块拿到 block_id，
+        /// 再把素材传上去、用 parent_node 指向那个块——**没有「先传素材再建块」的路**。
+        /// 所以调用方必须先写块、再拿着块 id 回来调这里。
+        /// </summary>
+        /// <param name="filePath">本地文件路径。</param>
+        /// <param name="parentType">素材挂在什么上：docx_image（图片块）/ docx_file（文件块）。</param>
+        /// <param name="parentNode">那个块的 block_id。</param>
+        /// <param name="appId">飞书应用标识。</param>
+        /// <param name="appSecret">飞书应用密钥，只进 token 请求体，绝不出现在任何文案里。</param>
+        /// <param name="timeoutSeconds">单次 HTTP 超时秒数。</param>
+        public static HttpCall UploadMedia(
+            string filePath,
+            string parentType,
+            string parentNode,
+            string appId,
+            string appSecret,
+            int timeoutSeconds)
+        {
+            if (!File.Exists(filePath))
+            {
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = BridgeResponse.Failure("1.0.0", "请求不合协议", $"素材文件不存在：{filePath}", retryable: false)
+                };
+            }
+
+            byte[] bytes;
+            try
+            {
+                bytes = File.ReadAllBytes(filePath);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = BridgeResponse.Failure("1.0.0", "请求不合协议", $"素材读不出来：{filePath}（{exception.Message}）", retryable: false)
+                };
+            }
+
+            if (!TryGetToken(appId, appSecret, timeoutSeconds, out var token, out var tokenError))
+            {
+                return new HttpCall { Succeeded = false, Response = tokenError };
+            }
+
+            try
+            {
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(Math.Max(1, timeoutSeconds)) };
+                using var request = new HttpRequestMessage(HttpMethod.Post, DriveMediasUploadEndpoint);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                using var content = new MultipartFormDataContent();
+                content.Add(new StringContent(Path.GetFileName(filePath)), "file_name");
+                content.Add(new StringContent(parentType), "parent_type");
+                content.Add(new StringContent(parentNode), "parent_node");
+                content.Add(new StringContent(bytes.Length.ToString(CultureInfo.InvariantCulture)), "size");
+                var fileContent = new ByteArrayContent(bytes);
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                content.Add(fileContent, "file", Path.GetFileName(filePath));
+                request.Content = content;
+
+                using var response = client.SendAsync(request).GetAwaiter().GetResult();
+                var responseText = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                var logId = ReadLogIdFromHeaders(response);
+                var statusCode = (int)response.StatusCode;
+
+                if (statusCode < 200 || statusCode >= 300)
+                {
+                    return new HttpCall
+                    {
+                        Succeeded = false,
+                        BusinessCode = ReadCodeFromText(responseText),
+                        Response = MapHttpError(statusCode, responseText, logId, "POST", DriveMediasUploadEndpoint)
+                    };
+                }
+
+                if (!TryParseBody(responseText, out var body))
+                {
+                    return new HttpCall
+                    {
+                        Succeeded = false,
+                        Response = BridgeResponse.Failure("1.0.0", "下游报错", "素材上传的响应体不是合法 JSON", retryable: false)
+                    };
+                }
+
+                var code = ReadCode(body);
+                if (code != 0)
+                {
+                    return new HttpCall { Succeeded = false, Response = MapCodeError(body, code, logId), BusinessCode = code };
+                }
+
+                return new HttpCall { Succeeded = true, ResponseBody = body.Clone() };
+            }
+            catch (Exception exception) when (exception is HttpRequestException || exception is TaskCanceledException)
+            {
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = BridgeResponse.Failure("1.0.0", "下游不可达", $"素材上传发不出去：{exception.Message}", retryable: true)
+                };
+            }
         }
 
         /// <summary>

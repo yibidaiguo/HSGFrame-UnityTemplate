@@ -338,7 +338,7 @@ namespace Template.Bridges.Feishu
 
                 state.Created.Add(TaskTableKey + "：将建一张叫「" + state.TaskTableName + "」的表，"
                     + TaskTableColumns.Length + " 列");
-                state.SkippedColumns.Add("是否延期（公式列：飞书建表接口不收公式表达式，建完请手工补一次）");
+                state.Created.Add("是否延期（公式列，建完表再单独补一刀）");
                 state.TaskTableId = "<干跑未建>";
                 return true;
             }
@@ -443,9 +443,140 @@ namespace Template.Bridges.Feishu
 
             state.TaskTableId = createdId;
             state.Created.Add(TaskTableKey + "=" + createdId + "（新建，" + TaskTableColumns.Length + " 列）");
-            state.SkippedColumns.Add("是否延期（公式列：飞书建表接口不收公式表达式，要这一列请在飞书里手工加）");
+
+            AddOverdueColumn(state);
+            RemoveDefaultTable(state);
             return true;
         }
+
+        /// <summary>
+        /// 补上「是否延期」这一列。**公式列走的是「新增字段」那一刀，不是建表那一刀**——
+        /// 建表时把公式塞进 fields 里飞书不收，建完单独加一次却是好的（实证过）。
+        /// 加不上不算建表失败：表本身已经好了，缺一列在账里说出来就行。
+        /// </summary>
+        /// <param name="state">这一轮的状态。</param>
+        private static void AddOverdueColumn(EnsureState state)
+        {
+            var body = new JsonObject
+            {
+                ["field_name"] = OverdueColumnName,
+                ["type"] = FormulaTypeCode,
+                ["property"] = new JsonObject { ["formula_expression"] = OverdueFormula }
+            }.ToJsonString();
+
+            var call = FeishuClient.Send(
+                "POST",
+                FeishuClient.BitableUrl(state.BitableToken, "tables/" + Uri.EscapeDataString(state.TaskTableId) + "/fields"),
+                body,
+                state.AppId,
+                state.SecretKey,
+                state.TimeoutSeconds);
+            if (call.Succeeded)
+            {
+                state.Created.Add(OverdueColumnName + "（公式列）");
+                return;
+            }
+
+            state.SkippedColumns.Add(OverdueColumnName + "（公式列没加上：" + (call.Response?.Error?.HumanText ?? "") + "）");
+        }
+
+        /// <summary>
+        /// 把飞书建 base 时自带的那张默认空表删掉。
+        ///
+        /// 它排在第一位，人点进多维表格看到的是它——一张空表，于是以为「任务行没加上」。
+        /// 这是我们建 base 时飞书塞的，不是人的数据，清掉是分内事。
+        ///
+        /// **条件卡得很死**：只删「不是我们刚建的那张任务表」且「一条记录都没有」的表。
+        /// 删下游的东西只有一次机会，宁可留着碍眼，也不许删掉人正在用的表。
+        /// </summary>
+        /// <param name="state">这一轮的状态。</param>
+        private static void RemoveDefaultTable(EnsureState state)
+        {
+            var listCall = FeishuClient.Send(
+                "GET",
+                FeishuClient.BitableUrl(state.BitableToken, "tables?page_size=100"),
+                null,
+                state.AppId,
+                state.SecretKey,
+                state.TimeoutSeconds);
+            if (!listCall.Succeeded)
+            {
+                return;
+            }
+
+            if (listCall.ResponseBody.ValueKind != JsonValueKind.Object
+                || !listCall.ResponseBody.TryGetProperty("data", out var data)
+                || data.ValueKind != JsonValueKind.Object
+                || !data.TryGetProperty("items", out var items)
+                || items.ValueKind != JsonValueKind.Array)
+            {
+                return;
+            }
+
+            foreach (var item in items.EnumerateArray())
+            {
+                var tableId = ReadString(item, "table_id");
+                if (tableId.Length == 0 || string.Equals(tableId, state.TaskTableId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (!IsEmptyTable(state, tableId))
+                {
+                    continue;
+                }
+
+                var deleteCall = FeishuClient.Send(
+                    "DELETE",
+                    FeishuClient.BitableUrl(state.BitableToken, "tables/" + Uri.EscapeDataString(tableId)),
+                    null,
+                    state.AppId,
+                    state.SecretKey,
+                    state.TimeoutSeconds);
+                if (deleteCall.Succeeded)
+                {
+                    state.Created.Add("顺手删掉建 base 时自带的空表「" + ReadString(item, "name") + "」");
+                }
+            }
+        }
+
+        /// <summary>这张表是不是一条记录都没有。查不动一律当「有」——删表这件事只许在确凿时做。</summary>
+        /// <param name="state">这一轮的状态。</param>
+        /// <param name="tableId">表 id。</param>
+        private static bool IsEmptyTable(EnsureState state, string tableId)
+        {
+            var call = FeishuClient.Send(
+                "GET",
+                FeishuClient.BitableUrl(state.BitableToken, "tables/" + Uri.EscapeDataString(tableId) + "/records?page_size=1"),
+                null,
+                state.AppId,
+                state.SecretKey,
+                state.TimeoutSeconds);
+            if (!call.Succeeded)
+            {
+                return false;
+            }
+
+            return !(call.ResponseBody.ValueKind == JsonValueKind.Object
+                && call.ResponseBody.TryGetProperty("data", out var data)
+                && data.ValueKind == JsonValueKind.Object
+                && data.TryGetProperty("items", out var items)
+                && items.ValueKind == JsonValueKind.Array
+                && items.GetArrayLength() > 0);
+        }
+
+        /// <summary>「是否延期」这一列的列名。</summary>
+        private const string OverdueColumnName = "是否延期";
+
+        /// <summary>飞书公式字段的类型码。</summary>
+        private const int FormulaTypeCode = 20;
+
+        /// <summary>
+        /// 「是否延期」的公式：有预计完成日期、已经过了、而实际完成日期还空着，才算延期。
+        /// 三个条件缺一不可——只看「过没过预计日期」的话，已经做完的任务也会被判成延期。
+        /// </summary>
+        private const string OverdueFormula =
+            "IF(AND(CurrentValue.[预计完成日期],TODAY()>CurrentValue.[预计完成日期],NOT(CurrentValue.[实际完成日期])),\"是\",\"否\")";
 
         /// <summary>任务表的一列：名字、飞书字段类型码、以及类型自己的属性。</summary>
         private sealed class TaskColumn
