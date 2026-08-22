@@ -2,7 +2,7 @@
   "indexName": "场景索引",
   "sourceRoot": "UnityProject/Assets",
   "sourceHash": "5dc18170f6ab6d80f64d822b1286ffa1b68acb9a7547f2f901d9d8086037f84c",
-  "generatedAtUtc": "2026-08-21T15:59:07Z",
+  "generatedAtUtc": "2026-08-22T11:24:05Z",
   "entries": [
     {
       "relativePath": "UnityProject/Assets/Game/Scenes/Boot/Boot.unity",
@@ -10,7 +10,7 @@
       "assetGuid": "18d8e4588e2e73c4cbc154f02cd58d9d",
       "fileHash": "c2d91dfcdd2ecad75b962eadeca0acc4e5a87723f5021d31c07b647a0d21b8f3",
       "fileLength": 15961,
-      "lastWriteTimeUtcTicks": 639228839384944553
+      "lastWriteTimeUtcTicks": 639229512777983907
     },
     {
       "relativePath": "UnityProject/Assets/Game/Scenes/World/Village.unity",
@@ -18,7 +18,7 @@
       "assetGuid": "6906ea9f737e2e64cad7f9f4398dc4b7",
       "fileHash": "397909955b0b45b76c0f2960939b97708464a764b9f710f7dc1595c039867990",
       "fileLength": 44573,
-      "lastWriteTimeUtcTicks": 639228839384944553
+      "lastWriteTimeUtcTicks": 639229512777999267
     }
   ]
 }

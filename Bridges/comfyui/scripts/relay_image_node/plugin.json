@@ -1,0 +1,8 @@
+{
+  "契约版本": "1.0.0",
+  "名称": "relay_image_node",
+  "宿主落点": "custom_nodes/relay_image_node",
+  "标志文件": "__init__.py",
+  "说明": "「中转生图」自定义节点：在 ComfyUI 的图里直接调本仓库配好的线上生图中转（OpenAI 兼容的 /images/generations 与 /images/edits）。不接线走文生图，接了 image 口走图生图。模型下拉与「自动」那一档，跟 oaiimage 那条命令行链路读同一份探测清单、同一本成功记账。",
+  "生效提示": "装完要重启 ComfyUI 才会加载这个节点（ComfyUI 只在启动时扫一次 custom_nodes）。"
+}

@@ -671,7 +671,7 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             packages.AddRange(PluginEntriesFor(repositoryRoot, pluginManifest, driverName));
-            packages.AddRange(ReadDriverScripts(repositoryRoot, driverName));
+            packages.AddRange(ReadDriverScripts(repositoryRoot, driverName, descriptor, settings));
 
             return new HostInventoryRow(
                 driverName,
@@ -1194,34 +1194,149 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 随仓库走的驱动脚本：Bridges/&lt;driver&gt;/scripts/ 下的文件。
-        /// 它们不往宿主里装——本地形态的加工站是以 --background --python 把脚本现喂进去的，所以状态是「无需安装」，
-        /// 判据只有「文件在不在」。目录不存在就一条都不产出。
+        /// 随仓库走的驱动脚本：Bridges/&lt;driver&gt;/scripts/ 下的东西。**这一类分两支，别混：**
+        ///
+        /// 一、**散落文件**：不往宿主里装——本地形态的加工站是在调用时用命令行参数
+        /// （`--background --python &lt;脚本&gt;` 那一类）把脚本现喂进去的，
+        /// 所以状态恒为「无需安装」，判据只有「文件在不在」。
+        ///
+        /// 二、**目录型包**（目录里有一份 plugin.json，见 <see cref="DriverScriptPackage"/>）：**是真要装的**。
+        /// 有些宿主的扩展必须先拷进它自己的扩展目录才会被加载，所以它有「装没装」这件事，
+        /// 判据是宿主安装目录下那个标志文件在不在。
+        ///
+        /// 判不了的时候一律「未验」，不许写成「缺」——没查过就说没有，跟把没查过说成有一样是撒谎。
+        /// scripts/ 目录不存在就一条都不产出。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="driverName">driver 名称。</param>
-        private static IReadOnlyList<HostPackageEntry> ReadDriverScripts(string repositoryRoot, string driverName)
+        /// <param name="descriptor">driver 自述：用来判它允不允许装脚本包（有没有「安装目录」这一格）。</param>
+        /// <param name="settings">本机配置：安装目录的值从这里来。</param>
+        private static IReadOnlyList<HostPackageEntry> ReadDriverScripts(
+            string repositoryRoot,
+            string driverName,
+            BridgeDriverDescriptor descriptor,
+            LocalBridgeSettings settings)
         {
-            var scriptDirectory = Path.Combine(BridgeDriverDescriptor.DriverDirectory(repositoryRoot, driverName), "scripts");
+            var scriptDirectory = DriverScriptPackage.ScriptsDirectory(repositoryRoot, driverName);
             if (!Directory.Exists(scriptDirectory))
             {
                 return Array.Empty<HostPackageEntry>();
             }
 
+            var entries = new List<HostPackageEntry>();
+
             try
             {
-                return Directory.EnumerateFiles(scriptDirectory)
+                entries.AddRange(Directory.EnumerateFiles(scriptDirectory)
                     .Select(Path.GetFileName)
                     .OrderBy(name => name, StringComparer.Ordinal)
                     .Select(name => new HostPackageEntry(
                         name, "驱动脚本", "", StateNotNeeded,
-                        $"Bridges/{driverName}/scripts/{name} 随仓库走", "", "", ""))
-                    .ToList();
+                        $"Bridges/{driverName}/scripts/{name} 随仓库走", "", "", "")));
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
             {
                 return Array.Empty<HostPackageEntry>();
             }
+
+            var supportsInstall = descriptor != null
+                && descriptor.ConfigurationFieldNames.Contains(DriverScriptPackage.InstallRootFieldName, StringComparer.Ordinal);
+            var installRoot = supportsInstall ? ReadConfiguredInstallRoot(driverName, settings) : "";
+
+            foreach (var package in DriverScriptPackage.LoadAll(repositoryRoot, driverName))
+            {
+                entries.Add(ScriptPackageEntry(driverName, package, supportsInstall, installRoot));
+            }
+
+            return entries;
+        }
+
+        /// <summary>
+        /// 一个目录型脚本包这一行。四种长相：包坏了 / driver 不支持装 / 没配安装目录 / 真去查了标志文件。
+        /// 前三种都是「未验」——判据都还没凑齐，此时染绿或染红都是撒谎。
+        /// </summary>
+        /// <param name="driverName">driver 名称。</param>
+        /// <param name="package">脚本包。</param>
+        /// <param name="supportsInstall">driver 自述里有没有「安装目录」这一格。</param>
+        /// <param name="installRoot">本机配的安装目录；空串表示没配。</param>
+        private static HostPackageEntry ScriptPackageEntry(
+            string driverName,
+            DriverScriptPackage package,
+            bool supportsInstall,
+            string installRoot)
+        {
+            if (!package.Loaded)
+            {
+                return new HostPackageEntry(
+                    package.Name, "驱动脚本", "", StateUnverified,
+                    package.LoadFailureReason, "", "",
+                    $"把 Bridges/{driverName}/scripts/{package.Name}/{DriverScriptPackage.ManifestFileName} 补对，补对了这一行才判得了装没装");
+            }
+
+            if (!supportsInstall)
+            {
+                return new HostPackageEntry(
+                    package.Name, "驱动脚本", "", StateUnverified,
+                    $"Bridges/{driverName}/driver.json 的「配置schema」里没有「{DriverScriptPackage.InstallRootFieldName}」这一格，判不了装没装",
+                    "", "",
+                    $"在那份 driver.json 里加上「{DriverScriptPackage.InstallRootFieldName}」这一格（默认值留空）");
+            }
+
+            if (installRoot.Length == 0)
+            {
+                return new HostPackageEntry(
+                    package.Name, "驱动脚本", "", StateUnverified,
+                    $"{driverName} 的「{DriverScriptPackage.InstallRootFieldName}」还没配，不知道该去哪儿找它",
+                    "", "",
+                    $"在面板 {driverName} 卡里填「{DriverScriptPackage.InstallRootFieldName}」（宿主根目录），填完这一行自己变绿或变红");
+            }
+
+            var installCommand = $"bridge.script.install --Driver {driverName} --Name {package.Name}";
+            string markerPath;
+            try
+            {
+                markerPath = Path.GetFullPath(package.MarkerPathUnder(installRoot));
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is NotSupportedException || exception is PathTooLongException)
+            {
+                return new HostPackageEntry(
+                    package.Name, "驱动脚本", "", StateUnverified,
+                    $"落点路径算不出来：{exception.Message}", "", installCommand,
+                    $"检查 {driverName} 的「{DriverScriptPackage.InstallRootFieldName}」填的是不是一个合法路径");
+            }
+
+            if (File.Exists(markerPath))
+            {
+                return new HostPackageEntry(
+                    package.Name, "驱动脚本", "", StateInstalled,
+                    $"标志文件在：{markerPath}", "", "", "");
+            }
+
+            var activation = package.ActivationNote.Length > 0
+                ? "；" + package.ActivationNote
+                : "";
+            return new HostPackageEntry(
+                package.Name, "驱动脚本", "", StateMissing,
+                $"标志文件不在：{markerPath}", "", installCommand,
+                $"点卡上的安装按钮，或跑 {installCommand}{activation}");
+        }
+
+        /// <summary>读本机配的安装目录；没配、读不出来一律空串（两者结论一样：不知道去哪儿找）。</summary>
+        /// <param name="driverName">driver 名称。</param>
+        /// <param name="settings">本机配置。</param>
+        private static string ReadConfiguredInstallRoot(string driverName, LocalBridgeSettings settings)
+        {
+            if (settings == null
+                || !settings.TryGetDriverConfiguration(driverName, out var configuration)
+                || configuration.ValueKind != JsonValueKind.Object)
+            {
+                return "";
+            }
+
+            return configuration.TryGetProperty(DriverScriptPackage.InstallRootFieldName, out var value)
+                && value.ValueKind == JsonValueKind.String
+                ? (value.GetString() ?? "").Trim()
+                : "";
         }
 
         /// <summary>枚举 Bridges 下带 driver.json 的目录名，序数序。</summary>

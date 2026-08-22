@@ -2,7 +2,7 @@
   "indexName": "技能索引",
   "sourceRoot": "Config/Mirror",
   "sourceHash": "5967e46e8046ce20e59e5d765a5339458f60cfb3e0008f1470d46bf169c90f97",
-  "generatedAtUtc": "2026-08-21T15:59:07Z",
+  "generatedAtUtc": "2026-08-22T11:24:05Z",
   "entries": [
     {
       "relativePath": "Config/Mirror/.baseline.json",
@@ -18,7 +18,7 @@
       "assetGuid": "",
       "fileHash": "b649abc302665dac832a262ccd68283ace774667251230d9c9d676d1462d1249",
       "fileLength": 11976,
-      "lastWriteTimeUtcTicks": 639223499563391801
+      "lastWriteTimeUtcTicks": 639229512772583593
     },
     {
       "relativePath": "Config/Mirror/Monster.json",
@@ -26,7 +26,7 @@
       "assetGuid": "",
       "fileHash": "415a68af6fa762e57c1d6efcc1ab474cd301bb574f30e1541e2ab4ae0fa6e582",
       "fileLength": 18150,
-      "lastWriteTimeUtcTicks": 639223512395653220
+      "lastWriteTimeUtcTicks": 639229512772593658
     },
     {
       "relativePath": "Config/Mirror/Skill.json",
@@ -34,7 +34,7 @@
       "assetGuid": "",
       "fileHash": "2ed7d73856ad9069978bc16f81bff2b52f79fbee7ad993e3ec2f3517a41c1105",
       "fileLength": 20544,
-      "lastWriteTimeUtcTicks": 639223499593717462
+      "lastWriteTimeUtcTicks": 639229512772603645
     }
   ]
 }

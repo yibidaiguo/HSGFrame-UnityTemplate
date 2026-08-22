@@ -431,6 +431,38 @@ namespace Template.Toolkit.CommandHost.Commands
     }
 
     /// <summary>
+    /// 把一个随仓库走的脚本包装进下游宿主的命令参数。
+    /// 与 bridge.plugin.set / bridge.plugin.remove 是两码事：那两条改的是
+    /// <c>editor-plugins.json</c> 这份**手装插件的声明清单**（只声明、不安装），
+    /// 这一条是**真往宿主目录里写文件**。
+    /// </summary>
+    public sealed class BridgeScriptInstallArguments
+    {
+        /// <summary>装进哪个下游，对应 Bridges/&lt;名&gt;/ 目录。</summary>
+        [Summary("装进哪个下游，对应 Bridges/<名>/ 目录")]
+        public string Driver { get; set; }
+
+        /// <summary>包名，对应 Bridges/&lt;driver&gt;/scripts/&lt;名&gt;/ 目录。</summary>
+        [Summary("包名，对应 Bridges/<driver>/scripts/<名>/ 目录")]
+        public string Name { get; set; }
+
+        /// <summary>装法：「拷贝」或「软链」。</summary>
+        [Summary("装法：拷贝（默认，改了源码要重装）或 软链（改了源码立刻生效，Windows 上要开发者模式）")]
+        [DefaultValue("拷贝")]
+        public string Mode { get; set; }
+
+        /// <summary>目标已存在时是否覆盖；覆盖前仍会先确认那里面装的就是本包。</summary>
+        [Summary("目标已存在时是否覆盖；覆盖前仍会先确认那里面装的就是本包")]
+        [DefaultValue(false)]
+        public bool Force { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+    }
+
+    /// <summary>
     /// 配置写入命令：把从前要人手开 JSON 填的东西，变成面板上点得动的动作。
     /// 四条命令共一条红线——**写得进，读不回**：
     /// 密钥值只往 local.json 落一处，不进返回文案、不进日志、不报长度前缀（决策 5、78 的读侧）。
@@ -626,6 +658,50 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var outcome = EditorPluginWriter.Remove(repositoryRoot, arguments?.Host ?? "", arguments?.Name ?? "");
             return ToResult(outcome, repositoryRoot);
+        }
+
+        /// <summary>
+        /// 把 Bridges/&lt;driver&gt;/scripts/ 下的一个脚本包，照它的 plugin.json 装进那个下游宿主。
+        ///
+        /// 这是本族里唯一**往仓库外写文件**的命令：产物落在宿主的安装目录下，git diff 看不见，
+        /// 所以返回里必须原样给出落点绝对路径——那是这次动作留下的唯一可核对的痕迹。
+        /// </summary>
+        /// <param name="arguments">命令参数。</param>
+        [EditorCommand("bridge.script.install")]
+        [Summary("把 Bridges/<driver>/scripts/ 下的一个脚本包装进那个下游宿主（照它的 plugin.json）")]
+        public static CommandResult ScriptInstall(BridgeScriptInstallArguments arguments)
+        {
+            var repositoryRoot = ResolveRepositoryRoot(arguments?.RepositoryRoot, out var failure);
+            if (failure != null)
+            {
+                return failure;
+            }
+
+            var mode = string.IsNullOrWhiteSpace(arguments?.Mode) ? "拷贝" : arguments.Mode.Trim();
+            bool useSymlink;
+            if (string.Equals(mode, "拷贝", StringComparison.Ordinal))
+            {
+                useSymlink = false;
+            }
+            else if (string.Equals(mode, "软链", StringComparison.Ordinal))
+            {
+                useSymlink = true;
+            }
+            else
+            {
+                return CommandResult.Failure($"参数 Mode 只认「拷贝」或「软链」，收到的是「{mode}」");
+            }
+
+            var outcome = DriverScriptInstaller.Install(
+                repositoryRoot,
+                arguments?.Driver ?? "",
+                arguments?.Name ?? "",
+                useSymlink,
+                arguments?.Force ?? false);
+
+            return outcome.Succeeded
+                ? CommandResult.Success(outcome.Message, outcome.Lines.ToArray())
+                : CommandResult.Failure(outcome.Message, outcome.Lines.ToArray());
         }
 
         /// <summary>把写入结局翻成命令结果：成功带一行落点，失败只给原因。</summary>
@@ -886,7 +962,10 @@ namespace Template.Toolkit.CommandHost.Commands
             {
                 if (string.IsNullOrWhiteSpace(arguments.OutputPath))
                 {
-                    // 默认落到面板下游页找的位置：_Generated/Bridges/<driver>/probe-result.json，并自动建目录。
+                    // 默认落到面板下游页找的位置：_Generated/Probes/<driver>/probe-result.json，并自动建目录。
+                    // （刻意不落 _Generated/Bridges/<driver>/——那里是供给产物的地盘，
+                    //   写进去会让 gate.provision 把这个 driver 判成「已供给却缺一堆产物」。
+                    //   理由的正本在 ProvisionPaths.ProbeResultFile 的注释里。）
                     outputPath = ProvisionPaths.ProbeResultFile(repositoryRoot, arguments.Driver);
                     var directory = Path.GetDirectoryName(outputPath);
                     if (!string.IsNullOrEmpty(directory))

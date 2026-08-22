@@ -94,3 +94,13 @@ _Tasks/sidecar/
 # 可以进 git；local.json 存的是值，一进 git 就是决策 5 要防的那件事。
 # 这条从 P1 就写在决策里，但直到 P7 批次三才真的补上——在此之前它只是一句话。
 Tools/CreationPipeline/Config/local.json
+
+# 脚本包装进宿主时写的「回仓库的路」（DriverScriptInstaller 产出）。
+# 软链模式下宿主里的落点就是仓库里的源目录，这份 link.json 会落回仓库——
+# 它里面是这台机器的仓库绝对路径，跟着机器走，不进库。
+Bridges/*/scripts/*/link.json
+
+# Python 字节码缓存：随仓库走的脚本包被跑过一次就会长出来，是纯派生物。
+# 安装器拷进宿主时本来就跳过它们，仓库里更不该有。
+__pycache__/
+*.pyc
