@@ -657,7 +657,7 @@ namespace Template.Toolkit.CreationPipeline
             AppendSecretNote(descriptor, settings, notes);
 
             var (hostState, hostDetail, hostNextStep) = isLocal
-                ? LocalHostState(driverName, descriptor, settings)
+                ? LocalHostState(repositoryRoot, driverName, descriptor, settings)
                 : (StateNotNeeded, "线上服务，本机不装东西", "");
             if (!isLocal)
             {
@@ -713,12 +713,14 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>
         /// 本地形态 driver 的本体状态：有「可执行文件」字段的看那个文件在不在，
-        /// 有「地址」字段的只能报「配没配」——服务在不在只有试跑才知道，那是「未验」不是「已装」。
+        /// 有「地址」字段的看上次试跑有没有对着**这个**地址跑通——服务在不在只有试跑才知道。
         /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="driverName">driver 名称。</param>
         /// <param name="descriptor">driver 自述。</param>
         /// <param name="settings">本机配置。</param>
         private static (string State, string Detail, string NextStep) LocalHostState(
+            string repositoryRoot,
             string driverName,
             BridgeDriverDescriptor descriptor,
             LocalBridgeSettings settings)
@@ -752,10 +754,61 @@ namespace Template.Toolkit.CreationPipeline
                         : "";
                 return address.Length == 0
                     ? (StateMissing, "local.json 里没填「地址」", $"起好服务，再把地址填进 下游配置.{driverName}.地址")
-                    : (StateUnverified, "地址配了；服务在不在只有试跑才知道", "点「试跑一次」，跑通了才算这台机器上真有它");
+                    : AddressHostState(repositoryRoot, driverName, address);
             }
 
             return (StateUnverified, "自述里没有可执行文件、也没有地址，判不出本体装没装", "");
+        }
+
+        /// <summary>
+        /// 有「地址」字段的本地 driver：本体状态跟着**上一次试跑的产出**走。
+        ///
+        /// 试跑（bridge.probe）只有在下游真答话时才会落下探测产出，那份产出顶上盖着「探于哪个地址」的章。
+        /// 章跟现在配的地址对得上 → 这台机器上确实有它，记「已装」；对不上 → 那是上一个地址的战果，
+        /// 换地址不重探是这条链路上最容易发生的事，记回「未验」并点名两个地址；
+        /// 没盖章（老产出）或压根没产出 → 判据没凑齐，还是「未验」。
+        ///
+        /// 这一条以前是写死的「未验」：试跑跑通了、依赖也一条条染绿了，本体那一格还挂着
+        /// 「点试跑一次」——卡片看上去永远不更新，人只会反复点同一个按钮（决策 42 的反面：
+        /// 「查过了有」也得说出来，不然跟没查过没区别）。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称。</param>
+        /// <param name="address">本机现在配的地址；调用方保证非空。</param>
+        private static (string State, string Detail, string NextStep) AddressHostState(
+            string repositoryRoot,
+            string driverName,
+            string address)
+        {
+            const string NeverTried = "点「试跑一次」，跑通了才算这台机器上真有它";
+            CapabilityProbeResult probeResult;
+            try
+            {
+                probeResult = CapabilityProbeResult.LoadFromFile(ProvisionPaths.ProbeResultFile(repositoryRoot, driverName));
+            }
+            catch (InvalidOperationException)
+            {
+                return (StateUnverified, "地址配了；服务在不在只有试跑才知道", NeverTried);
+            }
+
+            if (probeResult.ProbedEndpoint.Length == 0)
+            {
+                return (StateUnverified, "上次试跑的产出没盖地址章，判不出它试的是不是现在这个地址",
+                    "再点一次「试跑一次」，新产出会盖上章");
+            }
+
+            if (!string.Equals(probeResult.ProbedEndpoint, address, StringComparison.Ordinal))
+            {
+                return (StateUnverified,
+                    $"上次试跑连的是「{probeResult.ProbedEndpoint}」，现在配的是「{address}」",
+                    "地址换过了，重点一次「试跑一次」");
+            }
+
+            return (StateInstalled,
+                probeResult.ProbedAtText.Length == 0
+                    ? "上次试跑连上了这个地址"
+                    : $"上次试跑连上了这个地址（{probeResult.ProbedAtText}）",
+                "");
         }
 
         /// <summary>

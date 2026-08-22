@@ -235,6 +235,75 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal(HostPackageInventory.StateInstalled, Host(workspace.Root, "blender").HostState);
         }
 
+        /// <summary>
+        /// 有「地址」的本地 driver：没试跑过是「未验」，对着这个地址试跑通了才是「已装」。
+        /// 这一条守的是卡片会不会更新——试跑跑通、依赖都染绿了，本体那一格还挂着「点试跑一次」，
+        /// 人看到的就是一张永远不动的卡。
+        /// </summary>
+        [Fact]
+        public void AddressDriverHostStateFollowsLastTrial()
+        {
+            using var workspace = new Workspace();
+            WriteDriver(workspace.Root, "comfyui", InstallableDriverJson);
+            WriteLocalSettings(workspace.Root, """{ "下游配置": { "comfyui": { "地址": "http://127.0.0.1:8188" } } }""");
+
+            Assert.Equal(HostPackageInventory.StateUnverified, Host(workspace.Root, "comfyui").HostState);
+
+            WriteFile(ProvisionPaths.ProbeResultFile(workspace.Root, "comfyui"), """
+                {
+                  "节点": [], "模型": [], "lora": [],
+                  "探于": "http://127.0.0.1:8188",
+                  "探测时间": "2026-08-22T12:00:00.0000000Z"
+                }
+                """);
+
+            var host = Host(workspace.Root, "comfyui");
+
+            Assert.Equal(HostPackageInventory.StateInstalled, host.HostState);
+            Assert.Contains("上次试跑连上了这个地址", host.HostDetail, StringComparison.Ordinal);
+            Assert.Equal("", host.HostNextStep);
+        }
+
+        /// <summary>
+        /// 探测产出是跟着地址走的：地址改过之后那份产出是上一个地址的战果，本体必须记回「未验」，
+        /// 并且把两个地址都点名——不点名的话，人从卡上看不出「这绿是旧的」。
+        /// </summary>
+        [Fact]
+        public void AddressDriverGoesBackToUnverifiedWhenAddressChanged()
+        {
+            using var workspace = new Workspace();
+            WriteDriver(workspace.Root, "comfyui", InstallableDriverJson);
+            WriteLocalSettings(workspace.Root, """{ "下游配置": { "comfyui": { "地址": "http://127.0.0.1:9000" } } }""");
+            WriteFile(ProvisionPaths.ProbeResultFile(workspace.Root, "comfyui"), """
+                { "节点": [], "模型": [], "lora": [], "探于": "http://127.0.0.1:8188" }
+                """);
+
+            var host = Host(workspace.Root, "comfyui");
+
+            Assert.Equal(HostPackageInventory.StateUnverified, host.HostState);
+            Assert.Contains("http://127.0.0.1:8188", host.HostDetail, StringComparison.Ordinal);
+            Assert.Contains("http://127.0.0.1:9000", host.HostDetail, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// 没盖章的老产出证明不了它试的是哪个地址：那是「未验」，不能拿来染绿。
+        /// </summary>
+        [Fact]
+        public void UnstampedProbeResultDoesNotProveTheAddress()
+        {
+            using var workspace = new Workspace();
+            WriteDriver(workspace.Root, "comfyui", InstallableDriverJson);
+            WriteLocalSettings(workspace.Root, """{ "下游配置": { "comfyui": { "地址": "http://127.0.0.1:8188" } } }""");
+            WriteFile(ProvisionPaths.ProbeResultFile(workspace.Root, "comfyui"), """
+                { "节点": [], "模型": [], "lora": [] }
+                """);
+
+            var host = Host(workspace.Root, "comfyui");
+
+            Assert.Equal(HostPackageInventory.StateUnverified, host.HostState);
+            Assert.Contains("没盖地址章", host.HostDetail, StringComparison.Ordinal);
+        }
+
         /// <summary>依赖清单在、能力探测输出不在：每条依赖都是「未验」，下一步指向探测命令。</summary>
         [Fact]
         public void DependenciesAreUnverifiedBeforeAnyProbe()
