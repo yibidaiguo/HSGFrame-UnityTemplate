@@ -189,12 +189,6 @@ namespace Template.Bridges.Tripo
         }
 
         /// <summary>
-        /// 跑 balance 动作：查一次账号余额，返回 {"可用积分":…,"冻结积分":…}。
-        /// 这是**诊断**用的，不是就绪判据——决策 91 说得很死：能不能用只有真提交一次任务才算数。
-        /// 它的用处是把「2010 到底是不是真没钱」这件事一次问清楚，省得去换 key、查权限。
-        /// </summary>
-        /// <param name="request">请求信封，配置含 地址/超时秒/模型生成密钥。</param>
-        /// <summary>
         /// caps：探下游允许的模型版本清单，写进载荷「输出路径」指的文件，同一份对象作为响应载荷返回。
         /// tripo 没有 list-models 接口，清单是从参数校验的报错里读回来的（见 TripoClient.ProbeAllowedModelVersions）：
         /// **不产模型、不花积分**。「节点」与「lora」恒空数组——线上服务没这两样，空数组是实话。
@@ -270,6 +264,12 @@ namespace Template.Bridges.Tripo
             }
         }
 
+        /// <summary>
+        /// 跑 balance 动作：查一次账号余额，返回 {"可用积分":…,"冻结积分":…}。
+        /// 这是**诊断**用的，不是就绪判据——决策 91 说得很死：能不能用只有真提交一次任务才算数。
+        /// 它的用处是把「2010 到底是不是真没钱」这件事一次问清楚，省得去换 key、查权限。
+        /// </summary>
+        /// <param name="request">请求信封，配置含 地址/超时秒/模型生成密钥。</param>
         private static BridgeResponse RunBalance(BridgeRequest request)
         {
             var baseUrl = ReadConfigurationString(request, "地址", DefaultBaseUrl);
