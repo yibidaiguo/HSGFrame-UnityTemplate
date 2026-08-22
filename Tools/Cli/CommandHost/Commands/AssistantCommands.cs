@@ -1170,7 +1170,10 @@ namespace Template.Toolkit.CommandHost.Commands
             lines.Add($"建资产请求：{made.Message}");
             if (!made.IsSuccess)
             {
-                return "资产请求没建成：" + made.Message + "。这张图没出，改完再点一次。";
+                // **把门禁到底判了哪一条带出来**。只说「资产规格门禁未通过」，
+                // 人对着这句话什么也改不了——真正有用的是「宽被从 1080 放宽成 1920，
+                // 只许收紧不许放宽」那一句，它就在输出行里。
+                return "资产请求没建成：" + made.Message + Detail(made) + "\n这张图没出，改完再点一次。";
             }
 
             assetIdentifier = ExtractAssetIdentifier(made);
@@ -1193,7 +1196,7 @@ namespace Template.Toolkit.CommandHost.Commands
             lines.Add($"生图：{generate.Message}");
             if (!generate.IsSuccess)
             {
-                return "出图失败：" + generate.Message + "。再点一次可以重试。";
+                return "出图失败：" + generate.Message + Detail(generate) + "\n再点一次可以重试。";
             }
 
             var variantDirectory = AssetPaths.VariantDirectory(
@@ -1338,6 +1341,42 @@ namespace Template.Toolkit.CommandHost.Commands
 
             return text;
         }
+
+        /// <summary>
+        /// 把命令结果里的输出行拼成一段细节，跟在那句总结后面。
+        ///
+        /// **总结那句话往往不够用**：门禁只说「资产规格门禁未通过」，
+        /// 而「宽被从 1080 放宽成 1920，只许收紧不许放宽」在输出行里——
+        /// 少了它，人对着回话什么都改不了。行太多时截断并说明还有几条。
+        /// </summary>
+        /// <param name="result">命令结果。</param>
+        private static string Detail(CommandResult result)
+        {
+            var lines = result?.OutputLines;
+            if (lines == null || lines.Count == 0)
+            {
+                return "";
+            }
+
+            var builder = new StringBuilder();
+            var shown = 0;
+            foreach (var line in lines)
+            {
+                if (shown >= MaxDetailLines)
+                {
+                    builder.Append("\n（还有 ").Append(lines.Count - shown).Append(" 条，看日志）");
+                    break;
+                }
+
+                builder.Append('\n').Append(line);
+                shown++;
+            }
+
+            return builder.ToString();
+        }
+
+        /// <summary>回话里最多摆几条细节；再多就该去看日志，堆在聊天里没人读。</summary>
+        private const int MaxDetailLines = 4;
 
         /// <summary>把变体目录里的 PNG 按文件名序列出来；目录不在给空表。</summary>
         /// <param name="variantDirectory">变体目录。</param>
