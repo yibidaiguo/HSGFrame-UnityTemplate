@@ -243,9 +243,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
             }
         }
 
-        /// <summary>一轮处置：模型给了合格草稿 → 补齐工程字段、校验通过、判定该写下游。</summary>
+        /// <summary>一轮处置：模型给了合格草稿 → 补齐工程字段、校验通过、摆成等人点的确认卡。</summary>
         [Fact]
-        public void TurnCompletesDraftAndAllowsWriteWhenValid()
+        public void TurnCompletesDraftAndOffersConfirmCard()
         {
             var root = NewTemporaryDirectory();
             try
@@ -270,7 +270,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
                 var outcome = AssistantServeTurn.Decide(root, Path.Combine(root, "Pools"), message, reply, schema, DateTimeOffset.Parse("2026-08-21T10:00:00+09:00"));
 
-                Assert.True(outcome.ShouldWriteDownstream);
+                Assert.True(outcome.DraftReady);
                 Assert.Empty(outcome.Findings);
                 Assert.Equal("REQ-0001", outcome.RequirementIdentifier);
                 Assert.Contains("状态", outcome.BlockedFields);
@@ -284,9 +284,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
             }
         }
 
-        /// <summary>校验不过就不写下游，且回话里要把原因说给提需求的人听。</summary>
+        /// <summary>校验不过就不摆确认卡，且回话里要把原因说给提需求的人听。</summary>
         [Fact]
-        public void TurnRefusesToWriteWhenValidationFails()
+        public void TurnRefusesToOfferCardWhenValidationFails()
         {
             var root = NewTemporaryDirectory();
             try
@@ -307,9 +307,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
                 var outcome = AssistantServeTurn.Decide(root, Path.Combine(root, "Pools"), message, reply, schema, DateTimeOffset.Parse("2026-08-21T10:00:00+09:00"));
 
-                Assert.False(outcome.ShouldWriteDownstream);
+                Assert.False(outcome.DraftReady);
                 Assert.NotEmpty(outcome.Findings);
-                Assert.Contains("校验没过", outcome.ReplyText);
+                Assert.Contains("立不住", outcome.ReplyText);
             }
             finally
             {
@@ -332,7 +332,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
                     BuildRequirementSchema(),
                     DateTimeOffset.Parse("2026-08-21T10:00:00+09:00"));
 
-                Assert.False(outcome.ShouldWriteDownstream);
+                Assert.False(outcome.DraftReady);
                 Assert.Equal("", outcome.RequirementIdentifier);
                 Assert.Contains("没能读懂", outcome.ReplyText);
             }

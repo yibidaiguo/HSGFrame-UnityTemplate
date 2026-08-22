@@ -74,6 +74,7 @@ def read_credentials():
 
 EVENT_SLUGS = {
     "收到消息": "message",
+    "卡片按钮": "card-action",
     "多维表格记录变更": "bitable-record-changed",
     "机器人菜单": "bot-menu",
 }
@@ -213,8 +214,17 @@ def remember_event(seen_list, seen_set, event_id):
 
 
 def read_event_identifier(payload):
-    """取事件标识。取不到给空串——空串一律不去重，宁可重一条也不许漏一条。"""
-    return ((payload or {}).get("header", {}) or {}).get("event_id", "") or ""
+    """
+    取事件标识。取不到给空串——空串一律不去重，宁可重一条也不许漏一条。
+
+    卡片回传（card.action.trigger）的载荷没有 header.event_id，带的是 event.token，
+    所以按顺序退一步取它；两者都没有才认输。
+    """
+    body = payload or {}
+    event_id = ((body.get("header", {}) or {}).get("event_id", "")) or ""
+    if event_id:
+        return event_id
+    return ((body.get("event", {}) or {}).get("token", "")) or ""
 
 
 def is_duplicate(payload):
@@ -289,6 +299,37 @@ def normalize_message(payload):
     }
 
 
+def normalize_card_action(payload):
+    """
+    把 card.action.trigger 的载荷翻成归一的「会话」块。
+
+    与消息不同的是它没有正文，带回来的是**点了哪个按钮、按钮上挂了什么值**。
+    动作名从 value.动作 取——那是发卡时引擎写进去的键（见 MessageReplier.BuildCardJson）。
+
+    会话标识取 context.open_chat_id：回话要发回**卡片所在的那个会话**，
+    取不到就给空串，引擎会因为「会话标识为空」判这条没法处理——那比编一个标识强。
+    """
+    event = (payload or {}).get("event", {}) or {}
+    action = event.get("action", {}) or {}
+    context = event.get("context", {}) or {}
+    operator = event.get("operator", {}) or {}
+    value = action.get("value", {}) or {}
+    if not isinstance(value, dict):
+        # 按钮的 value 也可能被配成字符串。那时动作名无从谈起，如实留空。
+        log("卡片按钮的 value 不是对象，动作按空处理")
+        value = {}
+
+    return {
+        "会话标识": context.get("open_chat_id", "") or "",
+        "发件人标识": operator.get("open_id", "") or "",
+        "消息标识": context.get("open_message_id", "") or "",
+        "消息类型": "card_action",
+        "文本": "",
+        "按钮动作": value.get("动作", "") or "",
+        "按钮携带": value,
+    }
+
+
 def handle_event(event_kind, data, directory=None, normalize=None):
     """
     所有事件的统一入口：先去重，再落信号。
@@ -319,6 +360,20 @@ def on_message_received(data) -> None:
     handle_event("收到消息", data, CONVERSATION_DIRECTORY, normalize_message)
 
 
+def on_card_action(data):
+    """
+    卡片按钮被点了 → 落**会话目录**，与消息同一条队列。
+
+    同一条队列是刻意的：按钮点击也是「这个人对助手说的一句话」，
+    分两个队列就要再写一套取信号、归档、隔离与重试，而那套已经有了。
+
+    这里同步回一个 toast：飞书的按钮点下去要有即时反馈，
+    而真正的处理是助手常驻会话下一轮的事（可能几秒后）。没有 toast，人会以为没点着、连点几下。
+    """
+    handle_event("卡片按钮", data, CONVERSATION_DIRECTORY, normalize_card_action)
+    return {"toast": {"type": "info", "content": "收到，正在处理…"}}
+
+
 def main():
     # 锁要在读密钥之前抢：第二份进程连密钥都不该去读。
     acquire_single_instance_lock()
@@ -336,6 +391,7 @@ def main():
         lark.EventDispatcherHandler.builder("", "")
         .register_p2_application_bot_menu_v6(lambda data: handle_event("机器人菜单", data))
         .register_p2_im_message_receive_v1(on_message_received)
+        .register_p2_card_action_trigger(on_card_action)
         .register_p2_drive_file_bitable_record_changed_v1(on_bitable_record_changed)
         .build()
     )

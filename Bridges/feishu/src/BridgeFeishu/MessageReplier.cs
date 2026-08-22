@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Template.Toolkit.CreationPipeline;
@@ -27,10 +28,10 @@ namespace Template.Bridges.Feishu
             "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id";
 
         /// <summary>
-        /// 执行 reply 动作：干跑返回要发的消息体；真跑发一条文本消息。
+        /// 执行 reply 动作：干跑返回要发的消息体；真跑发一条消息（带「卡片」发 interactive，否则发文本）。
         /// </summary>
         /// <param name="request">请求信封：配置含 应用标识 / 飞书应用密钥 / 超时秒，
-        /// 载荷含 干跑（缺省 true）、会话标识、文本。</param>
+        /// 载荷含 干跑（缺省 true）、会话标识、文本，可选「卡片」（归一卡片数据）。</param>
         public static BridgeResponse Reply(BridgeRequest request)
         {
             var appId = ReadConfigurationString(request, "应用标识", "");
@@ -60,10 +61,18 @@ namespace Template.Bridges.Feishu
                 return Failure("请求不合协议", "载荷缺「文本」或它是空的——不许发空消息", retryable: false);
             }
 
-            // 飞书的文本消息 content 是一个 JSON 字符串，里面再包一层 {"text": …}。
-            var content = JsonSerializer.Serialize(new JsonObject { ["text"] = text }.ToJsonString());
+            // 载荷带「卡片」就发 interactive，否则发纯文本。
+            // **文本永远要给**：卡片拼不出来时退回文本发，不许因为卡片发不成就什么都不回。
+            var card = ReadPayloadObject(request, "卡片");
+            var messageKind = card == null ? "text" : "interactive";
+
+            // 飞书的消息 content 是一个 JSON 字符串：文本是 {"text": …}，卡片是整张卡的 JSON。
+            var contentText = card == null
+                ? new JsonObject { ["text"] = text }.ToJsonString()
+                : BuildCardJson(card, text);
+            var content = JsonSerializer.Serialize(contentText);
             var body = "{\"receive_id\":" + JsonSerializer.Serialize(conversationIdentifier)
-                + ",\"msg_type\":\"text\""
+                + ",\"msg_type\":\"" + messageKind + "\""
                 + ",\"content\":" + content + "}";
 
             if (isDryRun)
@@ -96,6 +105,167 @@ namespace Template.Bridges.Feishu
                 ["字数"] = text.Length
             };
             return Success(JsonSerializer.SerializeToElement(payload));
+        }
+
+        /// <summary>
+        /// 把归一的卡片数据拼成飞书 interactive 卡片。
+        ///
+        /// 按钮带 <c>value</c> 才会触发回传交互（<c>card.action.trigger</c>），
+        /// 旁路订的就是这个事件——**动作名一定要进 value**，否则点了回来引擎不知道点的是哪个键。
+        /// 引擎侧的归一键（动作/携带）在这里翻成飞书的形状：卡片长什么样是下游知识（决策 93）。
+        /// </summary>
+        /// <param name="card">归一卡片数据：标题/正文/条目/待确认/按钮。</param>
+        /// <param name="fallbackText">卡片没有正文时兜底用的文本。</param>
+        private static string BuildCardJson(JsonObject card, string fallbackText)
+        {
+            var elements = new JsonArray();
+
+            var bodyText = ReadString(card, "正文");
+            if (bodyText.Length == 0)
+            {
+                bodyText = fallbackText ?? "";
+            }
+
+            if (bodyText.Length > 0)
+            {
+                elements.Add(new JsonObject
+                {
+                    ["tag"] = "div",
+                    ["text"] = new JsonObject { ["tag"] = "lark_md", ["content"] = bodyText }
+                });
+            }
+
+            if (card["条目"] is JsonArray entries && entries.Count > 0)
+            {
+                var fields = new JsonArray();
+                foreach (var entry in entries)
+                {
+                    if (entry is not JsonObject item)
+                    {
+                        continue;
+                    }
+
+                    fields.Add(new JsonObject
+                    {
+                        ["is_short"] = false,
+                        ["text"] = new JsonObject
+                        {
+                            ["tag"] = "lark_md",
+                            ["content"] = "**" + ReadString(item, "名称") + "**\n" + ReadString(item, "值")
+                        }
+                    });
+                }
+
+                if (fields.Count > 0)
+                {
+                    elements.Add(new JsonObject { ["tag"] = "hr" });
+                    elements.Add(new JsonObject { ["tag"] = "div", ["fields"] = fields });
+                }
+            }
+
+            if (card["待确认"] is JsonArray questions && questions.Count > 0)
+            {
+                var builder = new StringBuilder("**想跟你确认**\n");
+                foreach (var question in questions)
+                {
+                    builder.Append("· ").Append(question?.ToString() ?? "").Append('\n');
+                }
+
+                elements.Add(new JsonObject
+                {
+                    ["tag"] = "div",
+                    ["text"] = new JsonObject { ["tag"] = "lark_md", ["content"] = builder.ToString().TrimEnd() }
+                });
+            }
+
+            if (card["按钮"] is JsonArray buttons && buttons.Count > 0)
+            {
+                var actions = new JsonArray();
+                foreach (var button in buttons)
+                {
+                    if (button is not JsonObject item)
+                    {
+                        continue;
+                    }
+
+                    var value = item["携带"] is JsonObject carried
+                        ? (JsonObject)carried.DeepClone()
+                        : new JsonObject();
+                    value["动作"] = ReadString(item, "动作");
+
+                    actions.Add(new JsonObject
+                    {
+                        ["tag"] = "button",
+                        ["text"] = new JsonObject { ["tag"] = "plain_text", ["content"] = ReadString(item, "文案") },
+                        ["type"] = ReadBool(item, "主按钮") ? "primary" : "default",
+                        ["value"] = value
+                    });
+                }
+
+                if (actions.Count > 0)
+                {
+                    elements.Add(new JsonObject { ["tag"] = "action", ["actions"] = actions });
+                }
+            }
+
+            var cardObject = new JsonObject
+            {
+                ["config"] = new JsonObject { ["wide_screen_mode"] = true },
+                ["elements"] = elements
+            };
+
+            var title = ReadString(card, "标题");
+            if (title.Length > 0)
+            {
+                cardObject["header"] = new JsonObject
+                {
+                    ["title"] = new JsonObject { ["tag"] = "plain_text", ["content"] = title },
+                    ["template"] = "blue"
+                };
+            }
+
+            return cardObject.ToJsonString();
+        }
+
+        /// <summary>读一个 JsonObject 里的字符串键；缺失或类型不对给空串。</summary>
+        private static string ReadString(JsonObject node, string key)
+        {
+            return node != null
+                && node.TryGetPropertyValue(key, out var value)
+                && value is JsonValue jsonValue
+                && jsonValue.TryGetValue<string>(out var text)
+                ? text
+                : "";
+        }
+
+        /// <summary>读一个 JsonObject 里的布尔键；缺失或类型不对给 false。</summary>
+        private static bool ReadBool(JsonObject node, string key)
+        {
+            return node != null
+                && node.TryGetPropertyValue(key, out var value)
+                && value is JsonValue jsonValue
+                && jsonValue.TryGetValue<bool>(out var flag)
+                && flag;
+        }
+
+        /// <summary>读载荷里的对象键，拷成可写的 JsonObject；缺失或类型不对给 null。</summary>
+        private static JsonObject ReadPayloadObject(BridgeRequest request, string key)
+        {
+            if (request.Payload.ValueKind != JsonValueKind.Object
+                || !request.Payload.TryGetProperty(key, out var element)
+                || element.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            try
+            {
+                return JsonNode.Parse(element.GetRawText()) as JsonObject;
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
         }
 
         /// <summary>成功响应。</summary>

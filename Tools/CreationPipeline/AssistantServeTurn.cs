@@ -16,38 +16,47 @@ namespace Template.Toolkit.CreationPipeline
         /// 构造一轮处置结果。
         /// </summary>
         /// <param name="replyText">最终要回给人的话。</param>
-        /// <param name="shouldWriteDownstream">校验过了、可以写下游草稿。</param>
-        /// <param name="requirementIdentifier">草稿的需求 id；不写下游时为空串。</param>
-        /// <param name="draft">补全后的需求草稿；不写下游时为 null。</param>
+        /// <param name="draftReady">草稿已经立得住、校验也过了，可以摆成确认卡等人点。</param>
+        /// <param name="requirementIdentifier">草稿的需求 id；没草稿时为空串。</param>
+        /// <param name="draft">补全后的需求草稿；没草稿时为 null。</param>
         /// <param name="findings">校验发现；空表示校验通过。</param>
         /// <param name="blockedFields">模型越权填的字段名（工程侧字段），已被挡掉。</param>
+        /// <param name="card">这一轮要发的卡片；每张卡至少带一个「开新话题」按钮。</param>
         public AssistantTurnOutcome(
             string replyText,
-            bool shouldWriteDownstream,
+            bool draftReady,
             string requirementIdentifier,
             JsonObject draft,
             IReadOnlyList<PoolFinding> findings,
-            IReadOnlyList<string> blockedFields)
+            IReadOnlyList<string> blockedFields,
+            AssistantCard card = null)
         {
             ReplyText = replyText ?? "";
-            ShouldWriteDownstream = shouldWriteDownstream;
+            DraftReady = draftReady;
             RequirementIdentifier = requirementIdentifier ?? "";
             Draft = draft;
             Findings = findings ?? Array.Empty<PoolFinding>();
             BlockedFields = blockedFields ?? Array.Empty<string>();
+            Card = card;
         }
 
         /// <summary>最终要回给人的话。</summary>
         public string ReplyText { get; }
 
-        /// <summary>校验过了、可以写下游草稿。</summary>
-        public bool ShouldWriteDownstream { get; }
+        /// <summary>
+        /// 草稿已经立得住、校验也过了，可以摆成确认卡等人点。
+        /// **它不再等于「可以写下游」**：写不写由人点按钮决定（见 <see cref="AssistantCard.CreateAction"/>）。
+        /// </summary>
+        public bool DraftReady { get; }
 
-        /// <summary>草稿的需求 id；不写下游时为空串。</summary>
+        /// <summary>草稿的需求 id；没草稿时为空串。</summary>
         public string RequirementIdentifier { get; }
 
-        /// <summary>补全后的需求草稿；不写下游时为 null。</summary>
+        /// <summary>补全后的需求草稿；没草稿时为 null。</summary>
         public JsonObject Draft { get; }
+
+        /// <summary>这一轮要发的卡片；每张卡至少带一个「开新话题」按钮。</summary>
+        public AssistantCard Card { get; }
 
         /// <summary>校验发现；空表示校验通过。</summary>
         public IReadOnlyList<PoolFinding> Findings { get; }
@@ -57,14 +66,16 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 助手 B 形态一轮的处置逻辑：拿模型回答 + 会话消息，算出「回什么话、要不要写下游」。
+    /// 助手 B 形态一轮的处置逻辑：拿模型回答 + 会话消息，算出「回什么话、摆成什么卡」。
     ///
-    /// 三条硬规矩：
+    /// 四条硬规矩：
     /// 1. **工程侧字段由引擎补，模型填了也不算数**——模型没有分配 id、决定状态的权力
     ///    （<see cref="RequirementFieldOwnership"/>）。挡掉的字段要报出来，不许静默丢。
-    /// 2. **校验不过就不写下游**，并把校验发现翻成人话回给提需求的人（子文档 02 §五：
+    /// 2. **校验不过就不进确认卡**，并把校验发现翻成人话回给提需求的人（子文档 02 §五：
     ///    现场跑 req.validate）。校验错误文案与 pool.pull 拒收共用同一份，不会两张皮。
-    /// 3. **写下游不是这里干的**。这里只算，真写是命令层的事——这样这一整套逻辑
+    /// 3. **校验过了也不自己写表**：整理成一张卡，写不写等人点按钮。
+    ///    助手替人整理规则，人只做一个决定——这是这条链路的形状，不是可选的礼貌。
+    /// 4. **写下游不是这里干的**。这里只算，真写是命令层的事——这样这一整套逻辑
     ///    脱离网络可测。
     /// </summary>
     public static class AssistantServeTurn
@@ -73,6 +84,15 @@ namespace Template.Toolkit.CreationPipeline
         private static readonly JsonSerializerOptions WriteOptions = new JsonSerializerOptions(JsonSerializerOptions.Default)
         {
             WriteIndented = true,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+
+        /// <summary>
+        /// 写台账一行的选项：**不缩进**。台账是 jsonl，一行一条，缩进过的 JSON 会把一条拆成十几行，
+        /// 读的时候按行解析全部失败——而写的时候一点报错都没有。
+        /// </summary>
+        private static readonly JsonSerializerOptions LedgerWriteOptions = new JsonSerializerOptions(JsonSerializerOptions.Default)
+        {
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
 
@@ -117,24 +137,30 @@ namespace Template.Toolkit.CreationPipeline
             if (reply == null || !reply.Parsed)
             {
                 var reason = reply == null ? "执行后端没有回答" : reply.ParseFailureReason;
+                var failureText = "我这边没能读懂执行后端的回答，这一轮什么都没建。原因：" + reason;
                 return new AssistantTurnOutcome(
-                    "我这边没能读懂执行后端的回答，这一轮什么都没建。原因：" + reason,
+                    failureText,
                     false,
                     "",
                     null,
                     Array.Empty<PoolFinding>(),
-                    Array.Empty<string>());
+                    Array.Empty<string>(),
+                    AssistantCard.ForConversation(failureText, Array.Empty<string>()));
             }
 
             if (!reply.WantsRequirement || reply.Draft == null)
             {
-                var text = reply.ReplyText;
-                if (reply.MissingItems.Count > 0)
-                {
-                    text += "\n\n还缺这些：\n" + string.Join("\n", reply.MissingItems.Select(item => "· " + item));
-                }
-
-                return new AssistantTurnOutcome(text, false, "", null, Array.Empty<PoolFinding>(), Array.Empty<string>());
+                // 想问的点进卡片的「待确认」，**不再拼成一串「还缺这些：·字段名」跟在回话后面**。
+                // 那种写法把 schema 摆到了人脸上，人看到的是一张表，不是一次对话。
+                var card = AssistantCard.ForConversation(reply.ReplyText, reply.MissingItems);
+                return new AssistantTurnOutcome(
+                    card.ToPlainText(),
+                    false,
+                    "",
+                    null,
+                    Array.Empty<PoolFinding>(),
+                    Array.Empty<string>(),
+                    card);
             }
 
             // 第 1 步 · 所有权闸门：模型只该填策划端字段，工程字段填了也不算数。
@@ -177,17 +203,35 @@ namespace Template.Toolkit.CreationPipeline
 
             if (findings.Count > 0)
             {
-                builder.Append("\n\n这条**没有**写进需求表，因为校验没过：\n");
+                builder.Append("\n\n这条还立不住，我先没往下走：\n");
                 foreach (var finding in findings)
                 {
                     builder.Append("· ").Append(finding.Reason).Append("　修复：").Append(finding.FixAction).Append('\n');
                 }
 
-                return new AssistantTurnOutcome(builder.ToString().TrimEnd(), false, identifier, draft, findings, filtered.BlockedFields);
+                var blockedCard = AssistantCard.ForConversation(builder.ToString().TrimEnd(), reply.MissingItems);
+                return new AssistantTurnOutcome(
+                    blockedCard.ToPlainText(),
+                    false,
+                    identifier,
+                    draft,
+                    findings,
+                    filtered.BlockedFields,
+                    blockedCard);
             }
 
-            builder.Append("\n\n已按 ").Append(identifier).Append(" 建了一条草稿，校验通过。");
-            return new AssistantTurnOutcome(builder.ToString(), true, identifier, draft, findings, filtered.BlockedFields);
+            // 校验过了也只是「整理好了」。要不要真建，是人点按钮的事——
+            // 回话里绝不许说「已经建了」，说了就等于替人做了决定。
+            builder.Append("\n\n我按上面这些整理成了一条需求草稿，你看一眼；对就点「一键创建任务」，我来建并叫引擎接手。");
+            var readyCard = AssistantCard.ForDraft(identifier, draft, schema, builder.ToString(), reply.MissingItems);
+            return new AssistantTurnOutcome(
+                readyCard.ToPlainText(),
+                true,
+                identifier,
+                draft,
+                findings,
+                filtered.BlockedFields,
+                readyCard);
         }
 
         /// <summary>
@@ -247,6 +291,182 @@ namespace Template.Toolkit.CreationPipeline
                 return "";
             }
         }
+
+        /// <summary>
+        /// 读回一份待确认的草稿：人点「一键创建任务」时，要建的就是当初摆在卡上的那一份。
+        /// **不许拿按钮携带的内容重建草稿**——那是从客户端回来的数据，改得动。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="identifier">需求 id。</param>
+        /// <param name="draft">读到的草稿；失败时为 null。</param>
+        /// <param name="reason">失败原因，人能看懂。</param>
+        public static bool TryLoadDraft(string repositoryRoot, string identifier, out JsonObject draft, out string reason)
+        {
+            draft = null;
+            reason = "";
+            if (string.IsNullOrWhiteSpace(identifier))
+            {
+                reason = "按钮没带需求 id，不知道该建哪一条";
+                return false;
+            }
+
+            var filePath = Path.Combine(DraftDirectory(repositoryRoot), identifier + ".json");
+            if (!File.Exists(filePath))
+            {
+                reason = "找不到草稿留底（" + identifier + "）——它可能是上一次重装前留下的卡，重新说一遍需求我再整理一次";
+                return false;
+            }
+
+            try
+            {
+                draft = JsonNode.Parse(File.ReadAllText(filePath)) as JsonObject;
+            }
+            catch (Exception exception) when (exception is IOException || exception is JsonException || exception is UnauthorizedAccessException)
+            {
+                reason = "草稿留底读不动：" + exception.Message;
+                return false;
+            }
+
+            if (draft == null)
+            {
+                reason = "草稿留底不是一个 JSON 对象：" + filePath;
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>已确认台账：&lt;仓库根&gt;/_Tasks/conversations/confirmed.jsonl，一行一条，只追加。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static string ConfirmedLedgerPath(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "_Tasks", "conversations", "confirmed.jsonl");
+        }
+
+        /// <summary>
+        /// 这条草稿是不是已经建过了。卡片会一直挂在聊天记录里，人隔天再点一次是常事——
+        /// 没有这道判断，同一条需求就会被建第二遍（幂等键相同虽不至于多出一条，
+        /// 但会把下游那条已经推进的记录按草稿覆盖回去）。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="identifier">需求 id。</param>
+        public static bool IsConfirmed(string repositoryRoot, string identifier)
+        {
+            if (string.IsNullOrWhiteSpace(identifier))
+            {
+                return false;
+            }
+
+            var filePath = ConfirmedLedgerPath(repositoryRoot);
+            if (!File.Exists(filePath))
+            {
+                return false;
+            }
+
+            try
+            {
+                foreach (var line in File.ReadAllLines(filePath))
+                {
+                    if (line.Trim().Length == 0)
+                    {
+                        continue;
+                    }
+
+                    JsonNode node;
+                    try
+                    {
+                        node = JsonNode.Parse(line);
+                    }
+                    catch (JsonException)
+                    {
+                        continue;
+                    }
+
+                    if (node is JsonObject record
+                        && record.TryGetPropertyValue("需求id", out var value)
+                        && value is JsonValue jsonValue
+                        && jsonValue.TryGetValue<string>(out var text)
+                        && string.Equals(text, identifier, StringComparison.Ordinal))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                // 台账读不动时判「没建过」：重复建一次的代价，小于该建的没建。
+                return false;
+            }
+
+            return false;
+        }
+
+        /// <summary>记一条「这条真建出去了」。写失败返回 false，调用方要如实说，不许当成建过了。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="identifier">需求 id。</param>
+        /// <param name="conversationIdentifier">是哪条会话点的。</param>
+        /// <param name="operatorIdentifier">谁点的。</param>
+        /// <param name="now">当前时间。</param>
+        public static bool RecordConfirmed(
+            string repositoryRoot,
+            string identifier,
+            string conversationIdentifier,
+            string operatorIdentifier,
+            DateTimeOffset now)
+        {
+            var record = new JsonObject
+            {
+                ["时间"] = now.ToString("o"),
+                ["需求id"] = identifier ?? "",
+                ["会话"] = conversationIdentifier ?? "",
+                ["操作人"] = operatorIdentifier ?? ""
+            };
+
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(repositoryRoot, "_Tasks", "conversations"));
+                File.AppendAllText(
+                    ConfirmedLedgerPath(repositoryRoot),
+                    record.ToJsonString(LedgerWriteOptions) + Environment.NewLine,
+                    new UTF8Encoding(false));
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 这句话是不是在说「开新话题」。**按钮之外还留一条文字入口**：
+        /// 卡片按钮要走回调，回调链路没通、或人在手机上把卡片折叠了，就点不着——
+        /// 那时人只会打字。留这条口子的成本是几个词，收益是这个功能不依赖单一通道。
+        /// </summary>
+        /// <param name="text">用户这句话。</param>
+        public static bool LooksLikeNewTopic(string text)
+        {
+            var trimmed = (text ?? "").Trim();
+            if (trimmed.Length == 0 || trimmed.Length > 12)
+            {
+                return false;
+            }
+
+            foreach (var phrase in NewTopicPhrases)
+            {
+                if (string.Equals(trimmed, phrase, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>能当「开新话题」用的几句话。只认整句相等，免得把「新话题我想说说背包」也吃掉。</summary>
+        private static readonly string[] NewTopicPhrases =
+        {
+            "开新话题", "新话题", "重新开始", "重来", "清空上下文", "换个话题", "reset", "/new", "/reset"
+        };
 
         /// <summary>把 REQ-0007 这样的编号取成数字；取不到给 0。</summary>
         private static int NumberOf(string identifier)

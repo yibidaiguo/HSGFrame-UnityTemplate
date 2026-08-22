@@ -62,16 +62,26 @@ namespace Template.Toolkit.CreationPipeline
         public const string OutputContract =
             "你的回答必须是一份 JSON 对象，且只有 JSON，不许有解释、不许包在代码块里。形状：\n"
             + "{\n"
-            + "  \"回话\": \"给提需求的人看的中文回复，说明你理解成了什么、还缺什么\",\n"
+            + "  \"回话\": \"给人看的中文回复：先说你听懂了什么，再往前推一步\",\n"
+            + "  \"我理解你想干的\": \"一句话说清这个人想要什么（做什么系统 / 改什么 / 要什么图 / 修什么问题）\",\n"
+            + "  \"要问的问题\": [\"这一轮最想确认的点，最多两条，问人话；没有要问的给空数组\"],\n"
             + "  \"要不要建需求\": true 或 false,\n"
-            + "  \"还缺什么\": [\"缺的字段或信息，一条一句；不缺给空数组\"],\n"
             + "  \"需求草稿\": { 需求对象，字段名照 schema 摘要里的中文字段名；\"要不要建需求\"为 false 时给 null }\n"
             + "}\n"
             + "硬规矩：\n"
-            + "1. 信息不足以填出必填字段时，「要不要建需求」必须是 false，把缺的写进「还缺什么」——**不许编**。\n"
-            + "2. 「需求草稿」里不许出现 schema 摘要之外的字段。\n"
-            + "3. id、状态、来源、锁定、schema版本 这几个工程侧字段不用你填，引擎会补。\n"
-            + "4. 「验收标准」是字符串数组，一条一句，能一条条勾。";
+            + "1. **一轮最多问两条**，别问第三条。人是来把事说清楚的，不是来填表的。\n"
+            + "   把字段名罗列成清单甩回去（「还缺：类型、标题、验收标准」这种）是错的写法，一律不许。\n"
+            + "2. **能从上下文推出来的，先替人填进草稿**，并在回话里说明「我先按 X 填了，不对你就说」。\n"
+            + "   能推的也拿去问，人只会觉得你在刁难他。\n"
+            + "3. 推断有边界：只许从这个人已经说过的话、知识里的既有设计往下推，\n"
+            + "   **不许凭空发明他没提过的玩法、数值与范围**。真无从推断、不问就会做错的，才问。\n"
+            + "4. 「要不要建需求」= 草稿已经立得住（该有的都有值、验收标准能一条条勾）。\n"
+            + "   为 true 必须给「需求草稿」；确实立不住就 false，回话里说清还差哪一步。\n"
+            + "5. 「需求草稿」里不许出现 schema 摘要之外的字段。\n"
+            + "6. id、状态、来源、锁定、schema版本 这几个工程侧字段不用你填，引擎会补。\n"
+            + "7. 「验收标准」是字符串数组，一条一句，能一条条勾。\n"
+            + "8. 建不建、什么时候建，**由人点按钮决定**——你只负责把草稿整理到能看懂的程度。\n"
+            + "   所以回话里不许写「已经建好了」，要写「你看看对不对」。";
 
         /// <summary>
         /// 组一轮的提示词。
@@ -79,7 +89,12 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="driverName">助手 port 路由到的 driver 名，一律走参数（决策 17）。</param>
         /// <param name="userText">用户这一句话。</param>
-        public static AssistantServePrompt Build(string repositoryRoot, string driverName, string userText)
+        /// <param name="historyText">这条会话之前聊过什么（已按轮数与字数裁过）；空串表示没有历史。</param>
+        public static AssistantServePrompt Build(
+            string repositoryRoot,
+            string driverName,
+            string userText,
+            string historyText = "")
         {
             var degraded = new List<string>();
 
@@ -92,9 +107,9 @@ namespace Template.Toolkit.CreationPipeline
                 degraded.Add("读不到助手系统提示（" + systemPromptFile + "）——先跑一次 bridge.provision");
                 // 降级时 schema 摘要也一起没了，输出契约却要求「字段名照 schema 摘要」——
                 // 那张表正好在读不到的文件里。所以降级轮一律不建需求，只回话说明缺供给。
-                systemPrompt = "你是策划提需求时的助手。（注意：本轮没能读到供给产出的系统提示与 schema 摘要，"
+                systemPrompt = "你是策划、美术、程序都能找的需求助手。（注意：本轮没能读到供给产出的系统提示与 schema 摘要，"
                     + "知识是降级的——「要不要建需求」一律回 false，"
-                    + "把「还缺什么」写成「助手知识未供给，请先跑 bridge.provision」。）";
+                    + "把「要问的问题」写成「助手知识未供给，请先跑 bridge.provision」。）";
             }
 
             var knowledgeTexts = new List<string>();
@@ -138,7 +153,20 @@ namespace Template.Toolkit.CreationPipeline
             builder.AppendLine();
             builder.AppendLine(OutputContract);
             builder.AppendLine();
-            builder.AppendLine("## 提需求的人说");
+
+            // 历史在用户这句话**之前**出现：模型读到最后一句时，前因已经在手上了。
+            // 顺序反过来的话，长历史会把「他刚说的那句」挤到注意力的边上。
+            if (!string.IsNullOrWhiteSpace(historyText))
+            {
+                builder.AppendLine("## 之前聊过什么（同一条会话，从上到下按时间）");
+                builder.AppendLine();
+                builder.AppendLine(historyText);
+                builder.AppendLine();
+                builder.AppendLine("接着上面的聊，别把已经问过的再问一遍。");
+                builder.AppendLine();
+            }
+
+            builder.AppendLine("## 这个人刚说");
             builder.AppendLine();
             builder.AppendLine(userText ?? "");
 
@@ -159,7 +187,9 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>系统上下文：给执行后端的角色设定，与提示词一起进版本哈希之外，单独固定。</summary>
         public const string SystemContextText =
-            "你是游戏项目的需求助手，只回 JSON，不回别的。宁可说「信息不够」，也不许编造需求内容。";
+            "你是游戏项目里策划、美术、程序都能找的需求助手，只回 JSON，不回别的。"
+            + "先把人想干的事聊明白，再谈落表；能从上下文推断的先替人填上并说明，"
+            + "但不许凭空发明他没提过的内容。";
 
         /// <summary>算一段文本的短哈希（sha256 前 12 位十六进制），当版本号用。</summary>
         /// <param name="text">要取哈希的文本。</param>

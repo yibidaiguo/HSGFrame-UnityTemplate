@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Template.Toolkit.CreationPipeline
 {
@@ -22,13 +23,17 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="messageKind">消息类型，如 text；非文字类型引擎不处理但要如实说。</param>
         /// <param name="text">消息正文；非文字消息为空串。</param>
         /// <param name="receivedAt">收到时间，原样字符串。</param>
+        /// <param name="actionName">按钮动作名；不是按钮点击时为空串。</param>
+        /// <param name="actionValue">按钮带回来的键值；不是按钮点击时为空对象。</param>
         public AssistantConversationMessage(
             string conversationIdentifier,
             string senderIdentifier,
             string messageIdentifier,
             string messageKind,
             string text,
-            string receivedAt)
+            string receivedAt,
+            string actionName = "",
+            JsonObject actionValue = null)
         {
             ConversationIdentifier = conversationIdentifier ?? "";
             SenderIdentifier = senderIdentifier ?? "";
@@ -36,6 +41,8 @@ namespace Template.Toolkit.CreationPipeline
             MessageKind = messageKind ?? "";
             Text = text ?? "";
             ReceivedAt = receivedAt ?? "";
+            ActionName = actionName ?? "";
+            ActionValue = actionValue ?? new JsonObject();
         }
 
         /// <summary>会话标识，回话时按它找回去。</summary>
@@ -56,10 +63,40 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>收到时间，原样字符串。</summary>
         public string ReceivedAt { get; }
 
+        /// <summary>按钮动作名；不是按钮点击时为空串。</summary>
+        public string ActionName { get; }
+
+        /// <summary>按钮带回来的键值；不是按钮点击时为空对象。</summary>
+        public JsonObject ActionValue { get; }
+
+        /// <summary>卡片按钮点击的消息类型。</summary>
+        public const string CardActionKind = "card_action";
+
         /// <summary>是不是一条能处理的文字消息：类型是 text 且正文非空。</summary>
         public bool IsHandleableText
         {
             get { return string.Equals(MessageKind, "text", StringComparison.Ordinal) && Text.Trim().Length > 0; }
+        }
+
+        /// <summary>
+        /// 是不是一次卡片按钮点击。**与文字消息分成两支**：按钮点击不该再去问执行后端，
+        /// 它带的是一个明确的动作，过一趟模型只会平白多一次不确定与一次花销。
+        /// </summary>
+        public bool IsCardAction
+        {
+            get { return string.Equals(MessageKind, CardActionKind, StringComparison.Ordinal) && ActionName.Length > 0; }
+        }
+
+        /// <summary>读按钮携带的某个字符串键；缺失给空串。</summary>
+        /// <param name="propertyName">键名。</param>
+        public string ReadActionValue(string propertyName)
+        {
+            return ActionValue != null
+                && ActionValue.TryGetPropertyValue(propertyName, out var value)
+                && value is JsonValue jsonValue
+                && jsonValue.TryGetValue<string>(out var text)
+                ? text
+                : "";
         }
 
         /// <summary>
@@ -144,8 +181,35 @@ namespace Template.Toolkit.CreationPipeline
                     ReadString(conversation, "消息标识"),
                     ReadString(conversation, "消息类型"),
                     ReadString(conversation, "文本"),
-                    ReadString(root, "收到时间"));
+                    ReadString(root, "收到时间"),
+                    ReadString(conversation, "按钮动作"),
+                    ReadObject(conversation, "按钮携带"));
                 return true;
+            }
+        }
+
+        /// <summary>
+        /// 读对象里的对象键，拷成可写的 <see cref="JsonObject"/>；缺失或类型不对给空对象。
+        /// 空对象而不是 null：调用方读键时不必先判空，少一处能崩的地方。
+        /// </summary>
+        /// <param name="element">所在对象。</param>
+        /// <param name="propertyName">键名。</param>
+        private static JsonObject ReadObject(JsonElement element, string propertyName)
+        {
+            if (element.ValueKind != JsonValueKind.Object
+                || !element.TryGetProperty(propertyName, out var value)
+                || value.ValueKind != JsonValueKind.Object)
+            {
+                return new JsonObject();
+            }
+
+            try
+            {
+                return JsonNode.Parse(value.GetRawText()) as JsonObject ?? new JsonObject();
+            }
+            catch (JsonException)
+            {
+                return new JsonObject();
             }
         }
 

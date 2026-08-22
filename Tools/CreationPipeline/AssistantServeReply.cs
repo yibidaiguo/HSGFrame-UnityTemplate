@@ -22,13 +22,15 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="missingItems">模型说还缺什么。</param>
         /// <param name="draft">需求草稿；没有时为 null。</param>
         /// <param name="parseFailureReason">解析失败原因；成功时为空串。</param>
+        /// <param name="intentSummary">模型对「这个人想干什么」的一句话复述；没有时为空串。</param>
         public AssistantServeReply(
             bool parsed,
             string replyText,
             bool wantsRequirement,
             IReadOnlyList<string> missingItems,
             JsonObject draft,
-            string parseFailureReason)
+            string parseFailureReason,
+            string intentSummary = "")
         {
             Parsed = parsed;
             ReplyText = replyText ?? "";
@@ -36,6 +38,7 @@ namespace Template.Toolkit.CreationPipeline
             MissingItems = missingItems ?? Array.Empty<string>();
             Draft = draft;
             ParseFailureReason = parseFailureReason ?? "";
+            IntentSummary = intentSummary ?? "";
         }
 
         /// <summary>解析成功与否。</summary>
@@ -47,8 +50,14 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>模型认为这轮该不该建需求。解析失败时恒为 false。</summary>
         public bool WantsRequirement { get; }
 
-        /// <summary>模型说还缺什么。</summary>
+        /// <summary>
+        /// 模型这一轮想跟人确认的点（契约键「要问的问题」，兼容旧键「还缺什么」）。
+        /// 这里**不是**给人看的必填字段清单——把 schema 字段名罗列给人，正是助手最招人烦的老毛病。
+        /// </summary>
         public IReadOnlyList<string> MissingItems { get; }
+
+        /// <summary>模型对「这个人想干什么」的一句话复述；没有时为空串。</summary>
+        public string IntentSummary { get; }
 
         /// <summary>需求草稿；没有时为 null。</summary>
         public JsonObject Draft { get; }
@@ -115,7 +124,16 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             var wants = ReadBool(root, "要不要建需求");
-            var missing = ReadStringArray(root, "还缺什么");
+
+            // 「要问的问题」是现在的契约键，「还缺什么」是上一版的。两个都读，
+            // 是因为提示词版本一变、旧模型缓存与新契约会并存一阵，只读新键会让那一阵的问题全丢。
+            var missing = ReadStringArray(root, "要问的问题");
+            if (missing.Count == 0)
+            {
+                missing = ReadStringArray(root, "还缺什么");
+            }
+
+            var intent = ReadString(root, "我理解你想干的");
 
             JsonObject draft = null;
             if (root.TryGetPropertyValue("需求草稿", out var draftNode) && draftNode is JsonObject draftObject)
@@ -133,11 +151,12 @@ namespace Template.Toolkit.CreationPipeline
                     wantsRequirement: false,
                     missingItems: missing,
                     draft: null,
-                    parseFailureReason: "");
+                    parseFailureReason: "",
+                    intentSummary: intent);
                 return true;
             }
 
-            reply = new AssistantServeReply(true, replyText, wants, missing, draft, "");
+            reply = new AssistantServeReply(true, replyText, wants, missing, draft, "", intent);
             return true;
         }
 

@@ -65,6 +65,19 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
+        /// 这个字段名归不归工程侧。**schema 里没有这个字段时算「不归工程」**：
+        /// 分类型必填与项目层自由加的业务字段都不在字段表里，它们是策划写的，
+        /// 一律当工程字段挡掉的话，卡片上就一条人关心的内容都剩不下。
+        /// </summary>
+        /// <param name="schema">需求 schema。</param>
+        /// <param name="fieldName">字段名。</param>
+        public static bool IsEngineField(PoolSchema schema, string fieldName)
+        {
+            var field = schema?.FindField(fieldName);
+            return field != null && string.Equals(field.Ownership, EngineOwner, StringComparison.Ordinal);
+        }
+
+        /// <summary>
         /// 只留下白名单里的字段，其余挡掉并报出来。
         /// 白名单是**字段名**，不是所有权——调用方可能要放行某个工程字段
         /// （比如入站允许下游写「来源」），所以闸门收的是最终名单。
