@@ -484,6 +484,44 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Contains("回一句我就给出图按钮", card.BodyText);
         }
 
+        /// <summary>
+        /// 出了几张就有几个拆图按钮，各带各的变体序号——人挑哪张拆哪张。
+        /// 从前只给一个按钮、写死拆第一张，那等于替人做了选片这个决定，
+        /// 而他想拆的常常是第三张。
+        /// </summary>
+        [Fact]
+        public void EveryVariantGetsItsOwnCutButton()
+        {
+            var images = new[] { "a.png", "b.png", "c.png" };
+
+            var card = AssistantCard.ForGeneratedImages("出来了 3 张", images, "ASSET-0000-01", canCut: true);
+
+            var cutButtons = card.Buttons.Where(button => button.Action == AssistantCard.CutAction).ToList();
+            Assert.Equal(3, cutButtons.Count);
+            Assert.Equal("1", cutButtons[0].Value["变体序号"].GetValue<string>());
+            Assert.Equal("3", cutButtons[2].Value["变体序号"].GetValue<string>());
+            Assert.All(cutButtons, button => Assert.Equal("ASSET-0000-01", button.Value["资产id"].GetValue<string>()));
+        }
+
+        /// <summary>只有一张时按钮就叫「拆图」，不摆一个没意义的序号。</summary>
+        [Fact]
+        public void SingleVariantCutButtonHasNoIndexInItsLabel()
+        {
+            var card = AssistantCard.ForGeneratedImages("出来了 1 张", new[] { "a.png" }, "ASSET-0000-01", canCut: true);
+
+            var cut = Assert.Single(card.Buttons.Where(button => button.Action == AssistantCard.CutAction));
+            Assert.Equal("拆图", cut.Label);
+        }
+
+        /// <summary>不能拆的那类资产一个拆图按钮都不给。</summary>
+        [Fact]
+        public void NonCuttableAssetGetsNoCutButton()
+        {
+            var card = AssistantCard.ForGeneratedImages("出来了 2 张", new[] { "a.png", "b.png" }, "ASSET-0000-01", canCut: false);
+
+            Assert.DoesNotContain(AssistantCard.CutAction, card.Buttons.Select(button => button.Action));
+        }
+
         /// <summary>一份能过校验的模型回答，几处测试共用。</summary>
         private static AssistantServeReply ValidReply()
         {
