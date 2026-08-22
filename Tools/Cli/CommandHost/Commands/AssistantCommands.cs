@@ -1012,20 +1012,35 @@ namespace Template.Toolkit.CommandHost.Commands
             else
             {
                 var assetType = ReadDraftString(request, "资产类型");
-                var route = AssetRecipeRouteTable.Load(repositoryRoot);
-                if (!route.TryResolve(assetType, out var recipeName, out var routeReason))
+
+                // 显式点名生图 driver，不让域路由的失败转移替我们挑。
+                // 转移的前提是候选之间吃同一份调用参数，而**配方名恰恰不通用**——
+                // comfyui 的 icon@v5 转到 oaiimage 就是「找不到预设文件」。
+                // 点名之后配方查得准，转移这件事留给人显式换 driver。
+                var routeTable = BridgeRouteTable.Load(repositoryRoot);
+                if (!routeTable.TryResolvePort("生图", out var imageDriver, out var driverReason))
                 {
-                    // 配方缺了就**如实说**，不许回落到别的配方——拿图标的配方去出界面底图，
-                    // 出来的东西既不对又花了钱，而人还以为链路是通的。
-                    lines.Add($"配方查不到：{routeReason}");
-                    replyText = "这张图还出不了：" + routeReason;
-                    result = "缺配方";
+                    lines.Add($"生图 driver 取不到：{driverReason}");
+                    replyText = "出不了图：生图这一域没有可用的下游（" + driverReason + "）";
+                    result = "没有生图下游";
                 }
                 else
                 {
-                    replyText = RunGeneration(
-                        repositoryRoot, request, assetType, recipeName, arguments, lines, out card, out var generated);
-                    result = generated ? "已出图" : "出图失败";
+                    var route = AssetRecipeRouteTable.Load(repositoryRoot);
+                    if (!route.TryResolve(imageDriver, assetType, out var recipeName, out var routeReason))
+                    {
+                        // 配方缺了就**如实说**，不许回落到别的配方——拿图标的配方去出界面底图，
+                        // 出来的东西既不对又花了钱，而人还以为链路是通的。
+                        lines.Add($"配方查不到：{routeReason}");
+                        replyText = "这张图还出不了：" + routeReason;
+                        result = "缺配方";
+                    }
+                    else
+                    {
+                        replyText = RunGeneration(
+                            repositoryRoot, request, assetType, imageDriver, recipeName, arguments, lines, out card, out var generated);
+                        result = generated ? "已出图" : "出图失败";
+                    }
                 }
             }
 
@@ -1060,6 +1075,7 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="request">出图请求：资产类型 / 命名 / 描述 / 变体数。</param>
         /// <param name="assetType">资产类型。</param>
+        /// <param name="imageDriver">生图用哪个下游。</param>
         /// <param name="recipeName">配方名。</param>
         /// <param name="arguments">常驻会话命令参数。</param>
         /// <param name="lines">这一轮的日志行。</param>
@@ -1069,6 +1085,7 @@ namespace Template.Toolkit.CommandHost.Commands
             string repositoryRoot,
             JsonObject request,
             string assetType,
+            string imageDriver,
             string recipeName,
             AssistantServeArguments arguments,
             List<string> lines,
@@ -1108,6 +1125,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var generate = BridgeCommands.Generate(new BridgeGenerateArguments
             {
+                Driver = imageDriver,
                 RequestPath = requestPath,
                 RecipeName = recipeName,
                 RepositoryRoot = repositoryRoot,
@@ -1130,7 +1148,7 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             generated = true;
-            var body = "出来了 " + images.Count + " 张（" + assetIdentifier + "，配方 " + recipeName + "）。"
+            var body = "出来了 " + images.Count + " 张（" + assetIdentifier + "，" + imageDriver + " 的 " + recipeName + " 配方）。"
                 + "\n挑中哪张就直说，我把其余的弃掉；都不行就说改哪儿，我重出。"
                 + "\n本体在 " + variantDirectory;
             card = AssistantCard.ForGeneratedImages(body, images);

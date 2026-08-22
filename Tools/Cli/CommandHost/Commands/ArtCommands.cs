@@ -28,10 +28,12 @@ namespace Template.Toolkit.CommandHost.Commands
 
         /// <summary>需求 id，如「REQ-0042」。</summary>
         [Summary("需求 id，如 REQ-0042；留空表示这张图还没有主，落进 REQ-0000")]
+        [DefaultValue("")]
         public string Requirement { get; set; }
 
         /// <summary>工作项 id，如「WI-0042-03」。</summary>
         [Summary("工作项 id，如 WI-0042-03；留空跟着需求一起落进无主那一档")]
+        [DefaultValue("")]
         public string WorkItem { get; set; }
 
         /// <summary>域，默认取资产规格数据的域。</summary>
