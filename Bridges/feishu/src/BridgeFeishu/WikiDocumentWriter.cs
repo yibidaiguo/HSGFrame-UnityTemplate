@@ -486,7 +486,13 @@ namespace Template.Bridges.Feishu
                     continue;
                 }
 
-                var bind = BindMediaToBlock(documentId, blockId, fileToken, media.IsImage, appId, secretKey, timeoutSeconds);
+                // 文件块飞书会拆成两个：一个 view 外壳套一个 file 子块，回给我们的是外壳的 id，
+                // 而 replace_file 要打在里面那个上——打外壳会回「operation and block not match」。
+                var targetBlockId = media.IsImage
+                    ? blockId
+                    : ResolveFileBlockId(documentId, blockId, appId, secretKey, timeoutSeconds);
+
+                var bind = BindMediaToBlock(documentId, targetBlockId, fileToken, media.IsImage, appId, secretKey, timeoutSeconds);
                 if (bind.Length > 0)
                 {
                     outcome.Failures.Add(media.RelativePath + "：" + bind);
@@ -497,6 +503,48 @@ namespace Template.Bridges.Feishu
             }
 
             return outcome;
+        }
+
+        /// <summary>
+        /// 找出真正该被 replace_file 打的那个块：给的 id 若是个 view 外壳，取它第一个子块；
+        /// 不是外壳就原样返回。查不动也原样返回——让后面那一刀去报真正的错，
+        /// 而不是在这里编一个「找不到子块」的说法。
+        /// </summary>
+        /// <param name="documentId">文档 id。</param>
+        /// <param name="blockId">写子块时回来的那个 id。</param>
+        /// <param name="appId">飞书应用标识。</param>
+        /// <param name="secretKey">飞书应用密钥。</param>
+        /// <param name="timeoutSeconds">单次调用超时秒数。</param>
+        private static string ResolveFileBlockId(
+            string documentId, string blockId, string appId, string secretKey, int timeoutSeconds)
+        {
+            var call = FeishuClient.Send(
+                "GET", FeishuClient.DocxBlockUrl(documentId, blockId), null, appId, secretKey, timeoutSeconds);
+            if (!call.Succeeded
+                || call.ResponseBody.ValueKind != JsonValueKind.Object
+                || !call.ResponseBody.TryGetProperty("data", out var data)
+                || data.ValueKind != JsonValueKind.Object
+                || !data.TryGetProperty("block", out var block)
+                || block.ValueKind != JsonValueKind.Object
+                || !block.TryGetProperty("children", out var children)
+                || children.ValueKind != JsonValueKind.Array)
+            {
+                return blockId;
+            }
+
+            foreach (var child in children.EnumerateArray())
+            {
+                if (child.ValueKind == JsonValueKind.String)
+                {
+                    var childId = child.GetString() ?? "";
+                    if (childId.Length > 0)
+                    {
+                        return childId;
+                    }
+                }
+            }
+
+            return blockId;
         }
 
         /// <summary>
