@@ -136,13 +136,20 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 给一份出图请求发个号。与需求号分开一套（IMG-）：它们是两种东西，
-        /// 混用一套号会让「REQ-0007」这个说法忽而指需求忽而指一张图。
+        /// 给一份出图请求算一个 key：**按内容取哈希，不发递增号**。
+        ///
+        /// 发号是错的。号在「整理出请求」那一刻就发，而图要等人点了才出——
+        /// 聊十轮就发十个号，一张图都没有，号与图从此对不上；drafts 目录也一路涨。
+        /// 真正能对上图的号是资产 id（ASSET-xxxx-xx），那是**有图才有**的。
+        ///
+        /// 哈希还顺带把重复整理去了重：同一份请求聊两遍还是同一个 key，不会多出一份留底。
+        /// 这个 key 只在按钮携带里流转，不摆到卡片标题上——摆出去人会以为那是编号。
         /// </summary>
-        /// <param name="repositoryRoot">仓库根目录。</param>
-        public static string AllocateImageRequestIdentifier(string repositoryRoot)
+        /// <param name="request">出图请求。</param>
+        public static string ImageRequestKey(JsonObject request)
         {
-            return IdentifierAllocator.Next(DraftDirectory(repositoryRoot), "IMG-", 4);
+            var text = request == null ? "" : request.ToJsonString(LedgerWriteOptions);
+            return "IMG-" + AssistantServePrompt.ShortHash(text);
         }
 
         /// <summary>
@@ -180,7 +187,7 @@ namespace Template.Toolkit.CreationPipeline
             // 把它整理成出图请求，等人点「出图」再真去下游生——生图花钱，先给人看一眼画什么。
             if (reply.WantsImage)
             {
-                var imageIdentifier = AllocateImageRequestIdentifier(repositoryRoot);
+                var imageIdentifier = ImageRequestKey(reply.ImageRequest);
                 var imageCard = AssistantCard.ForImageRequest(
                     imageIdentifier,
                     reply.ImageRequest,

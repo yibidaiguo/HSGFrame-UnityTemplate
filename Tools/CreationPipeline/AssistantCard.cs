@@ -285,7 +285,7 @@ namespace Template.Toolkit.CreationPipeline
         /// **还有待确认的点就不给这个按钮**：模型自己挂着问题，说明它自己也没底，
         /// 那时描述里写的是「具体画面内容待确认」——拿它去生图是照着一句废话烧钱。
         /// </summary>
-        /// <param name="identifier">出图请求的留底 id。</param>
+        /// <param name="identifier">出图请求的留底 key（内容哈希，只在按钮携带里流转，不上标题）。</param>
         /// <param name="request">出图请求：资产类型 / 命名 / 描述 / 变体数。</param>
         /// <param name="bodyText">正文：助手自己整理的那段话。</param>
         /// <param name="openQuestions">还想确认的点。</param>
@@ -323,9 +323,9 @@ namespace Template.Toolkit.CreationPipeline
 
             buttons.Add(new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false));
 
-            var title = settled
-                ? "出图请求 " + (identifier ?? "") + "　点了才真出"
-                : "出图请求 " + (identifier ?? "") + "　还差两句话";
+            // 标题**不摆 key**：它是内容哈希，不是编号；摆出去人会当成「第几张图」，
+            // 而真正能对上图的号是出完图才有的资产 id。
+            var title = settled ? "出图请求　点了才真出" : "出图请求　还差两句话";
 
             var body = settled
                 ? bodyText
