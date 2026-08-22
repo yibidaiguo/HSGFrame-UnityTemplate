@@ -396,7 +396,19 @@ namespace Template.Toolkit.CommandHost.Commands
                 message.Text,
                 DateTimeOffset.Now);
 
-            var prompt = AssistantServePrompt.Build(repositoryRoot, assistantDriver, message.Text, historyText);
+            // 图片直接喂给模型看，别的文件只能以文字交代——那条链路吃的是「多模态内容数组」，
+            // 一份 psd 塞进去下游只会报一句看不懂的错。不交代的话，人甩过来一份配置表配一句
+            // 「按这个做」，模型看到的只有那句话，那份表等于没发过。
+            var userText = message.Text;
+            if (attachments.FileNotes.Count > 0)
+            {
+                userText = (userText.Length > 0 ? userText + "\n" : "")
+                    + "（他还发了这些文件，我看不了里面的内容，只知道存在哪：\n- "
+                    + string.Join("\n- ", attachments.FileNotes)
+                    + "\n要用到里面的内容就直说，让人贴出来或者转成图。）";
+            }
+
+            var prompt = AssistantServePrompt.Build(repositoryRoot, assistantDriver, userText, historyText);
             lines.Add($"提示词：{prompt.PromptText.Length} 字，版本 {prompt.PromptVersion}，知识文件 {prompt.KnowledgeFileCount} 份");
             if (prompt.DegradedReason.Length > 0)
             {
