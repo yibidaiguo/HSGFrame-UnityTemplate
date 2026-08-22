@@ -8,7 +8,8 @@ namespace Template.Bridges.Feishu
     /// 与 BridgeOaicompat 同构（线上形态 + HTTP + 密钥进 header/请求体）。
     /// 铁律：stdout 上只许有那一份 JSON，一个字节都不许多——日志、进度、警告一律走 stderr，
     /// 否则调用方拿到的是「JSON 解析失败」这种查不到根因的错。
-    /// 动作：apply（幂等建表）、card（发一张选片卡）、push（写记录）、pull（读记录成入站信封）。
+    /// 动作：apply（幂等建表）、card（发一张选片卡）、push（写记录）、pull（读记录成入站信封）、
+    /// reply（回一条消息）、doc（把需求文档推成知识库节点）。
     /// </summary>
     public static class Program
     {
@@ -52,11 +53,14 @@ namespace Template.Bridges.Feishu
                     case "pull":
                         response = RecordReader.RunPull(request);
                         break;
+                    case "doc":
+                        response = WikiDocumentWriter.PushDocument(request);
+                        break;
                     case "reply":
                         response = MessageReplier.Reply(request);
                         break;
                     default:
-                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥支持 apply / card / push / pull / reply", retryable: false);
+                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥支持 apply / card / push / pull / reply / doc", retryable: false);
                         break;
                 }
 

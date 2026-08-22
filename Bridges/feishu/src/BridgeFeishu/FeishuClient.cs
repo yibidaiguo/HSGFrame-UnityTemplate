@@ -32,6 +32,12 @@ namespace Template.Bridges.Feishu
         /// <summary>上传图片的端点（image_type=message）。</summary>
         private const string ImImagesEndpoint = "https://open.feishu.cn/open-apis/im/v1/images";
 
+        /// <summary>知识库的空间前缀：/open-apis/wiki/v2/spaces/…。</summary>
+        private const string WikiSpacesPrefix = "https://open.feishu.cn/open-apis/wiki/v2/spaces";
+
+        /// <summary>文档块的前缀：/open-apis/docx/v1/documents/…。</summary>
+        private const string DocxDocumentsPrefix = "https://open.feishu.cn/open-apis/docx/v1/documents/";
+
         /// <summary>飞书对取 token 有频率限制，token 缓存在进程内、过期前 5 分钟视为过期。</summary>
         private static readonly TimeSpan TokenRefreshAhead = TimeSpan.FromMinutes(5);
 
@@ -59,6 +65,49 @@ namespace Template.Bridges.Feishu
         public static string ImMessagesUrl()
         {
             return ImMessagesEndpoint;
+        }
+
+        /// <summary>某个知识空间下建节点的 URL。</summary>
+        /// <param name="spaceId">知识空间 space_id。</param>
+        public static string WikiNodesUrl(string spaceId)
+        {
+            return WikiSpacesPrefix + "/" + Uri.EscapeDataString(spaceId) + "/nodes";
+        }
+
+        /// <summary>
+        /// 按节点 token 读节点的 URL。**这一支不带 space_id**：
+        /// 知道 token 就够了，而调用方常常只有 token（它记在文档的 frontmatter 里）。
+        /// </summary>
+        /// <param name="nodeToken">节点 token。</param>
+        public static string WikiGetNodeUrl(string nodeToken)
+        {
+            return WikiSpacesPrefix + "/get_node?token=" + Uri.EscapeDataString(nodeToken);
+        }
+
+        /// <summary>改节点标题的 URL。</summary>
+        /// <param name="spaceId">知识空间 space_id。</param>
+        /// <param name="nodeToken">节点 token。</param>
+        public static string WikiUpdateTitleUrl(string spaceId, string nodeToken)
+        {
+            return WikiSpacesPrefix + "/" + Uri.EscapeDataString(spaceId)
+                + "/nodes/" + Uri.EscapeDataString(nodeToken) + "/update_title";
+        }
+
+        /// <summary>某个块的子块 URL（列出与新增同一个地址，GET 与 POST 分别对应）。</summary>
+        /// <param name="documentId">文档 id，也就是知识库节点的 obj_token。</param>
+        /// <param name="blockId">父块 id；写文档最外层时与文档 id 相同。</param>
+        public static string DocxChildrenUrl(string documentId, string blockId)
+        {
+            return DocxDocumentsPrefix + Uri.EscapeDataString(documentId)
+                + "/blocks/" + Uri.EscapeDataString(blockId) + "/children";
+        }
+
+        /// <summary>按下标区间批量删子块的 URL。</summary>
+        /// <param name="documentId">文档 id。</param>
+        /// <param name="blockId">父块 id。</param>
+        public static string DocxBatchDeleteUrl(string documentId, string blockId)
+        {
+            return DocxChildrenUrl(documentId, blockId) + "/batch_delete";
         }
 
         /// <summary>
@@ -412,11 +461,47 @@ namespace Template.Bridges.Feishu
             };
         }
 
-        /// <summary>按飞书业务 code 映射错误：99991672 → 凭据无效（带原文）；其余 → 下游报错（带 msg 与 log_id）。</summary>
+        /// <summary>这个业务码有没有一句「该去点哪里」可说；只有说得出的才值得盖掉 HTTP 状态那句话。</summary>
+        /// <param name="code">飞书业务码。</param>
+        private static bool HasGuidance(int code)
+        {
+            return code == 131006 || code == 99991672;
+        }
+
+        /// <summary>读响应体里的 code；不是数字或没有时给 0。</summary>
+        /// <param name="body">响应体。</param>
+        private static int ReadCode(JsonElement body)
+        {
+            return body.ValueKind == JsonValueKind.Object
+                && body.TryGetProperty("code", out var element)
+                && element.ValueKind == JsonValueKind.Number
+                && TryParseCode(element, out var code)
+                ? code
+                : 0;
+        }
+
+        /// <summary>按飞书业务 code 映射错误：131006 → 凭据无效（带该去点哪里）；99991672 → 凭据无效（带原文）；其余 → 下游报错（带 msg 与 log_id）。</summary>
         private static BridgeResponse MapCodeError(JsonElement body, int code, string logId)
         {
             var msg = ReadString(body, "msg");
             var idPart = string.IsNullOrWhiteSpace(logId) ? "（响应头与响应体都没有 log_id）" : "log_id=" + logId;
+
+            if (code == 131006)
+            {
+                // 131006 有两种长相，差别很大，人话里必须分清楚：
+                // 「node permission denied」= 应用够得着这个空间，但对那个节点只有读、没有写；
+                // 「wiki space permission denied」= 连空间本身都没份。
+                // 两种都不是「开个权限点」能解决的——要有人在飞书那边把应用加成协作者。
+                var isNodeLevel = msg != null && msg.Contains("node permission", StringComparison.OrdinalIgnoreCase);
+                var howTo = isNodeLevel
+                    ? "打开那个父节点 →「···」→ 添加文档协作者 → 搜应用名 → 给「可编辑」"
+                    : "打开知识空间设置 → 成员 → 把这个应用加进来并给编辑权";
+                return BridgeResponse.Failure(
+                    "1.0.0",
+                    "凭据无效",
+                    $"飞书返回 code=131006：{(string.IsNullOrWhiteSpace(msg) ? "知识库权限不足" : msg)}。{howTo}（{idPart}）",
+                    retryable: false);
+            }
 
             if (code == 99991672)
             {
@@ -442,8 +527,10 @@ namespace Template.Bridges.Feishu
         {
             var msg = "";
             var bodyLogId = "";
-            if (TryParseBody(responseText, out var body))
+            var body = default(JsonElement);
+            if (TryParseBody(responseText, out var parsedBody))
             {
+                body = parsedBody;
                 msg = ReadString(body, "msg");
                 bodyLogId = ReadString(body, "log_id");
             }
@@ -452,6 +539,15 @@ namespace Template.Bridges.Feishu
             var idPart = string.IsNullOrWhiteSpace(effectiveLogId) ? "（响应里没有 log_id）" : "log_id=" + effectiveLogId;
             var messagePart = string.IsNullOrWhiteSpace(msg) ? $"飞书返回 HTTP {statusCode}" : msg;
             var urlPart = string.IsNullOrWhiteSpace(url) ? "" : $"（请求：{method} {url}）";
+
+            // 业务码有话说的时候以业务码为准：飞书的权限类失败常常是「HTTP 400 + 体里一个 code」，
+            // 而「HTTP 400」这三个字对人毫无用处，「把应用加成那个节点的协作者」才有用。
+            // 只在真认识那个码时才改口，认不出来仍旧报 HTTP 状态——瞎猜比说不知道更坏。
+            var bodyCode = ReadCode(body);
+            if (bodyCode != 0 && HasGuidance(bodyCode))
+            {
+                return MapCodeError(body, bodyCode, effectiveLogId);
+            }
 
             return BridgeResponse.Failure(
                 "1.0.0",

@@ -104,7 +104,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="requirementIdentifier">需求 id。</param>
         public static string RequirementMediaDirectory(string poolRoot, string requirementIdentifier)
         {
-            return Path.Combine(RequirementDirectory(poolRoot, requirementIdentifier), "media");
+            return Path.Combine(RequirementDirectory(poolRoot, requirementIdentifier), RequirementMediaDirectoryName);
         }
 
         /// <summary>需求文档快照目录：Requirements/REQ-0042/snapshots。覆盖对侧内容前的留底（决策 101）。</summary>
@@ -120,6 +120,12 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>需求文档正文的固定文件名。</summary>
         public const string RequirementDocumentFileName = "index.md";
+
+        /// <summary>
+        /// 需求媒体目录的固定目录名。文档正文里的媒体引用写成 <c>media/x.png</c>，
+        /// 认那种引用的地方要拿这个常量比，别再各自写一遍字面量（决策 99 的推论一）。
+        /// </summary>
+        public const string RequirementMediaDirectoryName = "media";
 
         /// <summary>
         /// 枚举池子里现存的全部需求 id（Requirements 下的一级子目录名，按序排）。
