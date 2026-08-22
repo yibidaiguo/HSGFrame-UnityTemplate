@@ -50,6 +50,26 @@ namespace Template.Toolkit.CreationPipeline.Tests
             }
             """;
 
+        /// <summary>带「安装目录」这一格的本地 driver 自述：这一格是「允不允许装脚本包」的判据。</summary>
+        private const string InstallableDriverJson = """
+            {
+              "名称": "comfyui",
+              "port": ["生图"],
+              "形态": "本地",
+              "契约版本": ">=1.0 <2.0",
+              "配置schema": {
+                "地址": { "类型": "string", "默认": "" },
+                "安装目录": { "类型": "string", "默认": "" }
+              },
+              "密钥字段": [],
+              "试跑": "bridge.probe --Driver comfyui",
+              "能力探测": "bridge.probe --Driver comfyui",
+              "实现": "bridge-comfyui",
+              "字段类型映射": {},
+              "表单分组字段": ""
+            }
+            """;
+
         private const string DependencyJson = """
             {
               "契约版本": "1.0.0",
@@ -264,6 +284,97 @@ namespace Template.Toolkit.CreationPipeline.Tests
         }
 
         /// <summary>
+        /// 目录型脚本包（scripts/ 下带 plugin.json 的目录）是**要装进宿主**的那一支：
+        /// 没配安装目录时状态必须是「未验」而不是「缺」——判据都还没凑齐，
+        /// 此时说「缺」会让人去白装一遍可能早就装好的东西（决策 42 的同一条道理）。
+        /// </summary>
+        [Fact]
+        public void ScriptPackageWithoutInstallRootIsUnverifiedNotMissing()
+        {
+            using var workspace = new Workspace();
+            WriteDriver(workspace.Root, "comfyui", InstallableDriverJson);
+            WriteScriptPackage(workspace.Root, "relay_image_node");
+
+            var package = Package(Host(workspace.Root, "comfyui"), "relay_image_node");
+
+            Assert.Equal(HostPackageInventory.StateUnverified, package.State);
+            Assert.Equal("驱动脚本", package.Category);
+            Assert.Contains("安装目录", package.Evidence, StringComparison.Ordinal);
+        }
+
+        /// <summary>driver 自述里没有「安装目录」这一格时同样是「未验」，并指路去 driver.json 加。</summary>
+        [Fact]
+        public void ScriptPackageOnDriverWithoutInstallFieldIsUnverified()
+        {
+            using var workspace = new Workspace();
+            WriteDriver(workspace.Root, "comfyui", LocalDriverJson("comfyui"));
+            WriteScriptPackage(workspace.Root, "relay_image_node");
+
+            var package = Package(Host(workspace.Root, "comfyui"), "relay_image_node");
+
+            Assert.Equal(HostPackageInventory.StateUnverified, package.State);
+            Assert.Contains("driver.json", package.Evidence, StringComparison.Ordinal);
+        }
+
+        /// <summary>坏包（plugin.json 缺或坏）也要列出来并说清坏在哪，不许从清单上消失。</summary>
+        [Fact]
+        public void BrokenScriptPackageIsListedAsUnverified()
+        {
+            using var workspace = new Workspace();
+            WriteDriver(workspace.Root, "comfyui", InstallableDriverJson);
+            WriteFile(
+                Path.Combine(workspace.Root, "Bridges", "comfyui", "scripts", "坏包", "plugin.json"),
+                "{ 这不是 JSON");
+
+            var package = Package(Host(workspace.Root, "comfyui"), "坏包");
+
+            Assert.Equal(HostPackageInventory.StateUnverified, package.State);
+            Assert.Contains("不是合法 JSON", package.Evidence, StringComparison.Ordinal);
+        }
+
+        /// <summary>配了安装目录、标志文件不在 → 「缺」，并给出能直接点的安装命令。</summary>
+        [Fact]
+        public void ScriptPackageMissingFromHostIsMissingWithInstallCommand()
+        {
+            using var workspace = new Workspace();
+            WriteDriver(workspace.Root, "comfyui", InstallableDriverJson);
+            WriteScriptPackage(workspace.Root, "relay_image_node");
+
+            var installRoot = Path.Combine(workspace.Root, "宿主");
+            Directory.CreateDirectory(installRoot);
+            WriteLocalSettings(workspace.Root,
+                $$"""{ "下游配置": { "comfyui": { "安装目录": {{Quote(installRoot)}} } } }""");
+
+            var package = Package(Host(workspace.Root, "comfyui"), "relay_image_node");
+
+            Assert.Equal(HostPackageInventory.StateMissing, package.State);
+            Assert.Equal(
+                "bridge.script.install --Driver comfyui --Name relay_image_node",
+                package.InstallCommand);
+        }
+
+        /// <summary>配了安装目录、标志文件真在 → 「已装」，依据里带上那个绝对路径。</summary>
+        [Fact]
+        public void ScriptPackagePresentInHostIsInstalled()
+        {
+            using var workspace = new Workspace();
+            WriteDriver(workspace.Root, "comfyui", InstallableDriverJson);
+            WriteScriptPackage(workspace.Root, "relay_image_node");
+
+            var installRoot = Path.Combine(workspace.Root, "宿主");
+            var marker = Path.Combine(installRoot, "custom_nodes", "relay_image_node", "__init__.py");
+            WriteFile(marker, "# 装好了");
+            WriteLocalSettings(workspace.Root,
+                $$"""{ "下游配置": { "comfyui": { "安装目录": {{Quote(installRoot)}} } } }""");
+
+            var package = Package(Host(workspace.Root, "comfyui"), "relay_image_node");
+
+            Assert.Equal(HostPackageInventory.StateInstalled, package.State);
+            Assert.Contains(marker, package.Evidence, StringComparison.Ordinal);
+            Assert.Equal("", package.NextStep);
+        }
+
+        /// <summary>
         /// 线上形态 driver：本体「无需安装」，没有本机桥接包；
         /// 密钥只报键名与「在不在」，说明文本里绝不出现值（决策 5、78）。
         /// </summary>
@@ -445,6 +556,23 @@ namespace Template.Toolkit.CreationPipeline.Tests
         private static void WriteDriver(string repositoryRoot, string driverName, string driverJson)
         {
             WriteFile(Path.Combine(repositoryRoot, "Bridges", driverName, "driver.json"), driverJson);
+        }
+
+        /// <summary>造一个目录型脚本包：一份写对的 plugin.json 加一个标志文件。</summary>
+        private static void WriteScriptPackage(string repositoryRoot, string packageName)
+        {
+            var directory = Path.Combine(repositoryRoot, "Bridges", "comfyui", "scripts", packageName);
+            WriteFile(Path.Combine(directory, "plugin.json"), $$"""
+                {
+                  "契约版本": "1.0.0",
+                  "名称": "{{packageName}}",
+                  "宿主落点": "custom_nodes/{{packageName}}",
+                  "标志文件": "__init__.py",
+                  "说明": "测试用",
+                  "生效提示": "装完要重启 ComfyUI。"
+                }
+                """);
+            WriteFile(Path.Combine(directory, "__init__.py"), "# 测试用");
         }
 
         private static void WriteLocalSettings(string repositoryRoot, string json)

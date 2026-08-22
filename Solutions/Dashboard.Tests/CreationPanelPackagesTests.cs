@@ -79,6 +79,39 @@ namespace Template.Toolkit.DashboardTests
             }
         }
 
+        /// <summary>
+        /// 目录型脚本包缺在宿主里时，它的安装命令要一路带到页面——
+        /// 卡上那个安装按钮就是照这个字段渲染的，字段空了按钮就不长出来，而页面不会报错。
+        /// </summary>
+        [Fact]
+        public void MissingScriptPackageCarriesInstallCommandToThePage()
+        {
+            var installRoot = Path.Combine(_repositoryRoot, "宿主");
+            Directory.CreateDirectory(installRoot);
+            WriteInstallableDriver("comfyui");
+            WriteFile(
+                Path.Combine(_repositoryRoot, "Bridges", "comfyui", "scripts", "relay_image_node", "plugin.json"),
+                """
+                {
+                  "契约版本": "1.0.0",
+                  "名称": "relay_image_node",
+                  "宿主落点": "custom_nodes/relay_image_node",
+                  "标志文件": "__init__.py",
+                  "说明": "测试用",
+                  "生效提示": "装完要重启 ComfyUI。"
+                }
+                """);
+            WriteFile(
+                Path.Combine(_repositoryRoot, "Tools", "CreationPipeline", "Config", "local.json"),
+                $$"""{ "下游配置": { "comfyui": { "安装目录": "{{installRoot.Replace("\\", "\\\\")}}" } } }""");
+
+            var row = Assert.Single(CreationPanelReader.ReadHostPackages(_repositoryRoot));
+            var package = Assert.Single(row.Packages, entry => entry.Name == "relay_image_node");
+
+            Assert.Equal("缺", package.State);
+            Assert.Equal("bridge.script.install --Driver comfyui --Name relay_image_node", package.InstallCommand);
+        }
+
         /// <summary>没配仓库根时 /api/panel/packages 回 503 而不是空数组：没配置与真没有是两回事。</summary>
         [Fact]
         public async Task PackagesRouteReturnsServiceUnavailableWithoutRepositoryRoot()
@@ -248,6 +281,30 @@ namespace Template.Toolkit.DashboardTests
                   "表单分组字段": ""
                 }
                 """.Replace("%名%", driverName).Replace("%密钥%", secretFieldsJson);
+            WriteFile(Path.Combine(_repositoryRoot, "Bridges", driverName, "driver.json"), driverJson);
+        }
+
+        /// <summary>写一个带「安装目录」这一格的 driver 自述：那一格是「允不允许装脚本包」的判据。</summary>
+        private void WriteInstallableDriver(string driverName)
+        {
+            var driverJson = """
+                {
+                  "名称": "%名%",
+                  "port": ["生图"],
+                  "形态": "本地",
+                  "契约版本": ">=1.0 <2.0",
+                  "配置schema": {
+                    "地址": { "类型": "string", "默认": "" },
+                    "安装目录": { "类型": "string", "默认": "" }
+                  },
+                  "密钥字段": [],
+                  "试跑": "bridge.probe --Driver %名%",
+                  "能力探测": "bridge.probe --Driver %名%",
+                  "实现": "bridge-%名%",
+                  "字段类型映射": {},
+                  "表单分组字段": ""
+                }
+                """.Replace("%名%", driverName);
             WriteFile(Path.Combine(_repositoryRoot, "Bridges", driverName, "driver.json"), driverJson);
         }
 
