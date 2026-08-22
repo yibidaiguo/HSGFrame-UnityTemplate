@@ -141,13 +141,56 @@ namespace Template.Toolkit.UiScaffold
         [JsonPropertyName("样式类")]
         public List<string> StyleClasses { get; set; } = new List<string>();
 
+        /// <summary>
+        /// 这个元素用哪张贴图：Unity 工程内的资源路径，如
+        /// <c>Assets/Game/ResourceArt/UI/Elements/ui_btn_close.png</c>。留空表示不带图。
+        /// 由拆图那条链写进来——它把一张界面设计图按元素拆开，一层一张。
+        /// </summary>
+        [JsonPropertyName("贴图")]
+        public string TexturePath { get; set; }
+
+        /// <summary>
+        /// 这个元素在面板里的位置与大小，像素：<c>{"左":0,"上":0,"宽":100,"高":40}</c>。
+        /// 留空表示交给布局（flex）排，不绝对定位。
+        ///
+        /// **位置写进定义而不是只写进 USS**：程序侧的 AI 要靠这份定义看懂「这个界面长什么样、
+        /// 哪个元素在哪」，而不必去读那张图——读图既贵又容易看错。
+        /// </summary>
+        [JsonPropertyName("位置")]
+        public UiElementRect Rect { get; set; }
+
         /// <summary>子元素清单，可以继续嵌套。</summary>
         [JsonPropertyName("子元素")]
         public List<UiElementSource> Children { get; set; } = new List<UiElementSource>();
 
         /// <summary>本元素的属性串，供 UXML 模板直接贴在标签名后面。</summary>
         [JsonIgnore]
-        public string AttributeMarkup => UiMarkupWriter.AttributeMarkup(IdentifierName, StyleClasses, Text);
+        public string AttributeMarkup =>
+            UiMarkupWriter.AttributeMarkup(IdentifierName, StyleClasses, Text, TexturePath, Rect);
+    }
+
+    /// <summary>元素在面板里的位置与大小，像素。</summary>
+    public sealed class UiElementRect
+    {
+        /// <summary>左，像素。</summary>
+        [JsonPropertyName("左")]
+        public int Left { get; set; }
+
+        /// <summary>上，像素。</summary>
+        [JsonPropertyName("上")]
+        public int Top { get; set; }
+
+        /// <summary>宽，像素。</summary>
+        [JsonPropertyName("宽")]
+        public int Width { get; set; }
+
+        /// <summary>高，像素。</summary>
+        [JsonPropertyName("高")]
+        public int Height { get; set; }
+
+        /// <summary>宽高都大于零才算立得住——零面积的框写进 UXML 只会出一个看不见的盒子。</summary>
+        [JsonIgnore]
+        public bool IsUsable => Width > 0 && Height > 0;
     }
 
     /// <summary>把元素树写成 UXML 片段：属性串拼装、转义与缩进都收在这里。</summary>
@@ -165,7 +208,14 @@ namespace Template.Toolkit.UiScaffold
         /// <param name="identifierName">元素标识名，留空则不写 name。</param>
         /// <param name="styleClasses">样式类名清单，全空则不写 class。</param>
         /// <param name="text">初始文本，留空则不写 text。</param>
-        public static string AttributeMarkup(string identifierName, IEnumerable<string> styleClasses, string text)
+        /// <param name="texturePath">贴图路径，留空则不写背景图。</param>
+        /// <param name="rect">位置与大小，null 或零面积则不绝对定位。</param>
+        public static string AttributeMarkup(
+            string identifierName,
+            IEnumerable<string> styleClasses,
+            string text,
+            string texturePath = "",
+            UiElementRect rect = null)
         {
             var builder = new StringBuilder();
 
@@ -185,6 +235,29 @@ namespace Template.Toolkit.UiScaffold
             if (!string.IsNullOrEmpty(text))
             {
                 builder.Append($" text=\"{Escape(text)}\"");
+            }
+
+            // 贴图与位置写进内联 style。**刻意不进 USS**：USS 是给人调风格的地方，
+            // 而这两样是拆图那条链算出来的事实（哪张图、在哪一格），
+            // 混进 USS 会让人一改样式就把它们覆盖掉，而且下一次重新拆图又要去 USS 里对着找。
+            var styleParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(texturePath))
+            {
+                styleParts.Add($"background-image: url('{Escape(texturePath)}')");
+            }
+
+            if (rect != null && rect.IsUsable)
+            {
+                styleParts.Add("position: absolute");
+                styleParts.Add($"left: {rect.Left}px");
+                styleParts.Add($"top: {rect.Top}px");
+                styleParts.Add($"width: {rect.Width}px");
+                styleParts.Add($"height: {rect.Height}px");
+            }
+
+            if (styleParts.Count > 0)
+            {
+                builder.Append($" style=\"{Escape(string.Join("; ", styleParts))};\"");
             }
 
             return builder.ToString();

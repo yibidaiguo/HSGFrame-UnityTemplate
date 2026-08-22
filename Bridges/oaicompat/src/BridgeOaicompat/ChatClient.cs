@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -28,7 +30,9 @@ namespace Template.Bridges.Oaicompat
         private const string DefaultModelName = "";
 
         /// <summary>执行 complete：发 HTTP 调 chat/completions，返回协议响应。</summary>
-        /// <param name="request">请求信封，载荷 {"提示":"…","上下文":"…"}，配置含 地址/模型/超时秒/执行后端密钥。</param>
+        /// <param name="request">请求信封，载荷 {"提示":"…","上下文":"…"}，可选「图片」（本地 PNG 路径数组，
+        /// 带了就走多模态，图以 data: URL 内联发过去，不经任何第三方图床）；
+        /// 配置含 地址/模型/超时秒/执行后端密钥。</param>
         public static BridgeResponse RunComplete(BridgeRequest request)
         {
             if (!TryGetPayloadString(request, "提示", out var prompt, out var reason))
@@ -66,7 +70,9 @@ namespace Template.Bridges.Oaicompat
 
             var url = endpoint.TrimEnd('/') + "/chat/completions";
 
-            var requestBody = BuildRequestBody(modelName, context, prompt);
+            var imagePaths = ReadPayloadStringList(request, "图片");
+            var imageDataUrls = ReadImagesAsDataUrls(imagePaths, out var skippedImages);
+            var requestBody = BuildRequestBody(modelName, context, prompt, imageDataUrls);
             var call = SendChatCompletion(url, secretKey, requestBody, timeoutSeconds);
             if (!call.Succeeded)
             {
@@ -296,8 +302,20 @@ namespace Template.Bridges.Oaicompat
             }
         }
 
-        /// <summary>把配置与载荷拼成 chat/completions 请求体 JSON 文本。</summary>
-        private static string BuildRequestBody(string modelName, string context, string prompt)
+        /// <summary>
+        /// 把配置与载荷拼成 chat/completions 请求体 JSON 文本。
+        ///
+        /// 带图时用 OpenAI 兼容的多模态 content 数组（一段 text 加若干 image_url），
+        /// 图以 data: URL 内联——**不上传到任何第三方图床**：那等于把项目里的美术稿
+        /// 发到一个我们不控制的地方去。不带图时照旧发一个字符串 content，
+        /// 免得给不支持多模态的模型塞一个它读不懂的形状。
+        /// </summary>
+        /// <param name="modelName">模型名。</param>
+        /// <param name="context">系统上下文。</param>
+        /// <param name="prompt">用户提示。</param>
+        /// <param name="imageDataUrls">要一起发过去的图，已经是 data: URL；空表示不带图。</param>
+        private static string BuildRequestBody(
+            string modelName, string context, string prompt, IReadOnlyList<string> imageDataUrls)
         {
             var builder = new StringBuilder();
             builder.Append("{\"model\":");
@@ -305,9 +323,85 @@ namespace Template.Bridges.Oaicompat
             builder.Append(",\"messages\":[{\"role\":\"system\",\"content\":");
             builder.Append(JsonSerializer.Serialize(context));
             builder.Append("},{\"role\":\"user\",\"content\":");
-            builder.Append(JsonSerializer.Serialize(prompt));
+
+            if (imageDataUrls == null || imageDataUrls.Count == 0)
+            {
+                builder.Append(JsonSerializer.Serialize(prompt));
+            }
+            else
+            {
+                builder.Append("[{\"type\":\"text\",\"text\":");
+                builder.Append(JsonSerializer.Serialize(prompt));
+                builder.Append("}");
+                foreach (var dataUrl in imageDataUrls)
+                {
+                    builder.Append(",{\"type\":\"image_url\",\"image_url\":{\"url\":");
+                    builder.Append(JsonSerializer.Serialize(dataUrl));
+                    builder.Append("}}");
+                }
+
+                builder.Append("]");
+            }
+
             builder.Append("}]}");
             return builder.ToString();
+        }
+
+        /// <summary>读载荷里的字符串数组；缺失或类型不对给空表。</summary>
+        /// <param name="request">请求信封。</param>
+        /// <param name="key">键名。</param>
+        private static IReadOnlyList<string> ReadPayloadStringList(BridgeRequest request, string key)
+        {
+            var values = new List<string>();
+            if (request.Payload.ValueKind != JsonValueKind.Object
+                || !request.Payload.TryGetProperty(key, out var element)
+                || element.ValueKind != JsonValueKind.Array)
+            {
+                return values;
+            }
+
+            foreach (var item in element.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    var text = item.GetString() ?? "";
+                    if (text.Length > 0)
+                    {
+                        values.Add(text);
+                    }
+                }
+            }
+
+            return values;
+        }
+
+        /// <summary>
+        /// 把本地图片读成 data: URL。读不动的**跳过并记一笔**，不让一张读不动的图
+        /// 把整次调用打掉——少看一张图是少一份依据，而整次失败是什么都没有。
+        /// </summary>
+        /// <param name="paths">本地图片路径。</param>
+        /// <param name="skipped">跳过的文件与原因。</param>
+        private static IReadOnlyList<string> ReadImagesAsDataUrls(
+            IReadOnlyList<string> paths, out IReadOnlyList<string> skipped)
+        {
+            var urls = new List<string>();
+            var skippedList = new List<string>();
+            skipped = skippedList;
+
+            foreach (var path in paths ?? Array.Empty<string>())
+            {
+                try
+                {
+                    var bytes = File.ReadAllBytes(path);
+                    urls.Add("data:image/png;base64," + Convert.ToBase64String(bytes));
+                }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+                {
+                    skippedList.Add(Path.GetFileName(path) + "：" + exception.Message);
+                }
+            }
+
+            return urls;
         }
 
         /// <summary>
