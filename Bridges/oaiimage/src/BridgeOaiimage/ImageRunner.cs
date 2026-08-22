@@ -152,6 +152,15 @@ namespace Template.Bridges.Oaiimage
                 return InvalidRequest(sizeReason);
             }
 
+            // 吸附到下游真能出的档位。**吸附了要说出来**：出来的图不是你要的尺寸这件事，
+            // 不写进溯源就没人知道——人只会看到一张图，以为它就是 1920×1080。
+            var requestedSize = size;
+            size = SnapToOption(size, preset.SizeOptions);
+            if (!string.Equals(size, requestedSize, StringComparison.Ordinal))
+            {
+                Console.Error.WriteLine($"BridgeOaiimage 尺寸吸附：{requestedSize} → {size}（下游只出这几档）");
+            }
+
             if (!TryResolveVariantCount(assetRequest, out var variantCount, out var countReason))
             {
                 return InvalidRequest(countReason);
@@ -203,7 +212,7 @@ namespace Template.Bridges.Oaiimage
                 // 本接口不回 prompt id，这个是本地现编的，只为把同一次调用的几张图串起来。
                 var promptIdentifier = DriverName + "-" + Guid.NewGuid().ToString("N");
 
-                var variants = LandVariants(images, preset, assetRequest, outputDirectory, prompt, promptIdentifier, modelName, size, providedSeedText, referenceImagePath);
+                var variants = LandVariants(images, preset, assetRequest, outputDirectory, prompt, promptIdentifier, modelName, size, requestedSize, providedSeedText, referenceImagePath);
                 var payload = new JsonObject
                 {
                     ["prompt_id"] = promptIdentifier,
@@ -227,6 +236,7 @@ namespace Template.Bridges.Oaiimage
             string promptIdentifier,
             string modelName,
             string size,
+            string requestedSize,
             string providedSeedText,
             string referenceImagePath)
         {
@@ -277,6 +287,7 @@ namespace Template.Bridges.Oaiimage
                         promptIdentifier,
                         modelName,
                         size,
+                        requestedSize,
                         images[variantIndex].SourceFieldName,
                         providedSeedText,
                         referenceImagePath);
@@ -323,6 +334,7 @@ namespace Template.Bridges.Oaiimage
             string promptIdentifier,
             string modelName,
             string size,
+            string requestedSize,
             string sourceFieldName,
             string providedSeedText,
             string referenceImagePath)
@@ -333,6 +345,7 @@ namespace Template.Bridges.Oaiimage
                 ["接口"] = JsonSerializer.Serialize(preset.ApiName),
                 ["模型"] = JsonSerializer.Serialize(modelName ?? ""),
                 ["尺寸"] = JsonSerializer.Serialize(size ?? ""),
+                ["要的尺寸"] = JsonSerializer.Serialize(requestedSize ?? ""),
                 ["取图字段"] = JsonSerializer.Serialize(sourceFieldName ?? ""),
                 ["种子说明"] = JsonSerializer.Serialize(SeedNotSupportedText)
             };
@@ -413,6 +426,74 @@ namespace Template.Bridges.Oaiimage
 
             size = ReadConfigurationString(request, "尺寸", "");
             return true;
+        }
+
+        /// <summary>
+        /// 把要的尺寸吸附到下游真能出的那几档：**先挑长宽比最接近的**，比例一样时挑面积最接近的。
+        ///
+        /// 为什么按比例挑而不按面积：比例错了画面会被压扁或拉长，那是毁掉整张图；
+        /// 面积差一点只是清晰度差一点，缩放能补。
+        /// 档位为空、或要的尺寸本来就在档位里，就原样返回。
+        /// </summary>
+        /// <param name="size">要的尺寸，形如 1920x1080。</param>
+        /// <param name="options">下游能出的档位。</param>
+        private static string SnapToOption(string size, IReadOnlyList<string> options)
+        {
+            if (options == null || options.Count == 0 || !TryParseSize(size, out var width, out var height))
+            {
+                return size;
+            }
+
+            foreach (var option in options)
+            {
+                if (string.Equals(option, size, StringComparison.Ordinal))
+                {
+                    return size;
+                }
+            }
+
+            var wantedRatio = (double)width / height;
+            var wantedArea = (double)width * height;
+            var best = size;
+            var bestRatioGap = double.MaxValue;
+            var bestAreaGap = double.MaxValue;
+
+            foreach (var option in options)
+            {
+                if (!TryParseSize(option, out var optionWidth, out var optionHeight))
+                {
+                    continue;
+                }
+
+                var ratioGap = Math.Abs(((double)optionWidth / optionHeight) - wantedRatio);
+                var areaGap = Math.Abs(((double)optionWidth * optionHeight) - wantedArea);
+
+                if (ratioGap < bestRatioGap - 0.001
+                    || (Math.Abs(ratioGap - bestRatioGap) <= 0.001 && areaGap < bestAreaGap))
+                {
+                    best = option;
+                    bestRatioGap = ratioGap;
+                    bestAreaGap = areaGap;
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>把 1920x1080 这样的文本拆成宽高；拆不动给 false。</summary>
+        /// <param name="size">尺寸文本。</param>
+        /// <param name="width">宽。</param>
+        /// <param name="height">高。</param>
+        private static bool TryParseSize(string size, out int width, out int height)
+        {
+            width = 0;
+            height = 0;
+            var parts = (size ?? "").Split('x', 'X');
+            return parts.Length == 2
+                && int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out width)
+                && int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out height)
+                && width > 0
+                && height > 0;
         }
 
         /// <summary>资产请求里到底有没有写「规格.宽」或「规格.高」（不管写得对不对）。</summary>

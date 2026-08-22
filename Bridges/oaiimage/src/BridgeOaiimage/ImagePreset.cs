@@ -52,7 +52,8 @@ namespace Template.Bridges.Oaiimage
             string modelName,
             string size,
             string promptTemplate,
-            IReadOnlyList<string> anchorSlotNames)
+            IReadOnlyList<string> anchorSlotNames,
+            IReadOnlyList<string> sizeOptions = null)
         {
             Name = name ?? "";
             AssetType = assetType ?? "";
@@ -61,6 +62,7 @@ namespace Template.Bridges.Oaiimage
             Size = size ?? "";
             PromptTemplate = promptTemplate ?? "";
             AnchorSlotNames = anchorSlotNames ?? Array.Empty<string>();
+            SizeOptions = sizeOptions ?? Array.Empty<string>();
         }
 
         /// <summary>预设名，与目录名一致。</summary>
@@ -83,6 +85,16 @@ namespace Template.Bridges.Oaiimage
 
         /// <summary>锚点槽名列表；edits 接口必须声明「参考图」。</summary>
         public IReadOnlyList<string> AnchorSlotNames { get; }
+
+        /// <summary>
+        /// 下游真能出的尺寸档位（如 1024x1024 / 1536x1024 / 1024x1536）；空表示不吸附、原样发。
+        ///
+        /// **为什么要有**：资产规格写的是项目要什么（1920×1080），而下游只出它自己那几档。
+        /// 不吸附的话，要么被下游按参数非法退回，要么它自己挑一档回来——挑成什么样我们不知道，
+        /// 溯源里也记不下「其实没按你要的尺寸出」。吸附放在这里做，是因为
+        /// 「这家能出哪几档」是下游知识（决策 93），引擎那边不该知道。
+        /// </summary>
+        public IReadOnlyList<string> SizeOptions { get; }
 
         /// <summary>这份预设要不要参考图（声明了「参考图」锚点槽即为要）。</summary>
         public bool WantsReferenceImage
@@ -224,7 +236,10 @@ namespace Template.Bridges.Oaiimage
                     Inherit(ReadStringOrEmpty(root, "模型"), parent?.ModelName),
                     Inherit(ReadStringOrEmpty(root, "尺寸"), parent?.Size),
                     prompt,
-                    slots);
+                    slots,
+                    ReadStringList(root, "尺寸档位").Count > 0
+                        ? ReadStringList(root, "尺寸档位")
+                        : parent?.SizeOptions);
 
                 if (string.Equals(apiName, EditsApiName, StringComparison.Ordinal) && !preset.WantsReferenceImage)
                 {

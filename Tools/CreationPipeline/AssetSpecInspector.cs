@@ -92,6 +92,7 @@ namespace Template.Toolkit.CreationPipeline
                     "Specifications/Project/asset-spec.json"));
             }
 
+            var overridable = new HashSet<string>(spec.OverridableKeys, StringComparer.Ordinal);
             foreach (var pair in request.Specification)
             {
                 var fullKey = "规格." + pair.Key;
@@ -102,6 +103,16 @@ namespace Template.Toolkit.CreationPipeline
                         $"规格里的「{pair.Key}」不在该类型的规格数据里",
                         "去掉这个键，或先在资产规格数据里声明它",
                         "Specifications/Project/asset-spec.json"));
+                    continue;
+                }
+
+                // 「可覆盖」清单里的键**随便改**——那正是「可覆盖」这三个字的意思。
+                // 从前这里不看清单，一律按「只许收紧」判，于是「宽」从 1080 改成 1920
+                // 被判成「放宽」。可宽高不是上限，是**目标值**：1920 不比 1080 宽松，
+                // 它就是另一个尺寸；把它当上限比大小，就会得出「PC 界面比手机界面宽松」这种结论。
+                // 清单之外的键才继续按「只许收紧」判——那些确实多是上限（最大面数、贴图尺寸…）。
+                if (overridable.Contains(fullKey))
+                {
                     continue;
                 }
 
