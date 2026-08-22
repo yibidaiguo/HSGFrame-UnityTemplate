@@ -186,7 +186,16 @@ namespace Template.Toolkit.CommandHost.Commands
                 }
 
                 var nodeToken = ReadString(call.Result.Payload, "节点token");
+
+                // 链接只有**新建**那一支回得出来（get_node 的响应里没有 url）。
+                // 刷新时拿到空串就照写的话，会把上次那条好端端的链接抹掉——
+                // 任务表上挂的正是它。所以空就沿用旧的。
                 var link = ReadString(call.Result.Payload, "链接");
+                if (link.Length == 0)
+                {
+                    link = syncState.Link;
+                }
+
                 var updated = RequirementDocumentSyncState.Write(
                     documentText,
                     new RequirementDocumentSyncState(
@@ -197,6 +206,20 @@ namespace Template.Toolkit.CommandHost.Commands
                 File.WriteAllText(documentPath, updated);
 
                 lines.Add($"{identifier}　{ReadString(call.Result.Payload, "动作")}：{link}");
+
+                // 素材传没传上去要**逐条报**：正文推成功而图片全掉了，人只看一句「已刷新」
+                // 是发现不了的——直到他打开文档看见一个空图框。
+                var uploaded = ReadInt(call.Result.Payload, "传上去的素材");
+                if (uploaded > 0)
+                {
+                    lines.Add($"{identifier}　素材传上去 {uploaded} 个");
+                }
+
+                foreach (var mediaFailure in ReadStringArray(call.Result.Payload, "没传上去的素材"))
+                {
+                    lines.Add($"{identifier}　素材没传上去：{mediaFailure}");
+                }
+
                 pushedCount++;
             }
 
@@ -222,6 +245,43 @@ namespace Template.Toolkit.CommandHost.Commands
                 && value.ValueKind == JsonValueKind.String
                 ? value.GetString() ?? ""
                 : "";
+        }
+
+        /// <summary>从载荷里取一个整数字段；不是数字或没有时给 0。</summary>
+        /// <param name="payload">响应载荷。</param>
+        /// <param name="name">字段名。</param>
+        private static int ReadInt(JsonElement payload, string name)
+        {
+            return payload.ValueKind == JsonValueKind.Object
+                && payload.TryGetProperty(name, out var value)
+                && value.ValueKind == JsonValueKind.Number
+                && value.TryGetInt32(out var number)
+                ? number
+                : 0;
+        }
+
+        /// <summary>从载荷里取一个字符串数组字段；没有或类型不对给空表。</summary>
+        /// <param name="payload">响应载荷。</param>
+        /// <param name="name">字段名。</param>
+        private static IReadOnlyList<string> ReadStringArray(JsonElement payload, string name)
+        {
+            var values = new List<string>();
+            if (payload.ValueKind != JsonValueKind.Object
+                || !payload.TryGetProperty(name, out var element)
+                || element.ValueKind != JsonValueKind.Array)
+            {
+                return values;
+            }
+
+            foreach (var item in element.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    values.Add(item.GetString() ?? "");
+                }
+            }
+
+            return values;
         }
 
         /// <summary>

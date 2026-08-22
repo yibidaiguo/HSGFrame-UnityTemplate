@@ -119,7 +119,14 @@ namespace Template.Bridges.Feishu
                 }
 
                 documentId = ReadString(node.ResponseBody, "data", "node", "obj_token");
+
+                // get_node 的响应里**没有 url**（只有建节点那一支回）。刷新时不补一次的话，
+                // 链接就是空的——而任务表上挂的正是它，空一次就把好端端的地址抹掉了。
                 link = ReadString(node.ResponseBody, "data", "node", "url");
+                if (link.Length == 0)
+                {
+                    link = QueryDocumentUrl(documentId, appId, secretKey, timeoutSeconds);
+                }
                 if (effectiveSpace.Length == 0)
                 {
                     effectiveSpace = ReadString(node.ResponseBody, "data", "node", "space_id");
@@ -291,6 +298,54 @@ namespace Template.Bridges.Feishu
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// 按文档 id 查它的地址。走云空间的元信息接口——知识库那一侧只有建节点时才给 url，
+        /// 之后再想知道「这份文档的地址是什么」就只能问这里。
+        /// 查不到给空串：拿不到地址是缺一条信息，不该让整篇推送失败。
+        /// </summary>
+        /// <param name="documentId">文档 id（节点的 obj_token）。</param>
+        /// <param name="appId">飞书应用标识。</param>
+        /// <param name="secretKey">飞书应用密钥。</param>
+        /// <param name="timeoutSeconds">单次调用超时秒数。</param>
+        private static string QueryDocumentUrl(string documentId, string appId, string secretKey, int timeoutSeconds)
+        {
+            if (documentId.Length == 0)
+            {
+                return "";
+            }
+
+            var body = new JsonObject
+            {
+                ["request_docs"] = new JsonArray
+                {
+                    new JsonObject { ["doc_token"] = documentId, ["doc_type"] = "docx" }
+                },
+                ["with_url"] = true
+            }.ToJsonString();
+
+            var call = FeishuClient.Send("POST", FeishuClient.DriveMetasUrl(), body, appId, secretKey, timeoutSeconds);
+            if (!call.Succeeded
+                || call.ResponseBody.ValueKind != JsonValueKind.Object
+                || !call.ResponseBody.TryGetProperty("data", out var data)
+                || data.ValueKind != JsonValueKind.Object
+                || !data.TryGetProperty("metas", out var metas)
+                || metas.ValueKind != JsonValueKind.Array)
+            {
+                return "";
+            }
+
+            foreach (var meta in metas.EnumerateArray())
+            {
+                var url = ReadString(meta, "url");
+                if (url.Length > 0)
+                {
+                    return url;
+                }
+            }
+
+            return "";
         }
 
         /// <summary>把一次写子块响应里的 block_id 按顺序收进清单。</summary>

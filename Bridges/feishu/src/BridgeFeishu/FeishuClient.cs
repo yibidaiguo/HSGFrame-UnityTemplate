@@ -90,6 +90,12 @@ namespace Template.Bridges.Feishu
             return WikiSpacesPrefix + "/" + Uri.EscapeDataString(spaceId);
         }
 
+        /// <summary>云空间元信息批量查询的 URL：按 doc_token 问「这份文档的地址是什么」。</summary>
+        public static string DriveMetasUrl()
+        {
+            return "https://open.feishu.cn/open-apis/drive/v1/metas/batch_query";
+        }
+
         /// <summary>某个知识空间下建节点的 URL。</summary>
         /// <param name="spaceId">知识空间 space_id。</param>
         public static string WikiNodesUrl(string spaceId)
