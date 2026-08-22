@@ -1223,8 +1223,10 @@ namespace Template.Toolkit.CommandHost.Commands
                 body += "\n" + normalizeNotes;
             }
 
-            // UI 那一类才谈得上按元素拆——一个图标没有「层」。
-            var canCut = assetType.StartsWith("界面", StringComparison.Ordinal) || assetType.StartsWith("UI", StringComparison.Ordinal);
+            // 能不能拆**由资产规格声明**，不按类型名猜。
+            // 按名字前缀猜过一次：判据写的是「界面」开头，而「PC界面底图」以 PC 开头，
+            // 当场漏掉，人拿到的卡上根本没有拆图按钮。
+            var canCut = AssetSpecCatalog.Load(repositoryRoot, "").Find(assetType)?.IsCuttable ?? false;
             card = AssistantCard.ForGeneratedImages(body, images, assetIdentifier, canCut);
             return card.ToPlainText();
         }
@@ -1528,6 +1530,8 @@ namespace Template.Toolkit.CommandHost.Commands
             out bool replyRetryable)
         {
             var assetIdentifier = message.ReadActionValue("资产id");
+            var variantText = message.ReadActionValue("变体序号");
+            var variantIndex = int.TryParse(variantText, out var parsedIndex) && parsedIndex > 0 ? parsedIndex : 1;
             string replyText;
             AssistantCard card = null;
             var result = "拆图失败";
@@ -1546,7 +1550,7 @@ namespace Template.Toolkit.CommandHost.Commands
             {
                 replyText = RunCut(
                     repositoryRoot, backendDriver, assetIdentifier, arguments, lines, out card, out var cut,
-                    message.ConversationIdentifier);
+                    message.ConversationIdentifier, "", variantIndex);
                 result = cut ? "已拆图" : "拆图失败";
             }
 
@@ -1587,7 +1591,8 @@ namespace Template.Toolkit.CommandHost.Commands
             out AssistantCard card,
             out bool cut,
             string conversationIdentifier = "",
-            string feedback = "")
+            string feedback = "",
+            int variantIndex = 1)
         {
             card = null;
             cut = false;
@@ -1600,13 +1605,30 @@ namespace Template.Toolkit.CommandHost.Commands
                 return "拆不了：" + assetIdentifier + " 的变体目录里一张图都没有（" + variantDirectory + "）。";
             }
 
-            var sourcePath = images[0];
+            // 拆哪一张由按钮带回来的序号决定——出了几张就有几个候选，人挑哪张拆哪张。
+            // 序号越界时退回第一张并说一句，不静默拆错一张。
+            var pickIndex = variantIndex - 1;
+            if (pickIndex < 0 || pickIndex >= images.Count)
+            {
+                lines.Add($"变体序号 {variantIndex} 越界（共 {images.Count} 张），退回第 1 张");
+                pickIndex = 0;
+            }
+
+            var sourcePath = images[pickIndex];
 
             // 改拆图时把上一次的框原样喂回去，只动人说的那几处——从头再标一遍等于把
             // 已经标对的也重掷一次骰子，人明明只说了一句「关闭按钮框大了」，结果整套框全变。
-            var previousLayers = feedback.Length == 0
-                ? Array.Empty<UiLayer>()
-                : AssistantServeTurn.ReadCut(repositoryRoot, assetIdentifier, out _);
+            var previousLayers = Array.Empty<UiLayer>() as IReadOnlyList<UiLayer>;
+            if (feedback.Length > 0)
+            {
+                // 改的是上一次拆的**那一张**，不是重新挑一张——人说的「关闭按钮框大了」
+                // 指的是他刚看到的那批图，换一张源图就对不上了。
+                previousLayers = AssistantServeTurn.ReadCut(repositoryRoot, assetIdentifier, out var previousSource);
+                if (previousSource.Length > 0 && File.Exists(previousSource))
+                {
+                    sourcePath = previousSource;
+                }
+            }
             var prompt = feedback.Length > 0 && previousLayers.Count > 0
                 ? UiLayerCutter.BuildRecutPrompt(previousLayers, feedback)
                 : UiLayerCutter.LayerPrompt;

@@ -398,10 +398,26 @@ namespace Template.Toolkit.CreationPipeline
 
             // 拆图是「定稿之后」的一步：先出一张整屏定方向，方向对了才谈按元素切开。
             // 所以按钮挂在**结果卡**上，不挂在出图请求卡上。
+            //
+            // **每张变体各给一个按钮**：出了几张就有几个候选，人挑哪张拆哪张。
+            // 从前只给一个按钮、写死拆第一张——那等于替人做了选片这个决定，
+            // 而他想拆的常常是第三张。
             if (canCut && !string.IsNullOrWhiteSpace(assetIdentifier))
             {
-                buttons.Add(new AssistantCardButton(
-                    "拆图", CutAction, new JsonObject { ["资产id"] = assetIdentifier }, isPrimary: true));
+                var count = imagePaths?.Count ?? 0;
+                for (var index = 0; index < count; index++)
+                {
+                    var carried = new JsonObject
+                    {
+                        ["资产id"] = assetIdentifier,
+                        ["变体序号"] = (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    };
+                    buttons.Add(new AssistantCardButton(
+                        count == 1 ? "拆图" : "拆第 " + (index + 1) + " 张",
+                        CutAction,
+                        carried,
+                        isPrimary: index == 0));
+                }
             }
 
             buttons.Add(new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false));

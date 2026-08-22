@@ -50,6 +50,16 @@ namespace Template.Toolkit.CreationPipeline
             get { return Values.TryGetValue("落点", out var destination) ? destination : ""; }
         }
 
+        /// <summary>
+        /// 这一类资产出来的图能不能按元素拆成单图。
+        /// **显式声明，不按类型名猜**——按名字前缀猜过一次：判据写的是「界面」开头，
+        /// 而「PC界面底图」以 PC 开头，当场漏掉，人点出来的卡上根本没有拆图按钮。
+        /// </summary>
+        public bool IsCuttable
+        {
+            get { return Values.TryGetValue("可拆图", out var value) && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase); }
+        }
+
         /// <summary>命名模式，取「命名模式」键；取不到给空串。</summary>
         public string NamingPattern
         {
@@ -260,6 +270,11 @@ namespace Template.Toolkit.CreationPipeline
                 else if (string.Equals(property.Name, "命名模式", StringComparison.Ordinal) && property.Value.ValueKind == JsonValueKind.String)
                 {
                     values["命名模式"] = property.Value.GetString() ?? "";
+                }
+                else if (string.Equals(property.Name, "可拆图", StringComparison.Ordinal)
+                    && (property.Value.ValueKind == JsonValueKind.True || property.Value.ValueKind == JsonValueKind.False))
+                {
+                    values["可拆图"] = property.Value.ValueKind == JsonValueKind.True ? "true" : "false";
                 }
                 else if (string.Equals(property.Name, "可覆盖", StringComparison.Ordinal) && property.Value.ValueKind == JsonValueKind.Array)
                 {
