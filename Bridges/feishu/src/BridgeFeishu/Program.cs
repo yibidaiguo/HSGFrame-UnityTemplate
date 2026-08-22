@@ -59,6 +59,9 @@ namespace Template.Bridges.Feishu
                     case "task-row":
                         response = TaskRowWriter.AddRow(request);
                         break;
+                    case "card-update":
+                        response = CardUpdater.Update(request);
+                        break;
                     case "ensure":
                         response = ObjectProvisioner.Ensure(request);
                         break;
@@ -66,7 +69,7 @@ namespace Template.Bridges.Feishu
                         response = MessageReplier.Reply(request);
                         break;
                     default:
-                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥支持 apply / card / push / pull / doc / ensure / task-row / reply", retryable: false);
+                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥支持 apply / card / card-update / push / pull / doc / ensure / task-row / reply", retryable: false);
                         break;
                 }
 

@@ -70,7 +70,7 @@ namespace Template.Bridges.Feishu
             // 飞书的消息 content 是一个 JSON 字符串：文本是 {"text": …}，卡片是整张卡的 JSON。
             var contentText = card == null
                 ? new JsonObject { ["text"] = text }.ToJsonString()
-                : BuildCardJson(card, text, appId, secretKey, timeoutSeconds);
+                : BuildCardJson(card, text, appId, secretKey, timeoutSeconds, uploadImages: true);
             var content = JsonSerializer.Serialize(contentText);
             var body = "{\"receive_id\":" + JsonSerializer.Serialize(conversationIdentifier)
                 + ",\"msg_type\":\"" + messageKind + "\""
@@ -120,8 +120,10 @@ namespace Template.Bridges.Feishu
         /// <param name="appId">飞书应用标识，贴图要用（先上传拿 image_key）。</param>
         /// <param name="secretKey">飞书应用密钥。</param>
         /// <param name="timeoutSeconds">单次调用超时秒数。</param>
-        private static string BuildCardJson(
-            JsonObject card, string fallbackText, string appId, string secretKey, int timeoutSeconds)
+        /// <param name="uploadImages">要不要把「图片」传上去；更新卡片那条路不传（争的是那几百毫秒）。</param>
+        internal static string BuildCardJson(
+            JsonObject card, string fallbackText, string appId, string secretKey, int timeoutSeconds,
+            bool uploadImages = true)
         {
             var elements = new JsonArray();
 
@@ -185,7 +187,7 @@ namespace Template.Bridges.Feishu
 
             // 图片：本地文件先上传拿 image_key，卡片里的 img 只引用 key。
             // **传不上去的那张要说出来**，不许静默少一张——人对着少一张的九宫格根本不会发现。
-            if (card["图片"] is JsonArray images && images.Count > 0)
+            if (uploadImages && card["图片"] is JsonArray images && images.Count > 0)
             {
                 var failures = new List<string>();
                 foreach (var image in images)

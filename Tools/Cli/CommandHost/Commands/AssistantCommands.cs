@@ -998,7 +998,14 @@ namespace Template.Toolkit.CommandHost.Commands
             AssistantCard card = null;
             var result = "出图失败";
 
-            if (!AssistantServeTurn.TryLoadDraft(repositoryRoot, identifier, out var request, out var loadReason))
+            if (AssistantServeTurn.IsGenerated(repositoryRoot, identifier))
+            {
+                // 卡片挂在聊天记录里，人隔天再点一次是常事；出图一次是真花钱。
+                replyText = "这份出图请求已经出过了，没有重出。要换个方向就直说，我按新描述再出一版。";
+                result = "已出过";
+                lines.Add($"出图请求 {identifier} 已在台账里，挡掉重复出图");
+            }
+            else if (!AssistantServeTurn.TryLoadDraft(repositoryRoot, identifier, out var request, out var loadReason))
             {
                 replyText = "这张图我出不了：" + loadReason;
             }
@@ -1037,9 +1044,39 @@ namespace Template.Toolkit.CommandHost.Commands
                     }
                     else
                     {
+                        // 真跑之前先把原卡的按钮撤掉。出图要跑几十秒，那期间按钮还亮着，
+                        // 连点几下就是连着出好几批——**这是会真花钱的**，不是体验问题。
+                        UpdateImageCard(
+                            repositoryRoot, assistantDriver, message, identifier, request,
+                            "出图请求　正在出图…", "已经开始出了，跑完我把图贴上来。这期间不用再点。",
+                            withButton: false, arguments: arguments, lines: lines);
+
                         replyText = RunGeneration(
-                            repositoryRoot, request, assetType, imageDriver, recipeName, arguments, lines, out card, out var generated);
+                            repositoryRoot, request, assetType, imageDriver, recipeName, arguments, lines,
+                            out card, out var generated, out var assetIdentifier);
                         result = generated ? "已出图" : "出图失败";
+
+                        if (generated)
+                        {
+                            // 成功才记台账：失败那次不记，人才点得了第二次。
+                            if (!AssistantServeTurn.RecordGenerated(repositoryRoot, identifier, assetIdentifier, DateTimeOffset.Now))
+                            {
+                                lines.Add("已出图台账写失败——再点一次会重出一批，需要人看一眼磁盘");
+                            }
+
+                            UpdateImageCard(
+                                repositoryRoot, assistantDriver, message, identifier, request,
+                                "出图请求　已出图", "图在下一条里（" + assetIdentifier + "）。",
+                                withButton: false, arguments: arguments, lines: lines);
+                        }
+                        else
+                        {
+                            // 失败了把按钮换回来——这正是人要重试的时候。
+                            UpdateImageCard(
+                                repositoryRoot, assistantDriver, message, identifier, request,
+                                "出图请求　没出成，可以再点", "上一次没出成，原因见下一条。改好了再点一次。",
+                                withButton: true, arguments: arguments, lines: lines);
+                        }
                     }
                 }
             }
@@ -1081,6 +1118,7 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <param name="lines">这一轮的日志行。</param>
         /// <param name="card">出成了时带图的卡片；没出成为 null。</param>
         /// <param name="generated">真出了图没有。</param>
+        /// <param name="assetIdentifier">出来的资产 id；没出成为空串。</param>
         private static string RunGeneration(
             string repositoryRoot,
             JsonObject request,
@@ -1090,10 +1128,12 @@ namespace Template.Toolkit.CommandHost.Commands
             AssistantServeArguments arguments,
             List<string> lines,
             out AssistantCard card,
-            out bool generated)
+            out bool generated,
+            out string assetIdentifier)
         {
             card = null;
             generated = false;
+            assetIdentifier = "";
 
             var naming = ReadDraftString(request, "命名");
             var description = ReadDraftString(request, "描述");
@@ -1114,7 +1154,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 return "资产请求没建成：" + made.Message + "。这张图没出，改完再点一次。";
             }
 
-            var assetIdentifier = ExtractAssetIdentifier(made);
+            assetIdentifier = ExtractAssetIdentifier(made);
             if (assetIdentifier.Length == 0)
             {
                 return "资产请求建出来了，但没读回它的 id，没法接着出图。看一眼 _Tasks/REQ-0000/ 下面。";
@@ -1147,12 +1187,135 @@ namespace Template.Toolkit.CommandHost.Commands
                 return "生图说成了，但变体目录里一张图都没有（" + variantDirectory + "）。这一步得人看一眼。";
             }
 
+            // 按规格归一：下游按自己的档位出图（要 256×256，回来的常是 1024 往上、且不透明），
+            // 而资产规格是硬的。少这一步，出多少张都入不了库——机检会逐张判红。
+            var normalizeNotes = NormalizeVariants(repositoryRoot, assetType, images, lines);
+
             generated = true;
             var body = "出来了 " + images.Count + " 张（" + assetIdentifier + "，" + imageDriver + " 的 " + recipeName + " 配方）。"
                 + "\n挑中哪张就直说，我把其余的弃掉；都不行就说改哪儿，我重出。"
                 + "\n本体在 " + variantDirectory;
+
+            if (normalizeNotes.Length > 0)
+            {
+                body += "\n" + normalizeNotes;
+            }
+
             card = AssistantCard.ForGeneratedImages(body, images);
             return card.ToPlainText();
+        }
+
+        /// <summary>
+        /// 就地把原来那张出图卡换掉（改按钮与状态）。改不动只记一笔，不影响出图本身——
+        /// 卡片没换掉最多是按钮还亮着，而幂等那一层已经挡住了重复出图。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="assistantDriver">助手 port 路由到的 driver 名。</param>
+        /// <param name="message">这次按钮点击的消息（要用它的消息标识定位原卡）。</param>
+        /// <param name="identifier">出图请求 key。</param>
+        /// <param name="request">出图请求。</param>
+        /// <param name="title">新标题。</param>
+        /// <param name="bodyText">新正文。</param>
+        /// <param name="withButton">换成的这张给不给「出图」按钮。</param>
+        /// <param name="arguments">常驻会话命令参数。</param>
+        /// <param name="lines">这一轮的日志行。</param>
+        private static void UpdateImageCard(
+            string repositoryRoot,
+            string assistantDriver,
+            AssistantConversationMessage message,
+            string identifier,
+            JsonObject request,
+            string title,
+            string bodyText,
+            bool withButton,
+            AssistantServeArguments arguments,
+            List<string> lines)
+        {
+            if (arguments.DryRun || message.MessageIdentifier.Length == 0)
+            {
+                return;
+            }
+
+            var card = AssistantCard.ForImageRequestStatus(identifier, request, title, bodyText, withButton);
+            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["干跑"] = false,
+                ["消息标识"] = message.MessageIdentifier,
+                ["卡片"] = card.ToJson()
+            });
+
+            var call = BridgeInvoker.Invoke(repositoryRoot, assistantDriver, "card-update", payload, arguments.TimeoutSeconds);
+            lines.Add(call.Succeeded
+                ? "原卡已换成：" + title
+                : $"原卡没换成（{call.ErrorCode}）：{call.HumanText}");
+        }
+
+        /// <summary>
+        /// 把刚出的变体按资产规格归一（缩放，以及背景是纯色时抠透明）。
+        /// 返回一句给人看的话：动了什么、还差什么。
+        ///
+        /// **还差什么一定要说**：抠不成透明的图看着跟成了的一样，
+        /// 不说的话人要到把它摆进游戏里才发现少了一层。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="assetType">资产类型，规格从它查。</param>
+        /// <param name="images">刚出的变体路径。</param>
+        /// <param name="lines">这一轮的日志行。</param>
+        private static string NormalizeVariants(
+            string repositoryRoot, string assetType, IReadOnlyList<string> images, List<string> lines)
+        {
+            var catalog = AssetSpecCatalog.Load(repositoryRoot, "");
+            var spec = catalog.Find(assetType);
+            if (spec == null)
+            {
+                return "";
+            }
+
+            spec.Values.TryGetValue("规格.宽", out var widthText);
+            spec.Values.TryGetValue("规格.高", out var heightText);
+            spec.Values.TryGetValue("规格.需要透明", out var transparentText);
+
+            var width = int.TryParse(widthText, out var parsedWidth) ? parsedWidth : 0;
+            var height = int.TryParse(heightText, out var parsedHeight) ? parsedHeight : 0;
+            var needsTransparency = string.Equals(transparentText, "true", StringComparison.OrdinalIgnoreCase);
+
+            var changedCount = 0;
+            var remaining = new List<string>();
+            foreach (var image in images)
+            {
+                var outcome = AssetImageNormalizer.Normalize(image, width, height, needsTransparency);
+                foreach (var note in outcome.Notes)
+                {
+                    lines.Add($"规格归一 {Path.GetFileName(image)}：{note}");
+                }
+
+                foreach (var note in outcome.Remaining)
+                {
+                    lines.Add($"规格没达标 {Path.GetFileName(image)}：{note}");
+                    if (!remaining.Contains(note))
+                    {
+                        remaining.Add(note);
+                    }
+                }
+
+                if (outcome.Changed)
+                {
+                    changedCount++;
+                }
+            }
+
+            var text = "";
+            if (changedCount > 0)
+            {
+                text = "已按规格归一（" + changedCount + " 张，" + width + "×" + height + "）。";
+            }
+
+            if (remaining.Count > 0)
+            {
+                text += "还差：" + string.Join("；", remaining);
+            }
+
+            return text;
         }
 
         /// <summary>把变体目录里的 PNG 按文件名序列出来；目录不在给空表。</summary>

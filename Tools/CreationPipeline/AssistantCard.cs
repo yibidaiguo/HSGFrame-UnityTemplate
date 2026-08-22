@@ -335,6 +335,49 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
+        /// 按同一份出图请求重组一张卡，只换状态与「给不给按钮」。
+        /// 用来**就地改掉已经发出去的那张**：点了就撤按钮，失败了再把它换回来。
+        ///
+        /// 为什么必须能撤：卡片上的按钮点完不会自己消失，而出图要跑几十秒——
+        /// 那期间按钮还亮着，连点几下就是连着出好几批，真花钱。
+        /// </summary>
+        /// <param name="identifier">出图请求的留底 key。</param>
+        /// <param name="request">出图请求。</param>
+        /// <param name="title">标题。</param>
+        /// <param name="bodyText">正文。</param>
+        /// <param name="withButton">给不给「出图」按钮。</param>
+        public static AssistantCard ForImageRequestStatus(
+            string identifier,
+            JsonObject request,
+            string title,
+            string bodyText,
+            bool withButton)
+        {
+            var entries = new List<KeyValuePair<string, string>>();
+            foreach (var name in new[] { "资产类型", "命名", "描述", "变体数" })
+            {
+                if (request != null && request.TryGetPropertyValue(name, out var value) && value != null)
+                {
+                    var text = Flatten(value);
+                    if (text.Length > 0)
+                    {
+                        entries.Add(new KeyValuePair<string, string>(name, text));
+                    }
+                }
+            }
+
+            var buttons = new List<AssistantCardButton>();
+            if (withButton)
+            {
+                buttons.Add(new AssistantCardButton(
+                    "出图", GenerateAction, new JsonObject { ["出图请求id"] = identifier ?? "" }, isPrimary: true));
+            }
+
+            buttons.Add(new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false));
+            return new AssistantCard(title, bodyText, entries, Array.Empty<string>(), buttons);
+        }
+
+        /// <summary>
         /// 组一张「图出来了」的卡：把变体贴上去让人挑。
         /// </summary>
         /// <param name="bodyText">说明。</param>

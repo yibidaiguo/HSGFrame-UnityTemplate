@@ -543,6 +543,102 @@ namespace Template.Toolkit.CreationPipeline
             }
         }
 
+        /// <summary>已出图台账：&lt;仓库根&gt;/_Tasks/conversations/generated.jsonl，一行一条，只追加。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static string GeneratedLedgerPath(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "_Tasks", "conversations", "generated.jsonl");
+        }
+
+        /// <summary>
+        /// 这份出图请求是不是已经出过图了。
+        ///
+        /// **只记成功的**：失败那次不进台账，人才点得了第二次（用户要的就是「失败了按钮再出现」）。
+        /// 而「正在跑的时候又点」不需要额外的锁——助手一轮只处理一条信号，
+        /// 第二次点击的信号排在后面，等第一次跑完（台账已记）才轮到它，那时这里就挡住了。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="key">出图请求的内容哈希 key。</param>
+        public static bool IsGenerated(string repositoryRoot, string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return false;
+            }
+
+            var filePath = GeneratedLedgerPath(repositoryRoot);
+            if (!File.Exists(filePath))
+            {
+                return false;
+            }
+
+            try
+            {
+                foreach (var line in File.ReadAllLines(filePath))
+                {
+                    if (line.Trim().Length == 0)
+                    {
+                        continue;
+                    }
+
+                    JsonNode node;
+                    try
+                    {
+                        node = JsonNode.Parse(line);
+                    }
+                    catch (JsonException)
+                    {
+                        continue;
+                    }
+
+                    if (node is JsonObject record
+                        && record.TryGetPropertyValue("出图请求key", out var value)
+                        && value is JsonValue jsonValue
+                        && jsonValue.TryGetValue<string>(out var text)
+                        && string.Equals(text, key, StringComparison.Ordinal))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                // 台账读不动时判「没出过」：重出一次的代价，小于该出的没出。
+                return false;
+            }
+
+            return false;
+        }
+
+        /// <summary>记一条「这份请求真出过图了」。写失败返回 false，调用方要如实说。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="key">出图请求的内容哈希 key。</param>
+        /// <param name="assetIdentifier">出来的资产 id。</param>
+        /// <param name="now">当前时间。</param>
+        public static bool RecordGenerated(string repositoryRoot, string key, string assetIdentifier, DateTimeOffset now)
+        {
+            var record = new JsonObject
+            {
+                ["时间"] = now.ToString("o"),
+                ["出图请求key"] = key ?? "",
+                ["资产id"] = assetIdentifier ?? ""
+            };
+
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(repositoryRoot, "_Tasks", "conversations"));
+                File.AppendAllText(
+                    GeneratedLedgerPath(repositoryRoot),
+                    record.ToJsonString(LedgerWriteOptions) + Environment.NewLine,
+                    new UTF8Encoding(false));
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
         /// <summary>
         /// 这句话是不是在说「开新话题」。**按钮之外还留一条文字入口**：
         /// 卡片按钮要走回调，回调链路没通、或人在手机上把卡片折叠了，就点不着——
