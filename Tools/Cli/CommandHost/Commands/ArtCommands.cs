@@ -63,6 +63,16 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("描述")]
         public string Description { get; set; }
 
+        /// <summary>覆盖规格里的宽；0 表示沿用资产规格。</summary>
+        [Summary("覆盖规格里的宽（像素）；0 表示沿用资产规格。「宽/高」在可覆盖清单里")]
+        [DefaultValue(0)]
+        public int Width { get; set; }
+
+        /// <summary>覆盖规格里的高；0 表示沿用资产规格。</summary>
+        [Summary("覆盖规格里的高（像素）；0 表示沿用资产规格")]
+        [DefaultValue(0)]
+        public int Height { get; set; }
+
         /// <summary>变体数，默认 6。</summary>
         [Summary("变体数，默认 6")]
         [DefaultValue(6)]
@@ -352,6 +362,19 @@ namespace Template.Toolkit.CommandHost.Commands
                 {
                     specification[pair.Key.Substring("规格.".Length)] = pair.Value;
                 }
+            }
+
+            // 尺寸覆盖：基线的「界面底图」是 1080×1920 竖屏（手机），PC 端的界面得横过来。
+            // 不给覆盖的路，配方就会把竖屏尺寸发给生图下游，模型在竖画布上画横向布局，
+            // 出来的东西看着像被压扁了——真跑撞过这一脚。「宽/高」本来就在可覆盖清单里。
+            if (arguments.Width > 0)
+            {
+                specification["宽"] = arguments.Width.ToString(CultureInfo.InvariantCulture);
+            }
+
+            if (arguments.Height > 0)
+            {
+                specification["高"] = arguments.Height.ToString(CultureInfo.InvariantCulture);
             }
 
             var destination = string.IsNullOrWhiteSpace(arguments.Destination) ? assetSpec.Destination : arguments.Destination;

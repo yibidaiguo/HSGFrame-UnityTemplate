@@ -1163,7 +1163,9 @@ namespace Template.Toolkit.CommandHost.Commands
                 AssetType = assetType,
                 NamingText = naming,
                 Description = description,
-                VariantCount = variantCount
+                VariantCount = variantCount,
+                Width = ReadDraftInt(request, "宽", 0),
+                Height = ReadDraftInt(request, "高", 0)
             });
             lines.Add($"建资产请求：{made.Message}");
             if (!made.IsSuccess)

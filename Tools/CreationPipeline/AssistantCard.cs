@@ -299,7 +299,7 @@ namespace Template.Toolkit.CreationPipeline
             IReadOnlyList<string> openQuestions)
         {
             var entries = new List<KeyValuePair<string, string>>();
-            foreach (var name in new[] { "资产类型", "命名", "描述", "变体数" })
+            foreach (var name in new[] { "资产类型", "命名", "描述", "变体数", "宽", "高" })
             {
                 if (request != null && request.TryGetPropertyValue(name, out var value) && value != null)
                 {
@@ -357,7 +357,7 @@ namespace Template.Toolkit.CreationPipeline
             bool withButton)
         {
             var entries = new List<KeyValuePair<string, string>>();
-            foreach (var name in new[] { "资产类型", "命名", "描述", "变体数" })
+            foreach (var name in new[] { "资产类型", "命名", "描述", "变体数", "宽", "高" })
             {
                 if (request != null && request.TryGetPropertyValue(name, out var value) && value != null)
                 {

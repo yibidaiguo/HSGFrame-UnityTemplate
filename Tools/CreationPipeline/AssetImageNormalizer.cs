@@ -99,8 +99,24 @@ namespace Template.Toolkit.CreationPipeline
 
             if (targetWidth > 0 && targetHeight > 0 && (image.Width != targetWidth || image.Height != targetHeight))
             {
-                notes.Add($"尺寸 {image.Width}×{image.Height} 缩到 {targetWidth}×{targetHeight}");
-                image = Resize(image, targetWidth, targetHeight);
+                // **不许硬拉**：直接缩到目标宽高，长宽比一变内容就变形——
+                // 一张 16:9 的界面图塞进 9:16 的画布，人物会被抻成竹竿。
+                // 比例不同时等比缩放放进画布、四周补透明（UI 本来就要透明底，补边不伤内容）。
+                var sameAspect = Math.Abs(
+                    ((double)image.Width / image.Height) - ((double)targetWidth / targetHeight)) < 0.01;
+
+                if (sameAspect)
+                {
+                    notes.Add($"尺寸 {image.Width}×{image.Height} 缩到 {targetWidth}×{targetHeight}");
+                    image = Resize(image, targetWidth, targetHeight);
+                }
+                else
+                {
+                    notes.Add($"尺寸 {image.Width}×{image.Height} 与规格 {targetWidth}×{targetHeight} 比例不同，"
+                        + "等比缩放后补透明边（没有硬拉变形）");
+                    image = ResizeContain(image, targetWidth, targetHeight);
+                }
+
                 changed = true;
             }
 
@@ -171,6 +187,53 @@ namespace Template.Toolkit.CreationPipeline
                     pixels[target + 1] = (byte)(green / count);
                     pixels[target + 2] = (byte)(blue / count);
                     pixels[target + 3] = (byte)(alpha / count);
+                }
+            }
+
+            return new PngImage(width, height, pixels);
+        }
+
+        /// <summary>
+        /// 等比缩放放进目标画布，四周补透明（contain）。
+        /// **比例不同时用它，不用硬拉**：硬拉会把画面里的东西抻变形，
+        /// 而补出来的透明边在 UI 里本来就是空的，不伤内容。
+        /// </summary>
+        /// <param name="source">原图。</param>
+        /// <param name="width">目标宽。</param>
+        /// <param name="height">目标高。</param>
+        public static PngImage ResizeContain(PngImage source, int width, int height)
+        {
+            var scale = Math.Min((double)width / source.Width, (double)height / source.Height);
+            var innerWidth = Math.Max(1, (int)Math.Round(source.Width * scale));
+            var innerHeight = Math.Max(1, (int)Math.Round(source.Height * scale));
+            var inner = Resize(source, innerWidth, innerHeight);
+
+            var pixels = new byte[width * height * 4];
+            var offsetX = (width - innerWidth) / 2;
+            var offsetY = (height - innerHeight) / 2;
+
+            for (var y = 0; y < innerHeight; y++)
+            {
+                var targetY = y + offsetY;
+                if (targetY < 0 || targetY >= height)
+                {
+                    continue;
+                }
+
+                for (var x = 0; x < innerWidth; x++)
+                {
+                    var targetX = x + offsetX;
+                    if (targetX < 0 || targetX >= width)
+                    {
+                        continue;
+                    }
+
+                    var from = ((y * innerWidth) + x) * 4;
+                    var to = ((targetY * width) + targetX) * 4;
+                    pixels[to] = inner.Pixels[from];
+                    pixels[to + 1] = inner.Pixels[from + 1];
+                    pixels[to + 2] = inner.Pixels[from + 2];
+                    pixels[to + 3] = inner.Pixels[from + 3];
                 }
             }
 
