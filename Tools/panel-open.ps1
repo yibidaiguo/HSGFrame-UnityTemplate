@@ -33,6 +33,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'progress.ps1')
+
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $panelUrl = "http://localhost:$Port/panel"
 $logDirectory = Join-Path $repositoryRoot 'Logs/services'
@@ -77,10 +79,13 @@ if (Test-面板在跑 -探测端口 $Port) {
     if ($SkipBuild) {
         Write-Host '  （-SkipBuild：不编译，直接用现成产物）'
     } else {
-        Write-Host '  编译面板与命令宿主两个工程...'
+        New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
         foreach ($工程 in @('Tools/Dashboard/Dashboard.csproj', 'Tools/Cli/CommandHost/CommandHost.csproj')) {
-            dotnet build (Join-Path $repositoryRoot $工程) -v q --nologo | Out-Null
-            if ($LASTEXITCODE -ne 0) {
+            $名 = [System.IO.Path]::GetFileNameWithoutExtension($工程)
+            $退出码 = Invoke-带进度 -标题 ("编译 " + $名) -文件 'dotnet' -参数 @(
+                'build', (Join-Path $repositoryRoot $工程), '-v', 'q', '--nologo'
+            ) -工作目录 $repositoryRoot -日志路径 (Join-Path $logDirectory ("panel-build-" + $名 + ".log"))
+            if ($退出码 -ne 0) {
                 Write-Host ''
                 Write-Host "编译失败：$工程"
                 Write-Host '  DLL 被占用的话，先 pwsh Tools/stop.ps1 停干净；'
@@ -90,28 +95,25 @@ if (Test-面板在跑 -探测端口 $Port) {
         }
     }
 
+    # 先清零再调，否则读到的是上一条外部命令留下的旧值——
+    # 这里踩过一次：start.ps1 明明把面板起起来了，这一句却判成「没起来」。
+    $global:LASTEXITCODE = 0
     & (Join-Path $PSScriptRoot 'start.ps1') -Port $Port -NoAssistant -SkipBuild
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host ''
-        Write-Host '面板没起来。最常见的两种原因：'
-        Write-Host '  1) 上一轮服务还开着，影子拷贝写不进去：先 pwsh Tools/stop.ps1 停干净再来。'
-        Write-Host "  2) 端口 $Port 被别的程序占了：换一个端口，例如 pwsh Tools/panel-open.ps1 -Port 8790"
-        Write-Host "  日志：$logDirectory"
-        exit 1
+    $启动退出码 = $LASTEXITCODE
+
+    # 成没成的最终判据是**端口应答**，不是退出码：进程起来了不等于它在听端口，
+    # 而退出码在跨脚本调用里本来就不牢靠（上面那句清零只是让它别更离谱）。
+    $听上了 = Wait-带进度 -标题 ("等面板开始听端口 " + $Port) -超时秒 $TimeoutSeconds -判据 {
+        Test-面板在跑 -探测端口 $Port
     }
 
-    Write-Host "等面板开始听端口 $Port（最多 $TimeoutSeconds 秒）..."
-    $截止 = (Get-Date).AddSeconds($TimeoutSeconds)
-    while ((Get-Date) -lt $截止) {
-        if (Test-面板在跑 -探测端口 $Port) { break }
-        Start-Sleep -Milliseconds 500
-    }
-
-    if (-not (Test-面板在跑 -探测端口 $Port)) {
+    if (-not $听上了) {
         Write-Host ''
-        Write-Host "等了 $TimeoutSeconds 秒，端口 $Port 还是没应答——进程起来了但没在听。"
-        Write-Host "  看这两份日志能知道它卡在哪：$logDirectory\dashboard.err.log、dashboard.out.log"
-        Write-Host '  停：pwsh Tools/stop.ps1'
+        Write-Host "面板没起来（start.ps1 退出码 $启动退出码，等了 $TimeoutSeconds 秒端口 $Port 仍无应答）。常见的三种："
+        Write-Host '  1) 影子目录里还跑着上一轮的服务：上面会点名是哪个 PID，先 pwsh Tools/stop.ps1 停干净。'
+        Write-Host "  2) 端口 $Port 被别的程序占了：换一个，例如 pwsh Tools/panel-open.ps1 -Port 8790"
+        Write-Host '  3) 面板自己启动时炸了：看下面两份日志。'
+        Write-Host "  日志：$logDirectory\dashboard.err.log、$logDirectory\dashboard.out.log"
         exit 1
     }
 }

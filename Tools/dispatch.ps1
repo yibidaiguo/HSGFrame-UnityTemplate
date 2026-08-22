@@ -49,8 +49,13 @@ if (-not (Test-Path (Join-Path $binDirectory 'Toolkit.CommandHost.dll'))) {
     if ($LASTEXITCODE -ne 0) { Write-Error '命令宿主编译失败'; exit 1 }
 }
 $shadowDirectory = Join-Path $env:LOCALAPPDATA (Join-Path 'HSGFrameRun' (Join-Path (Split-Path -Leaf $repositoryRoot) 'dispatch'))
-robocopy $binDirectory $shadowDirectory /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
-if ($LASTEXITCODE -ge 8) { Write-Error "影子拷贝失败（robocopy 退出码 $LASTEXITCODE）"; exit 1 }
+# /R:2 /W:1 不能省：robocopy 默认 /R:1000000 /W:30，撞上一个被占住的 DLL
+# 就是「重试一百万次、每次等三十秒」——看上去与卡死没有区别（start.ps1 踩过同一个坑）。
+robocopy $binDirectory $shadowDirectory /MIR /R:2 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+if ($LASTEXITCODE -ge 8) {
+    Write-Error "影子拷贝失败（robocopy 退出码 $LASTEXITCODE）：目标目录里多半有文件正被占用，先跑 pwsh Tools/stop.ps1 停干净再来。"
+    exit 1
+}
 
 $argumentsPath = Join-Path ([System.IO.Path]::GetTempPath()) ("agent-dispatch-{0}.json" -f $PID)
 [ordered]@{

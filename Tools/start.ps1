@@ -32,6 +32,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'progress.ps1')
+
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $repositoryName = Split-Path -Leaf $repositoryRoot
 $runRoot = Join-Path $env:LOCALAPPDATA (Join-Path 'HSGFrameRun' $repositoryName)
@@ -45,18 +47,27 @@ Write-Host '[1/4] 编译（之后常驻期间不再碰 bin）...'
 if ($SkipBuild) {
     Write-Host '  （-SkipBuild：跳过，直接用现成产物）'
 } else {
-    dotnet build (Join-Path $repositoryRoot 'Solutions/Template.sln') -v q --nologo | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error '编译失败。若报 DLL 被占用，先跑 pwsh Tools/stop.ps1 停掉上一轮服务再来。'
+    $编译退出码 = Invoke-带进度 -标题 '编译解决方案' -文件 'dotnet' -参数 @(
+        'build', (Join-Path $repositoryRoot 'Solutions/Template.sln'), '-v', 'q', '--nologo'
+    ) -工作目录 $repositoryRoot -日志路径 (Join-Path $logDirectory 'start-build.log')
+    if ($编译退出码 -ne 0) {
+        Write-Host '编译失败。若报 DLL 被占用，先跑 pwsh Tools/stop.ps1 停掉上一轮服务再来。'
         exit 1
     }
 }
 
 Write-Host "[2/4] 影子拷贝编译产物到运行目录（$runRoot）..."
-$shadowPairs = @(
-    @{ Source = 'Tools/Dashboard/bin/Debug/net8.0';       Target = 'dashboard' },
-    @{ Source = 'Tools/Cli/CommandHost/bin/Debug/net8.0'; Target = 'commandhost' }
-)
+# 只镜像这一轮真要起的那份。影子拷贝解决了「常驻进程占住 bin」，但影子目录自己
+# 一样会被上一轮起的常驻进程占着——助手就是从 commandhost 那份里跑的，它一直开着。
+# 于是「只重起面板」这件最常做的事，从前会去镜像助手正用着的 commandhost，撞锁卡死。
+# 起谁就镜像谁：重起面板不碰 commandhost，助手可以一直开着不受影响。
+$shadowPairs = @()
+if (-not $NoDashboard) {
+    $shadowPairs += @{ Source = 'Tools/Dashboard/bin/Debug/net8.0'; Target = 'dashboard' }
+}
+if (-not $NoAssistant) {
+    $shadowPairs += @{ Source = 'Tools/Cli/CommandHost/bin/Debug/net8.0'; Target = 'commandhost' }
+}
 foreach ($pair in $shadowPairs) {
     $sourcePath = Join-Path $repositoryRoot $pair.Source
     if (-not (Test-Path $sourcePath)) {
@@ -64,9 +75,9 @@ foreach ($pair in $shadowPairs) {
         exit 1
     }
     $targetPath = Join-Path $runRoot $pair.Target
-    robocopy $sourcePath $targetPath /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
-    if ($LASTEXITCODE -ge 8) {
-        Write-Error "影子拷贝失败：$sourcePath → $targetPath（robocopy 退出码 $LASTEXITCODE）"
+    # 拷贝走 Copy-影子：它带 /R:2 /W:1（robocopy 默认 /R:1000000 /W:30，撞上锁就是无声死等），
+    # 失败时会把占着目标目录的进程指出来，并让人去跑 stop.ps1。
+    if (-not (Copy-影子 -源 $sourcePath -目标 $targetPath -标题 ("影子拷贝 " + $pair.Target))) {
         exit 1
     }
 }
