@@ -222,7 +222,7 @@ namespace Template.Toolkit.CreationPipeline
 
             // 校验过了也只是「整理好了」。要不要真建，是人点按钮的事——
             // 回话里绝不许说「已经建了」，说了就等于替人做了决定。
-            builder.Append("\n\n我按上面这些整理成了一条需求草稿，你看一眼；对就点「一键创建任务」，我来建并叫引擎接手。");
+            builder.Append("\n\n我按上面这些整理成了一条需求草稿，你看一眼；对就点「一键建需求」，我来写进需求表并拉进需求池。");
             var readyCard = AssistantCard.ForDraft(identifier, draft, schema, builder.ToString(), reply.MissingItems);
             return new AssistantTurnOutcome(
                 readyCard.ToPlainText(),
@@ -293,7 +293,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 读回一份待确认的草稿：人点「一键创建任务」时，要建的就是当初摆在卡上的那一份。
+        /// 读回一份待确认的草稿：人点「一键建需求」时，要建的就是当初摆在卡上的那一份。
         /// **不许拿按钮携带的内容重建草稿**——那是从客户端回来的数据，改得动。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
@@ -438,7 +438,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 点完「一键创建任务」之后，这条需求到底落到哪一步，翻成一句给人的话。
+        /// 点完「一键建需求」之后，这条需求到底落到哪一步，翻成一句给人的话。
         ///
         /// **一句都不许含糊**：写进下游表与拉进池子是两件事，前者成了后者没成时，
         /// 人要知道「表里那条在，补跑一次入站就行」，而不是以为白干了或者以为全好了。

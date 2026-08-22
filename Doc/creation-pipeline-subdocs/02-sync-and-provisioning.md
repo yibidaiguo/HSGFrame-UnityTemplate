@@ -46,7 +46,7 @@
 ## 五、助手两形态
 
 - **A(v1,Aily 配置包)**:spike 验证点——能否 API 建/更新 agent 与知识;不能则人工导入,provision 只负责产包与提醒过期。
-- **B(v2,自托管)**:常驻进程 `assistant-serve`,经 lark-event 订 IM 消息 → 带上这条会话的历史问执行后端 → 现场跑 `req.validate` → **回一张确认卡,人点「一键创建任务」才写 bitable 草稿**。与 A 共享全部知识文件。
+- **B(v2,自托管)**:常驻进程 `assistant-serve`,经 lark-event 订 IM 消息 → 带上这条会话的历史问执行后端 → 现场跑 `req.validate` → **回一张确认卡,人点「一键建需求」才写 bitable 草稿**。与 A 共享全部知识文件。
 
 B 形态的三条形状(改任一条要重走审查):
 

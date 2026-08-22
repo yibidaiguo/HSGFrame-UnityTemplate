@@ -177,7 +177,7 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>
         /// 按一份已校验通过的草稿组一张确认卡：条目照 schema 的字段顺序摆，
-        /// 主按钮是「一键创建任务」，另配一个「开新话题」。
+        /// 主按钮是「一键建需求」，另配一个「开新话题」。
         ///
         /// 工程侧字段（id / 状态 / 来源 …）不进条目：那些是引擎补的，摆出来只会让人以为要他管。
         /// </summary>
@@ -249,7 +249,7 @@ namespace Template.Toolkit.CreationPipeline
             var value = new JsonObject { ["需求id"] = identifier ?? "" };
             var buttons = new List<AssistantCardButton>
             {
-                new AssistantCardButton("一键创建任务", CreateAction, value, isPrimary: true),
+                new AssistantCardButton("一键建需求", CreateAction, value, isPrimary: true),
                 new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false)
             };
 
