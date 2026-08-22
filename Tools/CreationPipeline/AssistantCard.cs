@@ -281,6 +281,9 @@ namespace Template.Toolkit.CreationPipeline
         ///
         /// **为什么也要等人点**：生图是花钱的，而且一次出好几张。
         /// 助手把「画什么」整理清楚给人看一眼，比出完再让人说「不是这个」省得多。
+        ///
+        /// **还有待确认的点就不给这个按钮**：模型自己挂着问题，说明它自己也没底，
+        /// 那时描述里写的是「具体画面内容待确认」——拿它去生图是照着一句废话烧钱。
         /// </summary>
         /// <param name="identifier">出图请求的留底 id。</param>
         /// <param name="request">出图请求：资产类型 / 命名 / 描述 / 变体数。</param>
@@ -305,14 +308,30 @@ namespace Template.Toolkit.CreationPipeline
                 }
             }
 
-            var carried = new JsonObject { ["出图请求id"] = identifier ?? "" };
-            var buttons = new List<AssistantCardButton>
-            {
-                new AssistantCardButton("出图", GenerateAction, carried, isPrimary: true),
-                new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false)
-            };
+            var buttons = new List<AssistantCardButton>();
 
-            return new AssistantCard("出图请求 " + (identifier ?? "") + "　点了才真出", bodyText, entries, openQuestions, buttons);
+            // **自己还有要确认的，就不给出图按钮。**
+            // 模型挂着「这张图给哪个界面用」「要什么风格」这类问题时，说明它自己也没底；
+            // 那时描述里写的是「具体画面内容待确认」，拿它去生图就是照着一句废话烧钱，
+            // 出来的东西一定不是人要的。先把问题问完，聊清楚了下一轮自然会给按钮。
+            var settled = openQuestions == null || openQuestions.Count == 0;
+            if (settled)
+            {
+                buttons.Add(new AssistantCardButton(
+                    "出图", GenerateAction, new JsonObject { ["出图请求id"] = identifier ?? "" }, isPrimary: true));
+            }
+
+            buttons.Add(new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false));
+
+            var title = settled
+                ? "出图请求 " + (identifier ?? "") + "　点了才真出"
+                : "出图请求 " + (identifier ?? "") + "　还差两句话";
+
+            var body = settled
+                ? bodyText
+                : bodyText + "\n\n（上面这两点你回一句我就给出图按钮——现在描述还立不住，出了也是废的。）";
+
+            return new AssistantCard(title, body, entries, openQuestions, buttons);
         }
 
         /// <summary>
