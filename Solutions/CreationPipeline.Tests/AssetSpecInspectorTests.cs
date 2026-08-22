@@ -127,6 +127,26 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Contains("只能收紧不能放宽", finding.Reason);
         }
 
+        /// <summary>
+        /// 「可覆盖」清单里的键改大**不算放宽**——那正是「可覆盖」这三个字的意思。
+        ///
+        /// 宽高是**目标值**不是上限：1920 不比 1080 宽松，它就是另一个尺寸。
+        /// 当上限比大小的话，会得出「PC 端横屏界面比手机竖屏界面宽松」这种荒唐结论，
+        /// 而人明明在可覆盖清单里写了「规格.宽」。真跑撞过这一脚。
+        /// </summary>
+        [Fact]
+        public void OverridableSpecValueMayBeChangedFreely()
+        {
+            using var workspace = new Workspace();
+            WriteBaseline(workspace.Root);
+            WriteRequest(workspace.Root, "REQ-0001", "ASSET-0001-01",
+                ValidRequestJson.Replace("\"宽\": 256", "\"宽\": 1920"));
+
+            var findings = AssetSpecInspector.Inspect(workspace.Root, "REQ-0001", "");
+
+            Assert.Empty(findings);
+        }
+
         /// <summary>规格里出现数据没有的键时报 1 条。</summary>
         [Fact]
         public void UnknownSpecKeyIsReported()
