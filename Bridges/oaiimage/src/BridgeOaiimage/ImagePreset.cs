@@ -122,6 +122,34 @@ namespace Template.Bridges.Oaiimage
         /// <exception cref="InvalidOperationException">预设缺失或不合法时抛出。</exception>
         public static ImagePreset Load(string repositoryRoot, string driverName, string presetName)
         {
+            return Load(repositoryRoot, driverName, presetName, new List<string>());
+        }
+
+        /// <summary>
+        /// 读一份预设，带上「已经走过哪几份」用来拦继承成环。
+        ///
+        /// **继承是给公共约束用的**：UI 那一类图共享「透明底、不出现文字、元素可切」这几条，
+        /// 写在每份子配方里迟早会各改各的。父配方出公共的提示词片段与接口/尺寸缺省，
+        /// 子配方只写自己那一层的差异——改一处公共规则，所有子配方跟着变。
+        ///
+        /// 合并规则只有一条：**子配方写了的就用子的，没写的才向上取**。
+        /// 提示词是拼接（父在前、子在后）——父那几条是约束，约束该先立住。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名称，一律走参数。</param>
+        /// <param name="presetName">预设名。</param>
+        /// <param name="visited">这条继承链上已经走过的预设名，用来拦环。</param>
+        private static ImagePreset Load(
+            string repositoryRoot, string driverName, string presetName, List<string> visited)
+        {
+            if (visited.Contains(presetName))
+            {
+                throw new InvalidOperationException(
+                    $"配方继承成环了：{string.Join(" → ", visited)} → {presetName}。"
+                    + "父配方不许直接或间接继承自己的子配方。");
+            }
+
+            visited.Add(presetName);
             var filePath = PresetFile(repositoryRoot, driverName, presetName);
             if (!File.Exists(filePath))
             {
@@ -152,7 +180,18 @@ namespace Template.Bridges.Oaiimage
                     throw new InvalidOperationException($"预设里的配方名「{declaredName}」与目录名「{presetName}」不一致：{filePath}");
                 }
 
+                // 先把父配方读出来，子配方没写的向上取。
+                var parentName = ReadStringOrEmpty(root, "继承");
+                var parent = parentName.Length > 0
+                    ? Load(repositoryRoot, driverName, parentName, visited)
+                    : null;
+
                 var apiName = ReadStringOrEmpty(root, "接口");
+                if (apiName.Length == 0 && parent != null)
+                {
+                    apiName = parent.ApiName;
+                }
+
                 if (!string.Equals(apiName, GenerationsApiName, StringComparison.Ordinal)
                     && !string.Equals(apiName, EditsApiName, StringComparison.Ordinal))
                 {
@@ -160,14 +199,32 @@ namespace Template.Bridges.Oaiimage
                         $"预设里的接口「{apiName}」不合法，只能是「{GenerationsApiName}」或「{EditsApiName}」：{filePath}");
                 }
 
+                // 提示词父在前、子在后：父那几条是约束（透明底、不出现文字），约束该先立住。
+                var ownPrompt = ReadStringOrEmpty(root, "提示词模板");
+                var prompt = parent == null || parent.PromptTemplate.Length == 0
+                    ? ownPrompt
+                    : (ownPrompt.Length == 0 ? parent.PromptTemplate : ownPrompt + "。" + parent.PromptTemplate);
+
+                var slots = new List<string>(ReadStringList(root, "锚点槽"));
+                if (parent != null)
+                {
+                    foreach (var slot in parent.AnchorSlotNames)
+                    {
+                        if (!slots.Contains(slot))
+                        {
+                            slots.Add(slot);
+                        }
+                    }
+                }
+
                 var preset = new ImagePreset(
                     presetName,
-                    ReadStringOrEmpty(root, "资产类型"),
+                    Inherit(ReadStringOrEmpty(root, "资产类型"), parent?.AssetType),
                     apiName,
-                    ReadStringOrEmpty(root, "模型"),
-                    ReadStringOrEmpty(root, "尺寸"),
-                    ReadStringOrEmpty(root, "提示词模板"),
-                    ReadStringList(root, "锚点槽"));
+                    Inherit(ReadStringOrEmpty(root, "模型"), parent?.ModelName),
+                    Inherit(ReadStringOrEmpty(root, "尺寸"), parent?.Size),
+                    prompt,
+                    slots);
 
                 if (string.Equals(apiName, EditsApiName, StringComparison.Ordinal) && !preset.WantsReferenceImage)
                 {
@@ -180,6 +237,14 @@ namespace Template.Bridges.Oaiimage
 
                 return preset;
             }
+        }
+
+        /// <summary>子配方写了就用子的，没写才向上取父的；父也没有给空串。</summary>
+        /// <param name="own">子配方自己写的值。</param>
+        /// <param name="inherited">父配方的值。</param>
+        private static string Inherit(string own, string inherited)
+        {
+            return own.Length > 0 ? own : (inherited ?? "");
         }
 
         /// <summary>
