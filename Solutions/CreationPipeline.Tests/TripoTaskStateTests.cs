@@ -236,14 +236,16 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal(TripoClient.DefaultModelVersion, TripoClient.NormalizeModelVersion(""));
         }
 
-        /// <summary>官方快速开始页写的 tripo-v3.1 服务端不认，本地就要拦下来，省一次注定 1004 的调用。</summary>
+        /// <summary>
+        /// 不在上次实证快照里的值**照发，不拦**：清单现在是探出来的，
+        /// 本机那份快照随时会过期，拿它拦人只会把「下游新上的模型」挡在门外。
+        /// 真不合法由服务端回 1004，报错里带着此刻的 allowed values。
+        /// </summary>
         [Fact]
-        public void UnknownModelVersionThrowsBeforeAnyCall()
+        public void UnknownModelVersionPassesThroughForServerToJudge()
         {
-            var exception = Assert.Throws<TripoClientException>(() => TripoClient.NormalizeModelVersion("tripo-v3.1"));
-
-            Assert.Equal("请求不合协议", exception.ErrorCode);
-            Assert.Contains("v3.1-20260211", exception.Message);
+            Assert.Equal("tripo-v3.1", TripoClient.NormalizeModelVersion("tripo-v3.1"));
+            Assert.Equal("下游明天才上的模型", TripoClient.NormalizeModelVersion("  下游明天才上的模型  "));
         }
 
         /// <summary>text-to-model 提交体是 v3 形状：有 model，没有 v2 的 type / model_version。</summary>
