@@ -440,6 +440,50 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.DoesNotContain("建好了", text);
         }
 
+        /// <summary>画什么已经说清楚了，才给「出图」按钮。</summary>
+        [Fact]
+        public void SettledImageRequestOffersGenerateButton()
+        {
+            var request = new JsonObject
+            {
+                ["资产类型"] = "图标",
+                ["命名"] = "icon_bag",
+                ["描述"] = "一个背包图标，深蓝底，皮革质感，正面平视",
+                ["变体数"] = 2
+            };
+
+            var card = AssistantCard.ForImageRequest("IMG-0001", request, "我按这个出", Array.Empty<string>());
+
+            Assert.Contains(AssistantCard.GenerateAction, card.Buttons.Select(button => button.Action));
+            Assert.Equal("IMG-0001", card.Buttons.First(b => b.Action == AssistantCard.GenerateAction).Value["出图请求id"].GetValue<string>());
+        }
+
+        /// <summary>
+        /// 自己还挂着要确认的点时**不给出图按钮**——模型自己没底，
+        /// 那时描述写的是「待确认」，拿它去生图是照着一句废话烧钱。
+        /// </summary>
+        [Fact]
+        public void UnsettledImageRequestWithholdsGenerateButton()
+        {
+            var request = new JsonObject
+            {
+                ["资产类型"] = "界面底图",
+                ["命名"] = "ui_layout_design",
+                ["描述"] = "一张 UI 界面图，具体画面内容待确认。",
+                ["变体数"] = 1
+            };
+
+            var card = AssistantCard.ForImageRequest(
+                "IMG-0003", request, "我先按界面底图对待", new[] { "这张图给哪个界面用？", "希望是什么风格？" });
+
+            var actions = card.Buttons.Select(button => button.Action).ToList();
+            Assert.DoesNotContain(AssistantCard.GenerateAction, actions);
+            Assert.Contains(AssistantCard.NewTopicAction, actions);
+
+            // 按钮没了要说清楚为什么，别让人对着一张没按钮的卡发愣。
+            Assert.Contains("回一句我就给出图按钮", card.BodyText);
+        }
+
         /// <summary>一份能过校验的模型回答，几处测试共用。</summary>
         private static AssistantServeReply ValidReply()
         {
