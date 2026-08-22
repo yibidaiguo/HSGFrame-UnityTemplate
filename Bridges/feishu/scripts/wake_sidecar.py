@@ -7,10 +7,16 @@
 
 长连接的好处是**不需要公网回调地址**，本机 NAT 后面也能收事件。
 
+单实例是**两把锁**，管的不是一件事：仓库内那把拦「同一个仓库起了两份」，
+应用级那把拦「两个仓库连了同一个飞书应用」——后者仓库内的锁根本看不见，
+而它的后果一样是同一条消息收两遍、需求建两遍。想让两个项目同时开着，
+就给它们各建一个飞书应用：应用不同，应用级的锁自然也不同档，谁也不挡谁。
+
 密钥从 Tools/CreationPipeline/Config/local.json 读，**只进 SDK 的构造参数，不打印、不写日志**
 （决策 5、78）。
 """
 
+import hashlib
 import json
 import os
 import sys
@@ -29,6 +35,14 @@ CONVERSATION_DIRECTORY = REPOSITORY_ROOT / "_Tasks" / "conversations"
 SIDECAR_DIRECTORY = REPOSITORY_ROOT / "_Tasks" / "sidecar"
 LOCK_FILE = SIDECAR_DIRECTORY / "wake_sidecar.lock"
 SEEN_EVENTS_FILE = SIDECAR_DIRECTORY / "seen-events.json"
+
+# 应用级锁放**仓库外**：它要跨仓库生效，搁在任何一个仓库里另一个仓库都看不到。
+# 落在 HSGFrameRun 下面是跟着影子拷贝的运行目录走，同一台机器上只此一份。
+APPLICATION_LOCK_DIRECTORY = (
+    Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".cache")
+    / "HSGFrameRun"
+    / "sidecar-locks"
+)
 
 # 记住多少个已见事件标识。飞书重投与本机重启都在这个窗口里，
 # 留太多只是白占内存——按每天几百条算，2000 够用一周。
@@ -74,9 +88,24 @@ def acquire_single_instance_lock():
 
     用的是操作系统级的文件锁而不是 PID 文件：进程被 kill -9 时锁由内核自动释放，
     不会留下一个谁都不敢删的僵尸锁文件。
+
+    这把锁**只管这一个仓库**。两个仓库连同一个飞书应用是另一回事，归
+    acquire_application_lock 管——那时两边各抢各的仓库锁，都抢得到。
     """
     SIDECAR_DIRECTORY.mkdir(parents=True, exist_ok=True)
     handle = os.open(str(LOCK_FILE), os.O_RDWR | os.O_CREAT)
+    if not _try_lock(handle):
+        os.close(handle)
+        log(f"这个仓库已经有一份旁路在跑了（锁：{LOCK_FILE}），这一份退出——两份同时收事件会把消息收两遍。")
+        sys.exit(3)
+
+    os.write(handle, str(os.getpid()).encode("ascii"))
+    # 句柄**故意不关**：锁的生命周期就是这个进程的生命周期。
+    return handle
+
+
+def _try_lock(handle):
+    """非阻塞抢一个文件锁，抢到返回 True。跨平台的那两行差别就藏在这里。"""
     try:
         if os.name == "nt":
             import msvcrt
@@ -87,12 +116,71 @@ def acquire_single_instance_lock():
 
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
+        return False
+    return True
+
+
+def application_lock_key(app_id):
+    """
+    应用标识对应的锁档位。
+
+    取哈希而不是直接拿 app_id 当文件名：锁文件落在仓库外的公共目录里，
+    文件名不该把「这台机器上有哪些飞书应用」写在明面上。前 16 位足够不撞。
+    """
+    return hashlib.sha256(app_id.encode("utf-8")).hexdigest()[:16]
+
+
+def describe_application_lock_holder(holder_file):
+    """占着这把锁的是谁。读不出来就给一句实话，别编。"""
+    try:
+        data = json.loads(holder_file.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return "（占用方没留下记录）"
+    return f"仓库 {data.get('仓库', '不详')}（进程 {data.get('进程', '不详')}）"
+
+
+def acquire_application_lock(app_id):
+    """
+    按**飞书应用**抢锁，抢不到就退出。
+
+    为什么仓库内那把锁不够：它是仓库里的一个文件，两个仓库各有各的，都抢得到。
+    可长连接是按应用连的——两个仓库配了同一个 app_id，飞书会把同一条消息投给两条连接，
+    于是消息收两遍、需求建两遍（REQ-0003 与 REQ-0004 就是这么来的），而两边的锁都显示正常。
+
+    档位按 app_id 分：**给每个项目单独建一个飞书应用，两边就能同时开着**，
+    这也是想并行开多个项目时该走的路——各是各的机器人，连回话都不会串。
+    """
+    APPLICATION_LOCK_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    key = application_lock_key(app_id)
+    lock_file = APPLICATION_LOCK_DIRECTORY / f"{key}.lock"
+    holder_file = APPLICATION_LOCK_DIRECTORY / f"{key}.holder.json"
+
+    handle = os.open(str(lock_file), os.O_RDWR | os.O_CREAT)
+    if not _try_lock(handle):
         os.close(handle)
-        log(f"已经有一份旁路在跑了（锁：{LOCK_FILE}），这一份退出——两份同时收事件会把消息收两遍。")
+        log("这个飞书应用已经被占着了：" + describe_application_lock_holder(holder_file))
+        log("  两个仓库连同一个应用，同一条消息会被收两遍、需求建两遍，所以这一份退出。")
+        log("  要么去那个仓库停掉（panel-stop.bat）；")
+        log("  要么给这个项目单独建一个飞书应用，把 local.json 里的")
+        log("  「下游配置 → feishu → 应用标识」与「飞书应用密钥」换成新应用的——两边就能同时开。")
         sys.exit(3)
 
-    os.write(handle, str(os.getpid()).encode("ascii"))
-    # 句柄**故意不关**：锁的生命周期就是这个进程的生命周期。
+    # 占用记录单独一个文件，不写进锁文件本身：锁住的那个字节范围别人读不了，
+    # 而这条记录**就是给被挡下来的那一份看的**。
+    try:
+        holder_file.write_text(
+            json.dumps(
+                {"仓库": str(REPOSITORY_ROOT), "进程": os.getpid(), "抢到时间": time.strftime("%Y-%m-%dT%H:%M:%S")},
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+    except OSError as error:
+        # 记录写不下去不影响收消息，只影响下一次被挡时的那句话说得清不清楚。
+        log(f"应用锁的占用记录写不下去（{error}），不影响收消息")
+
+    log(f"应用级单实例锁已抢到（档位 {key}）")
+    # 句柄故意不关，同仓库内那把锁。
     return handle
 
 
@@ -239,6 +327,11 @@ def main():
     log(f"已见事件表载入 {len(SEEN_EVENT_LIST)} 条")
 
     app_id, app_secret = read_credentials()
+
+    # 应用级锁只能在读完配置之后抢——档位是从 app_id 算出来的。
+    # 仓库内那把已经在前面挡掉了同仓库的第二份，这里挡的是「别的仓库连了同一个应用」。
+    acquire_application_lock(app_id)
+
     handler = (
         lark.EventDispatcherHandler.builder("", "")
         .register_p2_application_bot_menu_v6(lambda data: handle_event("机器人菜单", data))

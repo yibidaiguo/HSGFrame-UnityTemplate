@@ -76,6 +76,12 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <summary>同一条会话信号最多试着回几次；超了就隔离，不许把循环堵死。</summary>
         private const int MaxReplyAttempts = 3;
 
+        /// <summary>空转心跳大约隔多久报一条「还活着，在等」。</summary>
+        private const int HeartbeatIntervalMilliseconds = 5 * 60 * 1000;
+
+        /// <summary>轮询间隔为 0（不歇）时的心跳轮数兜底：这时用时间折算会除出个荒唐的大数。</summary>
+        private const int HeartbeatFallbackRounds = 150;
+
         /// <summary>写 JSON 的选项：本机是 .NET 10 preview SDK，必须从 Default 复制着构造。</summary>
         private static readonly JsonSerializerOptions WriteOptions = new JsonSerializerOptions(JsonSerializerOptions.Default)
         {
@@ -139,11 +145,40 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             var lines = new List<string>();
+
+            // 一行日志的去处。宿主接上实时流时当场交出去——常驻循环跑着就能在日志里看见，
+            // 而且行不留在内存里；没接流的调用方（单测、进程内宿主）照旧收进 OutputLines。
+            // 两条路只走一条，不会同一行打两遍。
+            void Record(string line)
+            {
+                if (CommandLogStream.IsAttached)
+                {
+                    CommandLogStream.Write(line);
+                }
+                else
+                {
+                    lines.Add(line);
+                }
+            }
+
             var handledCount = 0;
             var writtenCount = 0;
             var failedCount = 0;
             var round = 0;
             var stopReason = "跑满轮数";
+
+            // 连着空转了多少轮。空转**不逐轮记**：2 秒一轮逐轮记就是一天四万行，
+            // 内存与磁盘白涨不说，真正有用的那几行全被淹掉。改成隔一阵报一次。
+            var idleRounds = 0;
+            var heartbeatEveryRounds = arguments.RoundDelayMilliseconds > 0
+                ? Math.Max(1, HeartbeatIntervalMilliseconds / arguments.RoundDelayMilliseconds)
+                : HeartbeatFallbackRounds;
+
+            // 起来先报一句。以前这里一声不吭，日志文件要等进程退出才有内容，
+            // 于是「助手在不在跑」这件事从日志上完全看不出来——只能去翻进程表。
+            Record($"助手常驻会话起来了：仓库 {repositoryRoot}，轮询间隔 {arguments.RoundDelayMilliseconds} 毫秒，" +
+                $"写下游 {(arguments.WriteDownstream ? "开" : "关")}，" +
+                $"{(arguments.MaxRounds <= 0 ? $"靠停止文件退出（{arguments.StopFilePath}）" : $"跑满 {arguments.MaxRounds} 轮退出")}");
 
             // 同一条信号在本进程里重试了几次。回话失败且可重试时把信号留在原地，
             // 但不许无限留——留到第 MaxReplyAttempts 次还送不出去就隔离，
@@ -162,7 +197,14 @@ namespace Template.Toolkit.CommandHost.Commands
                 var poll = ConversationSignalSource.Poll(repositoryRoot);
                 if (!poll.HasSignal)
                 {
-                    lines.Add($"轮次 {round}　没有待回的消息（{poll.Reason}）");
+                    idleRounds++;
+
+                    // 第一轮空转报一句「开始等了」，之后按心跳间隔报，其余的轮次一个字都不写。
+                    if (idleRounds == 1 || idleRounds % heartbeatEveryRounds == 0)
+                    {
+                        Record($"轮次 {round}　在等消息（已连续空转 {idleRounds} 轮，{poll.Reason}）");
+                    }
+
                     if (arguments.MaxRounds <= 0 || round < arguments.MaxRounds)
                     {
                         Thread.Sleep(Math.Max(0, arguments.RoundDelayMilliseconds));
@@ -171,6 +213,7 @@ namespace Template.Toolkit.CommandHost.Commands
                     continue;
                 }
 
+                idleRounds = 0;
                 var signalName = Path.GetFileName(poll.SignalFilePath);
                 attemptsBySignal.TryGetValue(signalName, out var attempts);
                 attempts++;
@@ -195,7 +238,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
                 foreach (var line in turnLines)
                 {
-                    lines.Add($"轮次 {round}　{line}");
+                    Record($"轮次 {round}　{line}");
                 }
 
                 // 判定全跑完才消费信号（决策 82）。三路处置，依据是**回话到底送没送出去**：
@@ -204,12 +247,12 @@ namespace Template.Toolkit.CommandHost.Commands
                 if (replyDelivered)
                 {
                     var archived = ConversationSignalSource.Consume(repositoryRoot, poll.SignalFilePath);
-                    lines.Add($"轮次 {round}　信号归档：{(archived.Length == 0 ? "移动失败，信号留在原地下一轮还会取到" : archived)}");
+                    Record($"轮次 {round}　信号归档：{(archived.Length == 0 ? "移动失败，信号留在原地下一轮还会取到" : archived)}");
                 }
                 else if (replyRetryable && attempts < MaxReplyAttempts)
                 {
                     failedCount++;
-                    lines.Add($"轮次 {round}　回话没送出去（第 {attempts}/{MaxReplyAttempts} 次），信号留在原地，下一轮重试");
+                    Record($"轮次 {round}　回话没送出去（第 {attempts}/{MaxReplyAttempts} 次），信号留在原地，下一轮重试");
                     if (arguments.MaxRounds <= 0 || round < arguments.MaxRounds)
                     {
                         Thread.Sleep(Math.Max(0, arguments.RoundDelayMilliseconds));
@@ -220,7 +263,7 @@ namespace Template.Toolkit.CommandHost.Commands
                     failedCount++;
                     var quarantined = ConversationSignalSource.Quarantine(repositoryRoot, poll.SignalFilePath);
                     var why = replyRetryable ? $"重试 {attempts} 次仍失败" : "不可重试";
-                    lines.Add($"轮次 {round}　回话没送出去（{why}），信号隔离：{(quarantined.Length == 0 ? "移动失败" : quarantined)}");
+                    Record($"轮次 {round}　回话没送出去（{why}），信号隔离：{(quarantined.Length == 0 ? "移动失败" : quarantined)}");
                 }
             }
 
