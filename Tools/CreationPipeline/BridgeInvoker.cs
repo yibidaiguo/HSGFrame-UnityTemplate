@@ -71,6 +71,36 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
+    /// 按 port 调用一次的结果：除了调用本身的结果，还带上**实际用的是哪个 driver**
+    /// 与**逐次尝试的账**。失败转移最容易骗人的地方是「报了个错，但你不知道它试过谁」——
+    /// 所以尝试账是这个类型存在的理由，不是附赠品。
+    /// </summary>
+    public sealed class BridgePortCallResult
+    {
+        /// <summary>
+        /// 构造一次按 port 调用的结果。
+        /// </summary>
+        /// <param name="result">调用结果（成功时是成功那一次的，失败时是最后一次的）。</param>
+        /// <param name="driverName">实际用的 driver 名；一个都没试成时是最后试的那个。</param>
+        /// <param name="attempts">逐次尝试的账，每条形如「driver → 错误码：人话」。</param>
+        public BridgePortCallResult(BridgeCallResult result, string driverName, IReadOnlyList<string> attempts)
+        {
+            Result = result;
+            DriverName = driverName ?? "";
+            Attempts = attempts ?? Array.Empty<string>();
+        }
+
+        /// <summary>调用结果。</summary>
+        public BridgeCallResult Result { get; }
+
+        /// <summary>实际用的 driver 名。</summary>
+        public string DriverName { get; }
+
+        /// <summary>逐次尝试的账，每条形如「driver → 错误码：人话」。成功且一次就中时只有零条。</summary>
+        public IReadOnlyList<string> Attempts { get; }
+    }
+
+    /// <summary>
     /// 下游 driver 调用器：起子进程、喂 stdin 收 stdout、超时必杀。
     /// 协议是子进程 stdin 收一份 JSON、stdout 出一份 JSON、退出码 0/非 0。
     /// stdout 上只许有那一份 JSON；子进程自己的日志都在 stderr，解析失败时从 stderr 末尾找原因。
@@ -82,6 +112,126 @@ namespace Template.Toolkit.CreationPipeline
     {
         /// <summary>stderr 末尾最多带几行进错误人话。</summary>
         private const int StderrTailLineCount = 5;
+
+        /// <summary>
+        /// **不许失败转移**的错误码。除这几个之外一律可以换下一个候选。
+        ///
+        /// 判据不是「谁的错」，是「这个下游有没有可能已经干了活」——
+        /// 换人重跑一次生图是要再花一次钱的，所以只要**说不清上一次干到哪了**，就不许换人：
+        ///
+        /// - 内部错误：桥自己崩在半路。图可能已经出了、钱已经花了，只是落盘那步炸的。
+        /// - 响应不合协议：stdout 不是协议 JSON，我们根本不知道对面做了什么。
+        /// - 本机配置错误 / 路由表错误：跟具体哪个 driver 无关，换谁都一样炸，白等一轮。
+        ///
+        /// 「超时」**在转移之列**——它才是失败转移最常见的触发场景（下游挂死）。
+        /// 代价是：万一那次调用其实在下游跑完了，就会重复计费一次。这条写在
+        /// 《创作管线 · 要你亲手填的东西》里，选「失败转移」的人得知道自己买的是什么。
+        /// </summary>
+        private static readonly string[] NonFailoverErrorCodes =
+        {
+            "内部错误",
+            "响应不合协议",
+            "本机配置错误",
+            "路由表错误"
+        };
+
+        /// <summary>
+        /// 按 port 调用：从域路由表拿到候选清单与策略，按策略逐个试。
+        ///
+        /// 「首选固定」只试第一个；「失败转移」顺着往下试，直到有一个成功或全部试完。
+        /// 全部失败时，返回的人话把**每一次尝试的错都摆出来**——只报最后一个的话，
+        /// 看的人会以为首选压根没被试过。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="portName">port 名，如「生图」「模型生成」；driver 名一律不进代码。</param>
+        /// <param name="action">动作，如「caps」「generate」。</param>
+        /// <param name="payload">业务载荷。</param>
+        /// <param name="timeoutSeconds">单个候选的超时秒数；失败转移时**每个候选各算各的**。</param>
+        public static BridgePortCallResult InvokeByPort(
+            string repositoryRoot,
+            string portName,
+            string action,
+            JsonElement payload,
+            int timeoutSeconds)
+        {
+            var routeTable = BridgeRouteTable.Load(repositoryRoot);
+            if (!routeTable.Loaded)
+            {
+                return new BridgePortCallResult(
+                    BridgeCallResult.Failure("路由表错误", routeTable.LoadFailureReason, retryable: false),
+                    "",
+                    Array.Empty<string>());
+            }
+
+            if (!routeTable.TryResolveRoute(portName, out var route, out var routeReason))
+            {
+                return new BridgePortCallResult(
+                    BridgeCallResult.Failure("域未路由", $"「{portName}」域没有可用的 driver：{routeReason}", retryable: false),
+                    "",
+                    Array.Empty<string>());
+            }
+
+            var candidates = route.AllowsFailover
+                ? route.Candidates
+                : new[] { route.PreferredDriverName };
+
+            var attempts = new List<string>();
+            BridgeCallResult lastResult = null;
+            var lastDriverName = "";
+
+            foreach (var candidate in candidates)
+            {
+                lastDriverName = candidate;
+                var result = Invoke(repositoryRoot, candidate, action, payload, timeoutSeconds);
+                if (result.Succeeded)
+                {
+                    return new BridgePortCallResult(result, candidate, attempts);
+                }
+
+                lastResult = result;
+                attempts.Add($"{candidate} → {result.ErrorCode}：{result.HumanText}");
+
+                if (Array.IndexOf(NonFailoverErrorCodes, result.ErrorCode) >= 0)
+                {
+                    // 说不清上一次干到哪了，不许换人重跑。
+                    attempts.Add($"（就此打住：错误码「{result.ErrorCode}」说不清这次调用干到哪了，换人重跑有重复计费的风险）");
+                    break;
+                }
+            }
+
+            var humanText = BuildFailoverFailureText(portName, route, attempts);
+            return new BridgePortCallResult(
+                new BridgeCallResult(false, lastResult?.TimedOut ?? false, lastResult?.ErrorCode ?? "域未路由", humanText, lastResult?.Retryable ?? false, default),
+                lastDriverName,
+                attempts);
+        }
+
+        /// <summary>把逐次尝试的账拼成一段人能读的失败说明：试了几个、策略是什么、每个错在哪。</summary>
+        /// <param name="portName">port 名。</param>
+        /// <param name="route">这个 port 的路由。</param>
+        /// <param name="attempts">逐次尝试的账。</param>
+        private static string BuildFailoverFailureText(string portName, PortRoute route, IReadOnlyList<string> attempts)
+        {
+            var builder = new StringBuilder();
+            builder.Append('「').Append(portName).Append("」域调用失败（策略：").Append(route.Strategy);
+            if (route.Candidates.Count > 1)
+            {
+                builder.Append("，候选 ").Append(route.Candidates.Count).Append(" 个：").Append(string.Join("、", route.Candidates));
+            }
+
+            builder.AppendLine("）：");
+            for (var index = 0; index < attempts.Count; index++)
+            {
+                builder.Append("  ").Append(index + 1).Append(". ").AppendLine(attempts[index]);
+            }
+
+            if (!route.AllowsFailover && route.Candidates.Count > 1)
+            {
+                builder.AppendLine($"  （策略是「{PortRoute.FixedPreferredStrategy}」，所以只试了首选；要让它自动换人把策略改成「{PortRoute.FailoverStrategy}」）");
+            }
+
+            return builder.ToString().TrimEnd();
+        }
 
         /// <summary>
         /// 调用一次下游 driver：按 driver 自述、路由表与本机配置拼请求信封，起子进程执行，

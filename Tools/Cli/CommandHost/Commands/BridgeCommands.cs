@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Template.Toolkit.CommandFramework;
@@ -316,6 +317,64 @@ namespace Template.Toolkit.CommandHost.Commands
         public string RepositoryRoot { get; set; }
     }
 
+    /// <summary>一次「显式 driver 或走域路由」的调用结果：结果、实际用的 driver、转移前试过谁。</summary>
+    public sealed class RoutedCallOutcome
+    {
+        /// <summary>
+        /// 构造一次调用结果。
+        /// </summary>
+        /// <param name="result">调用结果。</param>
+        /// <param name="driverName">实际用的 driver 名。</param>
+        /// <param name="attempts">转移前试过的账；显式指定 driver 时是空的。</param>
+        public RoutedCallOutcome(BridgeCallResult result, string driverName, IReadOnlyList<string> attempts)
+        {
+            Result = result;
+            DriverName = driverName ?? "";
+            Attempts = attempts ?? Array.Empty<string>();
+        }
+
+        /// <summary>调用结果。</summary>
+        public BridgeCallResult Result { get; }
+
+        /// <summary>实际用的 driver 名。</summary>
+        public string DriverName { get; }
+
+        /// <summary>转移前试过的账。</summary>
+        public IReadOnlyList<string> Attempts { get; }
+    }
+
+    /// <summary>列出域路由的命令参数。</summary>
+    public sealed class BridgeRouteListArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+    }
+
+    /// <summary>改一个域的路由（候选清单 + 策略）的命令参数。</summary>
+    public sealed class BridgeRouteSetArguments
+    {
+        /// <summary>port 名，如「生图」「模型生成」「执行后端」。</summary>
+        [Summary("port 名，如「生图」「模型生成」「执行后端」")]
+        public string Port { get; set; }
+
+        /// <summary>按优先级排好的候选 driver 名，逗号分隔，第一个是首选；留空表示只改策略、不动候选。</summary>
+        [Summary("候选 driver 名，逗号分隔，第一个是首选；留空表示只改策略不动候选")]
+        [DefaultValue("")]
+        public string Candidates { get; set; }
+
+        /// <summary>策略：「首选固定」或「失败转移」；留空表示不改（新建时按首选固定）。</summary>
+        [Summary("策略：「首选固定」或「失败转移」；留空表示不改")]
+        [DefaultValue("")]
+        public string Strategy { get; set; }
+
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+    }
+
     /// <summary>删一条插件声明的命令参数。</summary>
     public sealed class BridgePluginRemoveArguments
     {
@@ -381,6 +440,110 @@ namespace Template.Toolkit.CommandHost.Commands
                 repositoryRoot,
                 arguments?.Field ?? "",
                 arguments?.Value ?? "");
+            return ToResult(outcome, repositoryRoot);
+        }
+
+        /// <summary>
+        /// 列出每个域现在路由到哪几个下游、首选是谁、挂了换不换人。
+        /// 只读不写；候选里有名字但那个 driver 不存在或没声明这个 port 时，当场标出来——
+        /// 那种坏路由平时看不出来，只有真调用的那一刻才炸。
+        /// </summary>
+        /// <param name="arguments">命令参数。</param>
+        [EditorCommand("bridge.route.list")]
+        [Summary("列出每个域的候选下游与策略（首选固定 / 失败转移）")]
+        public static CommandResult RouteList(BridgeRouteListArguments arguments)
+        {
+            var repositoryRoot = ResolveRepositoryRoot(arguments?.RepositoryRoot, out var failure);
+            if (failure != null)
+            {
+                return failure;
+            }
+
+            var routeTable = BridgeRouteTable.Load(repositoryRoot);
+            if (!routeTable.Loaded)
+            {
+                return CommandResult.Failure($"域路由表读不了：{routeTable.LoadFailureReason}");
+            }
+
+            if (routeTable.PortRoutes.Count == 0)
+            {
+                return CommandResult.Success("域路由表里一个域都没有", Array.Empty<string>());
+            }
+
+            var lines = new List<string>();
+            var brokenCount = 0;
+            foreach (var pair in routeTable.PortRoutes.OrderBy(item => item.Key, StringComparer.Ordinal))
+            {
+                var route = pair.Value;
+                var marks = new List<string>();
+                foreach (var candidate in route.Candidates)
+                {
+                    marks.Add(candidate + DescribeCandidateHealth(repositoryRoot, candidate, pair.Key, ref brokenCount));
+                }
+
+                var strategyNote = route.AllowsFailover
+                    ? "失败转移"
+                    : route.Candidates.Count > 1 ? "首选固定（有备选但不会自动换人）" : "首选固定";
+                lines.Add($"{pair.Key}：{string.Join(" → ", marks)}　[{strategyNote}]");
+            }
+
+            var headline = brokenCount == 0
+                ? $"域路由 {routeTable.PortRoutes.Count} 条，候选全都对得上"
+                : $"域路由 {routeTable.PortRoutes.Count} 条，其中 {brokenCount} 个候选是坏的";
+            return brokenCount == 0
+                ? CommandResult.Success(headline, lines)
+                : CommandResult.Failure(headline, lines);
+        }
+
+        /// <summary>判一个候选健不健康：driver 在不在、有没有声明这个 port。坏的话在名字后面缀一句。</summary>
+        private static string DescribeCandidateHealth(string repositoryRoot, string candidateName, string portName, ref int brokenCount)
+        {
+            BridgeDriverDescriptor descriptor;
+            try
+            {
+                descriptor = BridgeDriverDescriptor.Load(repositoryRoot, candidateName);
+            }
+            catch (InvalidOperationException)
+            {
+                brokenCount++;
+                return "（× 这个 driver 不存在）";
+            }
+
+            if (!descriptor.Ports.Contains(portName, StringComparer.Ordinal))
+            {
+                brokenCount++;
+                return $"（× 它没声明「{portName}」，只声明了 {string.Join("、", descriptor.Ports)}）";
+            }
+
+            return "";
+        }
+
+        /// <summary>
+        /// 改一个域的路由：候选清单（按优先级，第一个是首选）与策略。
+        /// 候选逐个校验——driver 得真存在、且真的声明了这个 port，否则拒绝写。
+        /// </summary>
+        /// <param name="arguments">命令参数。</param>
+        [EditorCommand("bridge.route.set")]
+        [Summary("改一个域的候选下游与策略；候选逐个校验，写不进去会说清为什么")]
+        public static CommandResult RouteSet(BridgeRouteSetArguments arguments)
+        {
+            var repositoryRoot = ResolveRepositoryRoot(arguments?.RepositoryRoot, out var failure);
+            if (failure != null)
+            {
+                return failure;
+            }
+
+            var candidates = (arguments?.Candidates ?? "")
+                .Split(new[] { ',', '，', ';', '；' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(name => name.Trim())
+                .Where(name => name.Length > 0)
+                .ToList();
+
+            var outcome = RouteTableWriter.SetPortRoute(
+                repositoryRoot,
+                arguments?.Port ?? "",
+                candidates,
+                arguments?.Strategy ?? "");
             return ToResult(outcome, repositoryRoot);
         }
 
@@ -736,9 +899,9 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("下游模型加工：按加工计划把输入模型加工成新模型 + 指标文件")]
         public static CommandResult Process(BridgeProcessArguments arguments)
         {
-            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            if (arguments == null)
             {
-                return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
+                return CommandResult.Failure("必须给参数");
             }
 
             if (string.IsNullOrWhiteSpace(arguments.InputModelPath))
@@ -807,7 +970,8 @@ namespace Template.Toolkit.CommandHost.Commands
                 ["加工计划"] = planNode
             });
 
-            var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "process", payload, arguments.TimeoutSeconds);
+            var processCall = InvokeExplicitOrRouted(repositoryRoot, arguments.Driver, "模型加工", "process", payload, arguments.TimeoutSeconds);
+            var result = processCall.Result;
             if (!result.Succeeded)
             {
                 return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
@@ -818,9 +982,15 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var lines = new List<string>
             {
+                $"driver：{processCall.DriverName}",
                 $"输出模型：{RelativeTo(repositoryRoot, outputModel)}",
                 $"指标文件：{RelativeTo(repositoryRoot, metricsFile)}"
             };
+
+            foreach (var attempt in processCall.Attempts)
+            {
+                lines.Add($"（转移前试过）{attempt}");
+            }
 
             if (result.Payload.TryGetProperty("执行了的步骤", out var executedSteps) && executedSteps.ValueKind == JsonValueKind.Array)
             {
@@ -888,24 +1058,9 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure($"参数 RepositoryRoot 无法解析为绝对路径：{exception.Message}");
             }
 
-            // --Driver 留空就按域路由表的「生图」取默认 driver。
-            // 「默认生图驱动」这句话此前只写在路由表里没人读——路由表的「生图」那一行
-            // 全仓没有任何调用点，改它等于只改了一份注释。这里把它接上，
-            // 它才真的是默认；显式给了 --Driver 一律以显式的为准。
-            var driverName = (arguments.Driver ?? "").Trim();
-            if (driverName.Length == 0)
-            {
-                var routeTable = BridgeRouteTable.Load(repositoryRoot);
-                if (!routeTable.Loaded)
-                {
-                    return CommandResult.Failure($"没给 --Driver，而域路由表读不了：{routeTable.LoadFailureReason}");
-                }
-
-                if (!routeTable.TryResolvePort("生图", out driverName, out var routeReason))
-                {
-                    return CommandResult.Failure($"没给 --Driver，也没能从域路由表取到「生图」的默认 driver：{routeReason}");
-                }
-            }
+            // --Driver 显式给了就一律以它为准（还能拿它临时试一个不在候选里的 driver）；
+            // 留空就交给域路由表——候选清单与策略在那里，失败转移也在那里。
+            var explicitDriverName = (arguments.Driver ?? "").Trim();
 
             string requestPath;
             try
@@ -1006,7 +1161,11 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var payload = JsonSerializer.SerializeToElement(payloadObject);
 
-            var result = BridgeInvoker.Invoke(repositoryRoot, driverName, "generate", payload, arguments.TimeoutSeconds);
+            var call = InvokeExplicitOrRouted(repositoryRoot, explicitDriverName, "生图", "generate", payload, arguments.TimeoutSeconds);
+            var result = call.Result;
+            var driverName = call.DriverName;
+            var attempts = call.Attempts;
+
             if (!result.Succeeded)
             {
                 return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
@@ -1015,6 +1174,13 @@ namespace Template.Toolkit.CommandHost.Commands
             var lines = new List<string>();
             var variantCount = ReadArrayLength(result.Payload, "variants");
             lines.Add($"共出 {variantCount} 张图（driver={driverName}）");
+
+            // 转移过才有账。成功但试过好几家时必须说出来——
+            // 「出图了」和「首选挂了、是老二出的图」是两件事，后者要能一眼看见。
+            foreach (var attempt in attempts)
+            {
+                lines.Add($"（转移前试过）{attempt}");
+            }
             lines.Add($"prompt id：{ReadString(result.Payload, "prompt_id")}");
 
             if (result.Payload.TryGetProperty("variants", out var variants) && variants.ValueKind == JsonValueKind.Array)
@@ -1047,9 +1213,9 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("下游模型生成：真出粗模；默认干跑，--DryRun false 才真发（花积分）")]
         public static CommandResult Model(BridgeModelArguments arguments)
         {
-            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            if (arguments == null)
             {
-                return CommandResult.Failure("必须指定 --driver，值取 Bridges/ 下的目录名");
+                return CommandResult.Failure("必须给参数");
             }
 
             var referenceImageUrl = (arguments.ReferenceImageUrl ?? "").Trim();
@@ -1096,7 +1262,8 @@ namespace Template.Toolkit.CommandHost.Commands
                 ["输出目录"] = outputDirectory
             });
 
-            var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "generate", payload, arguments.TimeoutSeconds);
+            var modelCall = InvokeExplicitOrRouted(repositoryRoot, arguments.Driver, "模型生成", "generate", payload, arguments.TimeoutSeconds);
+            var result = modelCall.Result;
             if (!result.Succeeded)
             {
                 return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
@@ -1109,12 +1276,18 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var lines = new List<string>
             {
+                $"driver：{modelCall.DriverName}",
                 $"模型文件：{RelativeTo(repositoryRoot, modelFile)}",
                 $"字节数：{ByteCountOf(modelFile)}",
                 $"task_id：{taskId}",
                 $"状态：{statusText}",
                 $"提交方式：{(submitMode.Length == 0 ? "（桥没报）" : submitMode)}"
             };
+
+            foreach (var attempt in modelCall.Attempts)
+            {
+                lines.Add($"（转移前试过）{attempt}");
+            }
 
             return CommandResult.Success($"模型生成完成：{RelativeTo(repositoryRoot, modelFile)}", lines);
         }
@@ -1130,9 +1303,9 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("执行后端直调：发一句最短的提示看通不通，这就是它的试跑（真调一次）")]
         public static CommandResult Complete(BridgeCompleteArguments arguments)
         {
-            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Driver))
+            if (arguments == null)
             {
-                return CommandResult.Failure("必须指定 --Driver，值取 Bridges/ 下的目录名");
+                return CommandResult.Failure("必须给参数");
             }
 
             string repositoryRoot;
@@ -1163,7 +1336,8 @@ namespace Template.Toolkit.CommandHost.Commands
                 ["上下文"] = context
             });
 
-            var result = BridgeInvoker.Invoke(repositoryRoot, arguments.Driver, "complete", payload, arguments.TimeoutSeconds);
+            var completeCall = InvokeExplicitOrRouted(repositoryRoot, arguments.Driver, "执行后端", "complete", payload, arguments.TimeoutSeconds);
+            var result = completeCall.Result;
             if (!result.Succeeded)
             {
                 return CommandResult.Failure(result.HumanText, new[] { $"错误码：{result.ErrorCode}" });
@@ -1171,12 +1345,19 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var text = ReadString(result.Payload, "文本");
             var model = ReadString(result.Payload, "模型");
-            return CommandResult.Success($"执行后端通了：driver={arguments.Driver}", new[]
+            var completeLines = new List<string>
             {
                 $"服务端报的模型：{(model.Length == 0 ? "（没报）" : model)}",
                 $"回答字数：{text.Length}",
                 $"回答（截断到 200 字）：{(text.Length <= 200 ? text : text.Substring(0, 200) + "…")}"
-            });
+            };
+
+            foreach (var attempt in completeCall.Attempts)
+            {
+                completeLines.Add($"（转移前试过）{attempt}");
+            }
+
+            return CommandResult.Success($"执行后端通了：driver={completeCall.DriverName}", completeLines);
         }
 
         /// <summary>
@@ -1301,6 +1482,41 @@ namespace Template.Toolkit.CommandHost.Commands
             {
                 return -1;
             }
+        }
+
+        /// <summary>
+        /// 调一次下游：**显式给了 --Driver 就一律以它为准**，留空才走域路由表
+        /// （候选清单 + 策略，失败转移也在那一层）。
+        ///
+        /// 为什么保留显式那一路：路由表是「平时该找谁」，而人常常要临时点名试一个
+        /// 不在候选里的 driver（新接的、或专门验某一家）。把显式那一路砍掉，
+        /// 每试一次都得先改路由表再改回来。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="explicitDriverName">命令行显式给的 driver 名；空串表示走路由。</param>
+        /// <param name="portName">走路由时用的 port 名。</param>
+        /// <param name="action">动作。</param>
+        /// <param name="payload">业务载荷。</param>
+        /// <param name="timeoutSeconds">超时秒数；失败转移时每个候选各算各的。</param>
+        private static RoutedCallOutcome InvokeExplicitOrRouted(
+            string repositoryRoot,
+            string explicitDriverName,
+            string portName,
+            string action,
+            JsonElement payload,
+            int timeoutSeconds)
+        {
+            if (!string.IsNullOrWhiteSpace(explicitDriverName))
+            {
+                var driverName = explicitDriverName.Trim();
+                return new RoutedCallOutcome(
+                    BridgeInvoker.Invoke(repositoryRoot, driverName, action, payload, timeoutSeconds),
+                    driverName,
+                    Array.Empty<string>());
+            }
+
+            var portCall = BridgeInvoker.InvokeByPort(repositoryRoot, portName, action, payload, timeoutSeconds);
+            return new RoutedCallOutcome(portCall.Result, portCall.DriverName, portCall.Attempts);
         }
 
         /// <summary>读 JSON 对象里字符串键的值；缺失或类型不对给空串。</summary>
