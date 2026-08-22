@@ -164,6 +164,9 @@ def probed_model_names(root):
     """
     上次探测回来的模型清单，序数序。探测产出不在、坏了、或里面没有模型时一律给空表——
     **空表是一个诚实的答案**，调用方据此只给「自动」一档并指路去重探，不许拿写死的名字填空。
+
+    产出里每一项是 `{"名": ..., "版本": ..., "hash": ...}`（与 C# 侧 CapabilityProbeResult 同形）。
+    这里也吃纯字符串那种写法：手写一份清单去试的时候常常就那么写，为这个报空表太不近人情。
     """
     try:
         payload = _read_json(os.path.join(_probe_directory(root), "probe-result.json"))
@@ -173,11 +176,37 @@ def probed_model_names(root):
     if not isinstance(payload, dict):
         return []
 
-    names = payload.get("模型")
-    if not isinstance(names, list):
+    items = payload.get("模型")
+    if not isinstance(items, list):
         return []
 
-    return sorted({str(name) for name in names if isinstance(name, str) and name.strip()})
+    names = set()
+    for item in items:
+        if isinstance(item, dict):
+            name = str(item.get("名", "")).strip()
+        elif isinstance(item, str):
+            name = item.strip()
+        else:
+            continue
+        if name:
+            names.add(name)
+
+    return sorted(names)
+
+
+def configured_model(root):
+    """
+    本机配置里 <c>下游配置.oaiimage.模型</c> 那一格现在的值；没配或读不出来给空串。
+    它可能是哨兵「自动」，也可能是一个钉死的模型名。
+    """
+    try:
+        settings = _local_settings(root)
+    except RelayConfigError:
+        return ""
+
+    downstream = settings.get("下游配置")
+    section = downstream.get(IMAGE_DRIVER_NAME) if isinstance(downstream, dict) else None
+    return str(section.get("模型", "")).strip() if isinstance(section, dict) else ""
 
 
 def last_good_model(root):
@@ -221,13 +250,26 @@ def resolve_model(root, chosen):
     返回 (模型名, 账)。**模型名为空串表示一个 model 参数都不发**，由中转按它自己的默认来——
     这与「回落到某个写死的模型」是两回事：各家中转开通的模型不一样，替它猜只会撞上「参数非法」。
 
-    规矩与 C# 侧 ModelSelection.Resolve 对齐：点名的盖过一切；「自动」先认上次真跑成功的那个，
-    它不在清单里了才退到清单序数序第一项。
+    规矩与 C# 侧 ModelSelection.Resolve 对齐，四步一步不差：
+    一、节点上点名了就用它，盖过一切；
+    二、没点名（选的是「自动」）时先看本机配置里那一格——**它要是钉死了一个模型名，就用那个**；
+    三、配置那一格也是「自动」，才去问上次探测回来的清单，先认上次真跑成功的那个；
+    四、它不在清单里了，才退到清单序数序第一项。
+
+    第二步不能省：清单里常常混着别的域的模型（同一个中转既卖对话又卖图），
+    序数序第一项很可能是个对话模型，拿它去请求图像接口必然失败。
+    本机那一格钉死的值是人明确表过态的，它比任何猜测都可靠。
     """
     picked = (chosen or "").strip()
 
     if picked and picked != AUTO_SENTINEL:
         return picked, "本次调用点名了模型「{}」".format(picked)
+
+    pinned = configured_model(root)
+    if pinned and pinned != AUTO_SENTINEL:
+        return pinned, "节点上选的是「{}」，本机配置把 {} 的模型钉死在「{}」，用它".format(
+            AUTO_SENTINEL, IMAGE_DRIVER_NAME, pinned
+        )
 
     names = probed_model_names(root)
     if not names:
