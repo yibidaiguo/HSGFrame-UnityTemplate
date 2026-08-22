@@ -1,9 +1,9 @@
 ---
 name: dev-cycle
-description: Claude 做设计审查和验收，把实现与验证分派给执行后端（agent.dispatch，OpenAI 兼容 API）。当用户说"帮我做 XXX 功能""改一下 XXX""修 BUG-XXXX"这类需要动代码的活，或直接打 /dev-cycle 时用它。
+description: 高级模型（当前会话的你）做设计审查和验收，把实现与验证分派给执行后端（agent.dispatch，OpenAI 兼容 API）。当用户说"帮我做 XXX 功能""改一下 XXX""修 BUG-XXXX"这类需要动代码的活，或直接打 /dev-cycle 时用它。
 ---
 
-# 开发全流程（Claude 指挥，执行后端干活）
+# 开发全流程（高级模型指挥，执行后端干活）
 
 你是大脑，执行后端是手。分工固定，不许调换：
 
