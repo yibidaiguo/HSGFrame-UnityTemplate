@@ -470,7 +470,14 @@ namespace Template.Bridges.Feishu
                     continue;
                 }
 
-                var call = FeishuClient.UploadMedia(filePath, media.ParentType, blockId, appId, secretKey, timeoutSeconds);
+                // 文件块飞书会拆成两个：一个 view 外壳套一个 file 子块，回给我们的是外壳的 id。
+                // **上传与 PATCH 必须打在同一个块上**：一个按外壳传、另一个按子块打，
+                // 飞书回「relation mismatch」——所以这一步要在上传之前先认准目标。
+                var targetBlockId = media.IsImage
+                    ? blockId
+                    : ResolveFileBlockId(documentId, blockId, appId, secretKey, timeoutSeconds);
+
+                var call = FeishuClient.UploadMedia(filePath, media.ParentType, targetBlockId, appId, secretKey, timeoutSeconds);
                 if (!call.Succeeded)
                 {
                     outcome.Failures.Add(media.RelativePath + "：" + (call.Response?.Error?.HumanText ?? "上传失败"));
@@ -485,12 +492,6 @@ namespace Template.Bridges.Feishu
                     outcome.Failures.Add(media.RelativePath + "：传上去了但没回 file_token，没法挂到块上");
                     continue;
                 }
-
-                // 文件块飞书会拆成两个：一个 view 外壳套一个 file 子块，回给我们的是外壳的 id，
-                // 而 replace_file 要打在里面那个上——打外壳会回「operation and block not match」。
-                var targetBlockId = media.IsImage
-                    ? blockId
-                    : ResolveFileBlockId(documentId, blockId, appId, secretKey, timeoutSeconds);
 
                 var bind = BindMediaToBlock(documentId, targetBlockId, fileToken, media.IsImage, appId, secretKey, timeoutSeconds);
                 if (bind.Length > 0)
