@@ -53,6 +53,9 @@
 <!-- feature:hotfix 结束 -->
    - Agent 入口：规范正文只住规范文档目录；各模型入口文件（`CLAUDE.md` 为源，`AGENTS.md` 等为镜像）
      由 `Tools/AgentSync/agent-sync.ps1` 同步，R9 对账
+   - 技能（`.claude/skills/<名>/SKILL.md`，一技能一夹，头部带 `name` 与 `description`）：
+     **技能写流程与判断，不写规则正本**。规则住本套规范与 `Doc/` 的活文档里，技能只负责
+     「这一步该读哪一页」。规则抄进技能就是第二份账，改一处必漏另一处
 3. **通用性**（既有硬原则）：模板与工具链里禁止出现宿主项目名；`HSGFrame` 是框架自己的名字，不进黑名单。
 4. **分级公式**：资源 `类型 → 功能 → 模块 → 内容`；代码 `层 → 模块 → 职责`。任何新文件先问「它属于哪一格」。
 5. **能查的写成检查器，查不了的才写文档。** 凡标 R 号的规则都要有对应检查器（工单在宿主差距文档）；
@@ -74,6 +77,7 @@
   Solutions/                  纯 .NET 测试工程（链接 Logic 源码）
   Tools/                      工具链（命令层、门禁、资产管线、代码生成、Agent 入口同步）
   Specifications/                       本套结构规范三份
+  .claude/skills/<名>/SKILL.md  技能：把某件反复要做的事写成可复用的流程
   Config/ Graphs/ Levels/ UI/ Index/ Memory/   数据与定义（单一事实源侧）
 <仓库根>/_Scratch/            AI 试验区：临时产物唯一落点，git 忽略，正式区不得引用
 ```
