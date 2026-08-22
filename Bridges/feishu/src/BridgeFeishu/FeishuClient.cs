@@ -67,6 +67,19 @@ namespace Template.Bridges.Feishu
             return ImMessagesEndpoint;
         }
 
+        /// <summary>知识空间集合的 URL：POST 建一个新空间，GET 列已有的。</summary>
+        public static string WikiSpacesUrl()
+        {
+            return WikiSpacesPrefix;
+        }
+
+        /// <summary>按 space_id 读一个知识空间的 URL，用来验它还在不在。</summary>
+        /// <param name="spaceId">知识空间 space_id。</param>
+        public static string WikiSpaceUrl(string spaceId)
+        {
+            return WikiSpacesPrefix + "/" + Uri.EscapeDataString(spaceId);
+        }
+
         /// <summary>某个知识空间下建节点的 URL。</summary>
         /// <param name="spaceId">知识空间 space_id。</param>
         public static string WikiNodesUrl(string spaceId)

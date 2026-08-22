@@ -1,0 +1,665 @@
+using System;
+using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Template.Toolkit.CreationPipeline;
+
+namespace Template.Bridges.Feishu
+{
+    /// <summary>
+    /// 确保对象在（ensure）：这个项目要用的四样东西——知识空间、多维表格、任务表、需求文档父节点——
+    /// **配了就用，没配就建，建完把 id 交回去**，由引擎回填进下游对象台账。
+    ///
+    /// 为什么值得单开一个动作：
+    /// 1. **自己建出来的对象，应用就是所有者**。人手工建的表与节点，应用默认只有读，
+    ///    于是建表回 403、建节点回 131006——今天真撞了两次。让链路自己建，这道门根本不存在。
+    /// 2. **换台机器不会重来一遍**。id 进台账、台账进 git，clone 下来就还是同一批对象；
+    ///    没有这一层，新机器一跑就在下游建出第二套表，数据分家。
+    ///
+    /// 「配了就用」不是无条件信任：台账里那个 id **要先验它还在不在**。
+    /// 人在飞书里把表删了是常事，删了之后台账那份就是个死号——
+    /// 验不过就当没有、重新建，而不是拿着死号一路报错到底。
+    ///
+    /// 四样东西全部落在**知识空间里**：多维表格也是空间下的一个节点（obj_type=bitable），
+    /// 不散落在个人云空间——那样换个人就找不到了。
+    /// </summary>
+    public static class ObjectProvisioner
+    {
+        /// <summary>协议契约版本。</summary>
+        private const string ContractVersion = "1.0.0";
+
+        /// <summary>缺省超时秒数，配置里没有时用。</summary>
+        private const int DefaultTimeoutSeconds = 60;
+
+        /// <summary>台账里知识空间那一格的键名。</summary>
+        public const string SpaceKey = "知识空间标识";
+
+        /// <summary>台账里需求文档父节点那一格的键名。</summary>
+        public const string RequirementParentKey = "需求文档父节点";
+
+        /// <summary>台账里多维表格那一格的键名。</summary>
+        public const string BitableKey = "多维表格标识";
+
+        /// <summary>台账里任务表那一格的键名。</summary>
+        public const string TaskTableKey = "任务表标识";
+
+        /// <summary>没给标题时，新建知识空间叫什么。</summary>
+        private const string DefaultSpaceTitle = "项目协作空间";
+
+        /// <summary>没给标题时，需求文档的父节点叫什么。对应仓库里的 Pools/Requirements/。</summary>
+        private const string DefaultRequirementParentTitle = "需求";
+
+        /// <summary>没给标题时，多维表格那个节点叫什么。</summary>
+        private const string DefaultBitableTitle = "任务管理";
+
+        /// <summary>没给名字时，任务表叫什么。</summary>
+        private const string DefaultTaskTableName = "任务";
+
+        /// <summary>
+        /// 执行 ensure 动作：四样对象逐个「验 → 缺就建」，把最终 id 全部交回去。
+        /// 干跑只报「哪几样缺、要建什么」，一个写请求都不发（决策 92）。
+        /// </summary>
+        /// <param name="request">请求信封：配置含 应用标识 / 飞书应用密钥 / 超时秒，
+        /// 以及台账压进来的 知识空间标识 / 需求文档父节点 / 多维表格标识 / 任务表标识；
+        /// 载荷可给 空间标题 / 需求父节点标题 / 多维表格标题 / 任务表名 与 干跑（缺省 true）。</param>
+        public static BridgeResponse Ensure(BridgeRequest request)
+        {
+            var appId = ReadConfigurationString(request, "应用标识", "");
+            var secretKey = ReadConfigurationString(request, "飞书应用密钥", "");
+            var timeoutSeconds = ReadConfigurationInt(request, "超时秒", DefaultTimeoutSeconds);
+            var isDryRun = ReadPayloadBool(request, "干跑", defaultValue: true);
+
+            if (appId.Length == 0)
+            {
+                return Failure("凭据无效", "应用标识未配置（配置键「应用标识」为空）", retryable: false);
+            }
+
+            if (secretKey.Length == 0)
+            {
+                return Failure("凭据无效", "飞书应用密钥未配置（配置键「飞书应用密钥」为空）", retryable: false);
+            }
+
+            var state = new EnsureState
+            {
+                AppId = appId,
+                SecretKey = secretKey,
+                TimeoutSeconds = timeoutSeconds,
+                IsDryRun = isDryRun,
+                SpaceTitle = ReadPayloadString(request, "空间标题", DefaultSpaceTitle),
+                RequirementParentTitle = ReadPayloadString(request, "需求父节点标题", DefaultRequirementParentTitle),
+                BitableTitle = ReadPayloadString(request, "多维表格标题", DefaultBitableTitle),
+                TaskTableName = ReadPayloadString(request, "任务表名", DefaultTaskTableName)
+            };
+
+            state.SpaceId = ReadConfigurationString(request, SpaceKey, "");
+            state.RequirementParent = ReadConfigurationString(request, RequirementParentKey, "");
+            state.BitableToken = ReadConfigurationString(request, BitableKey, "");
+            state.TaskTableId = ReadConfigurationString(request, TaskTableKey, "");
+
+            if (!EnsureSpace(state, out var spaceFailure))
+            {
+                return spaceFailure;
+            }
+
+            if (!EnsureRequirementParent(state, out var parentFailure))
+            {
+                return parentFailure;
+            }
+
+            if (!EnsureBitable(state, out var bitableFailure))
+            {
+                return bitableFailure;
+            }
+
+            if (!EnsureTaskTable(state, out var tableFailure))
+            {
+                return tableFailure;
+            }
+
+            var objects = new JsonObject
+            {
+                [SpaceKey] = state.SpaceId,
+                [RequirementParentKey] = state.RequirementParent,
+                [BitableKey] = state.BitableToken,
+                [TaskTableKey] = state.TaskTableId
+            };
+
+            var payload = new JsonObject
+            {
+                ["干跑"] = isDryRun,
+                ["对象"] = objects,
+                ["新建"] = ToArray(state.Created),
+                ["沿用"] = ToArray(state.Reused),
+                ["重建"] = ToArray(state.Recreated)
+            };
+
+            if (state.SkippedColumns.Count > 0)
+            {
+                payload["建不出来的列"] = ToArray(state.SkippedColumns);
+            }
+
+            return Success(JsonSerializer.SerializeToElement(payload));
+        }
+
+        /// <summary>确保知识空间在：验旧的还在不在，不在就建一个新的。</summary>
+        private static bool EnsureSpace(EnsureState state, out BridgeResponse failure)
+        {
+            failure = null;
+
+            if (state.SpaceId.Length > 0)
+            {
+                var probe = FeishuClient.Send("GET", FeishuClient.WikiSpaceUrl(state.SpaceId), null, state.AppId, state.SecretKey, state.TimeoutSeconds);
+                if (probe.Succeeded)
+                {
+                    state.Reused.Add(SpaceKey + "=" + state.SpaceId);
+                    return true;
+                }
+
+                // 台账里那个空间已经不在了（多半是人在飞书里删了）。死号不留：当作没有，重新建一个。
+                state.Recreated.Add(SpaceKey + "（旧的 " + state.SpaceId + " 已经不在了）");
+                state.SpaceId = "";
+            }
+
+            if (state.IsDryRun)
+            {
+                state.Created.Add(SpaceKey + "：将建一个叫「" + state.SpaceTitle + "」的知识空间");
+                state.SpaceId = "<干跑未建>";
+                return true;
+            }
+
+            var body = new JsonObject
+            {
+                ["name"] = state.SpaceTitle,
+                ["description"] = "由创作管线自动创建：需求文档与任务表都住在这里。"
+            }.ToJsonString();
+
+            var call = FeishuClient.Send("POST", FeishuClient.WikiSpacesUrl(), body, state.AppId, state.SecretKey, state.TimeoutSeconds);
+            if (!call.Succeeded)
+            {
+                failure = call.Response;
+                return false;
+            }
+
+            var spaceId = ReadString(call.ResponseBody, "data", "space", "space_id");
+            if (spaceId.Length == 0)
+            {
+                failure = Failure("下游报错", "建知识空间的响应里没有 space_id，没法证明真建出来了", retryable: false);
+                return false;
+            }
+
+            state.SpaceId = spaceId;
+            state.Created.Add(SpaceKey + "=" + spaceId + "（新建，标题「" + state.SpaceTitle + "」）");
+            return true;
+        }
+
+        /// <summary>确保需求文档的父节点在：它对应仓库里的 Pools/Requirements/，一条需求一个子节点挂在它下面。</summary>
+        private static bool EnsureRequirementParent(EnsureState state, out BridgeResponse failure)
+        {
+            return EnsureNode(
+                state,
+                RequirementParentKey,
+                state.RequirementParent,
+                state.RequirementParentTitle,
+                "docx",
+                out failure,
+                token => state.RequirementParent = token);
+        }
+
+        /// <summary>确保多维表格在：它也是知识空间下的一个节点（obj_type=bitable），obj_token 就是 app_token。</summary>
+        private static bool EnsureBitable(EnsureState state, out BridgeResponse failure)
+        {
+            return EnsureNode(
+                state,
+                BitableKey,
+                state.BitableToken,
+                state.BitableTitle,
+                "bitable",
+                out failure,
+                token => state.BitableToken = token);
+        }
+
+        /// <summary>
+        /// 确保知识空间下的某个节点在。验的是**它还在不在**，不是「叫什么名字」——
+        /// 人在飞书里改个名是常事，按名字认会当场认丢。
+        /// </summary>
+        /// <param name="state">这一轮的状态。</param>
+        /// <param name="key">台账里的键名，用在账里。</param>
+        /// <param name="current">台账里现有的值；空表示没有。</param>
+        /// <param name="title">要建时叫什么。</param>
+        /// <param name="objectType">节点类型：docx / bitable。</param>
+        /// <param name="failure">失败响应；返回 true 时不要看它。</param>
+        /// <param name="assign">把最终值写回状态。</param>
+        private static bool EnsureNode(
+            EnsureState state,
+            string key,
+            string current,
+            string title,
+            string objectType,
+            out BridgeResponse failure,
+            Action<string> assign)
+        {
+            failure = null;
+
+            if (current.Length > 0)
+            {
+                var probe = FeishuClient.Send("GET", FeishuClient.WikiGetNodeUrl(current), null, state.AppId, state.SecretKey, state.TimeoutSeconds);
+                if (probe.Succeeded)
+                {
+                    state.Reused.Add(key + "=" + current);
+                    assign(current);
+                    return true;
+                }
+
+                state.Recreated.Add(key + "（旧的 " + current + " 已经不在了）");
+            }
+
+            if (state.IsDryRun)
+            {
+                state.Created.Add(key + "：将在空间下建一个叫「" + title + "」的 " + objectType + " 节点");
+                assign("<干跑未建>");
+                return true;
+            }
+
+            if (state.SpaceId.Length == 0 || state.SpaceId.StartsWith("<", StringComparison.Ordinal))
+            {
+                failure = Failure("请求不合协议", "还没有知识空间，建不了它下面的节点", retryable: false);
+                return false;
+            }
+
+            var body = new JsonObject
+            {
+                ["obj_type"] = objectType,
+                ["node_type"] = "origin",
+                ["title"] = title
+            }.ToJsonString();
+
+            var call = FeishuClient.Send("POST", FeishuClient.WikiNodesUrl(state.SpaceId), body, state.AppId, state.SecretKey, state.TimeoutSeconds);
+            if (!call.Succeeded)
+            {
+                failure = call.Response;
+                return false;
+            }
+
+            // 文档节点认 node_token（挂子节点要用它），多维表格认 obj_token（那就是 app_token）。
+            // 两者是不同的东西，取错一个后面每一次调用都会走岔。
+            var isBitable = string.Equals(objectType, "bitable", StringComparison.Ordinal);
+            var value = isBitable
+                ? ReadString(call.ResponseBody, "data", "node", "obj_token")
+                : ReadString(call.ResponseBody, "data", "node", "node_token");
+            if (value.Length == 0)
+            {
+                failure = Failure(
+                    "下游报错",
+                    "建节点的响应里没有 " + (isBitable ? "obj_token" : "node_token") + "，没法证明真建出来了",
+                    retryable: false);
+                return false;
+            }
+
+            assign(value);
+            state.Created.Add(key + "=" + value + "（新建，标题「" + title + "」）");
+            return true;
+        }
+
+        /// <summary>确保任务表在：台账里那张还在就用，不在就按名字找，再没有就照任务模板建一张。</summary>
+        private static bool EnsureTaskTable(EnsureState state, out BridgeResponse failure)
+        {
+            failure = null;
+
+            if (state.IsDryRun)
+            {
+                if (state.TaskTableId.Length > 0)
+                {
+                    state.Reused.Add(TaskTableKey + "=" + state.TaskTableId + "（干跑没去验它还在不在）");
+                    return true;
+                }
+
+                state.Created.Add(TaskTableKey + "：将建一张叫「" + state.TaskTableName + "」的表，"
+                    + TaskTableColumns.Length + " 列");
+                state.SkippedColumns.Add("是否延期（公式列：飞书建表接口不收公式表达式，建完请手工补一次）");
+                state.TaskTableId = "<干跑未建>";
+                return true;
+            }
+
+            if (state.BitableToken.Length == 0 || state.BitableToken.StartsWith("<", StringComparison.Ordinal))
+            {
+                failure = Failure("请求不合协议", "还没有多维表格，建不了里面的表", retryable: false);
+                return false;
+            }
+
+            var listCall = FeishuClient.Send(
+                "GET",
+                FeishuClient.BitableUrl(state.BitableToken, "tables?page_size=100"),
+                null,
+                state.AppId,
+                state.SecretKey,
+                state.TimeoutSeconds);
+            if (!listCall.Succeeded)
+            {
+                failure = listCall.Response;
+                return false;
+            }
+
+            var existingById = "";
+            var existingByName = "";
+            if (listCall.ResponseBody.ValueKind == JsonValueKind.Object
+                && listCall.ResponseBody.TryGetProperty("data", out var data)
+                && data.ValueKind == JsonValueKind.Object
+                && data.TryGetProperty("items", out var items)
+                && items.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in items.EnumerateArray())
+                {
+                    var tableId = ReadString(item, "table_id");
+                    var name = ReadString(item, "name");
+                    if (state.TaskTableId.Length > 0 && string.Equals(tableId, state.TaskTableId, StringComparison.Ordinal))
+                    {
+                        existingById = tableId;
+                    }
+
+                    if (string.Equals(name, state.TaskTableName, StringComparison.Ordinal))
+                    {
+                        existingByName = tableId;
+                    }
+                }
+            }
+
+            if (existingById.Length > 0)
+            {
+                state.Reused.Add(TaskTableKey + "=" + existingById);
+                return true;
+            }
+
+            if (state.TaskTableId.Length > 0)
+            {
+                state.Recreated.Add(TaskTableKey + "（旧的 " + state.TaskTableId + " 已经不在了）");
+            }
+
+            if (existingByName.Length > 0)
+            {
+                // 按名字捡回来：多半是台账丢了而表还在。捡回来比再建一张强——
+                // 再建一张的后果是两张同名表，人分不出该看哪一张。
+                state.TaskTableId = existingByName;
+                state.Reused.Add(TaskTableKey + "=" + existingByName + "（台账里没有，按表名「" + state.TaskTableName + "」认回来的）");
+                return true;
+            }
+
+            var fields = new JsonArray();
+            foreach (var column in TaskTableColumns)
+            {
+                fields.Add(column.ToJson());
+            }
+
+            var body = new JsonObject
+            {
+                ["table"] = new JsonObject
+                {
+                    ["name"] = state.TaskTableName,
+                    ["fields"] = fields
+                }
+            }.ToJsonString();
+
+            var createCall = FeishuClient.Send(
+                "POST",
+                FeishuClient.BitableUrl(state.BitableToken, "tables"),
+                body,
+                state.AppId,
+                state.SecretKey,
+                state.TimeoutSeconds);
+            if (!createCall.Succeeded)
+            {
+                failure = createCall.Response;
+                return false;
+            }
+
+            var createdId = ReadString(createCall.ResponseBody, "data", "table_id");
+            if (createdId.Length == 0)
+            {
+                failure = Failure("下游报错", "建表的响应里没有 table_id，没法证明真建出来了", retryable: false);
+                return false;
+            }
+
+            state.TaskTableId = createdId;
+            state.Created.Add(TaskTableKey + "=" + createdId + "（新建，" + TaskTableColumns.Length + " 列）");
+            state.SkippedColumns.Add("是否延期（公式列：飞书建表接口不收公式表达式，要这一列请在飞书里手工加）");
+            return true;
+        }
+
+        /// <summary>任务表的一列：名字、飞书字段类型码、以及类型自己的属性。</summary>
+        private sealed class TaskColumn
+        {
+            /// <summary>构造一列。</summary>
+            /// <param name="name">列名。</param>
+            /// <param name="type">飞书字段类型码。</param>
+            /// <param name="property">类型属性；没有给 null。</param>
+            public TaskColumn(string name, int type, JsonObject property = null)
+            {
+                Name = name;
+                Type = type;
+                Property = property;
+            }
+
+            /// <summary>列名。</summary>
+            public string Name { get; }
+
+            /// <summary>飞书字段类型码。</summary>
+            public int Type { get; }
+
+            /// <summary>类型属性；没有给 null。</summary>
+            public JsonObject Property { get; }
+
+            /// <summary>摊成建表接口要的形状。</summary>
+            public JsonObject ToJson()
+            {
+                var field = new JsonObject
+                {
+                    ["field_name"] = Name,
+                    ["type"] = Type
+                };
+                if (Property != null)
+                {
+                    field["property"] = Property.DeepClone();
+                }
+
+                return field;
+            }
+        }
+
+        /// <summary>
+        /// 任务表的列，照飞书任务模板那张表来（文本 1 / 单选 3 / 日期 5 / 人员 11 / 超链接 15）。
+        ///
+        /// 比模板多两列：**需求id** 与 **需求文档**。任务与需求得连得上——
+        /// 飞书的关联列只能关联同一个多维表格里的记录，而需求是知识空间里的一份文档，
+        /// 关联不过去，所以用一列超链接存文档地址（`doc.push` 推完会把它交回来）。
+        ///
+        /// 模板里的「是否延期」是公式列，建表接口不收公式表达式，只能建完手工补。
+        /// 少了什么要**说出来**，不许默默少一列。
+        /// </summary>
+        private static readonly TaskColumn[] TaskTableColumns =
+        {
+            new TaskColumn("任务描述", 1),
+            new TaskColumn("需求id", 1),
+            new TaskColumn("需求文档", 15),
+            new TaskColumn("任务执行人", 11, new JsonObject { ["multiple"] = false }),
+            new TaskColumn("进展", 3, new JsonObject
+            {
+                ["options"] = new JsonArray
+                {
+                    new JsonObject { ["name"] = "未开始" },
+                    new JsonObject { ["name"] = "进行中" },
+                    new JsonObject { ["name"] = "已停滞" },
+                    new JsonObject { ["name"] = "已完成" }
+                }
+            }),
+            new TaskColumn("重要紧急程度", 3, new JsonObject
+            {
+                ["options"] = new JsonArray
+                {
+                    new JsonObject { ["name"] = "重要紧急" },
+                    new JsonObject { ["name"] = "重要不紧急" },
+                    new JsonObject { ["name"] = "紧急不重要" },
+                    new JsonObject { ["name"] = "不重要不紧急" }
+                }
+            }),
+            new TaskColumn("开始日期", 5, new JsonObject { ["date_formatter"] = "yyyy/MM/dd", ["auto_fill"] = false }),
+            new TaskColumn("预计完成日期", 5, new JsonObject { ["date_formatter"] = "yyyy/MM/dd", ["auto_fill"] = false }),
+            new TaskColumn("实际完成日期", 5, new JsonObject { ["date_formatter"] = "yyyy/MM/dd", ["auto_fill"] = false }),
+            new TaskColumn("最新进展记录", 1),
+            new TaskColumn("任务情况总结", 1)
+        };
+
+        /// <summary>一轮 ensure 的状态：凭据、四样对象的当前值、以及给人看的账。</summary>
+        private sealed class EnsureState
+        {
+            /// <summary>飞书应用标识。</summary>
+            public string AppId;
+
+            /// <summary>飞书应用密钥，只进 HTTP 请求，绝不进任何文案。</summary>
+            public string SecretKey;
+
+            /// <summary>单次调用超时秒数。</summary>
+            public int TimeoutSeconds;
+
+            /// <summary>只算不发。</summary>
+            public bool IsDryRun;
+
+            /// <summary>知识空间 space_id。</summary>
+            public string SpaceId = "";
+
+            /// <summary>需求文档父节点 node_token。</summary>
+            public string RequirementParent = "";
+
+            /// <summary>多维表格 app_token。</summary>
+            public string BitableToken = "";
+
+            /// <summary>任务表 table_id。</summary>
+            public string TaskTableId = "";
+
+            /// <summary>要建知识空间时叫什么。</summary>
+            public string SpaceTitle = DefaultSpaceTitle;
+
+            /// <summary>要建需求父节点时叫什么。</summary>
+            public string RequirementParentTitle = DefaultRequirementParentTitle;
+
+            /// <summary>要建多维表格节点时叫什么。</summary>
+            public string BitableTitle = DefaultBitableTitle;
+
+            /// <summary>要建任务表时叫什么。</summary>
+            public string TaskTableName = DefaultTaskTableName;
+
+            /// <summary>这一轮新建了哪些。</summary>
+            public readonly List<string> Created = new List<string>();
+
+            /// <summary>这一轮沿用了哪些。</summary>
+            public readonly List<string> Reused = new List<string>();
+
+            /// <summary>哪些是因为旧的已经不在而重建的。</summary>
+            public readonly List<string> Recreated = new List<string>();
+
+            /// <summary>建不出来的列，要如实报。</summary>
+            public readonly List<string> SkippedColumns = new List<string>();
+        }
+
+        /// <summary>把一串字符串摊成 JSON 数组。</summary>
+        private static JsonArray ToArray(IReadOnlyList<string> values)
+        {
+            var array = new JsonArray();
+            foreach (var value in values)
+            {
+                array.Add(value);
+            }
+
+            return array;
+        }
+
+        /// <summary>成功响应。</summary>
+        private static BridgeResponse Success(JsonElement payload)
+        {
+            return BridgeResponse.Success(ContractVersion, payload);
+        }
+
+        /// <summary>失败响应。</summary>
+        private static BridgeResponse Failure(string code, string humanText, bool retryable)
+        {
+            return BridgeResponse.Failure(ContractVersion, code, humanText, retryable);
+        }
+
+        /// <summary>读请求配置里的字符串键；缺失给缺省值。</summary>
+        private static string ReadConfigurationString(BridgeRequest request, string key, string fallback)
+        {
+            if (request.Configuration.ValueKind == JsonValueKind.Object
+                && request.Configuration.TryGetProperty(key, out var element)
+                && element.ValueKind == JsonValueKind.String)
+            {
+                return element.GetString() ?? fallback;
+            }
+
+            return fallback;
+        }
+
+        /// <summary>读请求配置里的整数键；缺失、类型不对给缺省值。</summary>
+        private static int ReadConfigurationInt(BridgeRequest request, string key, int fallback)
+        {
+            if (request.Configuration.ValueKind == JsonValueKind.Object
+                && request.Configuration.TryGetProperty(key, out var element)
+                && element.ValueKind == JsonValueKind.Number
+                && element.TryGetInt32(out var number))
+            {
+                return number;
+            }
+
+            return fallback;
+        }
+
+        /// <summary>读载荷里的字符串键；缺失或为空给缺省值。</summary>
+        private static string ReadPayloadString(BridgeRequest request, string key, string fallback)
+        {
+            if (request.Payload.ValueKind == JsonValueKind.Object
+                && request.Payload.TryGetProperty(key, out var element)
+                && element.ValueKind == JsonValueKind.String)
+            {
+                var text = element.GetString() ?? "";
+                if (text.Trim().Length > 0)
+                {
+                    return text;
+                }
+            }
+
+            return fallback;
+        }
+
+        /// <summary>读载荷里的布尔键；缺失给缺省值。</summary>
+        private static bool ReadPayloadBool(BridgeRequest request, string key, bool defaultValue)
+        {
+            if (request.Payload.ValueKind == JsonValueKind.Object
+                && request.Payload.TryGetProperty(key, out var element))
+            {
+                if (element.ValueKind == JsonValueKind.True)
+                {
+                    return true;
+                }
+
+                if (element.ValueKind == JsonValueKind.False)
+                {
+                    return false;
+                }
+            }
+
+            return defaultValue;
+        }
+
+        /// <summary>从响应体里按一串键逐级读字符串；中途缺一级就给空串。</summary>
+        private static string ReadString(JsonElement element, params string[] path)
+        {
+            var current = element;
+            foreach (var key in path)
+            {
+                if (current.ValueKind != JsonValueKind.Object || !current.TryGetProperty(key, out current))
+                {
+                    return "";
+                }
+            }
+
+            return current.ValueKind == JsonValueKind.String ? current.GetString() ?? "" : "";
+        }
+    }
+}

@@ -298,6 +298,20 @@ namespace Template.Toolkit.CreationPipeline
 
             var configuration = BuildConfiguration(localSettings, descriptor);
 
+            // 下游对象台账压在本机配置之上：对象 id（表 / 空间 / 节点）跟着仓库走，
+            // 本机那份只是历史遗留。两处都有时以台账为准——**对象 id 只认一个来源**，
+            // 混两个来源迟早出现「写进去的和读出来的不是同一张表」。
+            var ledger = DownstreamObjectLedger.Load(repositoryRoot);
+            if (ledger.LoadFailureReason.Length > 0)
+            {
+                return BridgeCallResult.Failure("本机配置错误", ledger.LoadFailureReason, retryable: false);
+            }
+
+            foreach (var pair in ledger.ReadAll(descriptor.Name))
+            {
+                configuration[pair.Key] = pair.Value;
+            }
+
             // 「自动」这一档在这里落地：整条链路只有这一处把配置值换成真模型名，
             // 桥永远收不到哨兵。哪个字段是模型字段由 driver 自述声明，不按 driver 名猜（决策 17）。
             if (!ApplyModelSelection(repositoryRoot, driverName, descriptor, configuration, modelOverride, out var modelNote, out var selectionFailure))
