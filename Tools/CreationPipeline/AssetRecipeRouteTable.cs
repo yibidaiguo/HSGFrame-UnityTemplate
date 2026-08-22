@@ -24,24 +24,36 @@ namespace Template.Toolkit.CreationPipeline
     /// </summary>
     public sealed class AssetRecipeRouteTable
     {
+        /// <summary>
+        /// 一类资产在某个下游上的配方：文生图一份，图生图一份。
+        ///
+        /// **两份不能混用**：图生图那份走的是另一个接口（要把参考图当入参传上去），
+        /// 拿文生图的配方去跑一次带参考图的请求，参考图会被**悄悄丢掉**——
+        /// 图照样出得来、照样花钱，只是跟人给的那张一点关系都没有，
+        /// 而人只会觉得「这模型怎么不听话」。
+        /// </summary>
+        /// <param name="TextToImage">文生图配方名；没配为空串。</param>
+        /// <param name="ImageToImage">图生图配方名；没配为空串。</param>
+        public sealed record AssetRecipeRoute(string TextToImage, string ImageToImage);
+
         /// <summary>路由表里放映射的那一节。</summary>
         public const string RouteSectionKey = "配方路由";
 
         /// <summary>
         /// 构造一张路由表。
         /// </summary>
-        /// <param name="byDriver">driver → （资产类型 → 配方名）。</param>
+        /// <param name="byDriver">driver → （资产类型 → 配方）。</param>
         /// <param name="loadFailureReason">加载失败原因；正常（含文件不存在）为空串。</param>
         public AssetRecipeRouteTable(
-            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> byDriver,
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, AssetRecipeRoute>> byDriver,
             string loadFailureReason)
         {
-            ByDriver = byDriver ?? new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
+            ByDriver = byDriver ?? new Dictionary<string, IReadOnlyDictionary<string, AssetRecipeRoute>>(StringComparer.Ordinal);
             LoadFailureReason = loadFailureReason ?? "";
         }
 
-        /// <summary>driver → （资产类型 → 配方名）。</summary>
-        public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> ByDriver { get; }
+        /// <summary>driver → （资产类型 → 配方）。</summary>
+        public IReadOnlyDictionary<string, IReadOnlyDictionary<string, AssetRecipeRoute>> ByDriver { get; }
 
         /// <summary>加载失败原因；正常为空串。</summary>
         public string LoadFailureReason { get; }
@@ -68,7 +80,7 @@ namespace Template.Toolkit.CreationPipeline
         public static AssetRecipeRouteTable Load(string repositoryRoot)
         {
             var filePath = RouteFile(repositoryRoot);
-            var empty = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
+            var empty = new Dictionary<string, IReadOnlyDictionary<string, AssetRecipeRoute>>(StringComparer.Ordinal);
             if (!File.Exists(filePath))
             {
                 return new AssetRecipeRouteTable(empty, "");
@@ -89,7 +101,7 @@ namespace Template.Toolkit.CreationPipeline
                 return new AssetRecipeRouteTable(empty, "");
             }
 
-            var byDriver = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
+            var byDriver = new Dictionary<string, IReadOnlyDictionary<string, AssetRecipeRoute>>(StringComparer.Ordinal);
             foreach (var driverPair in routes)
             {
                 if (driverPair.Key.StartsWith("_", StringComparison.Ordinal) || driverPair.Value is not JsonObject types)
@@ -97,7 +109,7 @@ namespace Template.Toolkit.CreationPipeline
                     continue;
                 }
 
-                var byAssetType = new Dictionary<string, string>(StringComparer.Ordinal);
+                var byAssetType = new Dictionary<string, AssetRecipeRoute>(StringComparer.Ordinal);
                 foreach (var typePair in types)
                 {
                     if (typePair.Key.StartsWith("_", StringComparison.Ordinal))
@@ -105,9 +117,10 @@ namespace Template.Toolkit.CreationPipeline
                         continue;
                     }
 
-                    if (typePair.Value is JsonValue value && value.TryGetValue<string>(out var recipe) && recipe.Length > 0)
+                    var route = ReadRoute(typePair.Value);
+                    if (route != null)
                     {
-                        byAssetType[typePair.Key] = recipe;
+                        byAssetType[typePair.Key] = route;
                     }
                 }
 
@@ -118,6 +131,40 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
+        /// 读一条资产类型的配方。两种写法都认：
+        /// 一个字符串（只配了文生图），或一个对象（「文生图」与「图生图」各一份）。
+        /// 两种都读不出就给 null——那一条跳过，不拿空配方顶上去。
+        /// </summary>
+        /// <param name="value">这条资产类型在 JSON 里的值。</param>
+        private static AssetRecipeRoute ReadRoute(JsonNode value)
+        {
+            if (value is JsonValue plain && plain.TryGetValue<string>(out var single) && single.Length > 0)
+            {
+                return new AssetRecipeRoute(single, "");
+            }
+
+            if (value is JsonObject pair)
+            {
+                var textToImage = ReadName(pair, "文生图");
+                var imageToImage = ReadName(pair, "图生图");
+                if (textToImage.Length > 0 || imageToImage.Length > 0)
+                {
+                    return new AssetRecipeRoute(textToImage, imageToImage);
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>读对象里的一个配方名；缺失或类型不对给空串。</summary>
+        /// <param name="holder">这条资产类型的对象。</param>
+        /// <param name="key">「文生图」或「图生图」。</param>
+        private static string ReadName(JsonObject holder, string key)
+        {
+            return holder[key] is JsonValue value && value.TryGetValue<string>(out var name) ? name : "";
+        }
+
+        /// <summary>
         /// 按 driver 与资产类型取配方名。查不到时给一句**能照做的话**，而不是回落到某个默认配方。
         /// </summary>
         /// <param name="driverName">要用哪个下游，值来自域路由表，不在这里写死。</param>
@@ -125,6 +172,23 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="recipeName">配方名；查不到时为空串。</param>
         /// <param name="reason">查不到的原因与该怎么办；查到时为空串。</param>
         public bool TryResolve(string driverName, string assetType, out string recipeName, out string reason)
+        {
+            return TryResolve(driverName, assetType, withReferenceImage: false, out recipeName, out reason);
+        }
+
+        /// <summary>
+        /// 按 driver、资产类型、要不要参考图取配方名。
+        ///
+        /// **带参考图时查不到图生图配方就是查不到**，不许退回文生图那份：
+        /// 退回去的话参考图会被悄悄丢掉，图照出、钱照花，只是跟人给的那张没关系，
+        /// 而人只会觉得「这模型怎么不听话」。
+        /// </summary>
+        /// <param name="driverName">要用哪个下游，值来自域路由表，不在这里写死。</param>
+        /// <param name="assetType">资产类型，如「图标」。</param>
+        /// <param name="withReferenceImage">这次带不带参考图。</param>
+        /// <param name="recipeName">配方名；查不到时为空串。</param>
+        /// <param name="reason">查不到的原因与该怎么办；查到时为空串。</param>
+        public bool TryResolve(string driverName, string assetType, bool withReferenceImage, out string recipeName, out string reason)
         {
             recipeName = "";
             reason = "";
@@ -155,10 +219,23 @@ namespace Template.Toolkit.CreationPipeline
                 return false;
             }
 
-            if (byAssetType.TryGetValue(assetType, out var found) && found.Length > 0)
+            if (byAssetType.TryGetValue(assetType, out var found))
             {
-                recipeName = found;
-                return true;
+                var wanted = withReferenceImage ? found.ImageToImage : found.TextToImage;
+                if (wanted.Length > 0)
+                {
+                    recipeName = wanted;
+                    return true;
+                }
+
+                reason = withReferenceImage
+                    ? "「" + assetType + "」在「" + driverName + "」上只配了文生图配方，没有图生图那份。"
+                        + "人给了参考图，用文生图的配方跑会把那张图悄悄丢掉——图照出、钱照花，"
+                        + "跟他给的那张却没关系。走 art-recipe 建一份图生图配方（接口 edits，锚点槽要有「参考图」），"
+                        + "再把它填进 " + RelativeRoutePath() + " 里这一条的「图生图」。"
+                    : "「" + assetType + "」在「" + driverName + "」上只配了图生图配方，没有文生图那份。"
+                        + "这次没有参考图，跑不了。在 " + RelativeRoutePath() + " 里补上这一条的「文生图」。";
+                return false;
             }
 
             var known = byAssetType.Count == 0

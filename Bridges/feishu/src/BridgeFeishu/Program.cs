@@ -65,11 +65,14 @@ namespace Template.Bridges.Feishu
                     case "ensure":
                         response = ObjectProvisioner.Ensure(request);
                         break;
+                    case "fetch":
+                        response = MessageResourceFetcher.Fetch(request);
+                        break;
                     case "reply":
                         response = MessageReplier.Reply(request);
                         break;
                     default:
-                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥支持 apply / card / card-update / push / pull / doc / ensure / task-row / reply", retryable: false);
+                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥支持 apply / card / card-update / push / pull / doc / ensure / fetch / task-row / reply", retryable: false);
                         break;
                 }
 

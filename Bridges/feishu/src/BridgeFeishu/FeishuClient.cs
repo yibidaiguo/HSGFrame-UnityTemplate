@@ -168,6 +168,127 @@ namespace Template.Bridges.Feishu
             return SendWithToken(method, url, bodyJson, token, timeoutSeconds);
         }
 
+        /// <summary>
+        /// 消息资源下载 URL：把人在聊天里发的图片/文件取回来。
+        ///
+        /// 注意它按**消息**取，不是按 key 全局取——同一个 file_key 换一条消息就取不到。
+        /// 所以归一那一步必须把消息标识一起留下，光留 key 没用。
+        /// </summary>
+        /// <param name="messageIdentifier">这个资源所在的消息标识。</param>
+        /// <param name="fileKey">资源的 image_key 或 file_key。</param>
+        /// <param name="resourceType">image 或 file。飞书按这个字段分两种取法，填错取不到。</param>
+        public static string MessageResourceUrl(string messageIdentifier, string fileKey, string resourceType)
+        {
+            return "https://open.feishu.cn/open-apis/im/v1/messages/"
+                + Uri.EscapeDataString(messageIdentifier)
+                + "/resources/"
+                + Uri.EscapeDataString(fileKey)
+                + "?type=" + Uri.EscapeDataString(resourceType);
+        }
+
+        /// <summary>
+        /// 下一个二进制资源到本地文件。
+        ///
+        /// 为什么不能复用 <see cref="Send"/>：那条路把响应体当 JSON 读，
+        /// 而这个接口成功时回的是**字节流**——拿它当文本读会把 PNG 按 UTF-8 解一遍，
+        /// 存下来的文件必坏，而且坏得没有任何报错。
+        /// 只有失败时飞书才回 JSON，所以错误分支仍旧交给原来那套映射。
+        /// </summary>
+        /// <param name="url">资源 URL。</param>
+        /// <param name="destinationPath">存到哪；父目录不存在会建。</param>
+        /// <param name="appId">飞书应用标识。</param>
+        /// <param name="appSecret">飞书应用密钥，只进 token 请求体，绝不出现在任何文案里。</param>
+        /// <param name="timeoutSeconds">单次 HTTP 超时秒数。</param>
+        public static HttpCall DownloadToFile(
+            string url,
+            string destinationPath,
+            string appId,
+            string appSecret,
+            int timeoutSeconds)
+        {
+            if (!TryGetToken(appId, appSecret, timeoutSeconds, out var token, out var tokenError))
+            {
+                return new HttpCall { Succeeded = false, Response = tokenError };
+            }
+
+            try
+            {
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(Math.Max(1, timeoutSeconds)) };
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                using var response = client.SendAsync(request).GetAwaiter().GetResult();
+                var statusCode = (int)response.StatusCode;
+                var logId = ReadLogIdFromHeaders(response);
+
+                if (statusCode < 200 || statusCode >= 300)
+                {
+                    var errorText = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                    Console.Error.WriteLine($"BridgeFeishu HTTP {statusCode}：GET {url}");
+                    return new HttpCall
+                    {
+                        Succeeded = false,
+                        BusinessCode = ReadCodeFromText(errorText),
+                        Response = MapHttpError(statusCode, errorText, logId, "GET", url)
+                    };
+                }
+
+                // 200 也可能是一份 JSON 错误体：飞书有些资源接口错了照样回 200 带 code。
+                // 只在**内容类型自称 JSON** 时才这么怀疑，否则一份恰好以 '{' 开头的文件会被误判。
+                var mediaType = response.Content.Headers.ContentType?.MediaType ?? "";
+                var bytes = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+                if (mediaType.Contains("json", StringComparison.OrdinalIgnoreCase)
+                    && TryParseBody(Encoding.UTF8.GetString(bytes), out var body)
+                    && TryParseCode(body.TryGetProperty("code", out var codeElement) ? codeElement : default, out var code)
+                    && code != 0)
+                {
+                    return new HttpCall { Succeeded = false, Response = MapCodeError(body, code, logId), BusinessCode = code };
+                }
+
+                if (bytes.Length == 0)
+                {
+                    return new HttpCall
+                    {
+                        Succeeded = false,
+                        Response = BridgeResponse.Failure("1.0.0", "下游报错", "飞书返回了 0 字节，这个资源取不到", retryable: true)
+                    };
+                }
+
+                var directory = Path.GetDirectoryName(destinationPath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                File.WriteAllBytes(destinationPath, bytes);
+                return new HttpCall { Succeeded = true };
+            }
+            catch (TaskCanceledException)
+            {
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = BridgeResponse.Failure("1.0.0", "超时", $"飞书超过 {timeoutSeconds} 秒未响应，已放弃本次下载", retryable: true)
+                };
+            }
+            catch (HttpRequestException)
+            {
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = BridgeResponse.Failure("1.0.0", "下游不可达", "连不上飞书，请检查网络", retryable: true)
+                };
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return new HttpCall
+                {
+                    Succeeded = false,
+                    Response = BridgeResponse.Failure("1.0.0", "下游报错", "资源下回来了但存不下去：" + exception.Message, retryable: false)
+                };
+            }
+        }
+
         /// <summary>云空间素材上传端点：文档里的图片与文件都走它。</summary>
         private const string DriveMediasUploadEndpoint = "https://open.feishu.cn/open-apis/drive/v1/medias/upload_all";
 

@@ -269,33 +269,111 @@ def write_signal(directory, event_kind, payload, conversation=None):
     return target
 
 
+def extract_post_text(content):
+    """
+    把富文本（post）的嵌套段落抠成纯文本，顺带把里面的图片 key 收出来。
+
+    post 的 content 是「段落数组的数组」，每个节点带 tag：text / a / at / img / media …
+    只有 text 与 a 有可读文字，img 与 media 只有 key。
+    """
+    lines = []
+    attachments = []
+    paragraphs = content.get("content") or []
+    for paragraph in paragraphs:
+        parts = []
+        for node in paragraph or []:
+            if not isinstance(node, dict):
+                continue
+            tag = node.get("tag", "")
+            if tag in ("text", "a", "at"):
+                parts.append(node.get("text", "") or "")
+            elif tag == "img" and node.get("image_key"):
+                attachments.append({"类型": "image", "key": node["image_key"], "文件名": ""})
+            elif tag == "media" and node.get("file_key"):
+                attachments.append({
+                    "类型": "file",
+                    "key": node["file_key"],
+                    "文件名": node.get("file_name", "") or "",
+                })
+        line = "".join(parts).strip()
+        if line:
+            lines.append(line)
+
+    title = (content.get("title") or "").strip()
+    if title:
+        lines.insert(0, title)
+
+    return "\n".join(lines), attachments
+
+
+def extract_content(message_type, content):
+    """
+    按消息类型抠出「文本 + 附件」。
+
+    **各种消息都要认得**：人发一张图配一句话（post）、直接甩一个文件、发段语音——
+    这些都是「他对助手说的一句话」。只认 text 的话，助手会回一句「我只认文字消息」，
+    而人明明已经把要说的说清楚了。
+
+    认不出的类型不报错、也不硬猜正文：文本给空、附件给空，
+    引擎那边会照实说「这条我处理不了」并带上类型名——那比把原始 JSON 当正文强。
+    """
+    if message_type == "text":
+        return (content.get("text", "") or ""), []
+
+    if message_type == "post":
+        return extract_post_text(content)
+
+    if message_type == "image":
+        key = content.get("image_key", "") or ""
+        return "", ([{"类型": "image", "key": key, "文件名": ""}] if key else [])
+
+    # file / audio / media(视频) / sticker 都是一个 file_key 加可选文件名。
+    key = content.get("file_key", "") or ""
+    if key:
+        return "", [{
+            "类型": "file",
+            "key": key,
+            "文件名": content.get("file_name", "") or "",
+        }]
+
+    return "", []
+
+
 def normalize_message(payload):
     """
     把 im.message.receive_v1 的载荷翻成归一的「会话」块。
 
     取不到的字段一律给空串——**不许猜**。引擎那边会因为「会话标识为空」直接判这条没法处理，
     那比拿一个编出来的标识去回话强得多。
+
+    附件只归一到「有哪几个 key」为止，**不在这里下载**：
+    下载要调飞书的接口，那是桥的事（决策 93）；旁路只把下游的形状翻成引擎认识的形状。
     """
     event = (payload or {}).get("event", {}) or {}
     message = event.get("message", {}) or {}
     sender_id = ((event.get("sender", {}) or {}).get("sender_id", {}) or {})
+    message_type = message.get("message_type", "") or ""
 
     text = ""
+    attachments = []
     raw_content = message.get("content", "")
     if raw_content:
         try:
-            text = (json.loads(raw_content) or {}).get("text", "") or ""
+            content = json.loads(raw_content) or {}
+            text, attachments = extract_content(message_type, content)
         except (ValueError, TypeError):
-            # content 不是合法 JSON 时留空并记一笔：宁可让引擎回「只认文字」，也不许把原文当正文。
-            log("消息 content 不是合法 JSON，正文按空处理")
+            # content 不是合法 JSON 时留空并记一笔：宁可让引擎说「这条处理不了」，
+            # 也不许把原文当正文。
+            log("消息 content 不是合法 JSON，正文与附件都按空处理")
 
     return {
         "会话标识": message.get("chat_id", "") or "",
         "发件人标识": sender_id.get("open_id", "") or "",
         "消息标识": message.get("message_id", "") or "",
-        "消息类型": message.get("message_type", "") or "",
+        "消息类型": message_type,
         "会话类型": message.get("chat_type", "") or "",
         "文本": text,
+        "附件": attachments,
     }
 
 

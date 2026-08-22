@@ -349,10 +349,14 @@ namespace Template.Toolkit.CommandHost.Commands
                     out replyRetryable);
             }
 
-            if (!message.IsHandleableText)
+            if (!message.IsHandleable)
             {
-                var text = "我这边现在只认文字消息，这一条是「" + (message.MessageKind.Length == 0 ? "未知类型" : message.MessageKind) + "」，没法处理。";
-                lines.Add("不是可处理的文字消息，回一句说明");
+                // 走到这儿的是**真的什么都没有**：正文空、附件也空（表情包、语音落在这儿）。
+                // 带图带文件的消息不在这一支——那些有话要说，归一那一步已经把附件摆出来了。
+                var text = "这一条我没读到任何内容（类型「"
+                    + (message.MessageKind.Length == 0 ? "未知" : message.MessageKind)
+                    + "」，既没有文字也没有图片或文件），没法处理。直接打字告诉我要什么就行。";
+                lines.Add("消息里既没有正文也没有附件，回一句说明");
                 var kindReply = SendReply(repositoryRoot, assistantDriver, message, text, arguments, lines, null);
                 replyDelivered = kindReply.Delivered;
                 replyRetryable = kindReply.Retryable;
@@ -371,6 +375,10 @@ namespace Template.Toolkit.CommandHost.Commands
             {
                 return StartNewTopic(repositoryRoot, assistantDriver, signalFilePath, message, arguments, lines, out replyDelivered, out replyRetryable);
             }
+
+            // 人发的图片与文件先取回本地：那张参考图**就是这句话的一半意思**，
+            // 少了它，模型看到的只有「再出一张，可以参考」，参考什么无从谈起。
+            var attachments = FetchAttachments(repositoryRoot, assistantDriver, message, arguments, lines);
 
             var history = AssistantConversationHistory.Read(repositoryRoot, message.ConversationIdentifier);
             var historyText = AssistantConversationHistory.RenderForPrompt(history);
@@ -402,11 +410,27 @@ namespace Template.Toolkit.CommandHost.Commands
                 return lines;
             }
 
-            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            var payloadObject = new JsonObject
             {
                 ["提示"] = prompt.PromptText,
                 ["上下文"] = AssistantServePrompt.SystemContextText
-            });
+            };
+
+            // 图片喂给模型看。只喂图，不喂别的文件：那条链路是「多模态内容数组」，
+            // 一份 psd 塞进去下游只会报一句看不懂的错。别的文件在提示词里以文字交代。
+            if (attachments.ImagePaths.Count > 0)
+            {
+                var imageArray = new JsonArray();
+                foreach (var imagePath in attachments.ImagePaths)
+                {
+                    imageArray.Add(imagePath);
+                }
+
+                payloadObject["图片"] = imageArray;
+                lines.Add($"随消息带了 {attachments.ImagePaths.Count} 张图，一并给模型看");
+            }
+
+            var payload = JsonSerializer.SerializeToElement(payloadObject);
 
             var call = BridgeInvoker.Invoke(repositoryRoot, backendDriver, "complete", payload, arguments.TimeoutSeconds);
             if (!call.Succeeded)
@@ -437,6 +461,16 @@ namespace Template.Toolkit.CommandHost.Commands
                 return HandleRecut(
                     repositoryRoot, assistantDriver, backendDriver, signalFilePath, message, reply,
                     arguments, lines, out replyDelivered, out replyRetryable);
+            }
+
+            // 参考图钉进出图请求本身，**必须赶在算请求 key 之前**：
+            // key 是请求内容的哈希，换一张参考图就该是另一个请求。
+            // 事后再塞的话，同样一句「照这个再出一张」配两张不同的参考图会撞成同一个 key，
+            // 第二次直接被幂等挡掉——人只会看到「这张图刚才出过了」，而他给的是新图。
+            if (reply.WantsImage && reply.ImageRequest != null && attachments.ImagePaths.Count > 0)
+            {
+                reply.ImageRequest["参考图"] = attachments.ImagePaths[0];
+                lines.Add($"出图请求带参考图：{attachments.ImagePaths[0]}");
             }
 
             var outcome = AssistantServeTurn.Decide(repositoryRoot, poolRoot, message, reply, schema, DateTimeOffset.Now);
@@ -1050,8 +1084,19 @@ namespace Template.Toolkit.CommandHost.Commands
                 }
                 else
                 {
+                    // 参考图在留底那份请求里——按钮是隔了一会儿才点的，
+                    // 当时那条消息早处理完了，只有留底还记着他给过哪张图。
+                    var referenceImagePath = ReadDraftString(request, "参考图");
+                    if (referenceImagePath.Length > 0 && !File.Exists(referenceImagePath))
+                    {
+                        // 图没了就**如实说**，不许当没给过参考图接着跑：
+                        // 那样出来的图跟他给的那张没关系，钱照花，人还以为是模型不听话。
+                        lines.Add($"参考图不在了：{referenceImagePath}");
+                        referenceImagePath = "";
+                    }
+
                     var route = AssetRecipeRouteTable.Load(repositoryRoot);
-                    if (!route.TryResolve(imageDriver, assetType, out var recipeName, out var routeReason))
+                    if (!route.TryResolve(imageDriver, assetType, referenceImagePath.Length > 0, out var recipeName, out var routeReason))
                     {
                         // 配方缺了就**如实说**，不许回落到别的配方——拿图标的配方去出界面底图，
                         // 出来的东西既不对又花了钱，而人还以为链路是通的。
@@ -1070,7 +1115,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
                         replyText = RunGeneration(
                             repositoryRoot, request, assetType, imageDriver, recipeName, arguments, lines,
-                            out card, out var generated, out var assetIdentifier);
+                            out card, out var generated, out var assetIdentifier, referenceImagePath);
                         result = generated ? "已出图" : "出图失败";
 
                         if (generated)
@@ -1146,7 +1191,8 @@ namespace Template.Toolkit.CommandHost.Commands
             List<string> lines,
             out AssistantCard card,
             out bool generated,
-            out string assetIdentifier)
+            out string assetIdentifier,
+            string referenceImagePath = "")
         {
             card = null;
             generated = false;
@@ -1191,6 +1237,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 RequestPath = requestPath,
                 RecipeName = recipeName,
                 RepositoryRoot = repositoryRoot,
+                ReferenceImagePath = referenceImagePath,
                 TimeoutSeconds = Math.Max(arguments.TimeoutSeconds, 600)
             });
             lines.Add($"生图：{generate.Message}");
@@ -1214,7 +1261,8 @@ namespace Template.Toolkit.CommandHost.Commands
             var normalizeNotes = NormalizeVariants(repositoryRoot, assetType, images, lines);
 
             generated = true;
-            var body = "出来了 " + images.Count + " 张（" + assetIdentifier + "，" + imageDriver + " 的 " + recipeName + " 配方）。"
+            var body = "出来了 " + images.Count + " 张（" + assetIdentifier + "，" + imageDriver + " 的 " + recipeName + " 配方"
+                + (referenceImagePath.Length > 0 ? "，照着你给的参考图" : "") + "）。"
                 + "\n挑中哪张就直说，我把其余的弃掉；都不行就说改哪儿，我重出。"
                 + "\n本体在 " + variantDirectory;
 
@@ -1229,6 +1277,96 @@ namespace Template.Toolkit.CommandHost.Commands
             var canCut = AssetSpecCatalog.Load(repositoryRoot, "").Find(assetType)?.IsCuttable ?? false;
             card = AssistantCard.ForGeneratedImages(body, images, assetIdentifier, canCut);
             return card.ToPlainText();
+        }
+
+        /// <summary>取回来的附件：图片一组，别的文件一组。</summary>
+        /// <param name="ImagePaths">图片的本地路径，按消息里的先后。</param>
+        /// <param name="FileNotes">别的文件的一句话说明，进提示词用。</param>
+        private sealed record FetchedAttachments(IReadOnlyList<string> ImagePaths, IReadOnlyList<string> FileNotes);
+
+        /// <summary>
+        /// 把这条消息里带的图片与文件取回本地。
+        ///
+        /// 为什么要落成本地文件而不是只留 key：下游的资源 key **是按消息取的**，
+        /// 过一会儿人点「出图」时那条消息早处理完了，拿 key 已经取不回来。
+        /// 存成文件，路径就能一路带进出图请求的留底里。
+        ///
+        /// 取失败只记一笔、不打断这一轮：图没取到最多是这次少一张参考图，
+        /// 而人打的那行字还在——把整轮判死才是坏事。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="assistantDriver">助手 port 路由到的 driver 名。</param>
+        /// <param name="message">这一轮的会话消息。</param>
+        /// <param name="arguments">命令参数。</param>
+        /// <param name="lines">执行流水。</param>
+        private static FetchedAttachments FetchAttachments(
+            string repositoryRoot,
+            string assistantDriver,
+            AssistantConversationMessage message,
+            AssistantServeArguments arguments,
+            List<string> lines)
+        {
+            var imagePaths = new List<string>();
+            var fileNotes = new List<string>();
+            if (message.Attachments.Count == 0)
+            {
+                return new FetchedAttachments(imagePaths, fileNotes);
+            }
+
+            var directory = Path.Combine(
+                repositoryRoot,
+                "_Tasks",
+                "conversations",
+                "attachments",
+                AssistantConversationHistory.SafeFileName(message.ConversationIdentifier));
+
+            for (var index = 0; index < message.Attachments.Count; index++)
+            {
+                var attachment = message.Attachments[index];
+                var fileName = AssistantConversationHistory.SafeFileName(message.MessageIdentifier)
+                    + "-" + (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + attachment.FileExtension;
+                var destination = Path.Combine(directory, fileName);
+
+                // 同一条消息重来一次（重试、重投）时不重下：省一次往返，也保证路径稳定。
+                if (!File.Exists(destination))
+                {
+                    var payload = JsonSerializer.SerializeToElement(new JsonObject
+                    {
+                        ["干跑"] = false,
+                        ["消息标识"] = message.MessageIdentifier,
+                        ["资源key"] = attachment.Key,
+                        ["资源类型"] = attachment.IsImage ? "image" : "file",
+                        ["存到"] = destination
+                    });
+
+                    var call = BridgeInvoker.Invoke(repositoryRoot, assistantDriver, "fetch", payload, arguments.TimeoutSeconds);
+                    if (!call.Succeeded)
+                    {
+                        lines.Add($"附件取不回来（{call.ErrorCode}）：{call.HumanText}");
+                        continue;
+                    }
+                }
+
+                if (attachment.IsImage)
+                {
+                    imagePaths.Add(destination);
+                }
+                else
+                {
+                    var shownName = string.IsNullOrWhiteSpace(attachment.FileName)
+                        ? Path.GetFileName(destination)
+                        : attachment.FileName;
+                    fileNotes.Add(shownName + "（已存到 " + destination + "）");
+                }
+            }
+
+            if (imagePaths.Count > 0 || fileNotes.Count > 0)
+            {
+                lines.Add($"附件取回：图 {imagePaths.Count} 张、文件 {fileNotes.Count} 个");
+            }
+
+            return new FetchedAttachments(imagePaths, fileNotes);
         }
 
         /// <summary>
