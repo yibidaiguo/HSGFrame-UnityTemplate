@@ -12,6 +12,20 @@ namespace Template.Toolkit.CreationPipeline
     /// <summary>资产请求的不可变模型：对应「资产请求」schema 的 15 个字段，从 JSON 读出、按 schema 键序写回。</summary>
     public sealed class AssetRequest
     {
+        /// <summary>
+        /// 无主资产的收容所：还没挂到任何需求上的图与模型都落在 <c>_Tasks/REQ-0000/</c> 下面。
+        ///
+        /// 为什么用一个哨兵号而不是让「需求id」可空：整条路径都是按
+        /// <c>_Tasks/&lt;需求id&gt;/30-outputs/&lt;资产id&gt;/</c> 拼的，字段一空，落点、选片、溯源
+        /// 全得各自想一套「没有需求时怎么办」。给一个合法的号，上下游一个字都不用改，
+        /// 而且它符合 id 模式，schema 与校验器照旧管得住。
+        /// 事后要把某张图认领给一条真需求，是把目录挪过去的事，不是改模型的事。
+        /// </summary>
+        public const string UnownedRequirementIdentifier = "REQ-0000";
+
+        /// <summary>无主资产的工作项号，跟着 <see cref="UnownedRequirementIdentifier"/> 走。</summary>
+        public const string UnownedWorkItemIdentifier = "WI-0000-00";
+
         /// <summary>写盘用序列化选项：中文键原样输出、不缩进，保证规格等对象字段的原始文本可往返。</summary>
         private static readonly JsonSerializerOptions WriteOptions = new JsonSerializerOptions(JsonSerializerOptions.Default)
         {

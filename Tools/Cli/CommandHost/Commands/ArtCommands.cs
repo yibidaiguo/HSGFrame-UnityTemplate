@@ -27,11 +27,11 @@ namespace Template.Toolkit.CommandHost.Commands
         public string PoolRoot { get; set; }
 
         /// <summary>需求 id，如「REQ-0042」。</summary>
-        [Summary("需求 id，如「REQ-0042」")]
+        [Summary("需求 id，如 REQ-0042；留空表示这张图还没有主，落进 REQ-0000")]
         public string Requirement { get; set; }
 
         /// <summary>工作项 id，如「WI-0042-03」。</summary>
-        [Summary("工作项 id，如「WI-0042-03」")]
+        [Summary("工作项 id，如 WI-0042-03；留空跟着需求一起落进无主那一档")]
         public string WorkItem { get; set; }
 
         /// <summary>域，默认取资产规格数据的域。</summary>
@@ -269,14 +269,23 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("建一份资产请求：取号、落盘并立刻自校验")]
         public static CommandResult Request(ArtRequestArguments arguments)
         {
-            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Requirement))
+            if (arguments == null)
             {
-                return CommandResult.Failure("参数 Requirement 为必填项");
+                return CommandResult.Failure("参数为空");
+            }
+
+            // 需求与工作项留空表示**这张图还没有主**：人在聊天里说「先出张图看看」，
+            // 那时往往连需求都还没有。硬要一条需求才让出图，等于把「试一张」这件事挡在门外。
+            // 落进 REQ-0000 这个收容所——它符合 id 模式，schema 与校验器一个字都不用改，
+            // 而且事后要认领给某条需求时，人一眼就知道哪些是还没主的。
+            if (string.IsNullOrWhiteSpace(arguments.Requirement))
+            {
+                arguments.Requirement = AssetRequest.UnownedRequirementIdentifier;
             }
 
             if (string.IsNullOrWhiteSpace(arguments.WorkItem))
             {
-                return CommandResult.Failure("参数 WorkItem 为必填项");
+                arguments.WorkItem = AssetRequest.UnownedWorkItemIdentifier;
             }
 
             if (string.IsNullOrWhiteSpace(arguments.AssetType))

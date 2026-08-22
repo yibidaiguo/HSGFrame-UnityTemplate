@@ -50,6 +50,9 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>动作：把这张卡对应的草稿真建成需求，并叫醒引擎。</summary>
         public const string CreateAction = "创建需求";
 
+        /// <summary>动作：按这张卡上的出图请求，真去下游生一批图回来。</summary>
+        public const string GenerateAction = "出图";
+
         /// <summary>动作：丢掉这条会话的上下文，从头聊。</summary>
         public const string NewTopicAction = "开新话题";
 
@@ -62,13 +65,16 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="entries">整理好的条目，顺序即展示顺序。</param>
         /// <param name="openQuestions">还想跟人确认的点；空表示没有。</param>
         /// <param name="buttons">按钮。</param>
+        /// <param name="imagePaths">要贴在卡上的本地图片路径；下游负责上传。</param>
         public AssistantCard(
             string title,
             string bodyText,
             IReadOnlyList<KeyValuePair<string, string>> entries,
             IReadOnlyList<string> openQuestions,
-            IReadOnlyList<AssistantCardButton> buttons)
+            IReadOnlyList<AssistantCardButton> buttons,
+            IReadOnlyList<string> imagePaths = null)
         {
+            ImagePaths = imagePaths ?? Array.Empty<string>();
             Title = title ?? "";
             BodyText = bodyText ?? "";
             Entries = entries ?? Array.Empty<KeyValuePair<string, string>>();
@@ -90,6 +96,12 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>按钮。</summary>
         public IReadOnlyList<AssistantCardButton> Buttons { get; }
+
+        /// <summary>
+        /// 要贴在卡上的**本地**图片路径。引擎不认识下游怎么传图——
+        /// 它只说「把这几个文件贴上去」，上传与拼版是桥的事（决策 93）。
+        /// </summary>
+        public IReadOnlyList<string> ImagePaths { get; }
 
         /// <summary>
         /// 摊成归一 JSON，塞进桥请求的载荷。键全中文，与协议其余部分一致。
@@ -120,13 +132,20 @@ namespace Template.Toolkit.CreationPipeline
                 });
             }
 
+            var images = new JsonArray();
+            foreach (var path in ImagePaths)
+            {
+                images.Add(path);
+            }
+
             return new JsonObject
             {
                 ["标题"] = Title,
                 ["正文"] = BodyText,
                 ["条目"] = entries,
                 ["待确认"] = questions,
-                ["按钮"] = buttons
+                ["按钮"] = buttons,
+                ["图片"] = images
             };
         }
 
@@ -255,6 +274,66 @@ namespace Template.Toolkit.CreationPipeline
 
             var title = "需求草稿 " + (identifier ?? "") + "　等你点一下";
             return new AssistantCard(title, bodyText, entries, openQuestions, buttons);
+        }
+
+        /// <summary>
+        /// 按一份出图请求组一张确认卡：主按钮是「出图」——点了才真去下游生图。
+        ///
+        /// **为什么也要等人点**：生图是花钱的，而且一次出好几张。
+        /// 助手把「画什么」整理清楚给人看一眼，比出完再让人说「不是这个」省得多。
+        /// </summary>
+        /// <param name="identifier">出图请求的留底 id。</param>
+        /// <param name="request">出图请求：资产类型 / 命名 / 描述 / 变体数。</param>
+        /// <param name="bodyText">正文：助手自己整理的那段话。</param>
+        /// <param name="openQuestions">还想确认的点。</param>
+        public static AssistantCard ForImageRequest(
+            string identifier,
+            JsonObject request,
+            string bodyText,
+            IReadOnlyList<string> openQuestions)
+        {
+            var entries = new List<KeyValuePair<string, string>>();
+            foreach (var name in new[] { "资产类型", "命名", "描述", "变体数" })
+            {
+                if (request != null && request.TryGetPropertyValue(name, out var value) && value != null)
+                {
+                    var text = Flatten(value);
+                    if (text.Length > 0)
+                    {
+                        entries.Add(new KeyValuePair<string, string>(name, text));
+                    }
+                }
+            }
+
+            var carried = new JsonObject { ["出图请求id"] = identifier ?? "" };
+            var buttons = new List<AssistantCardButton>
+            {
+                new AssistantCardButton("出图", GenerateAction, carried, isPrimary: true),
+                new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false)
+            };
+
+            return new AssistantCard("出图请求 " + (identifier ?? "") + "　点了才真出", bodyText, entries, openQuestions, buttons);
+        }
+
+        /// <summary>
+        /// 组一张「图出来了」的卡：把变体贴上去让人挑。
+        /// </summary>
+        /// <param name="bodyText">说明。</param>
+        /// <param name="imagePaths">变体图的本地路径。</param>
+        public static AssistantCard ForGeneratedImages(string bodyText, IReadOnlyList<string> imagePaths)
+        {
+            var buttons = new List<AssistantCardButton>
+            {
+                new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false)
+            };
+
+            return new AssistantCard(
+                "出图完成",
+                bodyText,
+                Array.Empty<KeyValuePair<string, string>>(),
+                Array.Empty<string>(),
+                buttons,
+                imagePaths);
         }
 
         /// <summary>

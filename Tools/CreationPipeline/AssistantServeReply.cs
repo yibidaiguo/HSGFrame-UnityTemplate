@@ -23,6 +23,8 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="draft">需求草稿；没有时为 null。</param>
         /// <param name="parseFailureReason">解析失败原因；成功时为空串。</param>
         /// <param name="intentSummary">模型对「这个人想干什么」的一句话复述；没有时为空串。</param>
+        /// <param name="wantedThing">这一轮人要的是什么：功能 / 图；没说时为空串。</param>
+        /// <param name="imageRequest">出图请求；不是要图那一支时为 null。</param>
         public AssistantServeReply(
             bool parsed,
             string replyText,
@@ -30,8 +32,12 @@ namespace Template.Toolkit.CreationPipeline
             IReadOnlyList<string> missingItems,
             JsonObject draft,
             string parseFailureReason,
-            string intentSummary = "")
+            string intentSummary = "",
+            string wantedThing = "",
+            JsonObject imageRequest = null)
         {
+            WantedThing = wantedThing ?? "";
+            ImageRequest = imageRequest;
             Parsed = parsed;
             ReplyText = replyText ?? "";
             WantsRequirement = wantsRequirement;
@@ -58,6 +64,27 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>模型对「这个人想干什么」的一句话复述；没有时为空串。</summary>
         public string IntentSummary { get; }
+
+        /// <summary>这一轮人要的是什么：<see cref="WantFeature"/> 或 <see cref="WantImage"/>；没说时为空串。</summary>
+        public string WantedThing { get; }
+
+        /// <summary>出图请求（资产类型 / 命名 / 描述 / 变体数）；不是要图那一支时为 null。</summary>
+        public JsonObject ImageRequest { get; }
+
+        /// <summary>「要什么」的取值：人要的是能跑起来的功能。</summary>
+        public const string WantFeature = "功能";
+
+        /// <summary>「要什么」的取值：人要的是一张图。</summary>
+        public const string WantImage = "图";
+
+        /// <summary>
+        /// 这一轮是不是「要一张图」。**判据是「要什么」加「出图请求」两样都在**：
+        /// 只说要图却没给出图请求，等于没说画什么——那时该接着聊，不该去生图烧钱。
+        /// </summary>
+        public bool WantsImage
+        {
+            get { return string.Equals(WantedThing, WantImage, StringComparison.Ordinal) && ImageRequest != null; }
+        }
 
         /// <summary>需求草稿；没有时为 null。</summary>
         public JsonObject Draft { get; }
@@ -134,6 +161,13 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             var intent = ReadString(root, "我理解你想干的");
+            var wanted = ReadString(root, "要什么");
+
+            JsonObject imageRequest = null;
+            if (root.TryGetPropertyValue("出图请求", out var imageNode) && imageNode is JsonObject imageObject)
+            {
+                imageRequest = (JsonObject)imageObject.DeepClone();
+            }
 
             JsonObject draft = null;
             if (root.TryGetPropertyValue("需求草稿", out var draftNode) && draftNode is JsonObject draftObject)
@@ -152,11 +186,13 @@ namespace Template.Toolkit.CreationPipeline
                     missingItems: missing,
                     draft: null,
                     parseFailureReason: "",
-                    intentSummary: intent);
+                    intentSummary: intent,
+                    wantedThing: wanted,
+                    imageRequest: imageRequest);
                 return true;
             }
 
-            reply = new AssistantServeReply(true, replyText, wants, missing, draft, "", intent);
+            reply = new AssistantServeReply(true, replyText, wants, missing, draft, "", intent, wanted, imageRequest);
             return true;
         }
 

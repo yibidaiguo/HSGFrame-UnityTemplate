@@ -441,6 +441,14 @@ namespace Template.Toolkit.CommandHost.Commands
                 lines.Add($"校验发现：{finding.Reason}");
             }
 
+            // 出图请求也留底：按钮点下去要按 id 读回「画什么」，与需求草稿同一套路。
+            if (outcome.ImageRequestReady)
+            {
+                var imagePath = AssistantServeTurn.SaveDraft(
+                    repositoryRoot, outcome.ImageRequestIdentifier, outcome.ImageRequest);
+                lines.Add($"出图请求留底待确认：{(imagePath.Length == 0 ? "写失败" : imagePath)}");
+            }
+
             // 草稿齐了只留底、不写表：留底那份就是卡片上那一版，人点按钮时按 id 读回它。
             // 「什么时候写」从此归人管，引擎只管「许不许写」（--write-downstream）。
             if (outcome.DraftReady)
@@ -539,6 +547,12 @@ namespace Template.Toolkit.CommandHost.Commands
             if (string.Equals(message.ActionName, AssistantCard.NewTopicAction, StringComparison.Ordinal))
             {
                 return StartNewTopic(repositoryRoot, assistantDriver, signalFilePath, message, arguments, lines, out replyDelivered, out replyRetryable);
+            }
+
+            if (string.Equals(message.ActionName, AssistantCard.GenerateAction, StringComparison.Ordinal))
+            {
+                return HandleGenerate(
+                    repositoryRoot, assistantDriver, signalFilePath, message, arguments, lines, out replyDelivered, out replyRetryable);
             }
 
             if (!string.Equals(message.ActionName, AssistantCard.CreateAction, StringComparison.Ordinal))
@@ -958,6 +972,235 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             return mine;
+        }
+
+        /// <summary>
+        /// 人点了「出图」：读回那份出图请求 → 建资产请求 → 真去下游生图 → 把变体贴回聊天。
+        ///
+        /// **这一支是助手存在的另一半**：人明说要一张图时，该真去出图，
+        /// 而不是把「要图」这件事整理成一条需求文档——那等于把下面整条生图链挡在门外。
+        ///
+        /// 图不挂需求（落进无主那一档）：人在聊天里说「先出张图看看」时往往连需求都还没有，
+        /// 硬要一条需求才让出图，等于把「试一张」挡在门外。事后要认领给某条需求是挪目录的事。
+        /// </summary>
+        private static IReadOnlyList<string> HandleGenerate(
+            string repositoryRoot,
+            string assistantDriver,
+            string signalFilePath,
+            AssistantConversationMessage message,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            out bool replyDelivered,
+            out bool replyRetryable)
+        {
+            var identifier = message.ReadActionValue("出图请求id");
+            string replyText;
+            AssistantCard card = null;
+            var result = "出图失败";
+
+            if (!AssistantServeTurn.TryLoadDraft(repositoryRoot, identifier, out var request, out var loadReason))
+            {
+                replyText = "这张图我出不了：" + loadReason;
+            }
+            else if (arguments.DryRun || !arguments.WriteDownstream)
+            {
+                var why = arguments.DryRun ? "--dry-run true" : "--write-downstream false";
+                replyText = "本机是只读模式（" + why + "），没有真去出图。开了开关再点一次。";
+                result = "只读模式没出";
+                lines.Add($"只读模式（{why}），按钮点了但没出图");
+            }
+            else
+            {
+                var assetType = ReadDraftString(request, "资产类型");
+                var route = AssetRecipeRouteTable.Load(repositoryRoot);
+                if (!route.TryResolve(assetType, out var recipeName, out var routeReason))
+                {
+                    // 配方缺了就**如实说**，不许回落到别的配方——拿图标的配方去出界面底图，
+                    // 出来的东西既不对又花了钱，而人还以为链路是通的。
+                    lines.Add($"配方查不到：{routeReason}");
+                    replyText = "这张图还出不了：" + routeReason;
+                    result = "缺配方";
+                }
+                else
+                {
+                    replyText = RunGeneration(
+                        repositoryRoot, request, assetType, recipeName, arguments, lines, out card, out var generated);
+                    result = generated ? "已出图" : "出图失败";
+                }
+            }
+
+            var reply = SendReply(repositoryRoot, assistantDriver, message, replyText, arguments, lines, card);
+            replyDelivered = reply.Delivered;
+            replyRetryable = reply.Retryable;
+
+            AssistantConversationHistory.Append(
+                repositoryRoot,
+                message.ConversationIdentifier,
+                AssistantHistoryTurn.AssistantRole,
+                replyText,
+                DateTimeOffset.Now);
+
+            AppendLedger(repositoryRoot, new JsonObject
+            {
+                ["时间"] = DateTimeOffset.Now.ToString("o"),
+                ["信号"] = Path.GetFileName(signalFilePath),
+                ["结果"] = result,
+                ["回话送出"] = reply.Delivered,
+                ["出图请求id"] = identifier,
+                ["回话"] = replyText
+            });
+
+            return lines;
+        }
+
+        /// <summary>
+        /// 真跑一次生图：art.request 建资产请求 → bridge.generate 出变体 → 把图的路径收出来。
+        /// 失败一律回一句能照做的话，不吞。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="request">出图请求：资产类型 / 命名 / 描述 / 变体数。</param>
+        /// <param name="assetType">资产类型。</param>
+        /// <param name="recipeName">配方名。</param>
+        /// <param name="arguments">常驻会话命令参数。</param>
+        /// <param name="lines">这一轮的日志行。</param>
+        /// <param name="card">出成了时带图的卡片；没出成为 null。</param>
+        /// <param name="generated">真出了图没有。</param>
+        private static string RunGeneration(
+            string repositoryRoot,
+            JsonObject request,
+            string assetType,
+            string recipeName,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            out AssistantCard card,
+            out bool generated)
+        {
+            card = null;
+            generated = false;
+
+            var naming = ReadDraftString(request, "命名");
+            var description = ReadDraftString(request, "描述");
+            var variantCount = ReadDraftInt(request, "变体数", 6);
+
+            var made = ArtCommands.Request(new ArtRequestArguments
+            {
+                RepositoryRoot = repositoryRoot,
+                PoolRoot = Path.Combine(repositoryRoot, "Pools"),
+                AssetType = assetType,
+                NamingText = naming,
+                Description = description,
+                VariantCount = variantCount
+            });
+            lines.Add($"建资产请求：{made.Message}");
+            if (!made.IsSuccess)
+            {
+                return "资产请求没建成：" + made.Message + "。这张图没出，改完再点一次。";
+            }
+
+            var assetIdentifier = ExtractAssetIdentifier(made);
+            if (assetIdentifier.Length == 0)
+            {
+                return "资产请求建出来了，但没读回它的 id，没法接着出图。看一眼 _Tasks/REQ-0000/ 下面。";
+            }
+
+            var requestPath = AssetPaths.AssetRequestFile(
+                repositoryRoot, AssetRequest.UnownedRequirementIdentifier, assetIdentifier);
+
+            var generate = BridgeCommands.Generate(new BridgeGenerateArguments
+            {
+                RequestPath = requestPath,
+                RecipeName = recipeName,
+                RepositoryRoot = repositoryRoot,
+                TimeoutSeconds = Math.Max(arguments.TimeoutSeconds, 600)
+            });
+            lines.Add($"生图：{generate.Message}");
+            if (!generate.IsSuccess)
+            {
+                return "出图失败：" + generate.Message + "。再点一次可以重试。";
+            }
+
+            var variantDirectory = AssetPaths.VariantDirectory(
+                repositoryRoot, AssetRequest.UnownedRequirementIdentifier, assetIdentifier);
+            var images = ListVariantImages(variantDirectory);
+            lines.Add($"变体：{images.Count} 张，落在 {variantDirectory}");
+
+            if (images.Count == 0)
+            {
+                return "生图说成了，但变体目录里一张图都没有（" + variantDirectory + "）。这一步得人看一眼。";
+            }
+
+            generated = true;
+            var body = "出来了 " + images.Count + " 张（" + assetIdentifier + "，配方 " + recipeName + "）。"
+                + "\n挑中哪张就直说，我把其余的弃掉；都不行就说改哪儿，我重出。"
+                + "\n本体在 " + variantDirectory;
+            card = AssistantCard.ForGeneratedImages(body, images);
+            return card.ToPlainText();
+        }
+
+        /// <summary>把变体目录里的 PNG 按文件名序列出来；目录不在给空表。</summary>
+        /// <param name="variantDirectory">变体目录。</param>
+        private static IReadOnlyList<string> ListVariantImages(string variantDirectory)
+        {
+            try
+            {
+                if (!Directory.Exists(variantDirectory))
+                {
+                    return Array.Empty<string>();
+                }
+
+                return Directory
+                    .GetFiles(variantDirectory, "*.png", SearchOption.TopDirectoryOnly)
+                    .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
+                    .ToList();
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return Array.Empty<string>();
+            }
+        }
+
+        /// <summary>从 art.request 的输出行里认出资产 id（ASSET-xxxx-xx）；认不出给空串。</summary>
+        /// <param name="result">art.request 的结果。</param>
+        private static string ExtractAssetIdentifier(CommandResult result)
+        {
+            var texts = new List<string> { result.Message ?? "" };
+            if (result.OutputLines != null)
+            {
+                texts.AddRange(result.OutputLines);
+            }
+
+            foreach (var text in texts)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(text, @"ASSET-\d{4}-\d{2}");
+                if (match.Success)
+                {
+                    return match.Value;
+                }
+            }
+
+            return "";
+        }
+
+        /// <summary>读出图请求里的字符串键；缺失给空串。</summary>
+        private static string ReadDraftString(JsonObject draft, string name)
+        {
+            return draft != null
+                && draft.TryGetPropertyValue(name, out var value)
+                && value is JsonValue jsonValue
+                && jsonValue.TryGetValue<string>(out var text)
+                ? text
+                : "";
+        }
+
+        /// <summary>读出图请求里的整数键；缺失或不是数字给缺省值。</summary>
+        private static int ReadDraftInt(JsonObject draft, string name, int fallback)
+        {
+            return draft != null
+                && draft.TryGetPropertyValue(name, out var value)
+                && value is JsonValue jsonValue
+                && jsonValue.TryGetValue<int>(out var number)
+                ? number
+                : fallback;
         }
 
         /// <summary>

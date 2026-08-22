@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -69,7 +70,7 @@ namespace Template.Bridges.Feishu
             // 飞书的消息 content 是一个 JSON 字符串：文本是 {"text": …}，卡片是整张卡的 JSON。
             var contentText = card == null
                 ? new JsonObject { ["text"] = text }.ToJsonString()
-                : BuildCardJson(card, text);
+                : BuildCardJson(card, text, appId, secretKey, timeoutSeconds);
             var content = JsonSerializer.Serialize(contentText);
             var body = "{\"receive_id\":" + JsonSerializer.Serialize(conversationIdentifier)
                 + ",\"msg_type\":\"" + messageKind + "\""
@@ -114,9 +115,13 @@ namespace Template.Bridges.Feishu
         /// 旁路订的就是这个事件——**动作名一定要进 value**，否则点了回来引擎不知道点的是哪个键。
         /// 引擎侧的归一键（动作/携带）在这里翻成飞书的形状：卡片长什么样是下游知识（决策 93）。
         /// </summary>
-        /// <param name="card">归一卡片数据：标题/正文/条目/待确认/按钮。</param>
+        /// <param name="card">归一卡片数据：标题/正文/条目/待确认/按钮/图片。</param>
         /// <param name="fallbackText">卡片没有正文时兜底用的文本。</param>
-        private static string BuildCardJson(JsonObject card, string fallbackText)
+        /// <param name="appId">飞书应用标识，贴图要用（先上传拿 image_key）。</param>
+        /// <param name="secretKey">飞书应用密钥。</param>
+        /// <param name="timeoutSeconds">单次调用超时秒数。</param>
+        private static string BuildCardJson(
+            JsonObject card, string fallbackText, string appId, string secretKey, int timeoutSeconds)
         {
             var elements = new JsonArray();
 
@@ -176,6 +181,57 @@ namespace Template.Bridges.Feishu
                     ["tag"] = "div",
                     ["text"] = new JsonObject { ["tag"] = "lark_md", ["content"] = builder.ToString().TrimEnd() }
                 });
+            }
+
+            // 图片：本地文件先上传拿 image_key，卡片里的 img 只引用 key。
+            // **传不上去的那张要说出来**，不许静默少一张——人对着少一张的九宫格根本不会发现。
+            if (card["图片"] is JsonArray images && images.Count > 0)
+            {
+                var failures = new List<string>();
+                foreach (var image in images)
+                {
+                    var path = image?.ToString() ?? "";
+                    if (path.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    var upload = FeishuClient.UploadImage(path, appId, secretKey, timeoutSeconds);
+                    if (!upload.Succeeded)
+                    {
+                        failures.Add(System.IO.Path.GetFileName(path));
+                        continue;
+                    }
+
+                    var imageKey = ReadResponseString(upload.ResponseBody, "data", "image_key");
+                    if (imageKey.Length == 0)
+                    {
+                        failures.Add(System.IO.Path.GetFileName(path));
+                        continue;
+                    }
+
+                    elements.Add(new JsonObject
+                    {
+                        ["tag"] = "img",
+                        ["img_key"] = imageKey,
+                        ["alt"] = new JsonObject { ["tag"] = "plain_text", ["content"] = System.IO.Path.GetFileName(path) },
+                        ["mode"] = "fit_horizontal",
+                        ["preview"] = true
+                    });
+                }
+
+                if (failures.Count > 0)
+                {
+                    elements.Add(new JsonObject
+                    {
+                        ["tag"] = "div",
+                        ["text"] = new JsonObject
+                        {
+                            ["tag"] = "lark_md",
+                            ["content"] = "（这几张没贴上来：" + string.Join("、", failures) + "，本体还在仓库里）"
+                        }
+                    });
+                }
             }
 
             if (card["按钮"] is JsonArray buttons && buttons.Count > 0)

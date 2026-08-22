@@ -22,6 +22,8 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="findings">校验发现；空表示校验通过。</param>
         /// <param name="blockedFields">模型越权填的字段名（工程侧字段），已被挡掉。</param>
         /// <param name="card">这一轮要发的卡片；每张卡至少带一个「开新话题」按钮。</param>
+        /// <param name="imageRequestIdentifier">出图请求的留底 id；不是要图那一支时为空串。</param>
+        /// <param name="imageRequest">出图请求；不是要图那一支时为 null。</param>
         public AssistantTurnOutcome(
             string replyText,
             bool draftReady,
@@ -29,8 +31,12 @@ namespace Template.Toolkit.CreationPipeline
             JsonObject draft,
             IReadOnlyList<PoolFinding> findings,
             IReadOnlyList<string> blockedFields,
-            AssistantCard card = null)
+            AssistantCard card = null,
+            string imageRequestIdentifier = "",
+            JsonObject imageRequest = null)
         {
+            ImageRequestIdentifier = imageRequestIdentifier ?? "";
+            ImageRequest = imageRequest;
             ReplyText = replyText ?? "";
             DraftReady = draftReady;
             RequirementIdentifier = requirementIdentifier ?? "";
@@ -57,6 +63,18 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>这一轮要发的卡片；每张卡至少带一个「开新话题」按钮。</summary>
         public AssistantCard Card { get; }
+
+        /// <summary>出图请求的留底 id；不是要图那一支时为空串。</summary>
+        public string ImageRequestIdentifier { get; }
+
+        /// <summary>出图请求（资产类型 / 命名 / 描述 / 变体数）；不是要图那一支时为 null。</summary>
+        public JsonObject ImageRequest { get; }
+
+        /// <summary>这一轮产出的是不是一份等人点的出图请求。</summary>
+        public bool ImageRequestReady
+        {
+            get { return ImageRequestIdentifier.Length > 0 && ImageRequest != null; }
+        }
 
         /// <summary>校验发现；空表示校验通过。</summary>
         public IReadOnlyList<PoolFinding> Findings { get; }
@@ -118,6 +136,16 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
+        /// 给一份出图请求发个号。与需求号分开一套（IMG-）：它们是两种东西，
+        /// 混用一套号会让「REQ-0007」这个说法忽而指需求忽而指一张图。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static string AllocateImageRequestIdentifier(string repositoryRoot)
+        {
+            return IdentifierAllocator.Next(DraftDirectory(repositoryRoot), "IMG-", 4);
+        }
+
+        /// <summary>
         /// 处置一轮：补全草稿 → 校验 → 决定回话。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
@@ -146,6 +174,28 @@ namespace Template.Toolkit.CreationPipeline
                     Array.Empty<PoolFinding>(),
                     Array.Empty<string>(),
                     AssistantCard.ForConversation(failureText, Array.Empty<string>()));
+            }
+
+            // 要图那一支**不走需求**：人要的是一张图片文件，不是一条需求。
+            // 把它整理成出图请求，等人点「出图」再真去下游生——生图花钱，先给人看一眼画什么。
+            if (reply.WantsImage)
+            {
+                var imageIdentifier = AllocateImageRequestIdentifier(repositoryRoot);
+                var imageCard = AssistantCard.ForImageRequest(
+                    imageIdentifier,
+                    reply.ImageRequest,
+                    reply.ReplyText,
+                    reply.MissingItems);
+                return new AssistantTurnOutcome(
+                    imageCard.ToPlainText(),
+                    false,
+                    "",
+                    null,
+                    Array.Empty<PoolFinding>(),
+                    Array.Empty<string>(),
+                    imageCard,
+                    imageIdentifier,
+                    reply.ImageRequest);
             }
 
             if (!reply.WantsRequirement || reply.Draft == null)
