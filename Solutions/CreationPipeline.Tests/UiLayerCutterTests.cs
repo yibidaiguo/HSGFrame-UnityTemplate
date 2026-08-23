@@ -114,5 +114,37 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Contains("关闭按钮框大了", prompt);
             Assert.Contains("原样保留", prompt);
         }
+
+        /// <summary>
+        /// 层名里的缩写要展开成完整单词：这些名字会原样变成 C# 标识符，
+        /// 而命名门禁的缩写黑名单里就有 Btn——拆一次图生成一份 C#，门禁当场判红，
+        /// 且红的原因跟拆图看着毫无关系（RPG 上真判过 18 条）。
+        /// </summary>
+        [Theory]
+        [InlineData("btn_close", "ButtonClose")]
+        [InlineData("panel_bg", "PanelBackground")]
+        [InlineData("txt_title", "TextTitle")]
+        public void AbbreviationsInLayerNamesAreExpanded(string layerName, string expected)
+        {
+            Assert.Equal(expected, UiPanelDefinitionWriter.GuessIdentifier(layerName));
+        }
+
+        /// <summary>只在**整节相等**时才换——模糊匹配会把 debug 里的 bg 也换掉。</summary>
+        [Fact]
+        public void AbbreviationInsideAWordIsNotTouched()
+        {
+            Assert.Equal("DebugPanel", UiPanelDefinitionWriter.GuessIdentifier("debug_panel"));
+        }
+
+        /// <summary>模块名收拾成能当目录名的样子；收拾完什么都不剩就给空串（调用方退回不分模块）。</summary>
+        [Theory]
+        [InlineData("Inventory", "Inventory")]
+        [InlineData("inventory panel", "InventoryPanel")]
+        [InlineData("../etc", "Etc")]
+        [InlineData("背包", "")]
+        public void ModuleNameIsSanitisedBeforeItTouchesAPath(string raw, string expected)
+        {
+            Assert.Equal(expected, UiLayerCutter.SafeModuleName(raw));
+        }
     }
 }
