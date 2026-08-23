@@ -11,8 +11,8 @@
         "需要透明": true,
         "二次幂": true
       },
-      "落点": "Assets/Game/ResourceArt/Icons/",
-      "命名模式": "^icon_[a-z0-9_]+$",
+      "落点": "Assets/Game/Art/Texture/Icon/",
+      "命名模式": "^T_[A-Za-z0-9]+$",
       "可覆盖": [
         "落点",
         "规格.宽",
@@ -28,8 +28,8 @@
         "需要透明": true,
         "二次幂": false
       },
-      "落点": "Assets/Game/ResourceArt/UI/",
-      "命名模式": "^ui_[a-z0-9_]+$",
+      "落点": "Assets/Game/Art/Texture/Ui/",
+      "命名模式": "^T_[A-Za-z0-9]+$",
       "可覆盖": [
         "落点",
         "规格.宽",
@@ -48,8 +48,8 @@
         "需要透明": true,
         "二次幂": true
       },
-      "落点": "Assets/Game/ResourceArt/Portraits/",
-      "命名模式": "^portrait_[a-z0-9_]+$",
+      "落点": "Assets/Game/Art/Texture/Character/",
+      "命名模式": "^T_[A-Za-z0-9]+$",
       "可覆盖": [
         "落点",
         "规格.宽",
@@ -68,8 +68,8 @@
         "包围盒上限米": 5,
         "最大骨骼数": 0
       },
-      "落点": "Assets/Game/ResourceArt/Models/Props/",
-      "命名模式": "^prop_[a-z0-9_]+$",
+      "落点": "Assets/Game/Art/Model/Prop/",
+      "命名模式": "^M_[A-Za-z0-9]+$",
       "可覆盖": [
         "落点",
         "规格.最大面数",
@@ -90,8 +90,8 @@
         "包围盒上限米": 3,
         "最大骨骼数": 120
       },
-      "落点": "Assets/Game/ResourceArt/Models/Characters/",
-      "命名模式": "^char_[a-z0-9_]+$",
+      "落点": "Assets/Game/Art/Model/Character/",
+      "命名模式": "^M_[A-Za-z0-9]+$",
       "可覆盖": [
         "落点",
         "规格.最大面数",
@@ -110,8 +110,8 @@
         "需要透明": true,
         "二次幂": true
       },
-      "落点": "Assets/Game/ResourceArt/UI/Elements/",
-      "命名模式": "^ui_[a-z0-9_]+$",
+      "落点": "Assets/Game/Art/Texture/Ui/",
+      "命名模式": "^T_[A-Za-z0-9]+$",
       "可覆盖": [
         "落点",
         "规格.宽",
@@ -129,8 +129,8 @@
         "需要透明": true,
         "二次幂": false
       },
-      "落点": "Assets/Game/ResourceArt/UI/",
-      "命名模式": "^ui_[a-z0-9_]+$",
+      "落点": "Assets/Game/Art/Texture/Ui/",
+      "命名模式": "^T_[A-Za-z0-9]+$",
       "可覆盖": [
         "落点",
         "规格.宽",

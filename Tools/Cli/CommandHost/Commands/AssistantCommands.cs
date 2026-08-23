@@ -1382,6 +1382,56 @@ namespace Template.Toolkit.CommandHost.Commands
         }
 
         /// <summary>
+        /// 就地把那张出图结果卡换掉（撤按钮 / 换文案 / 把按钮换回来）。
+        ///
+        /// 与出图那张状态卡分开写是因为**这张卡上带着图**：出图的请求卡只有文字，
+        /// 而结果卡的图就是人正在看的那几张候选——换卡时把图丢了，
+        /// 人对着一行「正在拆」根本不知道在拆哪张。
+        /// 换不动只记一笔，不影响拆图本身：卡片没换掉最多是按钮还亮着。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="assistantDriver">助手 port 路由到的 driver 名。</param>
+        /// <param name="message">这次按钮点击的消息（要用它的消息标识定位原卡）。</param>
+        /// <param name="assetIdentifier">这张卡对应的资产 id。</param>
+        /// <param name="statusText">换上去的状态文案。</param>
+        /// <param name="withButtons">给不给拆图按钮：跑之前与跑成了都不给，失败才换回来。</param>
+        /// <param name="arguments">命令参数。</param>
+        /// <param name="lines">执行流水。</param>
+        private static void UpdateCutCard(
+            string repositoryRoot,
+            string assistantDriver,
+            AssistantConversationMessage message,
+            string assetIdentifier,
+            string statusText,
+            bool withButtons,
+            AssistantServeArguments arguments,
+            List<string> lines)
+        {
+            if (message.MessageIdentifier.Length == 0)
+            {
+                lines.Add("原卡没有消息标识，换不了卡（不影响拆图）");
+                return;
+            }
+
+            var variantDirectory = AssetPaths.VariantDirectory(
+                repositoryRoot, AssetRequest.UnownedRequirementIdentifier, assetIdentifier);
+            var images = ListVariantImages(variantDirectory);
+
+            var card = AssistantCard.ForGeneratedImages(statusText, images, assetIdentifier, canCut: withButtons);
+            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["干跑"] = false,
+                ["消息标识"] = message.MessageIdentifier,
+                ["卡片"] = card.ToJson()
+            });
+
+            var call = BridgeInvoker.Invoke(repositoryRoot, assistantDriver, "card-update", payload, arguments.TimeoutSeconds);
+            lines.Add(call.Succeeded
+                ? $"原卡已换：{Shorten(statusText)}"
+                : $"原卡换不动（{call.ErrorCode}）：{call.HumanText}（不影响拆图）");
+        }
+
+        /// <summary>
         /// 就地把原来那张出图卡换掉（改按钮与状态）。改不动只记一笔，不影响出图本身——
         /// 卡片没换掉最多是按钮还亮着，而幂等那一层已经挡住了重复出图。
         /// </summary>
@@ -1698,10 +1748,31 @@ namespace Template.Toolkit.CommandHost.Commands
             }
             else
             {
+                // 真跑之前先把原卡的按钮撤掉、文案换成「正在拆」。
+                // 拆图跟出图一样要跑几十秒，那期间按钮还亮着——连点几下就是连着拆好几趟，
+                // 后一趟还会把前一趟的落点文件覆盖掉。人也确实反馈过「不知道有没有拆完」。
+                UpdateCutCard(
+                    repositoryRoot, assistantDriver, message, assetIdentifier,
+                    "正在标框…　这一步要让视觉模型把整张图看一遍，几十秒。这期间不用再点。",
+                    withButtons: false, arguments: arguments, lines: lines);
+
                 replyText = RunCut(
                     repositoryRoot, backendDriver, assetIdentifier, arguments, lines, out card, out var cut,
-                    message.ConversationIdentifier, "", variantIndex);
+                    message.ConversationIdentifier, "", variantIndex,
+                    progress: text => UpdateCutCard(
+                        repositoryRoot, assistantDriver, message, assetIdentifier, text,
+                        withButtons: false, arguments: arguments, lines: lines));
                 result = cut ? "已拆图" : "拆图失败";
+
+                if (!cut)
+                {
+                    // 没拆成才把按钮换回来——拆成了就不该再有「拆图」这个动作留在原卡上，
+                    // 结果卡自己带着「哪层不对直接说」那条路。
+                    UpdateCutCard(
+                        repositoryRoot, assistantDriver, message, assetIdentifier,
+                        "这一趟没拆成，按钮给你留着，可以再点一次。",
+                        withButtons: true, arguments: arguments, lines: lines);
+                }
             }
 
             var reply = SendReply(repositoryRoot, assistantDriver, message, replyText, arguments, lines, card);
@@ -1742,7 +1813,8 @@ namespace Template.Toolkit.CommandHost.Commands
             out bool cut,
             string conversationIdentifier = "",
             string feedback = "",
-            int variantIndex = 1)
+            int variantIndex = 1,
+            Action<string> progress = null)
         {
             card = null;
             cut = false;
@@ -1810,6 +1882,10 @@ namespace Template.Toolkit.CommandHost.Commands
                 return "拆图失败：" + parseFailure;
             }
 
+            // 标框那一步是最慢的，过了就报一次进度——人问过「不知道有没有拆完」，
+            // 一条「标到 N 个」比一直沉默有用得多，还顺带说清这一趟打算切几片。
+            progress?.Invoke($"标到 {layers.Count} 个元素，正在逐个裁切并落盘…");
+
             var decoded = PngDecoder.DecodeFile(sourcePath);
             if (!decoded.Succeeded)
             {
@@ -1818,7 +1894,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var catalog = AssetSpecCatalog.Load(repositoryRoot, "");
             var spec = catalog.Find(UiElementAssetType);
-            var destination = spec?.Destination ?? "Assets/Game/ResourceArt/UI/Elements/";
+            var destination = spec?.Destination ?? "Assets/Game/Art/Texture/Ui/";
             var outputRoot = Path.Combine(repositoryRoot, "UnityProject", destination.Replace('/', Path.DirectorySeparatorChar));
 
             spec?.Values.TryGetValue("规格.需要透明", out var transparentText);

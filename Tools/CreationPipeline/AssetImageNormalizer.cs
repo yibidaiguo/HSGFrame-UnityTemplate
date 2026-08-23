@@ -50,14 +50,15 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>判定「四角同色」的容差：每通道差值都在这个数以内算同色。</summary>
         private const int CornerTolerance = 12;
 
-        /// <summary>漫延抠背景时的容差：与背景色每通道差值都在这个数以内算背景。</summary>
-        private const int FloodTolerance = 24;
-
         /// <summary>
-        /// 背景与主体的色差至少要拉开这么多，才敢抠。
-        /// 拉不开就说明主体本身也是那个色调，一抠会把主体抠掉一块。
+        /// 漫延抠背景时的容差：与背景色每通道差值都在这个数以内算背景。
+        ///
+        /// **24 太松，真炸过**：白底上的白衣白发离纯白也就十几，一路被当成背景灌进去，
+        /// 拆出来的立绘身上全是破洞。收到 10——宁可留一圈没抠净的边（看得见、能补），
+        /// 也不许在主体上打洞（补不回来）。
         /// </summary>
-        private const int SeparationThreshold = 60;
+        private const int FloodTolerance = 10;
+
 
         /// <summary>
         /// 按规格归一一张图。
@@ -274,13 +275,67 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             var background = corners[0];
-            if (!HasEnoughSeparation(image, background))
+            var total = image.Width * image.Height;
+
+            // **先算，后决定**：容差减半再灌一遍，两次结果差多少。
+            // 背景真跟主体分得开时，容差松一点紧一点都是灌到同一条边界上，两次几乎一样；
+            // 而白底白衣那种「主体本身就是背景色」的图，容差稍一松就顺着衣服一路灌进去，
+            // 两次差出一大截。这个差值就是判据——它拦的正是「拆出来一身洞」那一档。
+            //
+            // 从前那道守门（「有没有任何一个像素跟背景差得够远」）等于没有：
+            // 画面里总有深色像素，它永远返回真，一次都没拦下过。
+            var tight = FloodFill(image, background, FloodTolerance / 2, out _);
+            var loose = FloodFill(image, background, FloodTolerance, out var pixels);
+
+            if (loose > tight * StabilityFactor + (total * StabilitySlack))
             {
-                note = "主体的颜色跟背景太近，抠了会把主体也抠掉一块，没敢动";
+                note = "主体本身就带着背景那个色（白底白衣那种），漫延会顺着它灌进主体、拆出一身洞，没敢抠透明——"
+                    + "这一张得让模型直接出透明底，本地抠不干净";
                 return null;
             }
 
-            var pixels = new byte[image.Width * image.Height * 4];
+            if (loose == 0)
+            {
+                note = "四角虽同色，但从边上一个像素都灌不动，没什么可抠的";
+                return null;
+            }
+
+            // 几乎整张都灌掉了，说明这张图通体就是背景色——抠完什么都不剩。
+            // 稳定性那道判据拦不住这种：紧容差与松容差都是 100%，两次一模一样，看着最"稳"。
+            if (loose >= total * FullyBackgroundRatio)
+            {
+                note = "整张图通体都是背景那个色，抠完什么都不剩，没敢动";
+                return null;
+            }
+
+            var ratio = (double)loose / total;
+            note = $"背景抠成透明（清掉 {ratio:P0} 的像素）";
+            return new PngImage(image.Width, image.Height, pixels);
+        }
+
+        /// <summary>
+        /// 容差放大到这个倍数时，清掉的面积还没超出「紧容差那次 × 本系数 + 一点余量」，
+        /// 才认为背景与主体分得开。1.25 是留给抗锯齿边缘的——边缘那一圈半透明像素
+        /// 本来就会随容差多吃掉一点，不该被当成「灌进主体」。
+        /// </summary>
+        private const double StabilityFactor = 1.25;
+
+        /// <summary>灌掉这个比例以上就认为「整张都是背景」——抠完什么都不剩，不如不抠。</summary>
+        private const double FullyBackgroundRatio = 0.98;
+
+        /// <summary>稳定性判据的绝对余量，按全图面积的比例给。小图上一圈边缘占比不小，光靠倍数会误杀。</summary>
+        private const double StabilitySlack = 0.02;
+
+        /// <summary>
+        /// 从四条边灌一次背景，返回清掉多少个像素。
+        /// </summary>
+        /// <param name="image">原图。</param>
+        /// <param name="background">背景色。</param>
+        /// <param name="tolerance">容差。</param>
+        /// <param name="pixels">灌完的像素缓冲（原图的拷贝，背景处 alpha 置 0）。</param>
+        private static int FloodFill(PngImage image, byte[] background, int tolerance, out byte[] pixels)
+        {
+            pixels = new byte[image.Width * image.Height * 4];
             for (var index = 0; index < pixels.Length; index++)
             {
                 pixels[index] = image.Pixels[index];
@@ -288,7 +343,7 @@ namespace Template.Toolkit.CreationPipeline
 
             var visited = new bool[image.Width * image.Height];
             var queue = new Queue<int>();
-            EnqueueBorder(image, queue, visited, background);
+            EnqueueBorder(image, queue, visited, background, tolerance);
 
             var cleared = 0;
             while (queue.Count > 0)
@@ -299,36 +354,35 @@ namespace Template.Toolkit.CreationPipeline
                 pixels[(index * 4) + 3] = 0;
                 cleared++;
 
-                TryEnqueue(image, queue, visited, background, x - 1, y);
-                TryEnqueue(image, queue, visited, background, x + 1, y);
-                TryEnqueue(image, queue, visited, background, x, y - 1);
-                TryEnqueue(image, queue, visited, background, x, y + 1);
+                TryEnqueue(image, queue, visited, background, x - 1, y, tolerance);
+                TryEnqueue(image, queue, visited, background, x + 1, y, tolerance);
+                TryEnqueue(image, queue, visited, background, x, y - 1, tolerance);
+                TryEnqueue(image, queue, visited, background, x, y + 1, tolerance);
             }
 
-            var ratio = (double)cleared / (image.Width * image.Height);
-            note = $"背景抠成透明（清掉 {ratio:P0} 的像素）";
-            return new PngImage(image.Width, image.Height, pixels);
+            return cleared;
         }
 
         /// <summary>把四条边上属于背景色的像素塞进队列当种子。</summary>
-        private static void EnqueueBorder(PngImage image, Queue<int> queue, bool[] visited, byte[] background)
+        private static void EnqueueBorder(
+            PngImage image, Queue<int> queue, bool[] visited, byte[] background, int tolerance)
         {
             for (var x = 0; x < image.Width; x++)
             {
-                TryEnqueue(image, queue, visited, background, x, 0);
-                TryEnqueue(image, queue, visited, background, x, image.Height - 1);
+                TryEnqueue(image, queue, visited, background, x, 0, tolerance);
+                TryEnqueue(image, queue, visited, background, x, image.Height - 1, tolerance);
             }
 
             for (var y = 0; y < image.Height; y++)
             {
-                TryEnqueue(image, queue, visited, background, 0, y);
-                TryEnqueue(image, queue, visited, background, image.Width - 1, y);
+                TryEnqueue(image, queue, visited, background, 0, y, tolerance);
+                TryEnqueue(image, queue, visited, background, image.Width - 1, y, tolerance);
             }
         }
 
         /// <summary>坐标合法、没访问过、且颜色接近背景时入队。</summary>
         private static void TryEnqueue(
-            PngImage image, Queue<int> queue, bool[] visited, byte[] background, int x, int y)
+            PngImage image, Queue<int> queue, bool[] visited, byte[] background, int x, int y, int tolerance)
         {
             if (x < 0 || y < 0 || x >= image.Width || y >= image.Height)
             {
@@ -341,31 +395,13 @@ namespace Template.Toolkit.CreationPipeline
                 return;
             }
 
-            if (!Close(PixelAt(image, x, y), background, FloodTolerance))
+            if (!Close(PixelAt(image, x, y), background, tolerance))
             {
                 return;
             }
 
             visited[index] = true;
             queue.Enqueue(index);
-        }
-
-        /// <summary>图里有没有跟背景拉开足够色差的像素——没有就说明主体也是那个色调，不敢抠。</summary>
-        private static bool HasEnoughSeparation(PngImage image, byte[] background)
-        {
-            for (var index = 0; index < image.Width * image.Height; index++)
-            {
-                var offset = index * 4;
-                var distance = Math.Abs(image.Pixels[offset] - background[0])
-                    + Math.Abs(image.Pixels[offset + 1] - background[1])
-                    + Math.Abs(image.Pixels[offset + 2] - background[2]);
-                if (distance >= SeparationThreshold)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         /// <summary>取一个像素的 RGBA。</summary>
