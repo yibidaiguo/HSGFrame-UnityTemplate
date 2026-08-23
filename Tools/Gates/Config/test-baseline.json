@@ -56,6 +56,7 @@
     "Solutions/CreationPipeline.Tests/ConflictDetectorTests.cs": "360d1195024f39e9cc819ac9fc798e7dd2e9cb0cc590f27bb74315f26e103bb2",
     "Solutions/CreationPipeline.Tests/ConflictListTests.cs": "80d4b98b6906dec3d310ef8efb2cadc81064b9a83808d832442ed14591794348",
     "Solutions/CreationPipeline.Tests/ContactSheetComposerTests.cs": "81c775730f7168e5eb2bedd2124917b7e43b970ed245ed102b33e1b25cb100ba",
+    "Solutions/CreationPipeline.Tests/DesignLibraryTests.cs": "d300d91e5961759df2b81bc2e82634c55dfade81be7fc9041a13e8d13ceb137e",
     "Solutions/CreationPipeline.Tests/DriverScriptInstallerTests.cs": "ded1399ce060a5f12689d2b64354aa0daae2e823c99ae5f1614c7b2661134405",
     "Solutions/CreationPipeline.Tests/DriverScriptPackageTests.cs": "5cb28e5788930a9316177e28f5bc034600ec9a9dbe7283e1f1ded7e90c246a96",
     "Solutions/CreationPipeline.Tests/EngineDispatchRuleTests.cs": "bb65b7b261505ee42972f7a728aa137b292a0c8f6244563b953025fb5f65c8d1",
