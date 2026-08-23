@@ -199,6 +199,9 @@ Invoke-Gate -GateName '扩展合法性' -CommandName 'schema.check' -CommandArgu
 Write-GateHeader '需求文档'
 Invoke-Gate -GateName '需求文档' -CommandName 'gate.reqdoc' -CommandArguments @{ RepositoryRoot = $templateRoot; PoolRoot = (Join-Path $templateRoot 'Pools') }
 
+Write-GateHeader '模块策划案'
+Invoke-Gate -GateName '模块策划案' -CommandName 'gate.plandoc' -CommandArguments @{ RepositoryRoot = $templateRoot; PoolRoot = (Join-Path $templateRoot 'Pools') }
+
 Write-GateHeader '供给对账'
 Invoke-Gate -GateName '供给对账' -CommandName 'gate.provision' -CommandArguments @{ RepositoryRoot = $templateRoot; PoolRoot = (Join-Path $templateRoot 'Pools') }
 

@@ -105,6 +105,15 @@ namespace Template.Toolkit.CreationPipeline.Tests
             File.Copy(source, target, true);
         }
 
+        /// <summary>把模块策划案规范的基线拷进工作区。</summary>
+        public void CopyPlanningDocumentBaseline()
+        {
+            var source = SpecificationPaths.BaselinePlanningDocumentFile(FindTemplateRoot());
+            var target = SpecificationPaths.BaselinePlanningDocumentFile(Root);
+            Directory.CreateDirectory(Path.GetDirectoryName(target));
+            File.Copy(source, target, true);
+        }
+
         /// <summary>把元素类型模板的基线拷进工作区：资产清单要靠它判「这一类要不要出图」。</summary>
         public void CopyUiElementTemplateBaseline()
         {

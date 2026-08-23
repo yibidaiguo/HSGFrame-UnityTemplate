@@ -181,6 +181,37 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(poolRoot, "Designs", "Final");
         }
 
+        /// <summary>模块策划案的根目录：Designs/Modules。</summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static string ModulePlanRoot(string poolRoot)
+        {
+            return Path.Combine(poolRoot, "Designs", "Modules");
+        }
+
+        /// <summary>某个模块的策划案目录：Designs/Modules/&lt;模块&gt;。</summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="moduleName">模块名，与 Scripts/Modules 下的目录名同名。</param>
+        public static string ModulePlanDirectory(string poolRoot, string moduleName)
+        {
+            return Path.Combine(ModulePlanRoot(poolRoot), moduleName ?? "");
+        }
+
+        /// <summary>某个模块的策划案正文：Designs/Modules/&lt;模块&gt;/index.md。</summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="moduleName">模块名。</param>
+        public static string ModulePlanDocument(string poolRoot, string moduleName)
+        {
+            return Path.Combine(ModulePlanDirectory(poolRoot, moduleName), "index.md");
+        }
+
+        /// <summary>某个模块策划案的媒体目录：Designs/Modules/&lt;模块&gt;/media。</summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="moduleName">模块名。</param>
+        public static string ModulePlanMediaDirectory(string poolRoot, string moduleName)
+        {
+            return Path.Combine(ModulePlanDirectory(poolRoot, moduleName), RequirementMediaDirectoryName);
+        }
+
         /// <summary>某实体的基线 schema 文件：Schema/Baseline/&lt;实体名&gt;.schema.json。</summary>
         public static string BaselineSchemaFile(string poolRoot, string entityName)
         {

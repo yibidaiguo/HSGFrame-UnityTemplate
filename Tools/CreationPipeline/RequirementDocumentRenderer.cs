@@ -581,26 +581,7 @@ namespace Template.Toolkit.CreationPipeline
 
         private static void StripGeneratedRegion(List<string> lines, RequirementDocumentSpec specification)
         {
-            var start = -1;
-            var end = -1;
-            for (var index = 0; index < lines.Count; index++)
-            {
-                var trimmed = lines[index].Trim();
-                if (start < 0 && trimmed == specification.GeneratedRegionBegin)
-                {
-                    start = index;
-                }
-                else if (start >= 0 && trimmed == specification.GeneratedRegionEnd)
-                {
-                    end = index;
-                    break;
-                }
-            }
-
-            if (start >= 0 && end > start)
-            {
-                lines.RemoveRange(start, end - start + 1);
-            }
+            GeneratedRegion.Strip(lines, specification.GeneratedRegionBegin, specification.GeneratedRegionEnd);
         }
 
         private static int IndexOfSection(IReadOnlyList<string> lines, string sectionTitle)

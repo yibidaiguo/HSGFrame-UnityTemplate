@@ -292,25 +292,8 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="generatedRegionLines">生成区正文行，不含标记行。</param>
         public static string HashGeneratedRegion(IReadOnlyList<string> generatedRegionLines)
         {
-            var normalized = new List<string>();
-            foreach (var line in generatedRegionLines ?? Array.Empty<string>())
-            {
-                normalized.Add(line.TrimEnd());
-            }
-
-            while (normalized.Count > 0 && normalized[normalized.Count - 1].Length == 0)
-            {
-                normalized.RemoveAt(normalized.Count - 1);
-            }
-
-            var bytes = Encoding.UTF8.GetBytes(string.Join("\n", normalized));
-            var builder = new StringBuilder("sha256:");
-            foreach (var value in SHA256.HashData(bytes))
-            {
-                builder.Append(value.ToString("x2", CultureInfo.InvariantCulture));
-            }
-
-            return builder.ToString();
+            // 实现在 GeneratedRegion 里，需求案与模块策划案共用一份（见那边的类型摘要）。
+            return GeneratedRegion.Hash(generatedRegionLines);
         }
 
         private static void FlushSection(
