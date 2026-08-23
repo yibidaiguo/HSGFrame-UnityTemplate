@@ -166,6 +166,7 @@ namespace Template.Toolkit.CreationPipeline
                 (Path.Combine(knowledgeDirectory, "examples.md"), "上传为助手的知识库文件"),
                 (Path.Combine(knowledgeDirectory, "modules.md"), "上传为助手的知识库文件"),
                 (Path.Combine(knowledgeDirectory, "module-interfaces.md"), "上传为助手的知识库文件"),
+                (Path.Combine(knowledgeDirectory, "readable-files.md"), "上传为助手的知识库文件"),
                 (Path.Combine(packageDirectory, "import-guide.md"), "给做导入的人看，不用上传"),
                 (ProvisionPaths.FingerprintFile(repositoryRoot, driverName), "不上传；它是下次对账的凭据")
             };

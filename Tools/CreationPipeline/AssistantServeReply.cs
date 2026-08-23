@@ -27,6 +27,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="imageRequest">出图请求；不是要图那一支时为 null。</param>
         /// <param name="cutFeedback">拆图意见；不是改拆图那一支时为空串。</param>
         /// <param name="planModule">要策划案的模块名；不是这一支时为空串。</param>
+        /// <param name="readCodeFiles">要读的代码文件；不是这一支时为空表。</param>
         public AssistantServeReply(
             bool parsed,
             string replyText,
@@ -38,12 +39,14 @@ namespace Template.Toolkit.CreationPipeline
             string wantedThing = "",
             JsonObject imageRequest = null,
             string cutFeedback = "",
-            string planModule = "")
+            string planModule = "",
+            IReadOnlyList<string> readCodeFiles = null)
         {
             WantedThing = wantedThing ?? "";
             ImageRequest = imageRequest;
             CutFeedback = cutFeedback ?? "";
             PlanModule = (planModule ?? "").Trim();
+            ReadCodeFiles = readCodeFiles ?? Array.Empty<string>();
             Parsed = parsed;
             ReplyText = replyText ?? "";
             WantsRequirement = wantsRequirement;
@@ -89,6 +92,14 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>「要什么」的第四种：一份模块策划案。</summary>
         public const string WantPlan = "策划案";
 
+        /// <summary>
+        /// 「要什么」的第五种：**先读几个代码文件再回答**。
+        ///
+        /// 它与别的四种不同——它不是一种产出，是一次**中途取材**：
+        /// 引擎读完文件会把内容贴回提示词再问一遍模型，最终产出还是那四种之一。
+        /// </summary>
+        public const string WantReadCode = "读代码";
+
         /// <summary>人这次说的拆图意见；不是改拆图那一支时为空串。</summary>
         public string CutFeedback { get; }
 
@@ -104,6 +115,19 @@ namespace Template.Toolkit.CreationPipeline
         /// （需求、界面、配置表、参考图、代码），模型不需要、也不许提供正文。
         /// </summary>
         public string PlanModule { get; }
+
+        /// <summary>要读哪几个代码文件（仓库相对路径）；不是这一支时为空表。</summary>
+        public IReadOnlyList<string> ReadCodeFiles { get; }
+
+        /// <summary>这一轮是不是在要求先读代码。</summary>
+        public bool WantsReadCode
+        {
+            get
+            {
+                return string.Equals(WantedThing, WantReadCode, StringComparison.Ordinal)
+                    && ReadCodeFiles.Count > 0;
+            }
+        }
 
         /// <summary>这一轮是不是在要一份模块策划案。</summary>
         public bool WantsPlan
@@ -214,6 +238,12 @@ namespace Template.Toolkit.CreationPipeline
                 planModule = ReadString(planObject, "模块");
             }
 
+            IReadOnlyList<string> readCodeFiles = Array.Empty<string>();
+            if (root.TryGetPropertyValue("读代码请求", out var readNode) && readNode is JsonObject readObject)
+            {
+                readCodeFiles = ReadStringArray(readObject, "文件");
+            }
+
             JsonObject imageRequest = null;
             if (root.TryGetPropertyValue("出图请求", out var imageNode) && imageNode is JsonObject imageObject)
             {
@@ -241,12 +271,14 @@ namespace Template.Toolkit.CreationPipeline
                     wantedThing: wanted,
                     imageRequest: imageRequest,
                     cutFeedback: cutFeedback,
-                    planModule: planModule);
+                    planModule: planModule,
+                    readCodeFiles: readCodeFiles);
                 return true;
             }
 
             reply = new AssistantServeReply(
-                true, replyText, wants, missing, draft, "", intent, wanted, imageRequest, cutFeedback, planModule);
+                true, replyText, wants, missing, draft, "", intent, wanted, imageRequest, cutFeedback,
+                planModule, readCodeFiles);
             return true;
         }
 

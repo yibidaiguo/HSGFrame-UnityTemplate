@@ -39,6 +39,7 @@ namespace Template.Toolkit.CreationPipeline
             var examplesFile = Path.Combine(knowledgeDirectory, "examples.md");
             var moduleListFile = Path.Combine(knowledgeDirectory, "modules.md");
             var moduleInterfaceFile = Path.Combine(knowledgeDirectory, "module-interfaces.md");
+            var readableFilesFile = Path.Combine(knowledgeDirectory, "readable-files.md");
             var importGuideFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "import-guide.md");
 
             WriteAll(systemPromptFile, BuildSystemPrompt(schema));
@@ -54,16 +55,21 @@ namespace Template.Toolkit.CreationPipeline
             // 「顺着既有实现聊需求，别重复建已经有的东西」。
             WriteAll(moduleInterfaceFile, ModuleInterfaceDigest.Render(ModuleInterfaceDigest.Collect(repositoryRoot)));
 
+            // **只列路径，不列内容。** 不给这份清单，模型会猜路径，
+            // 引擎回一句「这个文件不在」，一轮就白花了。
+            WriteAll(readableFilesFile, ReadableFileIndex.Render(ReadableFileIndex.Collect(repositoryRoot)));
+
             WriteAll(importGuideFile, BuildImportGuide(new[]
             {
-                designSummaryFile, conflictListFile, glossaryFile, examplesFile, moduleListFile, moduleInterfaceFile
+                designSummaryFile, conflictListFile, glossaryFile, examplesFile, moduleListFile,
+                moduleInterfaceFile, readableFilesFile
             }));
 
             return PackageFiles(repositoryRoot, driverName);
         }
 
         /// <summary>
-        /// 只列 assistant-package 八个文件的路径，不碰磁盘；供干跑列出将要生成的文件用。
+        /// 只列 assistant-package 各文件的路径，不碰磁盘；供干跑列出将要生成的文件用。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="driverName">面向的 driver 名称。</param>
@@ -72,7 +78,7 @@ namespace Template.Toolkit.CreationPipeline
             return PackageFiles(repositoryRoot, driverName);
         }
 
-        /// <summary>assistant-package七个文件的绝对路径列表，顺序即写盘顺序。</summary>
+        /// <summary>assistant-package 各文件的绝对路径列表，顺序即写盘顺序。</summary>
         private static IReadOnlyList<string> PackageFiles(string repositoryRoot, string driverName)
         {
             var knowledgeDirectory = ProvisionPaths.AssistantKnowledgeDirectory(repositoryRoot, driverName);
@@ -83,6 +89,7 @@ namespace Template.Toolkit.CreationPipeline
             var examplesFile = Path.Combine(knowledgeDirectory, "examples.md");
             var moduleListFile = Path.Combine(knowledgeDirectory, "modules.md");
             var moduleInterfaceFile = Path.Combine(knowledgeDirectory, "module-interfaces.md");
+            var readableFilesFile = Path.Combine(knowledgeDirectory, "readable-files.md");
             var importGuideFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "import-guide.md");
 
             return new[]
@@ -94,6 +101,7 @@ namespace Template.Toolkit.CreationPipeline
                 examplesFile,
                 moduleListFile,
                 moduleInterfaceFile,
+                readableFilesFile,
                 importGuideFile
             };
         }
@@ -133,10 +141,14 @@ namespace Template.Toolkit.CreationPipeline
             builder.AppendLine();
             builder.AppendLine("| 你能做 | 你不能做 |");
             builder.AppendLine("|---|---|");
-            builder.AppendLine("| 读项目代码 | **改项目代码** |");
+            builder.AppendLine("| 读 Unity 工程代码、池子、规范、配置表结构 | **改项目代码** |");
             builder.AppendLine("| 写文档（需求案、模块策划案、界面规格） | **删项目资产** |");
             builder.AppendLine("| 导入资产（出图、拆图，往 Art/ 下写新文件） | |");
             builder.AppendLine("| 动飞书那侧的文档、表格、卡片 | |");
+            builder.AppendLine();
+            builder.AppendLine("**要看某个文件的内容就填「读代码」**（形状见输出契约），");
+            builder.AppendLine("路径照知识里那份「你能读哪些文件」抄，别自己拼。");
+            builder.AppendLine("工作流那棵树（`Tools/`）不给读——它跟这个游戏是什么样无关。");
             builder.AppendLine();
             builder.AppendLine("**「改项目代码」与「删项目资产」是硬边界**：它们会毁掉别人手上的东西，");
             builder.AppendLine("而这条链上没有人在中间看一眼。往 Art/ 下写**新**文件是导入资产，允许；");

@@ -486,6 +486,55 @@ namespace Template.Toolkit.CommandHost.Commands
             AssistantServeReply.TryParse(modelText, out var reply);
             lines.Add($"执行后端回答：模型={modelName}　读懂了={reply.Parsed}　要建需求={reply.WantsRequirement}");
 
+            // **读代码是一次中途取材，不是一种产出。** 模型点名要几个文件，
+            // 引擎读完贴回提示词再问一遍，最终产出还是需求 / 图 / 策划案那几种之一。
+            //
+            // **只追问一次**：模型拿到代码还说要读，就如实告诉它一轮只读一次，
+            // 让它照手上的材料回答。不设这道闸的话，一句「我再看看那个文件」
+            // 能把一轮聊成十几次调用，而人在飞书那头只看到助手一直不吭声。
+            if (reply.WantsReadCode)
+            {
+                var read = ProjectCodeReader.Read(repositoryRoot, reply.ReadCodeFiles);
+                lines.Add($"读代码：要 {reply.ReadCodeFiles.Count} 个，读到 {read.ReadPaths.Count} 个");
+                foreach (var note in read.Notes)
+                {
+                    lines.Add("  " + note);
+                }
+
+                payloadObject["提示"] = AssistantServePrompt.AppendCodeReading(
+                    payloadObject["提示"]?.GetValue<string>() ?? "", read.Text, read.Notes);
+
+                var second = BridgeInvoker.Invoke(
+                    repositoryRoot,
+                    backendDriver,
+                    "complete",
+                    JsonSerializer.SerializeToElement(payloadObject),
+                    arguments.TimeoutSeconds);
+
+                if (!second.Succeeded)
+                {
+                    lines.Add($"读完代码再问那一次失败（{second.ErrorCode}）：{second.HumanText}");
+                }
+                else
+                {
+                    var secondText = ReadPayloadString(second.Payload, "文本");
+                    if (AssistantServeReply.TryParse(secondText, out var secondReply))
+                    {
+                        reply = secondReply;
+                        lines.Add($"读完代码再答：读懂了={reply.Parsed}　要建需求={reply.WantsRequirement}");
+
+                        if (reply.WantsReadCode)
+                        {
+                            lines.Add("模型拿到代码还要再读——一轮只读一次，按手上的材料往下走");
+                        }
+                    }
+                    else
+                    {
+                        lines.Add("读完代码再答那一份读不懂，沿用第一次的回答");
+                    }
+                }
+            }
+
             // 「上次拆得不对」这一支不走需求也不走出图：它改的是已经拆出来的那些层。
             if (reply.WantsRecut)
             {

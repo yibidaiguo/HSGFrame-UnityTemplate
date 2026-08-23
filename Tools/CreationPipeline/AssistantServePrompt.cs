@@ -58,6 +58,44 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>知识缺失时的降级说明；正常为空串。知识缺了照样能跑，但要**说出来**。</summary>
         public string DegradedReason { get; }
 
+        /// <summary>
+        /// 把读到的材料贴进提示词末尾，供「读完再问一遍」那一次用。
+        ///
+        /// **拒了谁也要写进去**：模型不知道自己少看了哪个文件，
+        /// 就会照着不完整的材料下结论，还说得很笃定。
+        /// </summary>
+        /// <param name="prompt">原提示词。</param>
+        /// <param name="materialText">读到的正文；空表示一个都没读到。</param>
+        /// <param name="notes">拒了谁、为什么。</param>
+        public static string AppendCodeReading(
+            string prompt, string materialText, IReadOnlyList<string> notes)
+        {
+            var builder = new StringBuilder(prompt ?? "");
+            builder.Append("\n\n## 你要的材料\n\n");
+
+            if (string.IsNullOrWhiteSpace(materialText))
+            {
+                builder.Append("一个文件都没读到。\n");
+            }
+            else
+            {
+                builder.Append(materialText);
+            }
+
+            if (notes != null && notes.Count > 0)
+            {
+                builder.Append("\n没读到的：\n");
+                foreach (var note in notes)
+                {
+                    builder.Append("- ").Append(note).Append('\n');
+                }
+            }
+
+            builder.Append("\n**现在照这些材料回答，不要再要文件了**——一轮只读一次。\n");
+            builder.Append("材料里没有的事就说没有，别照常理补。\n");
+            return builder.ToString();
+        }
+
         /// <summary>输出契约：模型必须回一份这个形状的 JSON。写在这里是为了让它进版本哈希。</summary>
         public const string OutputContract =
             "你的回答必须是一份 JSON 对象，且只有 JSON，不许有解释、不许包在代码块里。形状：\n"
@@ -65,9 +103,10 @@ namespace Template.Toolkit.CreationPipeline
             + "  \"回话\": \"给人看的中文回复：先说你听懂了什么，再往前推一步\",\n"
             + "  \"我理解你想干的\": \"一句话说清这个人想要什么（做什么系统 / 改什么 / 要什么图 / 修什么问题）\",\n"
             + "  \"要问的问题\": [\"这一轮最想确认的点，最多两条，问人话；没有要问的给空数组\"],\n"
-            + "  \"要什么\": \"功能\" 或 \"图\" 或 \"策划案\" 或 \"改拆图\",\n"
+            + "  \"要什么\": \"功能\" 或 \"图\" 或 \"策划案\" 或 \"改拆图\" 或 \"读代码\",\n"
             + "  \"拆图意见\": \"「要什么」是改拆图时填：他觉得哪儿不对，原话意思即可\",\n"
             + "  \"策划案请求\": { \"模块\": \"模块名，如 Inventory；「要什么」是策划案时填，正文不用你写\" },\n"
+            + "  \"读代码请求\": { \"文件\": [\"仓库相对路径，最多 6 个\"] },\n"
             + "  \"要不要建需求\": true 或 false,\n"
             + "  \"出图请求\": { \"资产类型\": \"图标 / 界面底图 / 立绘…\", \"命名\": \"英文小写下划线，如 icon_bag\", \"描述\": \"画什么，一段话\", \"变体数\": 6, \"宽\": 0, \"高\": 0 },\n"
             + "  \"需求草稿\": { 需求对象，字段名照 schema 摘要里的中文字段名；\"要不要建需求\"为 false 时给 null }\n"
@@ -114,6 +153,14 @@ namespace Template.Toolkit.CreationPipeline
             + "    看不懂他要哪一种就问一句，别拿一条草稿糊过去。\n"
             + "    人提到一个已经存在的 id（REQ-xxxx / UI-xxxx / ASSET-xxxx）时，\n"
             + "    先当它是**已有的那一个**，别新建一个同名的。\n"
+            + "13. **拿不准就先读代码**：填「读代码」，把要看的文件写进「读代码请求.文件」，\n"
+            + "    这一轮别的都给 null。引擎读完会把内容贴回来再问你一遍，那时再给结论。\n"
+            + "    能读：UnityProject/Assets/Game/、Packages/com.hsgframe.*/Runtime/、\n"
+            + "    Pools/、Specifications/、Config/Schema/。**Tools/ 那棵树不给读**。\n"
+            + "    一次最多 6 个文件，**一轮只能读一次**——第二次再要会被拒，\n"
+            + "    所以一次就把要看的都点齐。路径照知识里那份文件清单写，别自己编。\n"
+            + "    **别拿它当托词**：知识里的公开面摘要够回答的问题就直接答，\n"
+            + "    每读一次都要多花一次调用、让人多等十几秒。\n"
             + "11. 填「出图请求」时：「资产类型」照资产规格里的名字写（图标 / 界面底图 / 立绘 …）；\n"
             + "    「命名」是英文小写加下划线，看得出画的是什么；「描述」写**画面本身**——画什么、\n"
             + "    什么风格、什么构图。别写「用于确认视觉方向」这类目的性的话，那对出图没有用。";
