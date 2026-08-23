@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Template.Toolkit.CommandFramework;
 using Template.Toolkit.CreationPipeline;
 
@@ -31,6 +34,48 @@ namespace Template.Toolkit.CommandHost.Commands
         public bool VerifyOnly { get; set; }
     }
 
+    /// <summary>「从需求产界面规格草案」的参数。</summary>
+    public sealed class InterfaceSpecDraftArguments
+    {
+        /// <summary>仓库根目录。</summary>
+        [Summary("仓库根目录")]
+        [DefaultValue("")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>池子根目录。</summary>
+        [Summary("池子根目录")]
+        [DefaultValue("Pools")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>照哪条需求产。</summary>
+        [Summary("需求 id，如 REQ-0042")]
+        public string Requirement { get; set; }
+
+        /// <summary>面板名，PascalCase。</summary>
+        [Summary("面板名，PascalCase，如 Inventory；决定 uidef 名与资产模块目录")]
+        public string Panel { get; set; }
+
+        /// <summary>画布宽。</summary>
+        [Summary("画布宽；缺省 1920")]
+        [DefaultValue(1920)]
+        public int CanvasWidth { get; set; }
+
+        /// <summary>画布高。</summary>
+        [Summary("画布高；缺省 1080")]
+        [DefaultValue(1080)]
+        public int CanvasHeight { get; set; }
+
+        /// <summary>单次调用超时秒数。</summary>
+        [Summary("单次调用超时秒数")]
+        [DefaultValue(300)]
+        public int TimeoutSeconds { get; set; }
+
+        /// <summary>只打提示词不真调。</summary>
+        [Summary("为 true 时只把要发的提示词打出来，不调执行后端（不花钱）")]
+        [DefaultValue(false)]
+        public bool DryRun { get; set; }
+    }
+
     /// <summary>
     /// 界面规格这一层的命令：校验、渲布局图、生成 uidef、算资产清单。
     ///
@@ -40,6 +85,140 @@ namespace Template.Toolkit.CommandHost.Commands
     /// </summary>
     public static class InterfaceCommands
     {
+        /// <summary>
+        /// 从一条需求产一份界面规格草案。**这是这一族里唯一花钱的一条**——
+        /// 它要调执行后端，所以默认就带 --dry-run 那条出口，先看提示词再决定发不发。
+        /// </summary>
+        /// <param name="arguments">命令参数。</param>
+        [EditorCommand("ui.spec.draft")]
+        [Summary("从需求产界面规格草案：调执行后端，产出后自动校验并渲布局图")]
+        public static CommandResult Draft(InterfaceSpecDraftArguments arguments)
+        {
+            if (arguments == null
+                || string.IsNullOrWhiteSpace(arguments.Requirement)
+                || string.IsNullOrWhiteSpace(arguments.Panel))
+            {
+                return CommandResult.Failure("参数 Requirement 与 Panel 均为必填项");
+            }
+
+            var repositoryRoot = string.IsNullOrWhiteSpace(arguments.RepositoryRoot)
+                ? Directory.GetCurrentDirectory()
+                : arguments.RepositoryRoot;
+            var poolRoot = Path.IsPathRooted(arguments.PoolRoot ?? "")
+                ? arguments.PoolRoot
+                : Path.Combine(repositoryRoot, arguments.PoolRoot ?? "Pools");
+
+            var requirementFile = PoolPaths.RequirementFile(poolRoot, arguments.Requirement);
+            if (!File.Exists(requirementFile))
+            {
+                return CommandResult.Failure($"需求不存在：{requirementFile}");
+            }
+
+            string requirementText;
+            try
+            {
+                requirementText = File.ReadAllText(requirementFile);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return CommandResult.Failure("需求读不动：" + exception.Message);
+            }
+
+            var catalog = UiElementTemplateCatalog.Load(repositoryRoot, arguments.Panel);
+
+            // 按三档读取策略取锚点：默认档（总设计层 + 定稿那几行），**不取参考图**——
+            // 这一步产的是功能契约，不谈外观，参考图在出图那一步才有用。
+            var anchor = StyleAnchorResolver.Resolve(repositoryRoot, arguments.Panel, "", referenceImageCount: 0);
+
+            var prompt = InterfaceSpecDraftPrompt.Build(
+                requirementText, arguments.Panel, arguments.CanvasWidth, arguments.CanvasHeight, catalog, anchor);
+
+            var lines = new List<string>(anchor.Notes);
+
+            if (arguments.DryRun)
+            {
+                lines.Add("干跑：没有调执行后端，下面是要发的提示词");
+                lines.Add(prompt);
+                return CommandResult.Success("干跑完成，未发任何请求", lines);
+            }
+
+            var routeTable = BridgeRouteTable.Load(repositoryRoot);
+            if (!routeTable.TryResolvePort("执行后端", out var backendDriver, out var driverReason))
+            {
+                return CommandResult.Failure("执行后端取不到：" + driverReason);
+            }
+
+            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["提示"] = prompt,
+                ["上下文"] = InterfaceSpecDraftPrompt.SystemContextText
+            });
+
+            var call = BridgeInvoker.Invoke(repositoryRoot, backendDriver, "complete", payload, arguments.TimeoutSeconds);
+            if (!call.Succeeded)
+            {
+                return CommandResult.Failure($"执行后端调用失败（{call.ErrorCode}）：{call.HumanText}", lines);
+            }
+
+            var modelText = ReadPayloadText(call.Payload);
+            var identifier = InterfaceSpecDraftPrompt.AllocateIdentifier(repositoryRoot);
+
+            if (!InterfaceSpecDraftPrompt.TryParse(modelText, identifier, arguments.Requirement, out var draft, out var parseReason))
+            {
+                return CommandResult.Failure("读不懂执行后端的回答：" + parseReason, lines);
+            }
+
+            var path = InterfaceSpec.FilePathFor(repositoryRoot, identifier);
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(
+                    path,
+                    draft.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n",
+                    new UTF8Encoding(false));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return CommandResult.Failure("界面规格写不下去：" + exception.Message, lines);
+            }
+
+            lines.Add($"草案已落盘：{RelativeTo(repositoryRoot, path)}");
+
+            // **产出后立刻校验并渲布局图**，不留给人手跑：
+            // 草案是模型写的，不校验就发给人看，等于把「模型编了个不合规的东西」当成结论。
+            var spec = new InterfaceSpec(draft, path);
+            var findings = InterfaceSpecInspector.Inspect(spec, catalog);
+            foreach (var finding in findings)
+            {
+                lines.Add("校验：" + finding.ToDisplayText());
+            }
+
+            var layout = LayoutImageRenderer.Write(repositoryRoot, spec, out _, out var layoutReason);
+            lines.Add(layout.Length > 0
+                ? $"布局图：{RelativeTo(repositoryRoot, layout)}"
+                : $"布局图没渲成：{layoutReason}");
+
+            var manifest = InterfaceAssetManifest.Build(repositoryRoot, spec, catalog);
+            lines.Add($"资产清单：元素 {manifest.Count} 个，真要出 {InterfaceAssetManifest.CountToGenerate(manifest)} 张");
+
+            return findings.Count == 0
+                ? CommandResult.Success($"{identifier} 草案已产出（元素 {spec.Elements.Count} 个）", lines)
+                : CommandResult.Failure(
+                    $"{identifier} 草案产出了，但校验有 {findings.Count} 条问题——**草案已经落盘，改它再跑 ui.spec.validate**",
+                    lines);
+        }
+
+        /// <summary>读桥回来的文本字段。</summary>
+        /// <param name="payload">桥的响应载荷。</param>
+        private static string ReadPayloadText(JsonElement payload)
+        {
+            return payload.ValueKind == JsonValueKind.Object
+                && payload.TryGetProperty("文本", out var element)
+                && element.ValueKind == JsonValueKind.String
+                ? element.GetString() ?? ""
+                : "";
+        }
+
         /// <summary>校验界面规格：面板级必填、元素 id 唯一与合规、父子无环、按类型模板查必填。</summary>
         /// <param name="arguments">命令参数。</param>
         [EditorCommand("ui.spec.validate")]
