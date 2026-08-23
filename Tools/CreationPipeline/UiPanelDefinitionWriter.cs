@@ -140,27 +140,74 @@ namespace Template.Toolkit.CreationPipeline
                 return "";
             }
 
+            // 按分隔符切成一节一节再拼：**缩写要整节匹配才换**。
+            // 逐字符拼的话没法认出「btn」是一节，而模糊匹配会把 debug 里的 bg 也换掉。
             var builder = new StringBuilder();
-            var upperNext = true;
-            foreach (var character in name)
+            foreach (var rawSegment in name.Split('_', '-', ' '))
             {
-                if (character == '_' || character == '-' || character == ' ')
+                var segment = new StringBuilder();
+                foreach (var character in rawSegment)
                 {
-                    upperNext = true;
+                    if (char.IsLetterOrDigit(character))
+                    {
+                        segment.Append(character);
+                    }
+                }
+
+                if (segment.Length == 0)
+                {
                     continue;
                 }
 
-                if (!char.IsLetterOrDigit(character))
-                {
-                    continue;
-                }
-
-                builder.Append(upperNext ? char.ToUpperInvariant(character) : character);
-                upperNext = false;
+                var expanded = ExpandAbbreviation(segment.ToString());
+                builder.Append(char.ToUpperInvariant(expanded[0])).Append(expanded.Substring(1));
             }
 
             var identifier = builder.ToString();
             return identifier.Length > 0 && char.IsDigit(identifier[0]) ? "Element" + identifier : identifier;
+        }
+
+        /// <summary>
+        /// UI 层名里的常见缩写 → 完整单词。
+        ///
+        /// 层名是视觉模型起的，它天然会写 btn_close / bg_panel 这种；
+        /// 而这些名字会原样变成 C# 标识符，**命名门禁的缩写黑名单里就有 Btn**——
+        /// 拆一次图生成一份 C#，门禁当场判红 18 条，而红的原因跟拆图看着毫无关系。
+        /// 提示词里也要求了用完整单词，但那只是「尽量」；这张表是**保证**：
+        /// 模型不听话时也不许生成一份过不了门禁的代码。
+        /// </summary>
+        private static readonly (string Abbreviation, string FullWord)[] AbbreviationExpansions =
+        {
+            ("btn", "Button"),
+            ("bg", "Background"),
+            ("img", "Image"),
+            ("txt", "Text"),
+            ("lbl", "Label"),
+            ("prog", "Progress"),
+            ("num", "Number"),
+            ("desc", "Description"),
+            ("info", "Information"),
+            ("cfg", "Configuration"),
+            ("idx", "Index"),
+            ("tmp", "Temporary"),
+            ("ctx", "Context"),
+            ("attr", "Attribute"),
+            ("param", "Parameter")
+        };
+
+        /// <summary>把一节名字里的缩写换成完整单词；不是缩写就原样返回（首字母大写由调用方管）。</summary>
+        /// <param name="segment">一节名字，已经按分隔符切开。</param>
+        private static string ExpandAbbreviation(string segment)
+        {
+            foreach (var (abbreviation, fullWord) in AbbreviationExpansions)
+            {
+                if (string.Equals(segment, abbreviation, StringComparison.OrdinalIgnoreCase))
+                {
+                    return fullWord;
+                }
+            }
+
+            return segment;
         }
     }
 
