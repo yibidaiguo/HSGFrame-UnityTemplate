@@ -170,20 +170,63 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Contains("真推那次会先把它建出来", outcome.Note);
         }
 
-        /// <summary>渲完顺手推那条路：没变化时**连推都不试**，省掉一次下游调用。</summary>
+        /// <summary>
+        /// **「这次渲染没变」不等于「已经推过了」。**
+        ///
+        /// 这一条是照着一次真翻车写的：冷启动那条路先 plan.draft（它自己渲过一遍），
+        /// 再走 Refresh 渲第二遍——第二遍当然无变化。当时 Refresh 上有一道
+        /// 「没变就不推」的闸，于是推被整个吃掉，文档躺在本地，
+        /// 而回话说「已推知识库」。**假的成功比失败难查得多。**
+        ///
+        /// 省调用归 PushOne 管：它先比正文哈希与「最后同步hash」，一致才跳过，
+        /// 而那之前一次下游调用都没发。
+        /// </summary>
         [Fact]
-        public void RefreshDoesNotEvenTryToPushWhenNothingChanged()
+        public void RefreshStillTriesToPushWhenTheRenderChangedNothing()
         {
             using var workspace = NewWorkspace();
+            WriteRouteTable(workspace);
+
             var notes = new List<string>();
             ModulePlanRefresher.Refresh(workspace.RepositoryRoot, workspace.Root, Module, notes);
 
             var second = new List<string>();
             ModulePlanRefresher.Refresh(
-                workspace.RepositoryRoot, workspace.Root, Module, second, alsoPush: true, timeoutSeconds: 5);
+                workspace.RepositoryRoot, workspace.Root, Module, second, out var pushed,
+                alsoPush: true, timeoutSeconds: 5);
 
             Assert.Contains(second, note => note.Contains("无变化"));
-            Assert.DoesNotContain(second, note => note.Contains("推上去了") || note.Contains("失败"));
+
+            // 渲染没变，但推**还是试了**——这份文档从来没推过，正文哈希与
+            // 「最后同步hash」对不上，该推。
+            Assert.NotNull(pushed);
+        }
+
+        /// <summary>推过一次之后，正文没动就跳过——那道判据在 PushOne 里，且不发下游调用。</summary>
+        [Fact]
+        public void SkipsThePushOnceTheBodyMatchesWhatWasPushed()
+        {
+            using var workspace = NewWorkspace();
+            WriteRouteTable(workspace);
+            Render(workspace);
+
+            var path = PoolPaths.ModulePlanDocument(workspace.Root, Module);
+            var text = File.ReadAllText(path);
+            File.WriteAllText(
+                path,
+                RequirementDocumentSyncState.Write(
+                    text,
+                    new RequirementDocumentSyncState(
+                        "wikcnX", "https://x", RequirementDocumentSyncState.HashBody(text), "2026-08-24T00:00:00Z")));
+
+            var notes = new List<string>();
+            ModulePlanRefresher.Refresh(
+                workspace.RepositoryRoot, workspace.Root, Module, notes, out var pushed,
+                alsoPush: true, timeoutSeconds: 5);
+
+            Assert.NotNull(pushed);
+            Assert.True(pushed.Skipped);
+            Assert.Contains("与上次推上去的一致", pushed.Note);
         }
     }
 }
