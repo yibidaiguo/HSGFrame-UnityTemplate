@@ -416,7 +416,10 @@ namespace Template.Toolkit.CommandHost.Commands
                     findings.Select(finding => finding.ToDisplayText()).ToList());
             }
 
-            var specFindings = AssetSpecInspector.Inspect(repositoryRoot, arguments.Requirement, arguments.Module);
+            // 只查**刚写的这一份**，不查整个需求。全扫的话，同需求下有一份旧的不合规请求，
+            // 就会把每一份新请求都判红并删掉——而 id 是按目录里最大编号 + 1 发的，
+            // 删一份就重复发一次，整批资产共用一个 id。全量该由门禁去扫。
+            var specFindings = AssetSpecInspector.InspectFile(repositoryRoot, filePath, arguments.Module);
             if (specFindings.Count > 0)
             {
                 File.Delete(filePath);

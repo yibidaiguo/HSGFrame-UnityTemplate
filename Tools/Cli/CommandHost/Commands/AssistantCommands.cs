@@ -1396,6 +1396,25 @@ namespace Template.Toolkit.CommandHost.Commands
             var requestPath = AssetPaths.AssetRequestFile(
                 repositoryRoot, AssetRequest.UnownedRequirementIdentifier, elementIdentifier);
 
+            // **请求文件必须真落盘**。资产 id 是按「请求目录里最大编号 + 1」发的——
+            // 请求没落盘，下一个元素就会拿到同一个 id，于是整批元素共用一个 id、
+            // 共用一个变体目录。真炸过：一趟拆图 73 次生成全落在 ASSET-0000-10 上。
+            if (!File.Exists(requestPath))
+            {
+                failure = "资产请求说建成了，但文件不在 " + requestPath + "——"
+                    + "id 是按请求目录里的最大编号发的，请求不落盘的话下一个元素会拿到同一个 id，整批共用一份产物";
+                return "";
+            }
+
+            var variantDirectory = AssetPaths.VariantDirectory(
+                repositoryRoot, AssetRequest.UnownedRequirementIdentifier, elementIdentifier);
+
+            // 生成前先记下目录里已经有什么。**下面只认这一趟新冒出来的那张**——
+            // 从前取的是「目录里的第一张」，目录里但凡有旧文件（换过配方、重跑过、
+            // 或者 id 被复用），拿回来的就是别人的图，再按这个元素的名字复制出去。
+            // 那正是「每个元素拆出来长得一模一样」的成因，而且一处都不报错。
+            var before = new HashSet<string>(ListVariantImages(variantDirectory), StringComparer.OrdinalIgnoreCase);
+
             var generate = BridgeCommands.Generate(new BridgeGenerateArguments
             {
                 Driver = imageDriver,
@@ -1412,16 +1431,23 @@ namespace Template.Toolkit.CommandHost.Commands
                 return "";
             }
 
-            var variantDirectory = AssetPaths.VariantDirectory(
-                repositoryRoot, AssetRequest.UnownedRequirementIdentifier, elementIdentifier);
-            var variants = ListVariantImages(variantDirectory);
-            if (variants.Count == 0)
+            var fresh = new List<string>();
+            foreach (var path in ListVariantImages(variantDirectory))
             {
-                failure = "生图说成了，但变体目录里一张图都没有（" + variantDirectory + "）";
+                if (!before.Contains(path))
+                {
+                    fresh.Add(path);
+                }
+            }
+
+            if (fresh.Count == 0)
+            {
+                failure = "生图说成了，但变体目录里没有这一趟新出的图（" + variantDirectory + "）——"
+                    + "宁可这一个元素缺图，也不能把目录里别人的图当成它的";
                 return "";
             }
 
-            return variants[0];
+            return fresh[0];
         }
 
         /// <summary>

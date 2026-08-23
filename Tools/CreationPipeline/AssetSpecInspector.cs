@@ -37,6 +37,37 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
+        /// 只查**一份**资产请求。
+        ///
+        /// 为什么要有这一支：建请求那条路原来调的是整需求全扫，
+        /// 于是「同一个需求下有一份旧的不合规请求」会让**每一份新请求**都判红并被删掉。
+        /// 而资产 id 是按「请求目录里最大编号 + 1」发的——文件被删，
+        /// 下一个元素就拿到同一个 id，整批元素共用一个 id、共用一个变体目录。
+        /// 真炸过：一趟拆图 73 次生成全落在 ASSET-0000-10 上，
+        /// 每个元素拆出来的图长得一模一样，而一处都不报错。
+        ///
+        /// 全扫那一支留给门禁——门禁本来就该看全量；建东西这一步只该为自己这一份负责。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="filePath">这一份资产请求的路径。</param>
+        /// <param name="moduleName">业务模块名，留空表示只用基线与项目两层。</param>
+        public static IReadOnlyList<PoolFinding> InspectFile(string repositoryRoot, string filePath, string moduleName)
+        {
+            var findings = new List<PoolFinding>();
+            var catalog = AssetSpecCatalog.Load(repositoryRoot, moduleName ?? "");
+            findings.AddRange(catalog.Findings);
+
+            if (!File.Exists(filePath))
+            {
+                findings.Add(new PoolFinding(filePath, "资产请求文件不存在", "先把请求写出来再校验", "Specifications/Project/asset-spec.json"));
+                return findings;
+            }
+
+            findings.AddRange(InspectOne(AssetRequest.Read(filePath), catalog, filePath));
+            return findings;
+        }
+
+        /// <summary>
         /// 全扫 <c>_Tasks/</c> 下全部需求，逐需求检查资产请求；目录不存在时返回空列表。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
