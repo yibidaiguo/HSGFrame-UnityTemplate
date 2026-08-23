@@ -102,6 +102,11 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Contains("策划案请求", AssistantServePrompt.OutputContract);
             Assert.Contains("不归你", AssistantServePrompt.OutputContract);
             Assert.Contains("不许把它整理成又一条需求", AssistantServePrompt.OutputContract);
+
+            // 权限边界那两条是硬的：改项目代码、删项目资产会毁掉别人手上的东西，
+            // 而这条链上没有人在中间看一眼。
+            Assert.Contains("不能改项目代码", AssistantServePrompt.OutputContract);
+            Assert.Contains("不能删项目资产", AssistantServePrompt.OutputContract);
         }
     }
 }
