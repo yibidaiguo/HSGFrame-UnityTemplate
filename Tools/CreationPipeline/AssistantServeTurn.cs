@@ -122,17 +122,35 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
-        /// 分配一个需求 id：池子里现存的与助手已发过的**取两边最大值再加一**。
-        /// 只看池子会撞号——助手发出去的草稿写的是下游的表，不落池子，
-        /// 只看池子的话第二条草稿会拿到和第一条一样的号，按幂等键一写就把前一条覆盖了。
+        /// 给一份需求草稿算一个 key：**按内容取哈希，不发递增号**。
+        ///
+        /// 与出图请求同一套规矩（见 <see cref="ImageRequestKey"/>），理由也同一个：
+        /// 号在「整理出草稿」那一刻就发，而需求要等人点「一键建需求」才真进池子——
+        /// 聊十轮就发十个号，池子里一条都没有，号与需求从此对不上。
+        /// 人看到「REQ-0002」还会以为前面有个 REQ-0001，去池子里翻却翻不着。
+        ///
+        /// **真正的 REQ 号在落池子那一刻才发**（<see cref="AllocatePoolIdentifier"/>），
+        /// 那时它对应的是一条真实存在的需求。
+        ///
+        /// 哈希顺带去了重：同一份草稿聊两遍还是同一个 key，不会多出一份留底。
         /// </summary>
-        /// <param name="repositoryRoot">仓库根目录。</param>
-        /// <param name="poolRoot">池子根目录。</param>
-        public static string AllocateIdentifier(string repositoryRoot, string poolRoot)
+        /// <param name="draft">需求草稿。</param>
+        public static string DraftKey(JsonObject draft)
         {
-            var fromPool = IdentifierAllocator.NextByDirectoryName(PoolPaths.RequirementsDirectory(poolRoot), "REQ-", 4);
-            var fromDrafts = IdentifierAllocator.Next(DraftDirectory(repositoryRoot), "REQ-", 4);
-            return NumberOf(fromDrafts) > NumberOf(fromPool) ? fromDrafts : fromPool;
+            var text = draft == null ? "" : draft.ToJsonString(LedgerWriteOptions);
+            return "REQ-草稿-" + AssistantServePrompt.ShortHash(text);
+        }
+
+        /// <summary>
+        /// 落池子那一刻才发真正的 REQ 号：扫池子里现存的最大号 + 1。
+        ///
+        /// **只看池子就够了**——草稿不再占号，所以不会撞。
+        /// 从前要连草稿一起看，正是因为草稿也发号；那条路本身就是错的。
+        /// </summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        public static string AllocatePoolIdentifier(string poolRoot)
+        {
+            return IdentifierAllocator.NextByDirectoryName(PoolPaths.RequirementsDirectory(poolRoot), "REQ-", 4);
         }
 
         /// <summary>
@@ -230,7 +248,7 @@ namespace Template.Toolkit.CreationPipeline
             var filtered = RequirementFieldOwnership.KeepOnly(reply.Draft, plannerFields);
 
             // 第 2 步 · 引擎补齐自己拥有的那几个字段。
-            var identifier = AllocateIdentifier(repositoryRoot, poolRoot);
+            var identifier = DraftKey(reply.Draft);
             var draft = filtered.Kept;
             draft["id"] = identifier;
             draft["状态"] = schema.StateMachine?.InitialState ?? "草稿";
@@ -327,7 +345,7 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>
         /// 把发出去的草稿留底：&lt;仓库根&gt;/_Tasks/conversations/drafts/&lt;id&gt;.json。
-        /// 这份留底同时是发号台账——<see cref="AllocateIdentifier"/> 靠它避开撞号。
+        /// 这份留底按草稿 key 存档，人点按钮时按 key 读回来。
         /// 写失败返回空串、不抛。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>

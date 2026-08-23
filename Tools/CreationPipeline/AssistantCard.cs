@@ -293,7 +293,10 @@ namespace Template.Toolkit.CreationPipeline
                 new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false)
             };
 
-            var title = "需求草稿 " + (identifier ?? "") + "　等你点一下";
+            // **不把草稿 key 摆到标题上**：它是内容哈希，不是编号，
+            // 摆出去人会以为「REQ-0002」前面还有个 REQ-0001，去池子里翻却翻不着。
+            // 真正的 REQ 号在落池子那一刻才发，那时它对应一条真实存在的需求。
+            var title = "需求草稿　等你点一下";
             return new AssistantCard(title, bodyText, entries, openQuestions, buttons);
         }
 

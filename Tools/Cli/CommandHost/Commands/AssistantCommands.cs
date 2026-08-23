@@ -677,12 +677,19 @@ namespace Template.Toolkit.CommandHost.Commands
                 }
                 else
                 {
+                    // **真正的 REQ 号在这一刻才发**：`identifier` 是草稿 key（内容哈希），
+                    // 只用来按钮携带与留底归档；号要等这条需求真进池子时才有意义。
+                    // 从前在整理草稿那一刻就发号，于是聊十轮发十个号、池子里一条都没有，
+                    // 人看到 REQ-0002 会以为前面还有个 REQ-0001，去池子里翻却翻不着。
+                    var poolIdentifier = AssistantServeTurn.AllocatePoolIdentifier(poolRoot);
+                    lines.Add($"发号：{poolIdentifier}（草稿 key {identifier}）");
+
                     // 一路做完：写池子 → 出文档 → 推知识库 → 任务表加一行。
                     // 池子是第一步也是最要紧的一步——它是事实源，后面几步都是它的视图，
                     // 哪一步挂了都不影响「这条需求已经立住了」。
-                    if (!TryLandRequirement(poolRoot, identifier, draft, lines, out var landFailure))
+                    if (!TryLandRequirement(poolRoot, poolIdentifier, draft, lines, out var landFailure))
                     {
-                        replyText = identifier + " 没建成：写需求池失败——" + landFailure + "。再点一次可以重试。";
+                        replyText = poolIdentifier + " 没建成：写需求池失败——" + landFailure + "。再点一次可以重试。";
                     }
                     else
                     {
@@ -701,17 +708,20 @@ namespace Template.Toolkit.CommandHost.Commands
                             lines.Add("已确认台账写失败——再点一次会重复建，需要人看一眼磁盘");
                         }
 
+                        // 下游一律用**真号**：文档节点名、任务行的需求 id、回话里报的号，
+                        // 都是人往后拿来查这条需求的东西。只有幂等台账继续用草稿 key——
+                        // 它要回答的是「这张卡片点过没有」，那跟池子里叫什么号无关。
                         var wakePath = WakeSignalSource.Emit(
                             repositoryRoot,
                             "助手产出草稿",
-                            new JsonObject { ["需求id"] = identifier, ["来自会话"] = message.ConversationIdentifier },
+                            new JsonObject { ["需求id"] = poolIdentifier, ["来自会话"] = message.ConversationIdentifier },
                             DateTimeOffset.Now);
                         lines.Add($"已投唤醒信号：{(wakePath.Length == 0 ? "写失败" : Path.GetFileName(wakePath))}");
 
-                        var documentLink = PublishDocument(repositoryRoot, poolRoot, identifier, arguments, lines, out var documentFailure);
-                        var rowFailure = AddTaskRow(repositoryRoot, assistantDriver, identifier, draft, documentLink, arguments, lines);
+                        var documentLink = PublishDocument(repositoryRoot, poolRoot, poolIdentifier, arguments, lines, out var documentFailure);
+                        var rowFailure = AddTaskRow(repositoryRoot, assistantDriver, poolIdentifier, draft, documentLink, arguments, lines);
 
-                        replyText = DescribeCreation(identifier, documentLink, documentFailure, rowFailure);
+                        replyText = DescribeCreation(poolIdentifier, documentLink, documentFailure, rowFailure);
                     }
                 }
             }
