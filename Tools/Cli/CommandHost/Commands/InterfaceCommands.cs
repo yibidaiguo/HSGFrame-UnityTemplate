@@ -130,12 +130,13 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("从需求产界面规格草案：调执行后端，产出后自动校验并渲布局图")]
         public static CommandResult Draft(InterfaceSpecDraftArguments arguments)
         {
-            if (arguments == null
-                || string.IsNullOrWhiteSpace(arguments.Requirement)
-                || string.IsNullOrWhiteSpace(arguments.Panel))
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.Requirement))
             {
-                return CommandResult.Failure("参数 Requirement 与 Panel 均为必填项");
+                return CommandResult.Failure("参数 Requirement 为必填项");
             }
+
+            // Panel 留空时**由模型来定**：它正读着这条需求，比调用方更清楚这是哪一屏。
+            // 归一那一刀在解析时做（面板名会变成资产目录名，不能带空格与中文）。
 
             var repositoryRoot = string.IsNullOrWhiteSpace(arguments.RepositoryRoot)
                 ? Directory.GetCurrentDirectory()
@@ -160,14 +161,14 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure("需求读不动：" + exception.Message);
             }
 
-            var catalog = UiElementTemplateCatalog.Load(repositoryRoot, arguments.Panel);
+            var catalog = UiElementTemplateCatalog.Load(repositoryRoot, arguments.Panel ?? "");
 
             // 按三档读取策略取锚点：默认档（总设计层 + 定稿那几行），**不取参考图**——
             // 这一步产的是功能契约，不谈外观，参考图在出图那一步才有用。
-            var anchor = StyleAnchorResolver.Resolve(repositoryRoot, arguments.Panel, "", referenceImageCount: 0);
+            var anchor = StyleAnchorResolver.Resolve(repositoryRoot, arguments.Panel ?? "", "", referenceImageCount: 0);
 
             var prompt = InterfaceSpecDraftPrompt.Build(
-                requirementText, arguments.Panel, arguments.CanvasWidth, arguments.CanvasHeight, catalog, anchor);
+                requirementText, arguments.Panel ?? "", arguments.CanvasWidth, arguments.CanvasHeight, catalog, anchor);
 
             var lines = new List<string>(anchor.Notes);
 

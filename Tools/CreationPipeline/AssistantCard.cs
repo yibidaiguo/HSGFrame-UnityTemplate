@@ -74,6 +74,15 @@ namespace Template.Toolkit.CreationPipeline
         /// </summary>
         public const string ConfirmCutAction = "确认重绘";
 
+        /// <summary>
+        /// 动作：照这条需求出一份界面规格与白块功能图。
+        ///
+        /// **单独一个按钮，不跟「一键建需求」并成一步**：它要调执行后端（花钱、要等），
+        /// 而且不是每条需求都有界面——「把背包系统现状纳入知识库」这种就没有。
+        /// 与出图那条同一规矩：花不花钱焊死在人手里。
+        /// </summary>
+        public const string InterfaceAction = "出功能图";
+
         /// <summary>动作：丢掉这条会话的上下文，从头聊。</summary>
         public const string NewTopicAction = "开新话题";
 
@@ -474,6 +483,37 @@ namespace Template.Toolkit.CreationPipeline
                 System.Array.Empty<System.Collections.Generic.KeyValuePair<string, string>>(),
                 Array.Empty<string>(),
                 new[] { new AssistantCardButton("知道了，接着拆", ConfirmCutAction, carried, isPrimary: true) },
+                Array.Empty<string>());
+        }
+
+        /// <summary>
+        /// 需求建成之后那张卡：正文说清落在哪了，按钮问「要不要顺手出一份功能图」。
+        ///
+        /// 把这一步做成按钮而不是自动跑，是因为它**要调执行后端**，
+        /// 而且不是每条需求都有界面——「把某个系统的现状纳入知识库」这种就没有。
+        /// </summary>
+        /// <param name="bodyText">建成之后的三段话。</param>
+        /// <param name="requirementIdentifier">真正的需求号，按钮要带着它。</param>
+        public static AssistantCard ForCreatedRequirement(string bodyText, string requirementIdentifier)
+        {
+            var buttons = new List<AssistantCardButton>();
+            if (!string.IsNullOrWhiteSpace(requirementIdentifier))
+            {
+                buttons.Add(new AssistantCardButton(
+                    "出功能图",
+                    InterfaceAction,
+                    new JsonObject { ["需求id"] = requirementIdentifier },
+                    isPrimary: true));
+            }
+
+            buttons.Add(new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false));
+
+            return new AssistantCard(
+                "建好了　" + (requirementIdentifier ?? ""),
+                bodyText,
+                Array.Empty<KeyValuePair<string, string>>(),
+                Array.Empty<string>(),
+                buttons,
                 Array.Empty<string>());
         }
 

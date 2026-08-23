@@ -627,6 +627,13 @@ namespace Template.Toolkit.CommandHost.Commands
                     confirmed: string.Equals(message.ActionName, AssistantCard.ConfirmCutAction, StringComparison.Ordinal));
             }
 
+            if (string.Equals(message.ActionName, AssistantCard.InterfaceAction, StringComparison.Ordinal))
+            {
+                return HandleInterfaceDraft(
+                    repositoryRoot, poolRoot, assistantDriver, signalFilePath, message, arguments, lines,
+                    out replyDelivered, out replyRetryable);
+            }
+
             if (string.Equals(message.ActionName, AssistantCard.GenerateAction, StringComparison.Ordinal))
             {
                 return HandleGenerate(
@@ -651,6 +658,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var identifier = message.ReadActionValue("需求id");
             string replyText;
+            AssistantCard card = null;
             var result = "建需求失败";
 
             if (AssistantServeTurn.IsConfirmed(repositoryRoot, identifier))
@@ -739,11 +747,16 @@ namespace Template.Toolkit.CommandHost.Commands
                         var rowFailure = AddTaskRow(repositoryRoot, assistantDriver, poolIdentifier, draft, documentLink, arguments, lines);
 
                         replyText = DescribeCreation(poolIdentifier, documentLink, documentFailure, rowFailure);
+
+                        // 建成之后问一句「要不要顺手出一份功能图」。**做成按钮不做成自动跑**：
+                        // 它要调执行后端（花钱、要等），而且不是每条需求都有界面——
+                        // 「把某个系统的现状纳入知识库」这种就没有。
+                        card = AssistantCard.ForCreatedRequirement(replyText, poolIdentifier);
                     }
                 }
             }
 
-            var reply = SendReply(repositoryRoot, assistantDriver, message, replyText, arguments, lines, null);
+            var reply = SendReply(repositoryRoot, assistantDriver, message, replyText, arguments, lines, card);
             replyDelivered = reply.Delivered;
             replyRetryable = reply.Retryable;
 
@@ -1679,6 +1692,96 @@ namespace Template.Toolkit.CommandHost.Commands
             {
                 LiveCardRegistry.Forget(repositoryRoot, conversationIdentifier);
             }
+        }
+
+        /// <summary>
+        /// 照一条需求出界面规格与白块功能图。
+        ///
+        /// 这一步**会调执行后端**，所以只在人点了按钮时才跑（与出图同一规矩）。
+        /// 产出三样：界面规格（功能契约）、布局图（白块，给策划确认功能位、给美术当底稿）、
+        /// 资产清单（真要出几张图）。规格产出后立刻校验——
+        /// 草案是模型写的，不校验就发给人看，等于把「模型编了个不合规的东西」当成结论。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="assistantDriver">助手 port 路由到的 driver 名。</param>
+        /// <param name="signalFilePath">这一轮的信号文件。</param>
+        /// <param name="message">这次按钮点击的消息。</param>
+        /// <param name="arguments">命令参数。</param>
+        /// <param name="lines">执行流水。</param>
+        /// <param name="replyDelivered">回话送出了没有。</param>
+        /// <param name="replyRetryable">回话失败能不能重试。</param>
+        private static IReadOnlyList<string> HandleInterfaceDraft(
+            string repositoryRoot,
+            string poolRoot,
+            string assistantDriver,
+            string signalFilePath,
+            AssistantConversationMessage message,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            out bool replyDelivered,
+            out bool replyRetryable)
+        {
+            var requirementIdentifier = message.ReadActionValue("需求id");
+            string replyText;
+            var result = "出功能图失败";
+
+            if (requirementIdentifier.Length == 0)
+            {
+                replyText = "按钮没带需求 id，不知道照哪条需求出。";
+            }
+            else if (arguments.DryRun || !arguments.WriteDownstream)
+            {
+                var why = arguments.DryRun ? "--dry-run true" : "--write-downstream false";
+                replyText = "本机是只读模式（" + why + "），没有真出。开了开关再点一次。";
+                result = "只读模式没出";
+            }
+            else
+            {
+                var drafted = InterfaceCommands.Draft(new InterfaceSpecDraftArguments
+                {
+                    RepositoryRoot = repositoryRoot,
+                    PoolRoot = poolRoot,
+                    Requirement = requirementIdentifier,
+
+                    // **面板名留空，由模型定**：它正读着这条需求，比这里更清楚是哪一屏。
+                    Panel = "",
+                    TimeoutSeconds = Math.Max(arguments.TimeoutSeconds, 300),
+                    DryRun = false
+                });
+
+                lines.Add($"出界面规格：{drafted.Message}");
+                foreach (var line in drafted.OutputLines ?? Array.Empty<string>())
+                {
+                    lines.Add("  " + line);
+                }
+
+                result = drafted.IsSuccess ? "已出功能图" : "出功能图失败";
+                replyText = drafted.IsSuccess
+                    ? "功能图出好了：" + drafted.Message
+                        + "\n" + Detail(drafted)
+                        + "\n白块布局图在 _Generated/Interfaces/ 下，元素清单与行为规格在 Pools/Designs/Interfaces/。"
+                        + "\n哪个功能位不对、少了什么，直接说。"
+                    : "功能图没出成：" + drafted.Message + Detail(drafted) + "\n再点一次可以重试。";
+            }
+
+            var reply = SendReply(repositoryRoot, assistantDriver, message, replyText, arguments, lines, null);
+            replyDelivered = reply.Delivered;
+            replyRetryable = reply.Retryable;
+
+            AssistantConversationHistory.Append(
+                repositoryRoot, message.ConversationIdentifier, AssistantHistoryTurn.AssistantRole, replyText, DateTimeOffset.Now);
+
+            AppendLedger(repositoryRoot, new JsonObject
+            {
+                ["时间"] = DateTimeOffset.Now.ToString("o"),
+                ["信号"] = Path.GetFileName(signalFilePath),
+                ["结果"] = result,
+                ["需求id"] = requirementIdentifier,
+                ["回话送出"] = reply.Delivered
+            });
+
+            return lines;
         }
 
         /// <summary>取回来的附件：图片一组，别的文件一组。</summary>

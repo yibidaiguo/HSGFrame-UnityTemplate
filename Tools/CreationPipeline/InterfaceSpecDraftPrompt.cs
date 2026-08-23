@@ -68,7 +68,9 @@ namespace Template.Toolkit.CreationPipeline
 
             builder.Append('\n');
             builder.Append("## 回什么\n只回这一份 JSON：\n");
-            builder.Append("{\"面板\": \"").Append(panelName ?? "").Append("\", \"标题\": \"人话名字\", ");
+            builder.Append("{\"面板\": \"")
+                .Append(string.IsNullOrWhiteSpace(panelName) ? "PascalCase 的面板名，如 Inventory" : panelName)
+                .Append("\", \"标题\": \"人话名字\", ");
             builder.Append("\"画布\": {\"宽\": ").Append(canvasWidth).Append(", \"高\": ").Append(canvasHeight).Append("}, ");
             builder.Append("\"元素\": [{\"id\": \"ButtonSort\", \"名称\": \"排序\", \"类型\": \"Button\", ");
             builder.Append("\"父容器\": \"\", \"布局\": {\"锚定\": \"右上\", \"位置\": [1680, 12], \"尺寸\": [96, 96]}, ");
@@ -92,6 +94,14 @@ namespace Template.Toolkit.CreationPipeline
             builder.Append("6. 元素数量**克制**：一屏十几二十个可交互件是正常的，"
                 + "上百个说明把装饰纹样和重复格子都当成独立元素了。\n");
             builder.Append("7. 父容器填元素 id，顶层留空串；**不许成环**。\n");
+
+            if (string.IsNullOrWhiteSpace(panelName))
+            {
+                builder.Append("8. **面板名由你定**：PascalCase、英文、看得出是哪一屏"
+                    + "（Inventory / Shop / Settings）。它会变成资产目录名与 uidef 名，"
+                    + "所以别带空格与中文。\n");
+            }
+
 
             return builder.ToString();
         }
@@ -158,6 +168,15 @@ namespace Template.Toolkit.CreationPipeline
             root["状态"] = "草稿";
             root["schema版本"] = "1.0.0";
             root["来源需求"] = new JsonArray { requirementIdentifier };
+
+            // 面板名归一：它会变成资产目录名与 uidef 名，**不能带空格与中文**
+            // （决策 1：全仓路径只许 ASCII）。模型给的名字九成是对的，
+            // 但归一这一刀不能省——一个空格就让落点变成两截。
+            if (root["面板"] is JsonValue panelValue && panelValue.TryGetValue<string>(out var rawPanel))
+            {
+                var safePanel = UiLayerCutter.SafeModuleName(rawPanel);
+                root["面板"] = safePanel.Length > 0 ? safePanel : "Common";
+            }
 
             spec = root;
             return true;
