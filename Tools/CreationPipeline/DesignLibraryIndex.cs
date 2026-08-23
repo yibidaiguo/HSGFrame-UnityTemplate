@@ -15,13 +15,15 @@ namespace Template.Toolkit.CreationPipeline
     /// <param name="Destination">工程内相对路径。</param>
     /// <param name="Palette">主色（hex，按权重降序）。</param>
     /// <param name="StyleFinal">照哪一版定稿出的；不知道为空串。</param>
+    /// <param name="Origin">产出方式：效果图（人点确认的那张整屏原稿）/ 元素图（模型重绘出来的单件）。</param>
     public sealed record DesignLibraryEntry(
         string Naming,
         string AssetType,
         string Module,
         string Destination,
         IReadOnlyList<string> Palette,
-        string StyleFinal);
+        string StyleFinal,
+        string Origin);
 
     /// <summary>
     /// 资产库索引：「这个项目已经做过什么」。
@@ -36,8 +38,23 @@ namespace Template.Toolkit.CreationPipeline
     /// </summary>
     public sealed class DesignLibraryIndex
     {
+        /// <summary>写盘选项：缩进、中文原样。这份要给人读，也要能看 git diff。
+        /// **必须以 JsonSerializerOptions.Default 为基底**——裸 new 出来的没有 TypeInfoResolver，
+        /// ToJsonString 会当场抛「must specify a TypeInfoResolver」，而那句话指不到真因上。</summary>
+        private static readonly JsonSerializerOptions WriteOptions = new JsonSerializerOptions(JsonSerializerOptions.Default)
+        {
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+
         /// <summary>通用件的模块名，与落点目录同名。</summary>
         public const string SharedModuleName = "Shared";
+
+        /// <summary>产出方式：人点确认的那张整屏原稿。**它才是该当风格锚点的东西。**</summary>
+        public const string OriginReference = "效果图";
+
+        /// <summary>产出方式：模型照着裁片重绘出来的单件。</summary>
+        public const string OriginElement = "元素图";
 
         /// <summary>主色取几个。比定稿的 8 色少——索引是拿来比对的，不是拿来当色板用的。</summary>
         private const int PaletteClusterCount = 3;
@@ -66,6 +83,21 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(repositoryRoot, "UnityProject", "Assets", "Game", "Art", "Texture", "Ui");
         }
 
+        /// <summary>设计库里各模块的参考图根：Pools/Designs/Art。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static string ReferenceRoot(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "Pools", "Designs", "Art");
+        }
+
+        /// <summary>某个模块的参考图目录：Pools/Designs/Art/&lt;模块&gt;/refs。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="moduleName">模块名。</param>
+        public static string ReferenceDirectory(string repositoryRoot, string moduleName)
+        {
+            return Path.Combine(ReferenceRoot(repositoryRoot), moduleName, "refs");
+        }
+
         /// <summary>
         /// 扫磁盘重建索引。
         ///
@@ -79,13 +111,47 @@ namespace Template.Toolkit.CreationPipeline
         public static DesignLibraryIndex Rebuild(string repositoryRoot, bool withPalette)
         {
             var entries = new List<DesignLibraryEntry>();
+            var byNaming = ReadAssetRequests(repositoryRoot);
+
+            // 先扫设计库里的**效果图**：那是人点确认的整屏原稿。
+            // 它们不是游戏资产（不进包、不被代码引用），但**它们才是该当风格锚点的东西**——
+            // 拿重绘产物当锚点会世代退化：模型参考自己的输出，再参考「参考自己输出的输出」，
+            // 几轮之后离原稿越来越远，而每一步看着都合理。
+            var referenceRoot = ReferenceRoot(repositoryRoot);
+            if (Directory.Exists(referenceRoot))
+            {
+                foreach (var moduleDirectory in Directory.EnumerateDirectories(referenceRoot))
+                {
+                    var moduleName = Path.GetFileName(moduleDirectory);
+                    var refsDirectory = Path.Combine(moduleDirectory, "refs");
+                    if (!Directory.Exists(refsDirectory))
+                    {
+                        continue;
+                    }
+
+                    foreach (var filePath in Directory.EnumerateFiles(refsDirectory, "*.png", SearchOption.TopDirectoryOnly))
+                    {
+                        var naming = Path.GetFileNameWithoutExtension(filePath);
+                        var found = byNaming.TryGetValue(naming, out var request);
+
+                        entries.Add(new DesignLibraryEntry(
+                            naming,
+                            found ? request.AssetType : "",
+                            moduleName,
+                            ToRepositoryRelative(repositoryRoot, filePath),
+                            withPalette ? ReadPalette(filePath) : Array.Empty<string>(),
+                            found ? request.StyleFinal : "",
+                            OriginReference));
+                    }
+                }
+            }
+
             var scanRoot = ScanRoot(repositoryRoot);
             if (!Directory.Exists(scanRoot))
             {
+                entries.Sort((left, right) => string.CompareOrdinal(left.Destination, right.Destination));
                 return new DesignLibraryIndex(entries);
             }
-
-            var byNaming = ReadAssetRequests(repositoryRoot);
 
             foreach (var filePath in Directory.EnumerateFiles(scanRoot, "*.png", SearchOption.AllDirectories))
             {
@@ -109,7 +175,8 @@ namespace Template.Toolkit.CreationPipeline
                     module,
                     ToUnityRelative(repositoryRoot, filePath),
                     withPalette ? ReadPalette(filePath) : Array.Empty<string>(),
-                    found ? request.StyleFinal : ""));
+                    found ? request.StyleFinal : "",
+                    OriginElement));
             }
 
             // 按落点排序：扫盘顺序随文件系统而变，不排的话「重扫无 diff」这条门禁永远红。
@@ -126,7 +193,9 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="limit">最多取几张。</param>
         public IReadOnlyList<DesignLibraryEntry> FindSimilar(string moduleName, string assetType, int limit)
         {
-            var matched = new List<DesignLibraryEntry>();
+            var references = new List<DesignLibraryEntry>();
+            var elements = new List<DesignLibraryEntry>();
+
             foreach (var entry in Entries)
             {
                 var sameModule = string.Equals(entry.Module, moduleName, StringComparison.Ordinal)
@@ -134,18 +203,28 @@ namespace Template.Toolkit.CreationPipeline
                 var sameType = assetType.Length == 0
                     || string.Equals(entry.AssetType, assetType, StringComparison.Ordinal);
 
-                if (sameModule && sameType)
+                if (!sameModule || !sameType)
                 {
-                    matched.Add(entry);
+                    continue;
                 }
 
-                if (matched.Count >= Math.Max(1, limit))
+                if (string.Equals(entry.Origin, OriginReference, StringComparison.Ordinal))
                 {
-                    break;
+                    references.Add(entry);
+                }
+                else
+                {
+                    elements.Add(entry);
                 }
             }
 
-            return matched;
+            // **效果图优先**：那是人点确认的原稿。取不到才退回重绘产物——
+            // 拿重绘产物当锚点会世代退化，调用方该在流水里说一句。
+            var matched = new List<DesignLibraryEntry>(references);
+            matched.AddRange(elements);
+
+            var capped = Math.Max(1, limit);
+            return matched.Count <= capped ? matched : matched.GetRange(0, capped);
         }
 
         /// <summary>渲成 JSON 文本。字段顺序写死，保证重扫逐字节一样。</summary>
@@ -167,12 +246,13 @@ namespace Template.Toolkit.CreationPipeline
                     ["模块"] = entry.Module,
                     ["落点"] = entry.Destination,
                     ["主色"] = palette,
-                    ["定稿"] = entry.StyleFinal
+                    ["定稿"] = entry.StyleFinal,
+                    ["产出方式"] = entry.Origin
                 });
             }
 
             var root = new JsonObject { ["契约版本"] = "1.0.0", ["资产"] = array };
-            return root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n";
+            return root.ToJsonString(WriteOptions) + "\n";
         }
 
         /// <summary>
@@ -263,7 +343,8 @@ namespace Template.Toolkit.CreationPipeline
                     ReadString(body, "模块"),
                     ReadString(body, "落点"),
                     palette,
-                    ReadString(body, "定稿")));
+                    ReadString(body, "定稿"),
+                    ReadString(body, "产出方式")));
             }
 
             return new DesignLibraryIndex(entries);
@@ -348,6 +429,21 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             return colors;
+        }
+
+        /// <summary>把绝对路径缩成相对仓库根的路径。效果图住 Pools/ 下，不在 UnityProject 里。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="filePath">绝对路径。</param>
+        private static string ToRepositoryRelative(string repositoryRoot, string filePath)
+        {
+            try
+            {
+                return Path.GetRelativePath(repositoryRoot, filePath).Replace('\\', '/');
+            }
+            catch (ArgumentException)
+            {
+                return filePath.Replace('\\', '/');
+            }
         }
 
         /// <summary>把绝对路径缩成 Assets/ 起头的工程内路径。</summary>

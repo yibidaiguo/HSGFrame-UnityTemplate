@@ -2200,6 +2200,17 @@ namespace Template.Toolkit.CommandHost.Commands
                 return "拆图失败：建不了落点目录 " + outputRoot + "（" + exception.Message + "）";
             }
 
+            // **点拆图就是选中的动作**——人从几张候选里挑一张点下去，那一下已经表达了「这张是对的」。
+            // 所以顺手把这张原稿收进设计库，不必再另做一个「选片」步骤。
+            // 收的是**原稿**不是重绘产物：拿重绘产物当风格锚点会世代退化——
+            // 模型参考自己的输出，下一轮再参考「参考自己输出的输出」，
+            // 几轮之后离原稿越来越远，而每一步看着都合理。
+            var imported = DesignLibraryImporter.Import(repositoryRoot, moduleName, sourcePath, assetIdentifier);
+            foreach (var note in imported.Notes)
+            {
+                lines.Add("设计库：" + note);
+            }
+
             var usable = new List<UiLayer>();
             foreach (var layer in layers)
             {
@@ -2351,6 +2362,13 @@ namespace Template.Toolkit.CommandHost.Commands
 
             cut = true;
             var builder = new StringBuilder();
+            if (imported.FinalCreated)
+            {
+                builder.Append("顺带把这张定成了 ").Append(moduleName)
+                    .Append(" 的第一版风格（主色从图上算的，参考图就是它本身）——")
+                    .Append("往后这个模块的图都以它为锚点。\n\n");
+            }
+
             builder.Append("拆出 ").Append(written.Count).Append(" 个元素，每个都是模型照着设计图重画的透明底单图。")
                 .Append("\n\n全在这儿了，去引擎里看：\n").Append(destination).Append('\n');
 

@@ -112,6 +112,15 @@ namespace Template.Toolkit.CommandHost.Commands
     /// </summary>
     public static class InterfaceCommands
     {
+        /// <summary>写盘选项：缩进、中文原样。以 Default 为基底——裸 new 的没有 TypeInfoResolver，
+        /// ToJsonString 会当场抛异常，而那句话指不到真因上。</summary>
+        private static readonly JsonSerializerOptions DraftWriteOptions =
+            new JsonSerializerOptions(JsonSerializerOptions.Default)
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+
         /// <summary>
         /// 从一条需求产一份界面规格草案。**这是这一族里唯一花钱的一条**——
         /// 它要调执行后端，所以默认就带 --dry-run 那条出口，先看提示词再决定发不发。
@@ -201,7 +210,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 File.WriteAllText(
                     path,
-                    draft.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n",
+                    draft.ToJsonString(DraftWriteOptions) + "\n",
                     new UTF8Encoding(false));
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
