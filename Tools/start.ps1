@@ -26,6 +26,11 @@ param(
     # 校验通过的需求要不要真写进飞书需求表（透传给 assistant-start.ps1）。
     [bool]$WriteDownstream = $true,
 
+    # 出功能图那一步用哪个模型（透传给 assistant-start.ps1）。留空走本机配置。
+    # **这一步比聊天挑模型**：它要一口气吐一份几十个字段的 JSON，
+    # 轻量档会把预算花在推理里、回一段空 content（报出来是「执行后端回了空文本」）。
+    [string]$InterfaceDraftModel = '',
+
     # 跳过编译，直接用现成产物。快速重启用；改过代码就别用。
     [switch]$SkipBuild
 )
@@ -105,6 +110,7 @@ if (-not $NoAssistant) {
     & (Join-Path $PSScriptRoot 'CreationPipeline/scripts/assistant-start.ps1') `
         -SkipBuild `
         -WriteDownstream $WriteDownstream `
+        -InterfaceDraftModel $InterfaceDraftModel `
         -CommandHostDll (Join-Path $runRoot 'commandhost/Toolkit.CommandHost.dll')
 } else {
     Write-Host '[4/4] （-NoAssistant：助手不起）'
