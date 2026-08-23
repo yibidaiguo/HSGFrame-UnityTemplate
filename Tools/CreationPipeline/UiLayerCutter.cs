@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -89,13 +90,46 @@ namespace Template.Toolkit.CreationPipeline
             + "面板底、分区框、按钮、图标、进度条、格子、装饰件都算，"
             + "要做动效的元素也要单独框。\n"
             + "只回一份 JSON，不要解释、不要代码块，形状：\n"
-            + "{\"层\": [{\"名字\": \"英文小写下划线，看得出是什么，如 panel_bg / btn_close / icon_coin\", "
+            + "{\"模块\": \"Inventory\", "
+            + "\"层\": [{\"名字\": \"英文小写下划线，看得出是什么，如 panel_bg / btn_close / icon_coin\", "
             + "\"左\": 0.0, \"上\": 0.0, \"右\": 1.0, \"下\": 1.0}]}\n"
             + "硬规矩：\n"
+            + "0. 「模块」是这一屏属于哪个功能，用**英文 PascalCase**，如 Inventory / Shop / Settings / Battle。"
+            + "拆出来的图会按它建目录归档，所以一屏只给一个，认不出就给 Common。\n"
             + "1. 坐标是**归一化**的 0~1（左上角是 0,0），不是像素。\n"
             + "2. 框要**贴着元素本身**，别把一大片背景framed 进来——切出来是要直接进图集的。\n"
             + "3. 同一个元素只框一次；重复出现的（比如四个一样的格子）各框各的，名字加序号。\n"
             + "4. 认不出是什么的不要硬编名字，用 deco_1 这种；**但别漏**——漏一个就少一张图。";
+
+        /// <summary>
+        /// 把模型给的模块名收拾成一个能当目录名的东西：只留字母数字，首字母大写。
+        ///
+        /// **不许原样拿来拼路径**：那是模型现编的字符串，可能带斜杠、点、中文、空格。
+        /// 带斜杠的话就是往上跳目录，带中文的话 gate.pathascii 当场判红（全仓路径只许 ASCII）。
+        /// 收拾完什么都不剩就给空串，调用方退回不分模块的落点——
+        /// 宁可少一层目录，也不许写到一个算不准的地方去。
+        /// </summary>
+        /// <param name="rawModule">模型给的原始模块名。</param>
+        public static string SafeModuleName(string rawModule)
+        {
+            var builder = new StringBuilder();
+            var atWordStart = true;
+            foreach (var character in rawModule ?? "")
+            {
+                if ((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z')
+                    || (character >= '0' && character <= '9'))
+                {
+                    builder.Append(atWordStart ? char.ToUpperInvariant(character) : character);
+                    atWordStart = false;
+                }
+                else
+                {
+                    atWordStart = true;
+                }
+            }
+
+            return builder.ToString();
+        }
 
         /// <summary>
         /// 组一份「重拆」的提示词：把上一次的框原样摆出来，加上人的意见，让模型在此基础上改。
@@ -137,7 +171,20 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="failureReason">解析失败原因；成功时为空串。</param>
         public static IReadOnlyList<UiLayer> ParseLayers(string modelText, out string failureReason)
         {
+            return ParseLayers(modelText, out failureReason, out _);
+        }
+
+        /// <summary>
+        /// 同上，另外读出模型给的模块名（拆出来的图按它建目录归档）。
+        /// </summary>
+        /// <param name="modelText">视觉模型的原文。</param>
+        /// <param name="failureReason">读不出层时的原因。</param>
+        /// <param name="moduleName">模块名；模型没给、或给了不能当目录名的东西时为空串。</param>
+        public static IReadOnlyList<UiLayer> ParseLayers(
+            string modelText, out string failureReason, out string moduleName)
+        {
             failureReason = "";
+            moduleName = "";
             var layers = new List<UiLayer>();
 
             if (string.IsNullOrWhiteSpace(modelText))
@@ -169,6 +216,9 @@ namespace Template.Toolkit.CreationPipeline
                 failureReason = "回答里没有「层」数组";
                 return layers;
             }
+
+            moduleName = SafeModuleName(root["模块"] is JsonValue moduleValue
+                && moduleValue.TryGetValue<string>(out var rawModule) ? rawModule : "");
 
             foreach (var item in array)
             {

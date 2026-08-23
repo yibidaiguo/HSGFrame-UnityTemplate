@@ -1306,6 +1306,8 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <param name="recipeName">图生图配方名。</param>
         /// <param name="naming">这个元素归一之后的命名。</param>
         /// <param name="displayName">这个元素在设计图上叫什么，进提示词。</param>
+        /// <param name="moduleName">这一屏属于哪个模块，用来挑就近的规格覆盖；空串表示不分模块。</param>
+        /// <param name="destination">落点（已经带上模块目录）。</param>
         /// <param name="referencePath">裁下来的参考片段路径。</param>
         /// <param name="width">元素在设计图上的像素宽。</param>
         /// <param name="height">元素在设计图上的像素高。</param>
@@ -1318,6 +1320,8 @@ namespace Template.Toolkit.CommandHost.Commands
             string recipeName,
             string naming,
             string displayName,
+            string moduleName,
+            string destination,
             string referencePath,
             int width,
             int height,
@@ -1332,6 +1336,10 @@ namespace Template.Toolkit.CommandHost.Commands
                 RepositoryRoot = repositoryRoot,
                 PoolRoot = Path.Combine(repositoryRoot, "Pools"),
                 AssetType = UiElementAssetType,
+                Module = moduleName,
+                // 落点显式给带模块的那一版：Module 只用来挑就近的规格覆盖，
+                // 它不会自己拼进落点里。
+                Destination = destination,
                 NamingText = naming,
                 Description = displayName,
                 VariantCount = 1,
@@ -2019,7 +2027,8 @@ namespace Template.Toolkit.CommandHost.Commands
                 return "拆图失败：视觉模型没能看这张图（" + call.ErrorCode + "）：" + call.HumanText;
             }
 
-            var layers = UiLayerCutter.ParseLayers(ReadPayloadString(call.Payload, "文本"), out var parseFailure);
+            var layers = UiLayerCutter.ParseLayers(
+                ReadPayloadString(call.Payload, "文本"), out var parseFailure, out var moduleName);
             if (layers.Count == 0)
             {
                 lines.Add($"层解析失败：{parseFailure}");
@@ -2053,7 +2062,21 @@ namespace Template.Toolkit.CommandHost.Commands
 
             var catalog = AssetSpecCatalog.Load(repositoryRoot, "");
             var spec = catalog.Find(UiElementAssetType);
+            // 落点要带**模块目录**：《结构规范-资源》的层级公式是「类型 → 功能 → 模块 → 内容」，
+            // 例子就写着 Art/Texture/Ui/Inventory/T_背包格子.png。全堆在 Ui/ 根下的话，
+            // 几个界面拆下来就是几百张平铺的图，而图集是按模块建的（一个模块一图集），
+            // 分不出模块就分不出图集。模块名由标框那一步的模型顺带给——它正看着整张设计图，
+            // 最清楚这是哪个功能；给不出就退回不分模块的落点，并说一句。
             var destination = spec?.Destination ?? "Assets/Game/Art/Texture/Ui/";
+            if (moduleName.Length > 0)
+            {
+                destination = destination.TrimEnd('/') + "/" + moduleName + "/";
+                lines.Add($"模块目录：{moduleName}");
+            }
+            else
+            {
+                lines.Add("模型没给出模块名，这一批平铺在功能层下（该由人挪进模块目录）");
+            }
             var outputRoot = Path.Combine(repositoryRoot, "UnityProject", destination.Replace('/', Path.DirectorySeparatorChar));
 
             spec?.Values.TryGetValue("规格.需要透明", out var transparentText);
@@ -2148,7 +2171,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 // 为什么不直接用裁下来的那块：元素互相压叠时一刀必然带上邻居，
                 // 而白底上的白件抠底会顺着主体灌进去打洞——这两条本地都解不了。
                 var redrawn = RedrawElement(
-                    repositoryRoot, imageDriver, elementRecipe, naming, layer.Name, piecePath, w, h,
+                    repositoryRoot, imageDriver, elementRecipe, naming, layer.Name, moduleName, destination, piecePath, w, h,
                     arguments, lines, out var redrawFailure);
 
                 if (redrawn.Length == 0)

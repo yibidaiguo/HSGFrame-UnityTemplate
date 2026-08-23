@@ -59,6 +59,57 @@ namespace Template.Toolkit.CreationPipeline
             return findings;
         }
 
+        /// <summary>
+        /// 落点合不合规：等于规格落点，或者在它下面**再加一层模块目录**。
+        ///
+        /// 为什么允许多一层：《结构规范-资源》的层级公式是「类型 → 功能 → 模块 → 内容」，
+        /// 例子写着 <c>Art/Texture/Ui/Inventory/T_背包格子.png</c>——模块那一层本来就该有。
+        /// 只认精确相等的话，所有界面的图都得平铺在功能层下，
+        /// 几个界面拆下来就是几百张挤在一起，而图集是按模块建的（一个模块一图集），
+        /// 分不出模块就分不出图集。
+        ///
+        /// **只放行一层**：再深就不是「模块」而是随手建的子目录了，那正是这道门禁要拦的。
+        /// 模块名也得是 ASCII 且不含分隔符——全仓路径只许 ASCII（gate.pathascii 是 block 档），
+        /// 而带斜杠的「模块名」等于往上跳目录。
+        /// </summary>
+        /// <param name="destination">资产请求里写的落点。</param>
+        /// <param name="specDestination">资产规格数据里的落点。</param>
+        private static bool IsAllowedDestination(string destination, string specDestination)
+        {
+            var actual = (destination ?? "").Trim();
+            var expected = (specDestination ?? "").Trim();
+
+            if (string.Equals(actual, expected, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            var prefix = expected.EndsWith("/", StringComparison.Ordinal) ? expected : expected + "/";
+            if (!actual.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var rest = actual.Substring(prefix.Length).TrimEnd('/');
+            if (rest.Length == 0 || rest.Contains('/'))
+            {
+                return false;
+            }
+
+            foreach (var character in rest)
+            {
+                var isAsciiLetterOrDigit = (character >= 'a' && character <= 'z')
+                    || (character >= 'A' && character <= 'Z')
+                    || (character >= '0' && character <= '9');
+                if (!isAsciiLetterOrDigit)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         /// <summary>逐条核对一份资产请求：类型、落点、命名、规格键与规格值。</summary>
         private static IReadOnlyList<PoolFinding> InspectOne(AssetRequest request, AssetSpecCatalog catalog, string filePath)
         {
@@ -74,11 +125,12 @@ namespace Template.Toolkit.CreationPipeline
                 return findings;
             }
 
-            if (!string.Equals(request.Destination, spec.Destination, StringComparison.Ordinal))
+            if (!IsAllowedDestination(request.Destination, spec.Destination))
             {
                 findings.Add(new PoolFinding(
                     filePath,
-                    $"落点「{request.Destination}」与资产规格数据的「{spec.Destination}」不一致",
+                    $"落点「{request.Destination}」与资产规格数据的「{spec.Destination}」不一致"
+                        + "（规格落点本身，或它下面再加一层模块目录，两种都收）",
                     "落点由资产规格数据定，不由 brief 即兴",
                     "Specifications/Project/asset-spec.json"));
             }

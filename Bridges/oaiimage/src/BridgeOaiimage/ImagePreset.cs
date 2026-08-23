@@ -241,6 +241,23 @@ namespace Template.Bridges.Oaiimage
                         ? ReadStringList(root, "尺寸档位")
                         : parent?.SizeOptions);
 
+                if (string.Equals(apiName, GenerationsApiName, StringComparison.Ordinal) && preset.WantsReferenceImage)
+                {
+                    // **反过来这一条才是真会咬人的**：声明了要参考图，接口却是文生图。
+                    // 这时调用方老老实实把参考图传进来了，而这条链路根本不发它——
+                    // 图照出、钱照花，跟那张参考图一点关系都没有，没有任何一处报错。
+                    // 真炸过：ui-element@v1 只写了「继承 ui-base@v1」没写「接口」，
+                    // 静默继承了父配方的 generations，于是「照着设计图重画每个元素」
+                    // 变成了「凭元素名字自由发挥」，出来一堆跟原图毫无关系的漂亮图标。
+                    //
+                    // 从前只查了 edits 缺参考图那一支——那一支下游会替我们报错，
+                    // 恰恰是不会报错的这一支没人查。
+                    throw new InvalidOperationException(
+                        $"预设「{presetName}」声明了「{ReferenceImageSlotName}」锚点槽，接口却是 {GenerationsApiName}——"
+                        + $"文生图不发参考图，出来的东西跟参考图无关。要图生图就把「接口」写成 {EditsApiName}"
+                        + $"（继承来的接口不会自动变，子配方得自己写）：{filePath}");
+                }
+
                 if (string.Equals(apiName, EditsApiName, StringComparison.Ordinal) && !preset.WantsReferenceImage)
                 {
                     // edits 端点没有参考图无从谈起。预设不声明这个槽，调用方就看不出这份预设要图，
