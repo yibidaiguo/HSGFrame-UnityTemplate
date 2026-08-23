@@ -351,7 +351,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
                 Assert.True(outcome.DraftReady);
                 Assert.Empty(outcome.Findings);
-                Assert.Equal("REQ-0001", outcome.RequirementIdentifier);
+                // 草稿拿到的是内容哈希，不是编号——号在落池子那一刻才发。
+                Assert.StartsWith("REQ-草稿-", outcome.RequirementIdentifier);
+                Assert.Equal(AssistantServeTurn.ValidationPlaceholderIdentifier, outcome.Draft["id"].GetValue<string>());
                 Assert.Contains("状态", outcome.BlockedFields);
                 Assert.Equal("草稿", outcome.Draft["状态"].GetValue<string>());
                 Assert.False(outcome.Draft["锁定"].GetValue<bool>());
@@ -421,23 +423,62 @@ namespace Template.Toolkit.CreationPipeline.Tests
             }
         }
 
-        /// <summary>发过号的草稿留底会让下一个号往后挪，不许撞号覆盖前一条。</summary>
+        /// <summary>
+        /// **草稿不占号**：整理十份草稿，池子里的下一个号还是 REQ-0001。
+        ///
+        /// 从前草稿也发号，于是聊十轮发十个号、池子里一条都没有——
+        /// 人看到 REQ-0002 会以为前面还有个 REQ-0001，去池子里翻却翻不着。
+        /// </summary>
         [Fact]
-        public void IdentifierSkipsAlreadyIssuedDrafts()
+        public void DraftsDoNotConsumeRequirementNumbers()
         {
             var root = NewTemporaryDirectory();
             try
             {
                 var poolRoot = Path.Combine(root, "Pools");
-                Assert.Equal("REQ-0001", AssistantServeTurn.AllocateIdentifier(root, poolRoot));
 
-                AssistantServeTurn.SaveDraft(root, "REQ-0001", new JsonObject { ["id"] = "REQ-0001" });
-                Assert.Equal("REQ-0002", AssistantServeTurn.AllocateIdentifier(root, poolRoot));
+                for (var index = 0; index < 10; index++)
+                {
+                    var draft = new JsonObject { ["标题"] = "第 " + index + " 条" };
+                    AssistantServeTurn.SaveDraft(root, AssistantServeTurn.DraftKey(draft), draft);
+                }
+
+                Assert.Equal("REQ-0001", AssistantServeTurn.AllocatePoolIdentifier(poolRoot));
             }
             finally
             {
                 DeleteDirectory(root);
             }
+        }
+
+        /// <summary>同一份草稿聊两遍是同一个 key——哈希顺带去了重，不会多出一份留底。</summary>
+        [Fact]
+        public void SameDraftGetsSameKey()
+        {
+            var draft = new JsonObject { ["标题"] = "背包整理" };
+            var again = new JsonObject { ["标题"] = "背包整理" };
+
+            Assert.Equal(AssistantServeTurn.DraftKey(draft), AssistantServeTurn.DraftKey(again));
+        }
+
+        /// <summary>内容不一样就是两份草稿，各自一个 key。</summary>
+        [Fact]
+        public void DifferentDraftsGetDifferentKeys()
+        {
+            var one = new JsonObject { ["标题"] = "背包整理" };
+            var other = new JsonObject { ["标题"] = "商店" };
+
+            Assert.NotEqual(AssistantServeTurn.DraftKey(one), AssistantServeTurn.DraftKey(other));
+        }
+
+        /// <summary>草稿 key 不长得像编号——摆到人眼前时不会被当成 REQ 号。</summary>
+        [Fact]
+        public void DraftKeyIsNotShapedLikeARequirementNumber()
+        {
+            var key = AssistantServeTurn.DraftKey(new JsonObject { ["标题"] = "背包整理" });
+
+            Assert.StartsWith("REQ-草稿-", key);
+            Assert.DoesNotMatch(@"^REQ-\d{4}$", key);
         }
 
         /// <summary>唤醒信号能被自己投出来，且落的是唤醒目录、带得上明细。</summary>
@@ -543,6 +584,65 @@ namespace Template.Toolkit.CreationPipeline.Tests
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
             {
             }
+        }
+
+        /// <summary>
+        /// 记下最新那张带按钮的卡，下一轮好把它撤掉。
+        /// 飞书的卡片点完不会消失、翻上去还能点——第三轮那张「一键建需求」亮到第十轮，
+        /// 手一滑建出来的是早就聊废了的草稿。
+        /// </summary>
+        [Fact]
+        public void LiveCardIsRememberedPerConversation()
+        {
+            var root = NewTemporaryDirectory();
+            try
+            {
+                Assert.Equal("", LiveCardRegistry.Read(root, "c-1"));
+
+                Assert.True(LiveCardRegistry.Remember(root, "c-1", "om_first"));
+                Assert.Equal("om_first", LiveCardRegistry.Read(root, "c-1"));
+
+                // 后一张顶掉前一张：只有最新那张的按钮算数。
+                Assert.True(LiveCardRegistry.Remember(root, "c-1", "om_second"));
+                Assert.Equal("om_second", LiveCardRegistry.Read(root, "c-1"));
+
+                // 会话之间互不干扰。
+                Assert.Equal("", LiveCardRegistry.Read(root, "c-2"));
+
+                LiveCardRegistry.Forget(root, "c-1");
+                Assert.Equal("", LiveCardRegistry.Read(root, "c-1"));
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
+        }
+
+        /// <summary>会话标识或消息标识为空时不记——记了也撤不动，还多一次白跑的往返。</summary>
+        [Theory]
+        [InlineData("", "om_1")]
+        [InlineData("c-1", "")]
+        public void EmptyIdentifiersAreNotRemembered(string conversation, string messageIdentifier)
+        {
+            var root = NewTemporaryDirectory();
+            try
+            {
+                Assert.False(LiveCardRegistry.Remember(root, conversation, messageIdentifier));
+            }
+            finally
+            {
+                DeleteDirectory(root);
+            }
+        }
+
+        /// <summary>撤过的替身卡一个按钮都没有——留一个就等于没撤。</summary>
+        [Fact]
+        public void RetiredCardHasNoButtons()
+        {
+            var card = AssistantCard.ForRetired();
+
+            Assert.Empty(card.Buttons);
+            Assert.NotEqual("", card.BodyText);
         }
     }
 }
