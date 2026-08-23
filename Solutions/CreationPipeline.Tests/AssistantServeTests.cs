@@ -599,11 +599,11 @@ namespace Template.Toolkit.CreationPipeline.Tests
             {
                 Assert.Equal("", LiveCardRegistry.Read(root, "c-1"));
 
-                Assert.True(LiveCardRegistry.Remember(root, "c-1", "om_first"));
+                Assert.True(LiveCardRegistry.Remember(root, "c-1", "om_first", "{}"));
                 Assert.Equal("om_first", LiveCardRegistry.Read(root, "c-1"));
 
                 // 后一张顶掉前一张：只有最新那张的按钮算数。
-                Assert.True(LiveCardRegistry.Remember(root, "c-1", "om_second"));
+                Assert.True(LiveCardRegistry.Remember(root, "c-1", "om_second", "{}"));
                 Assert.Equal("om_second", LiveCardRegistry.Read(root, "c-1"));
 
                 // 会话之间互不干扰。
@@ -627,7 +627,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var root = NewTemporaryDirectory();
             try
             {
-                Assert.False(LiveCardRegistry.Remember(root, conversation, messageIdentifier));
+                Assert.False(LiveCardRegistry.Remember(root, conversation, messageIdentifier, "{}"));
             }
             finally
             {
@@ -635,14 +635,46 @@ namespace Template.Toolkit.CreationPipeline.Tests
             }
         }
 
-        /// <summary>撤过的替身卡一个按钮都没有——留一个就等于没撤。</summary>
+        /// <summary>
+        /// 撤按钮**只删按钮那一个元素**，正文与图原样留着。
+        /// 从前这里换的是一张写着「已翻篇」的替身卡，等于把聊天记录抹了——
+        /// 人翻上去想看之前聊到哪，看到的是一句没有信息的占位话。
+        /// </summary>
         [Fact]
-        public void RetiredCardHasNoButtons()
+        public void StripActionsKeepsEverythingButTheButtons()
         {
-            var card = AssistantCard.ForRetired();
+            var cardJson = @"{""config"":{""wide_screen_mode"":true},""elements"":["
+                + @"{""tag"":""div"",""text"":{""content"":""聊到哪了""}},"
+                + @"{""tag"":""img"",""img_key"":""img_v3_abc""},"
+                + @"{""tag"":""action"",""actions"":[{""tag"":""button""}]}]}";
 
-            Assert.Empty(card.Buttons);
-            Assert.NotEqual("", card.BodyText);
+            var stripped = LiveCardRegistry.StripActions(cardJson);
+
+            Assert.Contains("聊到哪了", stripped);
+            Assert.Contains("img_v3_abc", stripped);
+            Assert.DoesNotContain("\"action\"", stripped);
+        }
+
+        /// <summary>本来就没有按钮时返回空串——没什么可撤的，别白跑一次往返。</summary>
+        [Fact]
+        public void StripActionsReturnsEmptyWhenThereAreNoButtons()
+        {
+            var cardJson = @"{""elements"":[{""tag"":""div"",""text"":{""content"":""只有一句话""}}]}";
+
+            Assert.Equal("", LiveCardRegistry.StripActions(cardJson));
+        }
+
+        /// <summary>
+        /// 解析不动就返回空串，让调用方放弃这次撤——
+        /// **宁可按钮多留一会儿，也不许推一份残缺的卡上去。**
+        /// </summary>
+        [Theory]
+        [InlineData("")]
+        [InlineData("这不是 JSON")]
+        [InlineData("{\"没有\":\"elements\"}")]
+        public void StripActionsGivesUpOnUnreadableCards(string cardJson)
+        {
+            Assert.Equal("", LiveCardRegistry.StripActions(cardJson));
         }
     }
 }
