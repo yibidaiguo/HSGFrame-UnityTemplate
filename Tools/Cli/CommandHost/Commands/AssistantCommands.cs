@@ -1217,6 +1217,32 @@ namespace Template.Toolkit.CommandHost.Commands
             var description = ReadDraftString(request, "描述");
             var variantCount = ReadDraftInt(request, "变体数", 6);
 
+            // **接上设计库**：不接的话，每出一张图都是从零理解风格——
+            // 配方里那几句提示词就是模型知道的全部，第 5 个界面和第 1 个之间没有任何联系。
+            // 这一步模块还不知道（模块名要等拆图那步才有），所以取到的是项目级那一层：
+            // 总设计层、项目色板、负面清单，外加 Shared/ 里的通用件当参考图。
+            var anchor = StyleAnchorResolver.Resolve(
+                repositoryRoot, "", assetType,
+                referenceImagePath.Length > 0 ? 0 : StyleAnchorResolver.DefaultReferenceImageCount);
+
+            foreach (var note in anchor.Notes)
+            {
+                lines.Add("锚点：" + note);
+            }
+
+            var anchorFragment = StyleAnchorResolver.ToPromptFragment(anchor);
+            if (anchorFragment.Length > 0)
+            {
+                description = description.Length > 0 ? description + "。" + anchorFragment : anchorFragment;
+            }
+
+            // 人自己给了参考图时**不拿库里的顶替**——他给的那张才是这次要照的。
+            if (referenceImagePath.Length == 0 && anchor.ReferenceImages.Count > 0)
+            {
+                referenceImagePath = anchor.ReferenceImages[0];
+                lines.Add($"拿库里的同类当参考图：{referenceImagePath}");
+            }
+
             var made = ArtCommands.Request(new ArtRequestArguments
             {
                 RepositoryRoot = repositoryRoot,
@@ -1277,7 +1303,11 @@ namespace Template.Toolkit.CommandHost.Commands
 
             generated = true;
             var body = "出来了 " + images.Count + " 张（" + assetIdentifier + "，" + imageDriver + " 的 " + recipeName + " 配方"
-                + (referenceImagePath.Length > 0 ? "，照着你给的参考图" : "") + "）。"
+                + (referenceImagePath.Length > 0 ? "，照着参考图" : "") + "）。"
+                + (anchor.IsColdStart
+                    ? "\n这一批**没有风格锚点**（还没定过总设计与定稿）。挑中之后我把它定成第一版风格，"
+                        + "往后同类就有得参考了。"
+                    : "")
                 + "\n挑中哪张就直说，我把其余的弃掉；都不行就说改哪儿，我重出。"
                 + "\n本体在 " + variantDirectory;
 
@@ -1364,6 +1394,14 @@ namespace Template.Toolkit.CommandHost.Commands
         {
             failure = "";
 
+            // 重绘这一步**模块是已知的**，所以取得到模块级定稿——
+            // 「背包偏冷、商店偏暖」这种差异只有在这里才用得上。
+            var anchor = StyleAnchorResolver.Resolve(repositoryRoot, moduleName, UiElementAssetType, referenceImageCount: 0);
+            var anchorFragment = StyleAnchorResolver.ToPromptFragment(anchor);
+            var describedWithStyle = anchorFragment.Length > 0
+                ? displayName + "。" + anchorFragment
+                : displayName;
+
             var made = ArtCommands.Request(new ArtRequestArguments
             {
                 RepositoryRoot = repositoryRoot,
@@ -1374,7 +1412,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 // 它不会自己拼进落点里。
                 Destination = destination,
                 NamingText = naming,
-                Description = displayName,
+                Description = describedWithStyle,
                 VariantCount = 1,
                 Width = width,
                 Height = height
