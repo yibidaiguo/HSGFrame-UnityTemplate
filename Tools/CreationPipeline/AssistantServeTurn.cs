@@ -114,6 +114,17 @@ namespace Template.Toolkit.CreationPipeline
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
 
+        /// <summary>
+        /// 草稿在**校验**时用的占位号。
+        ///
+        /// 它不是这条需求将来的号——真号在落池子那一刻才发。
+        /// 之所以要有：校验器按 `^REQ-\d{4}$` 判 id 并比对目录名，
+        /// 而草稿 key 是内容哈希，长得不像编号，直接喂进去每条草稿都会白报一条「id 不合法」。
+        /// 用 0000 是因为它**永远不会是真号**（发号从 0001 起），
+        /// 万一漏在什么地方没被覆盖，一眼能认出是占位的。
+        /// </summary>
+        public const string ValidationPlaceholderIdentifier = "REQ-0000";
+
         /// <summary>助手发出去的草稿留底目录：&lt;仓库根&gt;/_Tasks/conversations/drafts。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         public static string DraftDirectory(string repositoryRoot)
@@ -250,7 +261,13 @@ namespace Template.Toolkit.CreationPipeline
             // 第 2 步 · 引擎补齐自己拥有的那几个字段。
             var identifier = DraftKey(reply.Draft);
             var draft = filtered.Kept;
-            draft["id"] = identifier;
+
+            // **草稿里的 id 是个占位号，不是它将来的号。**
+            // 真号在落池子那一刻才发；但校验器要按 `^REQ-\d{4}$` 判 id、还要比对目录名，
+            // 拿草稿 key（`REQ-草稿-xxxxxx`）去喂它，每条草稿都会白报一条「id 不合法」，
+            // 于是助手永远判「这条立不住」，而那份草稿明明是好的。
+            // 占位号只活到落池子那一步，届时被真号覆盖（见 TryLandRequirement 的调用方）。
+            draft["id"] = ValidationPlaceholderIdentifier;
             draft["状态"] = schema.StateMachine?.InitialState ?? "草稿";
             draft["锁定"] = false;
             draft["schema版本"] = schema.SchemaVersion ?? "";
@@ -265,7 +282,7 @@ namespace Template.Toolkit.CreationPipeline
             };
 
             // 第 3 步 · 现场跑校验：写临时目录，用与 pool.pull 同一个校验器同一份文案。
-            var findings = Validate(draft, identifier, schema);
+            var findings = Validate(draft, ValidationPlaceholderIdentifier, schema);
 
             var builder = new StringBuilder();
             builder.Append(reply.ReplyText);

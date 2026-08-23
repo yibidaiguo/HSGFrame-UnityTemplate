@@ -786,6 +786,11 @@ namespace Template.Toolkit.CommandHost.Commands
             failureReason = "";
             try
             {
+                // **把占位号换成真号**：草稿里那个 id 是给校验器看的占位（REQ-0000），
+                // 落池子这一刻才有真号。不覆盖的话，池子里那份的 id 与目录名对不上，
+                // 池子校验门禁当场判红——而红的原因跟「建需求」看着毫无关系。
+                draft["id"] = identifier;
+
                 var directory = PoolPaths.RequirementDirectory(poolRoot, identifier);
                 Directory.CreateDirectory(directory);
                 var filePath = PoolPaths.RequirementFile(poolRoot, identifier);
