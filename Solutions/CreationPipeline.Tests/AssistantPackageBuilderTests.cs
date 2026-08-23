@@ -10,16 +10,16 @@ namespace Template.Toolkit.CreationPipeline.Tests
     /// <summary>AssistantPackageBuilder 的assistant-package生成测试：六个文件、降级文案与内容核对。</summary>
     public class AssistantPackageBuilderTests
     {
-        /// <summary>七个文件都写出来了，且返回顺序即路径列表。</summary>
+        /// <summary>八个文件都写出来了，且返回顺序即路径列表。</summary>
         [Fact]
-        public void BuildWritesAllSevenFiles()
+        public void BuildWritesAllEightFiles()
         {
             using var workspace = PrepareWorkspace();
             var schema = PoolSchemaLoader.Load(workspace.Root, "需求");
 
             var files = AssistantPackageBuilder.Build(workspace.Root, workspace.Root, schema, "测试驱动", null);
 
-            Assert.Equal(7, files.Count);
+            Assert.Equal(8, files.Count);
             Assert.All(files, file => Assert.True(File.Exists(file)));
         }
 

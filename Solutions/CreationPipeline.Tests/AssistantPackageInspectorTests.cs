@@ -18,8 +18,8 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var inspection = AssistantPackageInspector.Inspect(workspace.Root, "demo");
 
             Assert.Empty(inspection.Findings);
-            Assert.Equal(11, inspection.Artifacts.Count);
-            Assert.Equal(11, inspection.MissingCount);
+            Assert.Equal(12, inspection.Artifacts.Count);
+            Assert.Equal(12, inspection.MissingCount);
             Assert.Equal(0, inspection.EmptyCount);
             Assert.All(inspection.Artifacts, artifact => Assert.False(artifact.Exists));
         }
@@ -79,7 +79,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             var inspection = AssistantPackageInspector.Inspect(workspace.Root, "demo");
 
-            Assert.Equal(11, inspection.Artifacts.Count);
+            Assert.Equal(12, inspection.Artifacts.Count);
             Assert.All(inspection.Artifacts, artifact => Assert.False(string.IsNullOrWhiteSpace(artifact.ImportHint)));
         }
 
