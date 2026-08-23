@@ -802,6 +802,15 @@ namespace Template.Toolkit.CommandHost.Commands
         {
             failureReason = "";
 
+            // **推之前先确保下游对象在**：这是「第一次触发时没有就自动建、有就沿用」那条规矩
+            // （子文档 02 §五之二）。不先跑这一步的话，人在飞书里删过一次东西之后，
+            // 这条链会拿着台账里那个死 id 去推文档，回一句指不到真因的下游报错。
+            //
+            // ensure 自己是幂等的：对象还在就只验一下、什么都不建，所以每次都跑不亏。
+            // 它失败**不打断**这一轮——文档推不推得上下面会如实报，
+            // 而把「补建对象失败」当成「需求没建成」是两回事。
+            EnsureDownstreamObjects(repositoryRoot, arguments, lines);
+
             var render = RequirementDocCommands.Render(new RequirementDocRenderArguments
             {
                 RequirementIdentifier = identifier,
@@ -1533,6 +1542,48 @@ namespace Template.Toolkit.CommandHost.Commands
 
         /// <summary>一次重绘大概几秒，只用来给人一个量级，不做任何判断。</summary>
         private const double SecondsPerRedraw = 20.0;
+
+        /// <summary>
+        /// 确保下游对象都在：没有的建出来，有的沿用，新建的 id 回填台账。
+        ///
+        /// 幂等，所以每次推文档前跑一遍不亏；失败只记一笔，不打断这一轮——
+        /// 「补建对象失败」与「需求没建成」是两回事，混成一句会让人去查错方向。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="arguments">常驻会话命令参数。</param>
+        /// <param name="lines">这一轮的日志行。</param>
+        private static void EnsureDownstreamObjects(
+            string repositoryRoot, AssistantServeArguments arguments, List<string> lines)
+        {
+            var routeTable = BridgeRouteTable.Load(repositoryRoot);
+            if (!routeTable.TryResolvePort("需求文档端", out var driverName, out var reason))
+            {
+                lines.Add($"补建下游对象跳过：需求文档端取不到（{reason}）");
+                return;
+            }
+
+            var ensured = BridgeEnsureCommands.Ensure(new BridgeEnsureArguments
+            {
+                Driver = driverName,
+                RepositoryRoot = repositoryRoot,
+                DryRun = false,
+                TimeoutSeconds = arguments.TimeoutSeconds
+            });
+
+            lines.Add($"下游对象：{ensured.Message}");
+            if (ensured.IsSuccess)
+            {
+                return;
+            }
+
+            foreach (var line in Detail(ensured).Split('\n'))
+            {
+                if (line.Trim().Length > 0)
+                {
+                    lines.Add("  " + line.Trim());
+                }
+            }
+        }
 
         /// <summary>取回来的附件：图片一组，别的文件一组。</summary>
         /// <param name="ImagePaths">图片的本地路径，按消息里的先后。</param>
