@@ -404,6 +404,80 @@ namespace Template.Toolkit.CreationPipeline
             queue.Enqueue(index);
         }
 
+        /// <summary>
+        /// 把四周全透明的边裁掉，只留下真正有内容的那一块。
+        ///
+        /// 为什么这一步不可少：下游只出它自己那几档尺寸（1024 见方、1536×1024…），
+        /// 而 UI 元素什么长宽比都有。一条 1565×54 的长条，模型会在 1536×1024 的画布上
+        /// 把它画在中间，四周全是透明——不裁就直接按 1565×54 缩回去，
+        /// 那条长条会被压成几个像素高，剩下的全是透明边，等于这张图废了。
+        /// 裁到内容边界之后再缩，元素才是满的。
+        ///
+        /// 整张都透明时**原样返回**：那说明模型什么都没画出来，
+        /// 裁成 0×0 只会让后面每一步都崩在一个跟真因无关的地方。
+        /// </summary>
+        /// <param name="image">要裁的图。</param>
+        /// <param name="note">裁了多少，一句人话；没裁时为空串。</param>
+        public static PngImage TrimTransparentBorder(PngImage image, out string note)
+        {
+            note = "";
+            if (image == null || image.Width <= 0 || image.Height <= 0)
+            {
+                return image;
+            }
+
+            var left = image.Width;
+            var top = image.Height;
+            var right = -1;
+            var bottom = -1;
+
+            for (var y = 0; y < image.Height; y++)
+            {
+                for (var x = 0; x < image.Width; x++)
+                {
+                    if (image.Pixels[(((y * image.Width) + x) * 4) + 3] <= TrimAlphaThreshold)
+                    {
+                        continue;
+                    }
+
+                    if (x < left) { left = x; }
+                    if (x > right) { right = x; }
+                    if (y < top) { top = y; }
+                    if (y > bottom) { bottom = y; }
+                }
+            }
+
+            if (right < left || bottom < top)
+            {
+                note = "整张图都是透明的，没裁——模型这一张什么都没画出来";
+                return image;
+            }
+
+            var width = right - left + 1;
+            var height = bottom - top + 1;
+            if (width == image.Width && height == image.Height)
+            {
+                return image;
+            }
+
+            var pixels = new byte[width * height * 4];
+            for (var row = 0; row < height; row++)
+            {
+                var sourceOffset = ((((top + row) * image.Width) + left) * 4);
+                var targetOffset = row * width * 4;
+                for (var index = 0; index < width * 4; index++)
+                {
+                    pixels[targetOffset + index] = image.Pixels[sourceOffset + index];
+                }
+            }
+
+            note = $"裁掉透明边：{image.Width}×{image.Height} → {width}×{height}";
+            return new PngImage(width, height, pixels);
+        }
+
+        /// <summary>alpha 到这个值以内都算透明。留一点余量给抗锯齿边缘那圈接近全透的像素。</summary>
+        private const byte TrimAlphaThreshold = 8;
+
         /// <summary>取一个像素的 RGBA。</summary>
         private static byte[] PixelAt(PngImage image, int x, int y)
         {

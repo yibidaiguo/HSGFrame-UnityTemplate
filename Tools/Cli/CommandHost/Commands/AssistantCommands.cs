@@ -1295,6 +1295,39 @@ namespace Template.Toolkit.CommandHost.Commands
         }
 
         /// <summary>
+        /// 就地把一张元素图四周的透明边裁掉。裁不动只记一笔，不打断这一个元素——
+        /// 没裁成最多是这张图边距大一点，把整趟拆图判死才是坏事。
+        /// </summary>
+        /// <param name="filePath">元素图路径。</param>
+        /// <param name="lines">执行流水。</param>
+        /// <param name="naming">这个元素的命名，用在流水里。</param>
+        private static void TrimElement(string filePath, List<string> lines, string naming)
+        {
+            var decoded = PngDecoder.DecodeFile(filePath);
+            if (!decoded.Succeeded)
+            {
+                lines.Add($"{naming} 读不回来，没裁透明边：{decoded.FailureReason}");
+                return;
+            }
+
+            var trimmed = AssetImageNormalizer.TrimTransparentBorder(decoded.Image, out var trimNote);
+            if (trimNote.Length > 0)
+            {
+                lines.Add($"{naming} {trimNote}");
+            }
+
+            if (ReferenceEquals(trimmed, decoded.Image))
+            {
+                return;
+            }
+
+            if (!PngEncoder.EncodeToFile(trimmed, filePath, out var encodeReason))
+            {
+                lines.Add($"{naming} 裁完写不回去：{encodeReason}");
+            }
+        }
+
+        /// <summary>
         /// 让模型照着一小块参考片段，重画一张干净的透明底单元素图。返回重绘出来那张图的路径；没成给空串。
         ///
         /// 走的是**正经的资产请求 → 生图**那条路，不是抄近道：每个 UI 元素本来就是一份独立资产，
@@ -1418,6 +1451,12 @@ namespace Template.Toolkit.CommandHost.Commands
             lines.Add($"生成三件套：{result.Message}");
             return result.IsSuccess;
         }
+
+        /// <summary>
+        /// 裁参考图时四周各留多少（按框自身宽高的比例）。
+        /// 12% 够把「框标小了半圈」这种常见偏差兜住，又不至于把邻居整个带进来。
+        /// </summary>
+        private const double ReferencePaddingRatio = 0.12;
 
         /// <summary>结果卡上最多逐条列几个元素；再多就只报个数——完整清单在面板定义里。</summary>
         private const int ElementListLimit = 10;
@@ -2139,7 +2178,9 @@ namespace Template.Toolkit.CommandHost.Commands
                 var layer = usable[index];
                 progress?.Invoke($"正在重绘第 {index + 1}/{usable.Count} 个元素（{layer.Name}）…");
 
-                var piece = UiLayerCutter.Cut(decoded.Image, layer);
+                // 带一圈留白裁：这一刀出来的是**给模型看的参考图**，不是成品。
+                // 贴着框裁的话，框标歪一点元素边缘就没了，模型照着残件抠出来的也是残的。
+                var piece = UiLayerCutter.Cut(decoded.Image, layer, ReferencePaddingRatio);
                 if (piece == null)
                 {
                     skipped.Add(layer.Name);
@@ -2147,6 +2188,9 @@ namespace Template.Toolkit.CommandHost.Commands
                 }
 
                 var naming = AssetNamingNormalizer.Normalize(layer.Name, spec?.NamingPattern ?? "").Naming;
+
+                // 坐标取**没留白的那个框**：那才是元素在界面上的真实位置，
+                // 留白只是给模型多看一圈上下文，不该跟着写进面板定义。
                 layer.ToPixels(decoded.Image.Width, decoded.Image.Height, out var x, out var y, out var w, out var h);
 
                 // 裁下来的片段先落临时区当参考图。
@@ -2193,8 +2237,13 @@ namespace Template.Toolkit.CommandHost.Commands
                     continue;
                 }
 
-                // 重绘出来的是下游档位的尺寸（比如 1024 见方），按框的实际尺寸缩回去。
-                // 透明这一步交给规格：模型应当已经给了透明底，归一只在没给时兜底。
+                // **先裁透明边，再缩**。下游只出它自己那几档尺寸，而 UI 元素什么长宽比都有：
+                // 一条 1565×54 的长条会被画在 1536×1024 的画布中间、四周全透明，
+                // 不裁就直接缩的话那条长条会被压成几个像素高，整张图作废。
+                TrimElement(filePath, lines, naming);
+
+                // 再按框的实际尺寸缩回去。透明这一步交给规格：
+                // 模型应当已经给了透明底，归一只在没给时兜底。
                 var normalized = AssetImageNormalizer.Normalize(filePath, w, h, needsTransparency);
                 foreach (var note in normalized.Remaining)
                 {

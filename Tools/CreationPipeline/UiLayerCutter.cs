@@ -252,6 +252,25 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="layer">这一层。</param>
         public static PngImage Cut(PngImage source, UiLayer layer)
         {
+            return Cut(source, layer, 0.0);
+        }
+
+        /// <summary>
+        /// 同上，四周多留一圈再裁。
+        ///
+        /// 为什么要留白：这一刀裁出来的**不是成品**，是「指给模型看是哪一块」的参考图，
+        /// 真正的抠图由下游的图像模型做。贴着框裁的话，框标歪一点元素边缘就被切掉，
+        /// 模型看到的是个残件，照着残件抠出来的自然也是残的——而模型对「中间那个才是要的」
+        /// 理解得很好，多给一圈上下文只会让它抠得更准。
+        ///
+        /// 留白只影响参考图。面板定义里记的坐标仍旧取**没留白的那个框**——
+        /// 那才是元素在界面上的真实位置。
+        /// </summary>
+        /// <param name="source">整屏设计图。</param>
+        /// <param name="layer">这一层的框。</param>
+        /// <param name="paddingRatio">四周各留多少，按框自身宽高的比例；0 表示贴着框裁。</param>
+        public static PngImage Cut(PngImage source, UiLayer layer, double paddingRatio)
+        {
             if (source == null || layer == null || !layer.IsUsable)
             {
                 return null;
@@ -261,6 +280,28 @@ namespace Template.Toolkit.CreationPipeline
             if (width <= 0 || height <= 0)
             {
                 return null;
+            }
+
+            if (paddingRatio > 0)
+            {
+                // 贴边的元素只能往里让，所以四边各自夹到图像边界——
+                // 不强求四边留得一样宽，宁可一边没留够，也不许越界。
+                var padX = (int)Math.Round(width * paddingRatio);
+                var padY = (int)Math.Round(height * paddingRatio);
+                var left = Math.Max(0, x - padX);
+                var top = Math.Max(0, y - padY);
+                var right = Math.Min(source.Width, x + width + padX);
+                var bottom = Math.Min(source.Height, y + height + padY);
+
+                x = left;
+                y = top;
+                width = right - left;
+                height = bottom - top;
+
+                if (width <= 0 || height <= 0)
+                {
+                    return null;
+                }
             }
 
             var pixels = new byte[width * height * 4];
