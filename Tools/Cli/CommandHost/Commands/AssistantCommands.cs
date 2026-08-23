@@ -605,11 +605,14 @@ namespace Template.Toolkit.CommandHost.Commands
                 return StartNewTopic(repositoryRoot, assistantDriver, signalFilePath, message, arguments, lines, out replyDelivered, out replyRetryable);
             }
 
-            if (string.Equals(message.ActionName, AssistantCard.CutAction, StringComparison.Ordinal))
+            if (string.Equals(message.ActionName, AssistantCard.CutAction, StringComparison.Ordinal)
+                || string.Equals(message.ActionName, AssistantCard.ConfirmCutAction, StringComparison.Ordinal))
             {
+                // 确认那一支走同一条路，只是这一次不再问「要花这些钱，确定吗」。
                 return HandleCut(
                     repositoryRoot, assistantDriver, backendDriver, signalFilePath, message, arguments, lines,
-                    out replyDelivered, out replyRetryable);
+                    out replyDelivered, out replyRetryable,
+                    confirmed: string.Equals(message.ActionName, AssistantCard.ConfirmCutAction, StringComparison.Ordinal));
             }
 
             if (string.Equals(message.ActionName, AssistantCard.GenerateAction, StringComparison.Ordinal))
@@ -1408,6 +1411,15 @@ namespace Template.Toolkit.CommandHost.Commands
             return result.IsSuccess;
         }
 
+        /// <summary>
+        /// 标到多少个元素就得先问一句。
+        /// 12 是「一屏正常的可交互件」那个量级；再多通常是模型把每个格子、每个小图标都框了一遍。
+        /// </summary>
+        private const int CutConfirmThreshold = 12;
+
+        /// <summary>一次重绘大概几秒，只用来给人一个量级，不做任何判断。</summary>
+        private const double SecondsPerRedraw = 20.0;
+
         /// <summary>取回来的附件：图片一组，别的文件一组。</summary>
         /// <param name="ImagePaths">图片的本地路径，按消息里的先后。</param>
         /// <param name="FileNotes">别的文件的一句话说明，进提示词用。</param>
@@ -1844,7 +1856,8 @@ namespace Template.Toolkit.CommandHost.Commands
             AssistantServeArguments arguments,
             List<string> lines,
             out bool replyDelivered,
-            out bool replyRetryable)
+            out bool replyRetryable,
+            bool confirmed = false)
         {
             var assetIdentifier = message.ReadActionValue("资产id");
             var variantText = message.ReadActionValue("变体序号");
@@ -1878,10 +1891,13 @@ namespace Template.Toolkit.CommandHost.Commands
                     message.ConversationIdentifier, "", variantIndex,
                     progress: text => UpdateCutCard(
                         repositoryRoot, assistantDriver, message, assetIdentifier, text,
-                        withButtons: false, arguments: arguments, lines: lines));
-                result = cut ? "已拆图" : "拆图失败";
+                        withButtons: false, arguments: arguments, lines: lines),
+                    confirmed: confirmed);
+                result = cut ? "已拆图" : (card != null ? "等确认" : "拆图失败");
 
-                if (!cut)
+                // 停在「要花这些钱吗」这一步时，卡片自己带着确认按钮，
+                // 不该再把「拆图」按钮换回原卡——那会变成两个入口，人点哪个都对不上。
+                if (!cut && card == null)
                 {
                     // 没拆成才把按钮换回来——拆成了就不该再有「拆图」这个动作留在原卡上，
                     // 结果卡自己带着「哪层不对直接说」那条路。
@@ -1935,7 +1951,8 @@ namespace Template.Toolkit.CommandHost.Commands
             string conversationIdentifier = "",
             string feedback = "",
             int variantIndex = 1,
-            Action<string> progress = null)
+            Action<string> progress = null,
+            bool confirmed = false)
         {
             card = null;
             cut = false;
@@ -2062,6 +2079,25 @@ namespace Template.Toolkit.CommandHost.Commands
                 {
                     skipped.Add(layer.Name.Length == 0 ? "（没名字的一层）" : layer.Name);
                 }
+            }
+
+            // 重绘是**一个元素一次生图调用**，而视觉模型标框很舍得——
+            // 一张背包界面标出过 86 个框，那就是 86 次调用。这种量级不该由机器替人决定，
+            // 所以超过门槛就停下来问一句；少于门槛的直接跑，不拿一个多余的确认去烦人。
+            if (!confirmed && usable.Count > CutConfirmThreshold)
+            {
+                var minutes = Math.Max(1, (int)Math.Round(usable.Count * SecondsPerRedraw / 60.0));
+                card = AssistantCard.ForCutConfirmation(
+                    assetIdentifier,
+                    variantIndex,
+                    usable.Count,
+                    "视觉模型在这张图上标了 " + usable.Count + " 个元素。\n"
+                        + "每个元素都要单独调一次生图重画成透明底单图——这一趟就是 "
+                        + usable.Count + " 次调用，大概 " + minutes + " 分钟，按次计费。\n"
+                        + "\n框标多了的话，先跟我说「合并掉那些小图标」「只要按钮和面板底」之类的，我重标一遍再拆，比直接跑省。\n"
+                        + "确定就点下面。");
+                lines.Add($"标到 {usable.Count} 个元素，超过 {CutConfirmThreshold}，停下来等确认");
+                return card.ToPlainText();
             }
 
             // 参考图片段落在临时区，不进正式落点：它带着邻居与面板底色，是**给模型看的**，

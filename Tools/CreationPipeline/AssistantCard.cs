@@ -56,6 +56,15 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>动作：把出来的那张界面设计图按元素拆成一张张单图，落进正式环境。</summary>
         public const string CutAction = "拆图";
 
+        /// <summary>
+        /// 动作：知道这一趟要花多少次调用，接着拆。
+        ///
+        /// 为什么要多这一步：重绘是**一个元素一次生图调用**，而视觉模型标框很舍得——
+        /// 一张背包界面标出过 86 个框，那就是 86 次调用。这种量级不该由机器替人决定。
+        /// 少于门槛的直接跑，不拿一个多余的确认去烦人。
+        /// </summary>
+        public const string ConfirmCutAction = "确认重绘";
+
         /// <summary>动作：丢掉这条会话的上下文，从头聊。</summary>
         public const string NewTopicAction = "开新话题";
 
@@ -429,6 +438,31 @@ namespace Template.Toolkit.CreationPipeline
                 Array.Empty<string>(),
                 buttons,
                 imagePaths);
+        }
+
+        /// <summary>
+        /// 标框标得太多时的「要花这些调用，确定吗」卡。
+        /// </summary>
+        /// <param name="assetIdentifier">要拆的资产 id。</param>
+        /// <param name="variantIndex">拆第几张变体。</param>
+        /// <param name="elementCount">标到多少个元素。</param>
+        /// <param name="bodyText">正文：把数量、时长、花销说在明处。</param>
+        public static AssistantCard ForCutConfirmation(
+            string assetIdentifier, int variantIndex, int elementCount, string bodyText)
+        {
+            var carried = new JsonObject
+            {
+                ["资产id"] = assetIdentifier,
+                ["变体序号"] = variantIndex.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            };
+
+            return new AssistantCard(
+                "拆图　标到 " + elementCount + " 个元素",
+                bodyText,
+                System.Array.Empty<System.Collections.Generic.KeyValuePair<string, string>>(),
+                Array.Empty<string>(),
+                new[] { new AssistantCardButton("知道了，接着拆", ConfirmCutAction, carried, isPrimary: true) },
+                Array.Empty<string>());
         }
 
         /// <summary>
