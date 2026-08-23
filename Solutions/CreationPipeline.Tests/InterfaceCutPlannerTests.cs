@@ -73,7 +73,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             using var workspace = new PoolTestWorkspace();
 
-            var plan = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, Conversation, "");
+            var plan = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, workspace.Root, Conversation, "");
 
             Assert.Null(plan.Spec);
             Assert.Empty(plan.Requests);
@@ -89,7 +89,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             workspace.CopyUiElementTemplateBaseline();
             AssistantServeTurn.RememberConversationRequirement(workspace.RepositoryRoot, Conversation, "REQ-0042");
 
-            var plan = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, Conversation, "");
+            var plan = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, workspace.Root, Conversation, "");
 
             Assert.Null(plan.Spec);
             Assert.Empty(plan.Requests);
@@ -111,7 +111,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 Element("标题文案", "Label")
             });
 
-            var plan = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, Conversation, "");
+            var plan = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, workspace.Root, Conversation, "");
 
             Assert.NotNull(plan.Spec);
             Assert.Equal("UI-0001", plan.Spec.Identifier);
@@ -133,7 +133,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 Element("标题文案", "Label")
             });
 
-            var plan = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, Conversation, "");
+            var plan = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, workspace.Root, Conversation, "");
 
             Assert.Empty(plan.Requests);
             Assert.Contains("这张图不用拆", plan.Blocker);
@@ -151,7 +151,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             WriteSpec(workspace, "UI-0002", "商店主界面", "Shop", "REQ-0042",
                 new JsonArray { Element("购买按钮", "Button") });
 
-            var plan = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, Conversation, "");
+            var plan = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, workspace.Root, Conversation, "");
 
             Assert.Null(plan.Spec);
             Assert.Empty(plan.Requests);
@@ -171,10 +171,10 @@ namespace Template.Toolkit.CreationPipeline.Tests
             WriteSpec(workspace, "UI-0002", "商店主界面", "Shop", "REQ-0042",
                 new JsonArray { Element("购买按钮", "Button") });
 
-            var byTitle = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, Conversation, "这张是商店那屏");
+            var byTitle = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, workspace.Root, Conversation, "这张是商店那屏");
             Assert.Equal("UI-0002", byTitle.Spec.Identifier);
 
-            var byIdentifier = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, Conversation, "照 UI-0001 切");
+            var byIdentifier = InterfaceCutPlanner.Resolve(workspace.RepositoryRoot, workspace.Root, Conversation, "照 UI-0001 切");
             Assert.Equal("UI-0001", byIdentifier.Spec.Identifier);
         }
 
@@ -191,7 +191,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 new JsonArray { Element("购买按钮", "Button") });
 
             var plan = InterfaceCutPlanner.Resolve(
-                workspace.RepositoryRoot, Conversation, "背包主界面和商店主界面都要");
+                workspace.RepositoryRoot, workspace.Root, Conversation, "背包主界面和商店主界面都要");
 
             Assert.Null(plan.Spec);
             Assert.NotEqual("", plan.Blocker);

@@ -177,33 +177,18 @@ namespace Template.Toolkit.CreationPipeline
             notes.Add($"需求：{rows.Count} 条");
         }
 
-        // 界面：`面板` 与模块同名的那些界面规格。面板名本来就决定资产目录与 uidef 名，
-        // 拿它当模块归属不是巧合——那是同一个名字的同一个用途。
+        // 界面：归属这个模块的那些界面规格（认规格里的「模块」，缺省退回面板名）。
+        // **一个模块可以有好几屏**（背包主界面 + 背包设置弹窗），所以不能只认面板名。
         private static void AppendInterfaces(
             List<string> lines, string repositoryRoot, string poolRoot, string moduleName, List<string> notes)
         {
             lines.Add("");
             lines.Add("### 界面与交互");
 
-            var found = new List<InterfaceSpec>();
-            var directory = InterfaceSpec.Directory(repositoryRoot);
-            if (Directory.Exists(directory))
+            var found = InterfaceSpec.FindByModule(repositoryRoot, moduleName, out var skipped);
+            foreach (var reason in skipped)
             {
-                var files = Directory.GetFiles(directory, "*.json");
-                Array.Sort(files, StringComparer.Ordinal);
-                foreach (var file in files)
-                {
-                    if (!InterfaceSpec.TryRead(file, out var spec, out var reason))
-                    {
-                        notes.Add($"界面规格 {Path.GetFileName(file)} 读不动：{reason}");
-                        continue;
-                    }
-
-                    if (string.Equals(spec.PanelName, moduleName, StringComparison.Ordinal))
-                    {
-                        found.Add(spec);
-                    }
-                }
+                notes.Add("界面规格读不动：" + reason);
             }
 
             if (found.Count == 0)

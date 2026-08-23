@@ -172,6 +172,10 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure("需求读不动：" + exception.Message);
             }
 
+            // 模块归属从需求的「专项」来。**界面是模块的属性，不是那条需求的属性**——
+            // 需求做完就归档，而这一屏还在，模块策划案得一直能把它列出来。
+            var moduleName = ModulePlanRefresher.ReadEpic(poolRoot, arguments.Requirement);
+
             var catalog = UiElementTemplateCatalog.Load(repositoryRoot, arguments.Panel ?? "");
 
             // 按三档读取策略取锚点：默认档（总设计层 + 定稿那几行），**不取参考图**——
@@ -212,7 +216,8 @@ namespace Template.Toolkit.CommandHost.Commands
             var modelText = ReadPayloadText(call.Payload);
             var identifier = InterfaceSpecDraftPrompt.AllocateIdentifier(repositoryRoot);
 
-            if (!InterfaceSpecDraftPrompt.TryParse(modelText, identifier, arguments.Requirement, out var draft, out var parseReason))
+            if (!InterfaceSpecDraftPrompt.TryParse(
+                modelText, identifier, arguments.Requirement, moduleName, out var draft, out var parseReason))
             {
                 return CommandResult.Failure("读不懂执行后端的回答：" + parseReason, lines);
             }
@@ -252,13 +257,15 @@ namespace Template.Toolkit.CommandHost.Commands
                 ? $"位图：{RelativeTo(repositoryRoot, rasterPath)}"
                 : $"位图没转成：{rasterFailure}");
 
-            // 布局图要进需求案，而需求案只存引用——所以位图得先落到这条需求自己的 media/ 里。
-            // 引 _Generated/ 不行：那是本机产物、进 .gitignore，换台机器那张图就断了。
-            var media = InterfaceLayoutMedia.Publish(
-                poolRoot, arguments.Requirement, identifier, rasterPath, out var mediaReason);
+            // 布局图落**模块策划案**的 media/，不是需求案的：这一屏是模块的属性，
+            // 需求做完就归档而图还要一直在。md 只存引用，所以位图得先真拷过去；
+            // 引 _Generated/ 不行——那是本机产物、进 .gitignore，换台机器那张图就断了。
+            var effectiveModule = draft["模块"]?.GetValue<string>() ?? moduleName;
+            var media = InterfaceLayoutMedia.PublishToModule(
+                poolRoot, effectiveModule, identifier, rasterPath, out var mediaReason);
             lines.Add(media.Length > 0
-                ? $"布局图进需求案：{RelativeTo(repositoryRoot, media)}"
-                : $"布局图没进需求案：{mediaReason}");
+                ? $"布局图进模块策划案：{RelativeTo(repositoryRoot, media)}"
+                : $"布局图没进模块策划案：{mediaReason}");
 
             var manifest = InterfaceAssetManifest.Build(repositoryRoot, spec, catalog);
             lines.Add($"资产清单：元素 {manifest.Count} 个，真要出 {InterfaceAssetManifest.CountToGenerate(manifest)} 张");

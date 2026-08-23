@@ -115,12 +115,14 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="modelText">模型原文。</param>
         /// <param name="identifier">机器发的界面 id。</param>
         /// <param name="requirementIdentifier">来源需求 id。</param>
+        /// <param name="moduleName">模块归属；空串表示退回面板名。</param>
         /// <param name="spec">解析出来的规格 JSON；失败时为 null。</param>
         /// <param name="reason">失败原因，人能看懂。</param>
         public static bool TryParse(
             string modelText,
             string identifier,
             string requirementIdentifier,
+            string moduleName,
             out JsonObject spec,
             out string reason)
         {
@@ -163,11 +165,19 @@ namespace Template.Toolkit.CreationPipeline
                 return false;
             }
 
-            // 机器该填的四样，一律以机器为准覆盖模型写的。
+            // 机器该填的几样，一律以机器为准覆盖模型写的。
             root["id"] = identifier;
             root["状态"] = "草稿";
             root["schema版本"] = "1.0.0";
             root["来源需求"] = new JsonArray { requirementIdentifier };
+
+            // 模块归属：**这一屏是模块的属性，不是那条需求的属性**——需求做完就归档，
+            // 而这一屏还在。归属由调用方按需求的「专项」给，模型不参与；
+            // 给不出来时退回面板名（下面那一刀归一之后的），不留空。
+            if (!string.IsNullOrWhiteSpace(moduleName))
+            {
+                root["模块"] = UiLayerCutter.SafeModuleName(moduleName);
+            }
 
             // 面板名归一：它会变成资产目录名与 uidef 名，**不能带空格与中文**
             // （决策 1：全仓路径只许 ASCII）。模型给的名字九成是对的，
@@ -176,6 +186,11 @@ namespace Template.Toolkit.CreationPipeline
             {
                 var safePanel = UiLayerCutter.SafeModuleName(rawPanel);
                 root["面板"] = safePanel.Length > 0 ? safePanel : "Common";
+            }
+
+            if (root["模块"] == null)
+            {
+                root["模块"] = root["面板"]?.GetValue<string>() ?? "Common";
             }
 
             spec = root;

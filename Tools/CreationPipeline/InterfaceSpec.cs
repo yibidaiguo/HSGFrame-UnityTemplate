@@ -214,6 +214,22 @@ namespace Template.Toolkit.CreationPipeline
             get { return ReadCanvas("高"); }
         }
 
+        /// <summary>
+        /// 这一屏归哪个模块。
+        ///
+        /// **优先读「模块」，没有才退回「面板」**：一个模块可以有好几屏
+        /// （背包主界面 + 背包设置弹窗），那时面板名各不相同而模块是同一个。
+        /// 老规格里没有「模块」这一格，退回面板名是它们当时的实际含义，不算猜。
+        /// </summary>
+        public string ModuleName
+        {
+            get
+            {
+                var declared = ReadString("模块");
+                return declared.Length > 0 ? declared : PanelName;
+            }
+        }
+
         /// <summary>来源需求 id 列表；一个界面会被多条需求改，所以这是数组不是单值。</summary>
         public IReadOnlyList<string> SourceRequirements
         {
@@ -252,12 +268,56 @@ namespace Template.Toolkit.CreationPipeline
         public static IReadOnlyList<InterfaceSpec> FindByRequirement(
             string repositoryRoot, string requirementIdentifier, out IReadOnlyList<string> reasons)
         {
+            return FindBy(
+                repositoryRoot,
+                requirementIdentifier,
+                (spec, identifier) =>
+                {
+                    foreach (var source in spec.SourceRequirements)
+                    {
+                        if (string.Equals(source, identifier, StringComparison.Ordinal))
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                },
+                out reasons);
+        }
+
+        /// <summary>
+        /// 找出归属某个模块的全部界面规格。
+        ///
+        /// 模块策划案要靠它把这个模块的每一屏都列全——**界面是模块的属性，不是某条需求的属性**：
+        /// 需求做完就归档，而这一屏还在那儿。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="moduleName">模块名。</param>
+        /// <param name="reasons">跳过了哪些、为什么；一份一条。</param>
+        public static IReadOnlyList<InterfaceSpec> FindByModule(
+            string repositoryRoot, string moduleName, out IReadOnlyList<string> reasons)
+        {
+            return FindBy(
+                repositoryRoot,
+                moduleName,
+                (spec, name) => string.Equals(spec.ModuleName, name, StringComparison.Ordinal),
+                out reasons);
+        }
+
+        // FindByRequirement 与 FindByModule 共用的扫法：判据不同，别的全一样。
+        private static IReadOnlyList<InterfaceSpec> FindBy(
+            string repositoryRoot,
+            string key,
+            Func<InterfaceSpec, string, bool> matches,
+            out IReadOnlyList<string> reasons)
+        {
             var skipped = new List<string>();
             reasons = skipped;
 
             var result = new List<InterfaceSpec>();
             var directory = Directory(repositoryRoot);
-            if (string.IsNullOrWhiteSpace(requirementIdentifier) || !SystemDirectory.Exists(directory))
+            if (string.IsNullOrWhiteSpace(key) || !SystemDirectory.Exists(directory))
             {
                 return result;
             }
@@ -273,13 +333,9 @@ namespace Template.Toolkit.CreationPipeline
                     continue;
                 }
 
-                foreach (var source in spec.SourceRequirements)
+                if (matches(spec, key))
                 {
-                    if (string.Equals(source, requirementIdentifier, StringComparison.Ordinal))
-                    {
-                        result.Add(spec);
-                        break;
-                    }
+                    result.Add(spec);
                 }
             }
 

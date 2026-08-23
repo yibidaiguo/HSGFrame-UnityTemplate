@@ -700,6 +700,17 @@ namespace Template.Toolkit.CommandHost.Commands
                     $"路由理由：{routing?.Reason ?? "无"}"
                 };
 
+                // **验收那一刻把模块策划案重渲一遍。** 需求走到「已完成」，
+                // 那份模块正本就过期了——「需求」那一节还写着进行中，界面还是上一版。
+                // 过期的正本比没有更糟：人会照着它做决定，还以为看的是现状。
+                // 渲不动只多记一笔，不影响出站本身——出站意图已经落盘了。
+                if (string.Equals(arguments.EventName, CompletedEventName, StringComparison.Ordinal))
+                {
+                    ModulePlanRefresher.RefreshForRequirement(
+                        repositoryRoot, poolRoot, arguments.RequirementIdentifier, out var planNotes);
+                    lines.AddRange(planNotes);
+                }
+
                 return CommandResult.Success($"出站意图已生成：{result.FilePath}", lines);
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
@@ -707,6 +718,9 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure($"出站失败：{exception.Message}");
             }
         }
+
+        /// <summary>验收那一档的事件名：走到它就该把模块策划案重渲一遍。</summary>
+        private const string CompletedEventName = "已完成";
 
         /// <summary>
         /// 查看一条或全部需求的任务状态文本树；只读命令，不写任何文件。

@@ -43,13 +43,55 @@ namespace Template.Toolkit.CreationPipeline
             string rasterPath,
             out string reason)
         {
-            reason = "";
-
             if (string.IsNullOrWhiteSpace(requirementIdentifier))
             {
                 reason = "这份界面规格没归到需求上，布局图不进 media/";
                 return "";
             }
+
+            return CopyInto(
+                PoolPaths.RequirementMediaDirectory(poolRoot, requirementIdentifier),
+                interfaceIdentifier,
+                rasterPath,
+                out reason);
+        }
+
+        /// <summary>
+        /// 把布局位图拷进**模块策划案**的 media/。这是常规落点。
+        ///
+        /// 为什么不是需求案那份：一屏界面是**模块的属性**——需求做完就归档，
+        /// 而这一屏还在，模块策划案得一直能把它列出来、把图显出来。
+        /// </summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="moduleName">模块名；空表示归不到模块，直接跳过。</param>
+        /// <param name="interfaceIdentifier">界面 id。</param>
+        /// <param name="rasterPath">位图源文件；空或不存在时跳过。</param>
+        /// <param name="reason">跳过或失败的原因；成功时为空串。</param>
+        public static string PublishToModule(
+            string poolRoot,
+            string moduleName,
+            string interfaceIdentifier,
+            string rasterPath,
+            out string reason)
+        {
+            if (string.IsNullOrWhiteSpace(moduleName))
+            {
+                reason = "这份界面规格没归到模块上，布局图不进 media/";
+                return "";
+            }
+
+            return CopyInto(
+                PoolPaths.ModulePlanMediaDirectory(poolRoot, moduleName),
+                interfaceIdentifier,
+                rasterPath,
+                out reason);
+        }
+
+        // 两条落点共用的那一刀：查料、建目录、拷、盖掉旧的。
+        private static string CopyInto(
+            string mediaDirectory, string interfaceIdentifier, string rasterPath, out string reason)
+        {
+            reason = "";
 
             if (string.IsNullOrWhiteSpace(interfaceIdentifier))
             {
@@ -65,10 +107,9 @@ namespace Template.Toolkit.CreationPipeline
 
             try
             {
-                var directory = PoolPaths.RequirementMediaDirectory(poolRoot, requirementIdentifier);
-                Directory.CreateDirectory(directory);
+                Directory.CreateDirectory(mediaDirectory);
 
-                var target = Path.Combine(directory, interfaceIdentifier + FileNameSuffix);
+                var target = Path.Combine(mediaDirectory, interfaceIdentifier + FileNameSuffix);
                 File.Copy(rasterPath, target, overwrite: true);
                 return target;
             }

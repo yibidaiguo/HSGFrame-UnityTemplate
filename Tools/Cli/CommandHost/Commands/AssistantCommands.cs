@@ -132,7 +132,7 @@ namespace Template.Toolkit.CommandHost.Commands
             try
             {
                 repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot);
-                poolRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.PoolRoot) ? "Pools" : arguments.PoolRoot);
+                poolRoot = ResolvePoolRoot(arguments);
             }
             catch (Exception exception)
             {
@@ -916,6 +916,20 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             return link;
+        }
+
+        /// <summary>
+        /// 池子根目录：参数给了用参数的，没给用当前目录下的 Pools。
+        ///
+        /// 单独抽出来是因为**这一处解析有两个调用点**（起会话时、拆图时），
+        /// 各写一遍的话，哪天有人只改了其中一处，拆图就会去另一个池子里找需求，
+        /// 而那种错找起来极难——两边都「有池子」，只是不是同一个。
+        /// </summary>
+        /// <param name="arguments">常驻会话命令参数。</param>
+        private static string ResolvePoolRoot(AssistantServeArguments arguments)
+        {
+            return Path.GetFullPath(
+                string.IsNullOrWhiteSpace(arguments?.PoolRoot) ? "Pools" : arguments.PoolRoot);
         }
 
         /// <summary>从需求文档的同步块里读回文档链接；读不到给空串。</summary>
@@ -1787,10 +1801,12 @@ namespace Template.Toolkit.CommandHost.Commands
 
                 result = drafted.IsSuccess ? "已出功能图" : "出功能图失败";
 
-                // **出完就把需求案重推一遍**：界面规格与布局图是需求案的一部分
-                // （元素行为表进生成区、布局图进 media/），不回推的话飞书上那份
-                // 永远停在「建需求」那一刻的样子——目标玩法齐了，界面一个字没有，
-                // 而这一层正是程序照着开工要看的东西。
+                // 出完重渲染的是**模块策划案**，不是需求案：元素行为表与布局图住在那一层
+                // （一个模块一份，常驻）。需求案这边只跟着更新那一行指针。
+                //
+                // 不回写的话，那份模块正本上「界面与交互」永远是空的，
+                // 而它正是程序照着开工要看的东西。
+                var moduleName = ModulePlanRefresher.ReadEpic(poolRoot, requirementIdentifier);
                 var documentLink = "";
                 if (drafted.IsSuccess)
                 {
@@ -1800,13 +1816,18 @@ namespace Template.Toolkit.CommandHost.Commands
                     {
                         lines.Add("需求案重推失败：" + republishFailure);
                     }
+
+                    ModulePlanRefresher.RefreshForRequirement(
+                        repositoryRoot, poolRoot, requirementIdentifier, out var planNotes);
+                    lines.AddRange(planNotes);
                 }
 
                 replyText = drafted.IsSuccess
                     ? "功能图出好了：" + drafted.Message
                         + "\n" + Detail(drafted)
-                        + "\n" + "界面规格与元素行为表已经写进需求案，白块布局图也一并进去了"
-                        + (documentLink.Length > 0 ? "：" + documentLink : "（这次没推上飞书，仓库里那份是全的）")
+                        + "\n" + "元素行为表与白块布局图已经写进模块策划案"
+                        + (moduleName.Length > 0 ? "（" + moduleName + "）" : "")
+                        + (documentLink.Length > 0 ? "；需求案：" + documentLink : "")
                         + "\n" + "哪个功能位不对、少了什么，直接说。"
                     : "功能图没出成：" + drafted.Message + Detail(drafted) + "\n" + "再点一次可以重试。";
             }
@@ -2407,7 +2428,8 @@ namespace Template.Toolkit.CommandHost.Commands
             // 两条路的区别不在准不准，在**谁说了算**：清单是策划审过的功能契约，
             // 猜出来的是视觉模型看图看出来的。从前一屏猜出上百个、跟需求对不上、
             // 通用件认不出来——三样都是从这一点上错的（子文档 08 §六）。
-            var plan = InterfaceCutPlanner.Resolve(repositoryRoot, conversationIdentifier, feedback);
+            var plan = InterfaceCutPlanner.Resolve(
+                repositoryRoot, ResolvePoolRoot(arguments), conversationIdentifier, feedback);
             lines.AddRange(plan.Notes);
             if (plan.Blocker.Length > 0)
             {

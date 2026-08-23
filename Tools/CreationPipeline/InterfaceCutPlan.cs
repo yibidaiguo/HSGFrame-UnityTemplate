@@ -36,9 +36,11 @@ namespace Template.Toolkit.CreationPipeline
         ///   这时问一句最便宜：视觉模型那一刀还没下去。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="poolRoot">池子根目录，用来读需求的「专项」。</param>
         /// <param name="conversationIdentifier">会话标识；空表示认不出在做哪条需求。</param>
         /// <param name="hint">人这次说的话；有歧义时拿它认是哪一屏。空串表示没线索。</param>
-        public static InterfaceCutPlan Resolve(string repositoryRoot, string conversationIdentifier, string hint)
+        public static InterfaceCutPlan Resolve(
+            string repositoryRoot, string poolRoot, string conversationIdentifier, string hint)
         {
             var notes = new List<string>();
             var empty = Array.Empty<UiLayerRequest>() as IReadOnlyList<UiLayerRequest>;
@@ -51,7 +53,23 @@ namespace Template.Toolkit.CreationPipeline
                 return new InterfaceCutPlan(null, empty, "", notes);
             }
 
-            var found = InterfaceSpec.FindByRequirement(repositoryRoot, requirementIdentifier, out var skipped);
+            // **按模块找，不按需求找。** 界面是模块的属性——这条需求可能只改了背包的一个按钮，
+            // 而要切的是整屏背包，它多半是更早那条需求出的。按需求找会把「这一屏有规格」
+            // 误判成「没规格」，然后退回看图猜，白白丢掉一份已经审过的清单。
+            var moduleName = ModulePlanRefresher.ReadEpic(poolRoot, requirementIdentifier);
+            IReadOnlyList<InterfaceSpec> found;
+            IReadOnlyList<string> skipped;
+            if (moduleName.Length > 0)
+            {
+                found = InterfaceSpec.FindByModule(repositoryRoot, moduleName, out skipped);
+            }
+            else
+            {
+                // 没挂专项时退回按需求找：聊出来的临时需求可能还没归模块。
+                notes.Add(requirementIdentifier + " 没挂专项，退回按需求找界面规格");
+                found = InterfaceSpec.FindByRequirement(repositoryRoot, requirementIdentifier, out skipped);
+            }
+
             foreach (var reason in skipped)
             {
                 notes.Add("界面规格读不动：" + reason);
@@ -59,7 +77,8 @@ namespace Template.Toolkit.CreationPipeline
 
             if (found.Count == 0)
             {
-                notes.Add(requirementIdentifier + " 还没出过功能图，按看图猜元素拆");
+                notes.Add((moduleName.Length > 0 ? moduleName : requirementIdentifier)
+                    + " 还没出过功能图，按看图猜元素拆");
                 return new InterfaceCutPlan(null, empty, "", notes);
             }
 
@@ -77,17 +96,19 @@ namespace Template.Toolkit.CreationPipeline
                         names.Add(candidate.Identifier + "「" + candidate.Title + "」");
                     }
 
-                    notes.Add(requirementIdentifier + " 名下有 " + found.Count + " 份界面规格，停下来问是哪一屏");
+                    var owner = moduleName.Length > 0 ? moduleName : requirementIdentifier;
+                    notes.Add(owner + " 名下有 " + found.Count + " 份界面规格，停下来问是哪一屏");
                     return new InterfaceCutPlan(
                         null,
                         empty,
-                        requirementIdentifier + " 名下有好几屏：" + string.Join("、", names)
+                        owner + " 名下有好几屏：" + string.Join("、", names)
                             + "。\n这张图是哪一屏？说一句我就照那份的清单切——"
                             + "猜错了就是照着这一屏的清单去切另一屏，一趟钱白花还得重来。",
                         notes);
                 }
 
-                notes.Add(requirementIdentifier + " 名下有 " + found.Count + " 份，按人说的认出 " + picked.Identifier);
+                notes.Add((moduleName.Length > 0 ? moduleName : requirementIdentifier)
+                    + " 名下有 " + found.Count + " 份，按人说的认出 " + picked.Identifier);
                 found = new[] { picked };
             }
 

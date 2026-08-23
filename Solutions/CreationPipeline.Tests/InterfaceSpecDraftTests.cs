@@ -71,7 +71,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             var text = "好的，这是规格：\n```json\n" + MinimalReply + "\n```\n就这样。";
 
-            Assert.True(InterfaceSpecDraftPrompt.TryParse(text, "UI-0003", "REQ-0042", out var spec, out var reason), reason);
+            Assert.True(InterfaceSpecDraftPrompt.TryParse(text, "UI-0003", "REQ-0042", "", out var spec, out var reason), reason);
             Assert.Equal("Inventory", spec["面板"].GetValue<string>());
         }
 
@@ -84,7 +84,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             var text = MinimalReply.Replace("\"面板\"", "\"id\": \"UI-9999\", \"状态\": \"已定稿\", \"面板\"");
 
-            Assert.True(InterfaceSpecDraftPrompt.TryParse(text, "UI-0003", "REQ-0042", out var spec, out _));
+            Assert.True(InterfaceSpecDraftPrompt.TryParse(text, "UI-0003", "REQ-0042", "", out var spec, out _));
 
             Assert.Equal("UI-0003", spec["id"].GetValue<string>());
             Assert.Equal("草稿", spec["状态"].GetValue<string>());
@@ -98,7 +98,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [InlineData("{\"面板\":\"Inventory\",\"元素\":[]}", "元素")]
         public void UnusableReplyIsRejectedWithAReadableReason(string text, string expectedFragment)
         {
-            Assert.False(InterfaceSpecDraftPrompt.TryParse(text, "UI-0003", "REQ-0042", out var spec, out var reason));
+            Assert.False(InterfaceSpecDraftPrompt.TryParse(text, "UI-0003", "REQ-0042", "", out var spec, out var reason));
             Assert.Null(spec);
             Assert.Contains(expectedFragment, reason);
         }
@@ -107,7 +107,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void NestedBracesDoNotTruncateTheJson()
         {
-            Assert.True(InterfaceSpecDraftPrompt.TryParse(MinimalReply, "UI-0003", "REQ-0042", out var spec, out _));
+            Assert.True(InterfaceSpecDraftPrompt.TryParse(MinimalReply, "UI-0003", "REQ-0042", "", out var spec, out _));
 
             var elements = spec["元素"] as JsonArray;
             Assert.Single(elements);
@@ -120,7 +120,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             var text = MinimalReply.Replace("\"点了会重排\"", "\"提示写作 {已用}/{总数}\"");
 
-            Assert.True(InterfaceSpecDraftPrompt.TryParse(text, "UI-0003", "REQ-0042", out var spec, out var reason), reason);
+            Assert.True(InterfaceSpecDraftPrompt.TryParse(text, "UI-0003", "REQ-0042", "", out var spec, out var reason), reason);
             Assert.Single(spec["元素"] as JsonArray);
         }
 
