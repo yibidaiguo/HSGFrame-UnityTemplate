@@ -1411,6 +1411,9 @@ namespace Template.Toolkit.CommandHost.Commands
             return result.IsSuccess;
         }
 
+        /// <summary>结果卡上最多逐条列几个元素；再多就只报个数——完整清单在面板定义里。</summary>
+        private const int ElementListLimit = 10;
+
         /// <summary>
         /// 标到多少个元素就得先问一句。
         /// 12 是「一屏正常的可交互件」那个量级；再多通常是模型把每个格子、每个小图标都框了一遍。
@@ -1542,11 +1545,14 @@ namespace Template.Toolkit.CommandHost.Commands
                 return;
             }
 
-            var variantDirectory = AssetPaths.VariantDirectory(
-                repositoryRoot, AssetRequest.UnownedRequirementIdentifier, assetIdentifier);
-            var images = ListVariantImages(variantDirectory);
-
-            var card = AssistantCard.ForGeneratedImages(statusText, images, assetIdentifier, canCut: withButtons);
+            // **换上去的卡不带图**：card-update 那条路不传图（uploadImages: false），
+            // 传了也是白传——换完人看到的就是一张没有图的卡。
+            // 所以状态文案里得自己把「在拆哪一份」说清楚，不能指望旁边那几张图替它交代。
+            var card = AssistantCard.ForGeneratedImages(
+                assetIdentifier + "　" + statusText,
+                Array.Empty<string>(),
+                assetIdentifier,
+                canCut: withButtons);
             var payload = JsonSerializer.SerializeToElement(new JsonObject
             {
                 ["干跑"] = false,
@@ -2209,13 +2215,24 @@ namespace Template.Toolkit.CommandHost.Commands
 
             cut = true;
             var builder = new StringBuilder();
-            builder.Append("拆出 ").Append(written.Count).Append(" 个元素，每个都是模型照着设计图重画的透明底单图，")
-                .Append("已经落进正式环境：\n").Append(destination).Append('\n');
-            foreach (var element in elements)
+            builder.Append("拆出 ").Append(written.Count).Append(" 个元素，每个都是模型照着设计图重画的透明底单图。")
+                .Append("\n\n全在这儿了，去引擎里看：\n").Append(destination).Append('\n');
+
+            // **清单封顶**：一屏能拆出几十个元素，几十行清单刷下来聊天框根本没法看
+            // （真被这么抱怨过）。完整的名字与坐标都在面板定义里，图本体在引擎的正式落点里——
+            // 在 Project 面板里扫一眼，比在聊天里一条条翻快得多。
+            for (var index = 0; index < elements.Count && index < ElementListLimit; index++)
             {
+                var element = elements[index];
                 builder.Append("· ").Append(element.DisplayName).Append("　")
                     .Append(element.Width).Append('×').Append(element.Height)
                     .Append("　→ ").Append(element.ElementType).Append('\n');
+            }
+
+            if (elements.Count > ElementListLimit)
+            {
+                builder.Append("· …另外 ").Append(elements.Count - ElementListLimit)
+                    .Append(" 个，名字与坐标都在下面那份面板定义里。").Append('\n');
             }
 
             if (skipped.Count > 0)
@@ -2242,7 +2259,19 @@ namespace Template.Toolkit.CommandHost.Commands
                     .Append("不然下次跑门禁会因为「生成物幂等」判红。");
             }
 
-            card = AssistantCard.ForGeneratedImages(builder.ToString(), written);
+            // **贴图张数也封顶**，且贴的是缩略图（桥那边 compact_width，点开能放大）。
+            // 几十张满宽大图刷下来，人要滑半天才划得完；前几张够看出拆成了什么样，
+            // 剩下的报个路径就行——它们已经在引擎里了。
+            var shown = written.Count <= AssistantCard.MaximumImagesOnCard
+                ? written
+                : written.GetRange(0, AssistantCard.MaximumImagesOnCard);
+            if (written.Count > shown.Count)
+            {
+                builder.Append("\n（下面只贴了前 ").Append(shown.Count).Append(" 张缩略图，点开能放大；其余 ")
+                    .Append(written.Count - shown.Count).Append(" 张去上面那个目录看。）").Append('\n');
+            }
+
+            card = AssistantCard.ForGeneratedImages(builder.ToString(), shown);
             return card.ToPlainText();
         }
 

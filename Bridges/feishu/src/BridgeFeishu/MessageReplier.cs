@@ -212,12 +212,17 @@ namespace Template.Bridges.Feishu
                         continue;
                     }
 
+                    // 缩略图，不是满宽大图。一张卡上贴几张图时，满宽（fit_horizontal）
+                    // 会把聊天框撑成长长一条，人要滑半天才划得完——真被这么抱怨过。
+                    // compact_width 把宽度压到 278px，crop_center 对长图限高；
+                    // 点击放大是 preview 的默认行为，看细节照样看得到。
                     elements.Add(new JsonObject
                     {
                         ["tag"] = "img",
                         ["img_key"] = imageKey,
                         ["alt"] = new JsonObject { ["tag"] = "plain_text", ["content"] = System.IO.Path.GetFileName(path) },
-                        ["mode"] = "fit_horizontal",
+                        ["mode"] = "crop_center",
+                        ["compact_width"] = true,
                         ["preview"] = true
                     });
                 }

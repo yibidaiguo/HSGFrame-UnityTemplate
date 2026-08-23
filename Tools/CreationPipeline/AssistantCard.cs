@@ -57,6 +57,15 @@ namespace Template.Toolkit.CreationPipeline
         public const string CutAction = "拆图";
 
         /// <summary>
+        /// 一张卡上最多贴几张图。
+        ///
+        /// 拆一屏能出几十个元素，几十张图刷下来聊天框没法看，上传也要几十次往返。
+        /// 贴前几张让人一眼知道拆成了什么样，剩下的报路径——它们已经在引擎的正式落点里，
+        /// 在 Project 面板里扫一眼比在聊天里一张张翻快得多。
+        /// </summary>
+        public const int MaximumImagesOnCard = 6;
+
+        /// <summary>
         /// 动作：知道这一趟要花多少次调用，接着拆。
         ///
         /// 为什么要多这一步：重绘是**一个元素一次生图调用**，而视觉模型标框很舍得——
