@@ -150,6 +150,57 @@ namespace Template.Toolkit.CreationPipeline.Tests
         }
 
         /// <summary>造一张临时 PNG，像素由回调给。</summary>
+        /// <summary>
+        /// 主体本身带着背景那个色（白底上的白衣白发）时不许抠——漫延会顺着主体一路灌进去，
+        /// 拆出来一身洞。真炸过：拆出来的立绘白衣白发全是破碎的挖空。
+        ///
+        /// 判据是「容差减半再灌一遍，两次差多少」：分得开的图两次几乎一样，
+        /// 这种图容差稍一松就多吃掉一大片。
+        /// </summary>
+        [Fact]
+        public void SubjectSharingBackgroundColourIsRefusedInsteadOfPunched()
+        {
+            // 纯白底 + 一块几乎纯白的主体（离白 7：紧容差 5 灌不动、松容差 10 灌得动），
+            // 且主体贴着左边缘、与背景连通——正是会被灌穿的那种形状。
+            // 两次容差差出一大截，稳定性判据就是靠这个把它拦下来的。
+            var path = NewTemporaryPng(64, 64, (x, y) =>
+                x < 40 && y > 8 && y < 56
+                    ? new byte[] { 248, 248, 248, 255 }
+                    : new byte[] { 255, 255, 255, 255 });
+            try
+            {
+                var outcome = AssetImageNormalizer.Normalize(path, 0, 0, needsTransparency: true);
+
+                Assert.False(outcome.Changed);
+                Assert.Contains(outcome.Remaining, note => note.Contains("灌进主体") || note.Contains("没敢抠透明"));
+            }
+            finally
+            {
+                Delete(path);
+            }
+        }
+
+        /// <summary>背景与主体分得开时照抠不误——收紧判据不能把本来能干的活也拦了。</summary>
+        [Fact]
+        public void WellSeparatedSubjectStillGetsItsBackgroundCleared()
+        {
+            var path = NewTemporaryPng(64, 64, (x, y) =>
+                x > 16 && x < 48 && y > 16 && y < 48
+                    ? new byte[] { 20, 40, 200, 255 }
+                    : new byte[] { 255, 255, 255, 255 });
+            try
+            {
+                var outcome = AssetImageNormalizer.Normalize(path, 0, 0, needsTransparency: true);
+
+                Assert.True(outcome.Changed);
+                Assert.Contains(outcome.Notes, note => note.Contains("抠成透明"));
+            }
+            finally
+            {
+                Delete(path);
+            }
+        }
+
         private static string NewTemporaryPng(int width, int height, Func<int, int, byte[]> pixelAt)
         {
             var pixels = new byte[width * height * 4];

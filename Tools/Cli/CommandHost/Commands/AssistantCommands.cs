@@ -1803,6 +1803,10 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <param name="lines">这一轮的日志行。</param>
         /// <param name="card">拆成了时带图的卡片；没拆成为 null。</param>
         /// <param name="cut">真拆出东西了没有。</param>
+        /// <param name="conversationIdentifier">会话标识，拆图留底按它归档。</param>
+        /// <param name="feedback">重拆意见；空串表示头一次拆。</param>
+        /// <param name="variantIndex">拆第几张变体，从 1 起。</param>
+        /// <param name="progress">报进度用；给 null 就不报。标框那一步几十秒，中间不吭声人会以为卡死了。</param>
         private static string RunCut(
             string repositoryRoot,
             string backendDriver,

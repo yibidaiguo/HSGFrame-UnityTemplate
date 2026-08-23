@@ -95,5 +95,32 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             Assert.Equal(expected, AssetNamingNormalizer.LiteralPrefix(pattern));
         }
+
+        /// <summary>
+        /// 模式允许大写字母时拼 PascalCase：贴图那一类是 ^T_[A-Za-z0-9]+$
+        /// （《结构规范-资源》的前缀表 + PascalCase）。
+        /// 只会拼小写下划线的话拼出来是 T_bag_panel，与模式不符，一路走「没敢替你改」，
+        /// 结果每张图都要人手工改名。
+        /// </summary>
+        [Theory]
+        [InlineData("bag panel", "T_BagPanel")]
+        [InlineData("关闭按钮 close btn", "T_CloseBtn")]
+        [InlineData("bagPanel", "T_BagPanel")]
+        public void PascalCasePatternGetsPascalCaseBody(string input, string expected)
+        {
+            var outcome = AssetNamingNormalizer.Normalize(input, "^T_[A-Za-z0-9]+$");
+
+            Assert.True(outcome.Changed);
+            Assert.Equal(expected, outcome.Naming);
+        }
+
+        /// <summary>模式只许小写时照旧拼下划线——风格由模式说了算，不是全仓一刀切。</summary>
+        [Fact]
+        public void LowerCaseOnlyPatternStillGetsSnakeCase()
+        {
+            var outcome = AssetNamingNormalizer.Normalize("Bag Panel", "^ui_[a-z0-9_]+$");
+
+            Assert.Equal("ui_bag_panel", outcome.Naming);
+        }
     }
 }
