@@ -5,8 +5,8 @@ using Xunit;
 
 namespace Template.Toolkit.CreationPipeline.Tests
 {
-    /// <summary>RequirementDocumentChecker（gate.reqdoc）的六条判据测试。</summary>
-    public class RequirementDocumentCheckerTests
+    /// <summary>PlanningDocumentChecker（gate.plandoc）的六条判据测试。</summary>
+    public class PlanningDocumentCheckerTests
     {
         private static string SystemRequirementJson()
         {
@@ -26,31 +26,31 @@ namespace Template.Toolkit.CreationPipeline.Tests
             }.ToJsonString();
         }
 
-        private static (PoolTestWorkspace Workspace, RequirementDocumentSpec Specification) NewWorkspace()
+        private static (PoolTestWorkspace Workspace, PlanningDocumentSpec Specification) NewWorkspace()
         {
             var workspace = new PoolTestWorkspace();
-            workspace.CopyRequirementDocumentBaseline();
+            workspace.CopyPlanningDocumentBaseline();
             workspace.WriteRequirement("REQ-0042", SystemRequirementJson());
-            return (workspace, RequirementDocumentSpec.Load(workspace.Root));
+            return (workspace, PlanningDocumentSpec.Load(workspace.Root));
         }
 
         // 先用 doc.render 渲一份合规的，再按测试意图破坏它——测的是「改坏了会不会红」，
         // 而不是「我手写的这份样本合不合规」。
         private static void RenderThenEdit(
             PoolTestWorkspace workspace,
-            RequirementDocumentSpec specification,
+            PlanningDocumentSpec specification,
             System.Func<string, string> edit)
         {
-            RequirementDocumentRenderer.Render(workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
+            PlanningDocumentRenderer.Render(workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
             if (edit != null)
             {
-                workspace.WriteRequirementFile("REQ-0042", "index.md", edit(workspace.ReadRequirementDocument("REQ-0042")));
+                workspace.WriteRequirementFile("REQ-0042", "index.md", edit(workspace.ReadPlanningDocument("REQ-0042")));
             }
         }
 
-        private static IReadOnlyList<string> ReasonsOf(PoolTestWorkspace workspace, RequirementDocumentSpec specification)
+        private static IReadOnlyList<string> ReasonsOf(PoolTestWorkspace workspace, PlanningDocumentSpec specification)
         {
-            return RequirementDocumentChecker.CheckOne(workspace.Root, "REQ-0042", specification)
+            return PlanningDocumentChecker.CheckOne(workspace.Root, "REQ-0042", specification)
                 .Select(finding => finding.Reason)
                 .ToList();
         }
@@ -64,7 +64,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             {
                 RenderThenEdit(workspace, specification, null);
 
-                Assert.Empty(RequirementDocumentChecker.CheckOne(workspace.Root, "REQ-0042", specification));
+                Assert.Empty(PlanningDocumentChecker.CheckOne(workspace.Root, "REQ-0042", specification));
             }
         }
 
@@ -75,7 +75,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var (workspace, specification) = NewWorkspace();
             using (workspace)
             {
-                Assert.Empty(RequirementDocumentChecker.CheckOne(workspace.Root, "REQ-0042", specification));
+                Assert.Empty(PlanningDocumentChecker.CheckOne(workspace.Root, "REQ-0042", specification));
             }
         }
 
@@ -246,9 +246,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
             {
                 RenderThenEdit(workspace, specification, text => text.Replace("需求id: REQ-0042", "需求id: REQ-0099"));
                 workspace.WriteRequirement("REQ-0043", SystemRequirementJson().Replace("REQ-0042", "REQ-0043"));
-                RequirementDocumentRenderer.Render(workspace.RepositoryRoot, workspace.Root, "REQ-0043", specification, false);
+                PlanningDocumentRenderer.Render(workspace.RepositoryRoot, workspace.Root, "REQ-0043", specification, false);
 
-                var findings = RequirementDocumentChecker.CheckAll(workspace.Root, specification);
+                var findings = PlanningDocumentChecker.CheckAll(workspace.Root, specification);
 
                 Assert.Single(findings);
                 Assert.Contains("REQ-0042", findings[0].Location);

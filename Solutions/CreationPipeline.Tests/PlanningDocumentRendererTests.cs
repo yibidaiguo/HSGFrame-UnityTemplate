@@ -4,8 +4,8 @@ using Xunit;
 
 namespace Template.Toolkit.CreationPipeline.Tests
 {
-    /// <summary>RequirementDocumentRenderer（doc.render）的渲染行为测试。</summary>
-    public class RequirementDocumentRendererTests
+    /// <summary>PlanningDocumentRenderer（doc.render）的渲染行为测试。</summary>
+    public class PlanningDocumentRendererTests
     {
         /// <summary>一份「系统」类型的需求骨架，分类型必填字段齐全。</summary>
         private static string SystemRequirementJson()
@@ -26,12 +26,12 @@ namespace Template.Toolkit.CreationPipeline.Tests
             }.ToJsonString();
         }
 
-        private static (PoolTestWorkspace Workspace, RequirementDocumentSpec Specification) NewWorkspace()
+        private static (PoolTestWorkspace Workspace, PlanningDocumentSpec Specification) NewWorkspace()
         {
             var workspace = new PoolTestWorkspace();
-            workspace.CopyRequirementDocumentBaseline();
+            workspace.CopyPlanningDocumentBaseline();
             workspace.WriteRequirement("REQ-0042", SystemRequirementJson());
-            return (workspace, RequirementDocumentSpec.Load(workspace.Root));
+            return (workspace, PlanningDocumentSpec.Load(workspace.Root));
         }
 
         /// <summary>新建：frontmatter 六个必备键齐全，小节按序在位，验收标准渲成有序列表，生成区在末尾。</summary>
@@ -41,14 +41,14 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var (workspace, specification) = NewWorkspace();
             using (workspace)
             {
-                var outcome = RequirementDocumentRenderer.Render(
+                var outcome = PlanningDocumentRenderer.Render(
                     workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
 
                 Assert.True(outcome.IsCreated);
                 Assert.True(outcome.IsChanged);
                 Assert.Equal(new[] { "目标", "玩法", "验收标准", "边界与不做" }, outcome.AddedSections);
 
-                var text = workspace.ReadRequirementDocument("REQ-0042");
+                var text = workspace.ReadPlanningDocument("REQ-0042");
                 Assert.Contains("需求id: REQ-0042", text);
                 Assert.Contains("权威侧: 项目", text);
                 Assert.Contains("文档版本: 1", text);
@@ -68,14 +68,14 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var (workspace, specification) = NewWorkspace();
             using (workspace)
             {
-                RequirementDocumentRenderer.Render(workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
-                var first = workspace.ReadRequirementDocument("REQ-0042");
+                PlanningDocumentRenderer.Render(workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
+                var first = workspace.ReadPlanningDocument("REQ-0042");
 
-                var second = RequirementDocumentRenderer.Render(
+                var second = PlanningDocumentRenderer.Render(
                     workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
 
                 Assert.False(second.IsChanged);
-                Assert.Equal(first, workspace.ReadRequirementDocument("REQ-0042"));
+                Assert.Equal(first, workspace.ReadPlanningDocument("REQ-0042"));
             }
         }
 
@@ -103,10 +103,10 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 人写的玩法。
                 """);
 
-                var outcome = RequirementDocumentRenderer.Render(
+                var outcome = PlanningDocumentRenderer.Render(
                     workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
 
-                var text = workspace.ReadRequirementDocument("REQ-0042");
+                var text = workspace.ReadPlanningDocument("REQ-0042");
                 Assert.False(outcome.IsCreated);
                 Assert.Equal(new[] { "验收标准", "边界与不做" }, outcome.AddedSections);
                 Assert.Contains("这段是人自己写的，一个字都不许动。", text);
@@ -144,9 +144,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 首月不做补签。
                 """);
 
-                RequirementDocumentRenderer.Render(workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
+                PlanningDocumentRenderer.Render(workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
 
-                var text = workspace.ReadRequirementDocument("REQ-0042");
+                var text = workspace.ReadPlanningDocument("REQ-0042");
                 Assert.True(text.IndexOf("## 目标", StringComparison.Ordinal) < text.IndexOf("## 玩法", StringComparison.Ordinal));
                 Assert.True(text.IndexOf("## 玩法", StringComparison.Ordinal) < text.IndexOf("## 验收标准", StringComparison.Ordinal));
             }
@@ -159,14 +159,14 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var (workspace, specification) = NewWorkspace();
             using (workspace)
             {
-                RequirementDocumentRenderer.Render(workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
-                var tampered = workspace.ReadRequirementDocument("REQ-0042")
+                PlanningDocumentRenderer.Render(workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
+                var tampered = workspace.ReadPlanningDocument("REQ-0042")
                     .Replace("- 工作项：尚未规划", "- 工作项：我自己手改的");
                 workspace.WriteRequirementFile("REQ-0042", "index.md", tampered);
 
-                RequirementDocumentRenderer.Render(workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
+                PlanningDocumentRenderer.Render(workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
 
-                var text = workspace.ReadRequirementDocument("REQ-0042");
+                var text = workspace.ReadPlanningDocument("REQ-0042");
                 Assert.DoesNotContain("我自己手改的", text);
                 Assert.Contains("- 工作项：尚未规划", text);
             }
@@ -179,12 +179,12 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var (workspace, specification) = NewWorkspace();
             using (workspace)
             {
-                var outcome = RequirementDocumentRenderer.Render(
+                var outcome = PlanningDocumentRenderer.Render(
                     workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, true);
 
                 Assert.True(outcome.IsChanged);
                 Assert.Contains("# 七日签到", outcome.DocumentText);
-                Assert.Equal("", workspace.ReadRequirementDocument("REQ-0042"));
+                Assert.Equal("", workspace.ReadPlanningDocument("REQ-0042"));
             }
         }
 
@@ -195,7 +195,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var (workspace, specification) = NewWorkspace();
             using (workspace)
             {
-                var exception = Assert.Throws<InvalidOperationException>(() => RequirementDocumentRenderer.Render(
+                var exception = Assert.Throws<InvalidOperationException>(() => PlanningDocumentRenderer.Render(
                     workspace.RepositoryRoot, workspace.Root, "REQ-9999", specification, false));
 
                 Assert.Contains("REQ-9999", exception.Message);

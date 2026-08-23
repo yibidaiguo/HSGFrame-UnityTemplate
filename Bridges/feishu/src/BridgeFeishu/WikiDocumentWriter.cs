@@ -8,7 +8,7 @@ using Template.Toolkit.CreationPipeline;
 namespace Template.Bridges.Feishu
 {
     /// <summary>
-    /// 推需求文档动作（doc）：把一条需求的 index.md（已经拆成中性块）推成知识库里的一个 docx 节点。
+    /// 推策划文档动作（doc）：把一条需求的 index.md（已经拆成中性块）推成知识库里的一个 docx 节点。
     ///
     /// 幂等靠**节点 token**，不靠标题：token 由调用方从文档 frontmatter 的「同步」块里带过来，
     /// 带了就刷新那一份，没带才在父节点下新建一个。按标题找的话，
@@ -33,14 +33,14 @@ namespace Template.Bridges.Feishu
         /// <summary>
         /// 执行 doc 动作：干跑返回将建还是将刷新、块数与要写的 children JSON；真跑建/刷新那份文档。
         /// </summary>
-        /// <param name="request">请求信封：配置含 应用标识/飞书应用密钥/知识空间标识/需求文档父节点/超时秒，
+        /// <param name="request">请求信封：配置含 应用标识/飞书应用密钥/知识空间标识/策划文档父节点/超时秒，
         /// 载荷含 干跑（缺省 true）、标题、节点token（可空）、块（中性块数组）。</param>
         public static BridgeResponse PushDocument(BridgeRequest request)
         {
             var appId = ReadConfigurationString(request, "应用标识", "");
             var secretKey = ReadConfigurationString(request, "飞书应用密钥", "");
             var spaceId = ReadConfigurationString(request, "知识空间标识", "");
-            var parentNode = ReadConfigurationString(request, "需求文档父节点", "");
+            var parentNode = ReadConfigurationString(request, "策划文档父节点", "");
             var timeoutSeconds = ReadConfigurationInt(request, "超时秒", DefaultTimeoutSeconds);
 
             var isDryRun = ReadPayloadBool(request, "干跑", defaultValue: true);
@@ -57,7 +57,7 @@ namespace Template.Bridges.Feishu
                 return Failure("请求不合协议", "载荷缺「块」数组：要推的正文是空的", retryable: false);
             }
 
-            var blocks = RequirementDocumentOutline.FromJsonArray(blocksElement);
+            var blocks = PlanningDocumentOutline.FromJsonArray(blocksElement);
             var children = FeishuBlockCodec.ToChildren(blocks, out var pendingMedia);
             var mediaRoot = ReadPayloadString(request, "媒体根目录");
             var willCreate = nodeToken.Length == 0;

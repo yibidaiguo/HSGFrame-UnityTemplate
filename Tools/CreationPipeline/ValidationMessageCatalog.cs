@@ -109,63 +109,63 @@ namespace Template.Toolkit.CreationPipeline
                 "字段「{0}」未在合并 schema 中声明",
                 "删掉该字段，或在项目扩展 schema 里声明它"),
 
-            // 需求文档（index.md）那一族。与上面的需求骨架规则同住一张表，
+            // 策划文档（index.md）那一族。与上面的需求骨架规则同住一张表，
             // 是因为它们最终都要念给同一个人听——提需求的策划分不清「骨架」与「文档」，
             // 文案分两处的后果是同一件事有两种说法。
             new ValidationMessageEntry(
-                "需求文档.解析失败",
+                "策划文档.解析失败",
                 "index.md 解析不了：{0}",
                 "按基线规范修好文档结构后重跑"),
             new ValidationMessageEntry(
-                "需求文档.frontmatter缺失",
+                "策划文档.frontmatter缺失",
                 "index.md 开头没有 --- 包起来的 frontmatter",
                 "在文件最开头补一段 --- 包起来的 frontmatter"),
             new ValidationMessageEntry(
-                "需求文档.必备键缺失",
+                "策划文档.必备键缺失",
                 "frontmatter 缺必备键「{0}」",
                 "补上该键；跑 doc.render 能把工程负责的那几个键补齐"),
             new ValidationMessageEntry(
-                "需求文档.id与目录名",
+                "策划文档.id与目录名",
                 "frontmatter 的「需求id」是「{0}」，与所在目录名「{1}」不一致",
                 "把「需求id」改成与目录名一致"),
             new ValidationMessageEntry(
-                "需求文档.权威侧越界",
+                "策划文档.权威侧越界",
                 "「权威侧」的值「{0}」不在合法取值「{1}」里",
                 "改成合法的权威侧取值"),
             new ValidationMessageEntry(
-                "需求文档.小节缺失",
+                "策划文档.小节缺失",
                 "缺必填小节「{0}」",
                 "补上该小节；跑 doc.render 会按规范把缺的小节补出来"),
             new ValidationMessageEntry(
-                "需求文档.小节乱序",
+                "策划文档.小节乱序",
                 "小节「{0}」排在「{1}」后面，与规范定的顺序相反",
                 "按规范定的顺序调整小节次序"),
             new ValidationMessageEntry(
-                "需求文档.验收标准为空",
+                "策划文档.验收标准为空",
                 "「{0}」小节没有任何条目",
                 "补上验收标准，一条一句，单条可判真假"),
             new ValidationMessageEntry(
-                "需求文档.验收标准非有序列表",
+                "策划文档.验收标准非有序列表",
                 "「{0}」小节里的「{1}」不是有序列表条目",
                 "改成 1. 2. 3. 的有序列表，一条一句"),
             new ValidationMessageEntry(
-                "需求文档.媒体缺说明",
+                "策划文档.媒体缺说明",
                 "媒体「{0}」没写说明",
                 "补一句说明，写图里有什么，而不是「这是一张图」"),
             new ValidationMessageEntry(
-                "需求文档.媒体不存在",
+                "策划文档.媒体不存在",
                 "引用的媒体文件「{0}」不存在",
                 "把文件放进需求目录，或删掉这条引用"),
             new ValidationMessageEntry(
-                "需求文档.媒体名非ASCII",
+                "策划文档.媒体名非ASCII",
                 "媒体路径「{0}」里有非 ASCII 字符",
                 "把文件名归一成 ASCII 再引用"),
             new ValidationMessageEntry(
-                "需求文档.生成区hash缺失",
+                "策划文档.生成区hash缺失",
                 "文档里有生成区，frontmatter 却没有「生成区hash」",
                 "跑一次 doc.render 把生成区与哈希一起重生成"),
             new ValidationMessageEntry(
-                "需求文档.生成区被手改",
+                "策划文档.生成区被手改",
                 "生成区正文与「生成区hash」对不上，说明它被手改过",
                 "把改动挪到生成区外面，再跑 doc.render 重生成"),
         };

@@ -69,7 +69,7 @@ namespace Template.Toolkit.CommandHost.Commands
     /// 3. 文字消息：读这条会话的历史 → 连同这句话一起交给执行后端 → 变成「回话 + 需求草稿」；
     /// 4. **现场跑 req.validate**，不过就不摆确认卡，把校验发现翻成人话；
     /// 5. 回一张卡（至少带「开新话题」按钮）。草稿齐了只留底等人点，
-    ///    **建发生在人点「一键建需求」那一刻**：写需求池 → 投唤醒信号 → 出需求文档并推成
+    ///    **建发生在人点「一键建需求」那一刻**：写需求池 → 投唤醒信号 → 出策划文档并推成
     ///    知识库节点 → 任务表加一行挂上文档链接，一路做完才算「一键」。不派活——那是 PM 的事。
     ///
     /// 与引擎守护一样是**有限轮**的（决策 81）：跑满 N 轮自己退出，无限只是 N=0 的特例——
@@ -856,21 +856,21 @@ namespace Template.Toolkit.CommandHost.Commands
             // 而把「补建对象失败」当成「需求没建成」是两回事。
             EnsureDownstreamObjects(repositoryRoot, arguments, lines);
 
-            var render = RequirementDocCommands.Render(new RequirementDocRenderArguments
+            var render = PlanningDocCommands.Render(new PlanningDocRenderArguments
             {
                 RequirementIdentifier = identifier,
                 RepositoryRoot = repositoryRoot,
                 PoolRoot = poolRoot,
                 DryRun = false
             });
-            lines.Add($"出需求文档：{render.Message}");
+            lines.Add($"出策划文档：{render.Message}");
             if (!render.IsSuccess)
             {
                 failureReason = render.Message;
                 return "";
             }
 
-            var push = RequirementDocCommands.Push(new RequirementDocPushArguments
+            var push = PlanningDocCommands.Push(new PlanningDocPushArguments
             {
                 RequirementIdentifier = identifier,
                 RepositoryRoot = repositoryRoot,
@@ -878,7 +878,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 DryRun = false,
                 TimeoutSeconds = arguments.TimeoutSeconds
             });
-            lines.Add($"推需求文档：{push.Message}");
+            lines.Add($"推策划文档：{push.Message}");
             if (!push.IsSuccess)
             {
                 failureReason = push.Message;
@@ -896,7 +896,7 @@ namespace Template.Toolkit.CommandHost.Commands
             return link;
         }
 
-        /// <summary>从需求文档的同步块里读回文档链接；读不到给空串。</summary>
+        /// <summary>从策划文档的同步块里读回文档链接；读不到给空串。</summary>
         /// <param name="poolRoot">池子根目录。</param>
         /// <param name="identifier">需求 id。</param>
         /// <param name="repositoryRoot">仓库根目录，读文档规范要用。</param>
@@ -904,19 +904,19 @@ namespace Template.Toolkit.CommandHost.Commands
         {
             try
             {
-                var documentPath = PoolPaths.RequirementDocument(poolRoot, identifier);
+                var documentPath = PoolPaths.PlanningDocument(poolRoot, identifier);
                 if (!File.Exists(documentPath))
                 {
                     return "";
                 }
 
-                var specification = RequirementDocumentSpec.Load(repositoryRoot);
-                if (!RequirementDocument.TryParse(File.ReadAllText(documentPath), specification, out var parsed, out _))
+                var specification = PlanningDocumentSpec.Load(repositoryRoot);
+                if (!PlanningDocument.TryParse(File.ReadAllText(documentPath), specification, out var parsed, out _))
                 {
                     return "";
                 }
 
-                return RequirementDocumentSyncState.Read(parsed).Link;
+                return PlanningDocumentSyncState.Read(parsed).Link;
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is InvalidOperationException)
             {
@@ -929,7 +929,7 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <param name="assistantDriver">助手 port 路由到的 driver 名。</param>
         /// <param name="identifier">需求 id。</param>
         /// <param name="draft">补全后的草稿，取标题当任务描述。</param>
-        /// <param name="documentLink">需求文档链接；没有就不挂。</param>
+        /// <param name="documentLink">策划文档链接；没有就不挂。</param>
         /// <param name="arguments">常驻会话命令参数。</param>
         /// <param name="lines">这一轮的日志行。</param>
         private static string AddTaskRow(
@@ -955,7 +955,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
             if (documentLink.Length > 0)
             {
-                payload["需求文档链接"] = documentLink;
+                payload["策划文档链接"] = documentLink;
             }
 
             var call = BridgeInvoker.Invoke(
@@ -980,7 +980,7 @@ namespace Template.Toolkit.CommandHost.Commands
         /// 哪一段没成就说哪一段，不许一句「建好了」盖过去。
         /// </summary>
         /// <param name="identifier">需求 id。</param>
-        /// <param name="documentLink">需求文档链接；空表示没推成。</param>
+        /// <param name="documentLink">策划文档链接；空表示没推成。</param>
         /// <param name="documentFailure">文档那一步的失败原因。</param>
         /// <param name="rowFailure">任务行那一步的失败原因。</param>
         private static string DescribeCreation(string identifier, string documentLink, string documentFailure, string rowFailure)
@@ -990,11 +990,11 @@ namespace Template.Toolkit.CommandHost.Commands
 
             if (documentLink.Length > 0)
             {
-                builder.Append("\n需求文档：").Append(documentLink);
+                builder.Append("\n策划文档：").Append(documentLink);
             }
             else
             {
-                builder.Append("\n需求文档没推上去：").Append(documentFailure.Length == 0 ? "原因不明" : documentFailure);
+                builder.Append("\n策划文档没推上去：").Append(documentFailure.Length == 0 ? "原因不明" : documentFailure);
             }
 
             if (rowFailure.Length == 0)
@@ -1098,7 +1098,7 @@ namespace Template.Toolkit.CommandHost.Commands
         /// 人点了「出图」：读回那份出图请求 → 建资产请求 → 真去下游生图 → 把变体贴回聊天。
         ///
         /// **这一支是助手存在的另一半**：人明说要一张图时，该真去出图，
-        /// 而不是把「要图」这件事整理成一条需求文档——那等于把下面整条生图链挡在门外。
+        /// 而不是把「要图」这件事整理成一条策划文档——那等于把下面整条生图链挡在门外。
         ///
         /// 图不挂需求（落进无主那一档）：人在聊天里说「先出张图看看」时往往连需求都还没有，
         /// 硬要一条需求才让出图，等于把「试一张」挡在门外。事后要认领给某条需求是挪目录的事。
@@ -1601,9 +1601,9 @@ namespace Template.Toolkit.CommandHost.Commands
             string repositoryRoot, AssistantServeArguments arguments, List<string> lines)
         {
             var routeTable = BridgeRouteTable.Load(repositoryRoot);
-            if (!routeTable.TryResolvePort("需求文档端", out var driverName, out var reason))
+            if (!routeTable.TryResolvePort("策划文档端", out var driverName, out var reason))
             {
-                lines.Add($"补建下游对象跳过：需求文档端取不到（{reason}）");
+                lines.Add($"补建下游对象跳过：策划文档端取不到（{reason}）");
                 return;
             }
 

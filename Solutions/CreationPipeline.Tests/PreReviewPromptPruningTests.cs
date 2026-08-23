@@ -59,7 +59,7 @@ namespace Template.Toolkit.CreationPipelineTests
             Assert.Empty(PreReviewPrompt.ParseChangedPaths("这只是一段普通的话，不是 diff。"));
         }
 
-        /// <summary>只碰 .cs 的 diff：资产与需求文档规范被裁掉，代码规范与没进表的文件保留。</summary>
+        /// <summary>只碰 .cs 的 diff：资产与策划文档规范被裁掉，代码规范与没进表的文件保留。</summary>
         [Fact]
         public void FilterKeepsRelevantAndUnlistedSpecs()
         {
@@ -68,7 +68,7 @@ namespace Template.Toolkit.CreationPipelineTests
             {
                 SpecText("Specifications/structure-code.md"),
                 SpecText("Specifications/structure-assets.md"),
-                SpecText("Specifications/Baseline/requirement-doc.baseline.md"),
+                SpecText("Specifications/Baseline/planning-doc.baseline.md"),
                 SpecText("Specifications/structure-overview.md")
             };
             var changedPaths = new List<string> { "Tools/CreationPipeline/PreReviewPrompt.cs" };
@@ -130,7 +130,7 @@ namespace Template.Toolkit.CreationPipelineTests
             File.WriteAllText(Path.Combine(configDirectory, "spec-relevance.json"), """
                 {
                   "规则": [
-                    { "规范路径前缀": "Specifications/Baseline/requirement-doc.baseline.md", "diff路径前缀": ["Pools/", "Doc/"] },
+                    { "规范路径前缀": "Specifications/Baseline/planning-doc.baseline.md", "diff路径前缀": ["Pools/", "Doc/"] },
                     { "规范路径前缀": "Specifications/structure-assets.md", "diff路径前缀": ["UnityProject/", "Pools/"] },
                     { "规范路径前缀": "Specifications/structure-code.md", "diff扩展名": [".cs", ".csproj"] }
                   ]

@@ -5,10 +5,10 @@ using Xunit;
 namespace Template.Toolkit.CreationPipeline.Tests
 {
     /// <summary>
-    /// 需求文档拆成中性块的测试。这一族守的是两件事：
+    /// 策划文档拆成中性块的测试。这一族守的是两件事：
     /// **认得出规范里那份 index.md 的全部写法**，以及**认不出来的写法降级成段落而不是把整条链停住**。
     /// </summary>
-    public class RequirementDocumentOutlineTests
+    public class PlanningDocumentOutlineTests
     {
         /// <summary>规范第一节那份样例的骨架：frontmatter + 标题 + 小节 + 有序/无序 + 媒体 + 生成区。</summary>
         private const string SampleDocument = """
@@ -46,11 +46,11 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void FrontMatterDoesNotBecomeBlocks()
         {
-            var blocks = RequirementDocumentOutline.Build(SampleDocument);
+            var blocks = PlanningDocumentOutline.Build(SampleDocument);
 
             Assert.DoesNotContain(blocks, block => block.Text.Contains("wikcnAAAA"));
             Assert.DoesNotContain(blocks, block => block.Text.Contains("需求id"));
-            Assert.Equal(RequirementDocumentOutline.KindHeading, blocks[0].Kind);
+            Assert.Equal(PlanningDocumentOutline.KindHeading, blocks[0].Kind);
             Assert.Equal("七日签到", blocks[0].Text);
             Assert.Equal(1, blocks[0].Level);
         }
@@ -59,10 +59,10 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void SectionHeadingsCarryTheirLevel()
         {
-            var blocks = RequirementDocumentOutline.Build(SampleDocument);
+            var blocks = PlanningDocumentOutline.Build(SampleDocument);
 
             var section = blocks.Single(block => block.Text == "验收标准");
-            Assert.Equal(RequirementDocumentOutline.KindHeading, section.Kind);
+            Assert.Equal(PlanningDocumentOutline.KindHeading, section.Kind);
             Assert.Equal(2, section.Level);
         }
 
@@ -70,9 +70,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void WrappedLinesJoinIntoOneParagraph()
         {
-            var blocks = RequirementDocumentOutline.Build(SampleDocument);
+            var blocks = PlanningDocumentOutline.Build(SampleDocument);
 
-            var paragraph = blocks.Single(block => block.Kind == RequirementDocumentOutline.KindParagraph);
+            var paragraph = blocks.Single(block => block.Kind == PlanningDocumentOutline.KindParagraph);
             Assert.Equal("次留提升。签到是新手期唯一的 每日回访钩子。", paragraph.Text);
         }
 
@@ -80,12 +80,12 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void ListItemsDropTheirMarkers()
         {
-            var blocks = RequirementDocumentOutline.Build(SampleDocument);
+            var blocks = PlanningDocumentOutline.Build(SampleDocument);
 
-            var ordered = blocks.Where(block => block.Kind == RequirementDocumentOutline.KindOrderedItem).ToList();
+            var ordered = blocks.Where(block => block.Kind == PlanningDocumentOutline.KindOrderedItem).ToList();
             Assert.Equal(new[] { "登录后自动弹出签到界面", "第 7 天发放大奖" }, ordered.Select(block => block.Text));
 
-            var bullets = blocks.Where(block => block.Kind == RequirementDocumentOutline.KindBulletItem).ToList();
+            var bullets = blocks.Where(block => block.Kind == PlanningDocumentOutline.KindBulletItem).ToList();
             Assert.Equal(new[] { "首月不做补签", "不接排行榜", "工作项：WI-0042-01" }, bullets.Select(block => block.Text));
         }
 
@@ -93,9 +93,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void MediaReferenceKeepsCaptionAndPath()
         {
-            var blocks = RequirementDocumentOutline.Build(SampleDocument);
+            var blocks = PlanningDocumentOutline.Build(SampleDocument);
 
-            var media = blocks.Single(block => block.Kind == RequirementDocumentOutline.KindMedia);
+            var media = blocks.Single(block => block.Kind == PlanningDocumentOutline.KindMedia);
             Assert.Equal("签到主界面，第 3 天已领", media.Text);
             Assert.Equal("media/signin-main.png", media.Target);
         }
@@ -104,7 +104,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void GeneratedRegionMarkersAreDroppedButContentStays()
         {
-            var blocks = RequirementDocumentOutline.Build(SampleDocument);
+            var blocks = PlanningDocumentOutline.Build(SampleDocument);
 
             Assert.DoesNotContain(blocks, block => block.Text.Contains("生成区开始"));
             Assert.DoesNotContain(blocks, block => block.Text.Contains("生成区结束"));
@@ -116,20 +116,20 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void LinkOutsideMediaDirectoryIsNotAMediaBlock()
         {
-            var blocks = RequirementDocumentOutline.Build("[外部设计稿](https://example.invalid/a.png)");
+            var blocks = PlanningDocumentOutline.Build("[外部设计稿](https://example.invalid/a.png)");
 
             var only = Assert.Single(blocks);
-            Assert.Equal(RequirementDocumentOutline.KindParagraph, only.Kind);
+            Assert.Equal(PlanningDocumentOutline.KindParagraph, only.Kind);
         }
 
         /// <summary>代码围栏整段成一个代码块，围栏行本身不进正文。</summary>
         [Fact]
         public void CodeFenceBecomesOneCodeBlock()
         {
-            var blocks = RequirementDocumentOutline.Build("```json\n{\n  \"a\": 1\n}\n```");
+            var blocks = PlanningDocumentOutline.Build("```json\n{\n  \"a\": 1\n}\n```");
 
             var only = Assert.Single(blocks);
-            Assert.Equal(RequirementDocumentOutline.KindCode, only.Kind);
+            Assert.Equal(PlanningDocumentOutline.KindCode, only.Kind);
             Assert.Equal("{\n  \"a\": 1\n}", only.Text);
         }
 
@@ -137,17 +137,17 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void UnknownShapeFallsBackToParagraph()
         {
-            var blocks = RequirementDocumentOutline.Build("#### 四级标题\n\n| 表 | 格 |");
+            var blocks = PlanningDocumentOutline.Build("#### 四级标题\n\n| 表 | 格 |");
 
             Assert.Equal(2, blocks.Count);
-            Assert.All(blocks, block => Assert.Equal(RequirementDocumentOutline.KindParagraph, block.Kind));
+            Assert.All(blocks, block => Assert.Equal(PlanningDocumentOutline.KindParagraph, block.Kind));
         }
 
         /// <summary>没有 frontmatter 的文档整篇都是正文，不会被当成「第一行是横线」吃掉。</summary>
         [Fact]
         public void DocumentWithoutFrontMatterKeepsEverything()
         {
-            var blocks = RequirementDocumentOutline.Build("# 标题\n\n正文");
+            var blocks = PlanningDocumentOutline.Build("# 标题\n\n正文");
 
             Assert.Equal(2, blocks.Count);
             Assert.Equal("标题", blocks[0].Text);
@@ -158,10 +158,10 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void JsonRoundTripKeepsEveryField()
         {
-            var blocks = RequirementDocumentOutline.Build(SampleDocument);
+            var blocks = PlanningDocumentOutline.Build(SampleDocument);
 
-            var json = RequirementDocumentOutline.ToJsonArray(blocks).ToJsonString();
-            var restored = RequirementDocumentOutline.FromJsonArray(JsonSerializer.Deserialize<JsonElement>(json));
+            var json = PlanningDocumentOutline.ToJsonArray(blocks).ToJsonString();
+            var restored = PlanningDocumentOutline.FromJsonArray(JsonSerializer.Deserialize<JsonElement>(json));
 
             Assert.Equal(blocks.Count, restored.Count);
             for (var index = 0; index < blocks.Count; index++)

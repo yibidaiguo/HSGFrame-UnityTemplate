@@ -6,20 +6,20 @@ using System.Text.Json.Nodes;
 namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>
-    /// 中性文档块：一条需求文档拆出来的一段东西，**不带任何下游的形状**。
+    /// 中性文档块：一条策划文档拆出来的一段东西，**不带任何下游的形状**。
     /// 「标题 / 段落 / 有序项 / 无序项 / 引用 / 代码 / 媒体」这七种就是全部——
-    /// 正好覆盖需求文档规范（基线第一节）里那份 index.md 用到的 markdown 词汇。
+    /// 正好覆盖策划文档规范（基线第一节）里那份 index.md 用到的 markdown 词汇。
     /// </summary>
-    public sealed class RequirementDocumentOutlineBlock
+    public sealed class PlanningDocumentOutlineBlock
     {
         /// <summary>
         /// 构造一个中性块。
         /// </summary>
-        /// <param name="kind">块类型，取 <see cref="RequirementDocumentOutline"/> 上那七个常量之一。</param>
+        /// <param name="kind">块类型，取 <see cref="PlanningDocumentOutline"/> 上那七个常量之一。</param>
         /// <param name="text">正文文本；媒体块放说明。</param>
         /// <param name="level">标题层级 1/2/3；不是标题时为 0。</param>
         /// <param name="target">媒体块的相对路径；其余块为空串。</param>
-        public RequirementDocumentOutlineBlock(string kind, string text, int level = 0, string target = "")
+        public PlanningDocumentOutlineBlock(string kind, string text, int level = 0, string target = "")
         {
             Kind = kind ?? "";
             Text = text ?? "";
@@ -62,9 +62,9 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>从协议 JSON 读回一个块；「类型」不是字符串时读成空类型，由调用方当不认识处理。</summary>
         /// <param name="element">一个块的 JSON 对象。</param>
-        public static RequirementDocumentOutlineBlock FromJson(JsonElement element)
+        public static PlanningDocumentOutlineBlock FromJson(JsonElement element)
         {
-            return new RequirementDocumentOutlineBlock(
+            return new PlanningDocumentOutlineBlock(
                 ReadString(element, "类型"),
                 ReadString(element, "文本"),
                 element.TryGetProperty("层级", out var level) && level.ValueKind == JsonValueKind.Number ? level.GetInt32() : 0,
@@ -99,7 +99,7 @@ namespace Template.Toolkit.CreationPipeline
     /// **二、生成区的两行 HTML 注释标记丢掉，中间的正文照留。** docx 里没有「注释」这种东西，
     /// 而标记的用处（判定生成区有没有被手改）只在仓库这一侧成立——下游那份是投影，不是正本。
     /// </summary>
-    public static class RequirementDocumentOutline
+    public static class PlanningDocumentOutline
     {
         /// <summary>块类型：标题，层级看 Level。</summary>
         public const string KindHeading = "标题";
@@ -123,15 +123,15 @@ namespace Template.Toolkit.CreationPipeline
         public const string KindMedia = "媒体";
 
         /// <summary>
-        /// 把一份需求文档全文拆成中性块。frontmatter 与生成区标记行不进结果；
+        /// 把一份策划文档全文拆成中性块。frontmatter 与生成区标记行不进结果；
         /// 空行只用来断段，不产块。认不出来的行一律当段落——
         /// **降级成段落而不是报错**：文档是人写的，冒出一个没见过的写法时
         /// 该把它原样送到下游去，而不是让整条同步链停在「第 7 行我不认识」上。
         /// </summary>
         /// <param name="documentText">index.md 全文。</param>
-        public static IReadOnlyList<RequirementDocumentOutlineBlock> Build(string documentText)
+        public static IReadOnlyList<PlanningDocumentOutlineBlock> Build(string documentText)
         {
-            var blocks = new List<RequirementDocumentOutlineBlock>();
+            var blocks = new List<PlanningDocumentOutlineBlock>();
             var lines = SplitLines(documentText ?? "");
             var index = SkipFrontMatter(lines);
             var paragraph = new List<string>();
@@ -143,7 +143,7 @@ namespace Template.Toolkit.CreationPipeline
                     return;
                 }
 
-                blocks.Add(new RequirementDocumentOutlineBlock(KindParagraph, string.Join(" ", paragraph)));
+                blocks.Add(new PlanningDocumentOutlineBlock(KindParagraph, string.Join(" ", paragraph)));
                 paragraph.Clear();
             }
 
@@ -178,7 +178,7 @@ namespace Template.Toolkit.CreationPipeline
                 if (headingLevel > 0)
                 {
                     FlushParagraph();
-                    blocks.Add(new RequirementDocumentOutlineBlock(
+                    blocks.Add(new PlanningDocumentOutlineBlock(
                         KindHeading, trimmed.Substring(headingLevel).Trim(), headingLevel));
                     index++;
                     continue;
@@ -195,7 +195,7 @@ namespace Template.Toolkit.CreationPipeline
                 if (TryReadOrderedItem(trimmed, out var orderedText))
                 {
                     FlushParagraph();
-                    blocks.Add(new RequirementDocumentOutlineBlock(KindOrderedItem, orderedText));
+                    blocks.Add(new PlanningDocumentOutlineBlock(KindOrderedItem, orderedText));
                     index++;
                     continue;
                 }
@@ -203,7 +203,7 @@ namespace Template.Toolkit.CreationPipeline
                 if (trimmed.StartsWith("- ", StringComparison.Ordinal) || trimmed.StartsWith("* ", StringComparison.Ordinal))
                 {
                     FlushParagraph();
-                    blocks.Add(new RequirementDocumentOutlineBlock(KindBulletItem, trimmed.Substring(2).Trim()));
+                    blocks.Add(new PlanningDocumentOutlineBlock(KindBulletItem, trimmed.Substring(2).Trim()));
                     index++;
                     continue;
                 }
@@ -211,7 +211,7 @@ namespace Template.Toolkit.CreationPipeline
                 if (trimmed.StartsWith("> ", StringComparison.Ordinal))
                 {
                     FlushParagraph();
-                    blocks.Add(new RequirementDocumentOutlineBlock(KindQuote, trimmed.Substring(2).Trim()));
+                    blocks.Add(new PlanningDocumentOutlineBlock(KindQuote, trimmed.Substring(2).Trim()));
                     index++;
                     continue;
                 }
@@ -228,7 +228,7 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>把一串块序列化成协议数组，供请求信封的载荷直接挂上去。</summary>
         /// <param name="blocks">中性块。</param>
-        public static JsonArray ToJsonArray(IReadOnlyList<RequirementDocumentOutlineBlock> blocks)
+        public static JsonArray ToJsonArray(IReadOnlyList<PlanningDocumentOutlineBlock> blocks)
         {
             var array = new JsonArray();
             if (blocks == null)
@@ -246,9 +246,9 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>从协议数组读回一串块；不是数组时给空清单。</summary>
         /// <param name="element">块数组的 JSON。</param>
-        public static IReadOnlyList<RequirementDocumentOutlineBlock> FromJsonArray(JsonElement element)
+        public static IReadOnlyList<PlanningDocumentOutlineBlock> FromJsonArray(JsonElement element)
         {
-            var blocks = new List<RequirementDocumentOutlineBlock>();
+            var blocks = new List<PlanningDocumentOutlineBlock>();
             if (element.ValueKind != JsonValueKind.Array)
             {
                 return blocks;
@@ -256,14 +256,14 @@ namespace Template.Toolkit.CreationPipeline
 
             foreach (var item in element.EnumerateArray())
             {
-                blocks.Add(RequirementDocumentOutlineBlock.FromJson(item));
+                blocks.Add(PlanningDocumentOutlineBlock.FromJson(item));
             }
 
             return blocks;
         }
 
         /// <summary>读代码围栏：返回围栏结束之后的行号，并把整段作为一个代码块加进去。</summary>
-        private static int ReadCodeFence(IReadOnlyList<string> lines, int fenceIndex, List<RequirementDocumentOutlineBlock> blocks)
+        private static int ReadCodeFence(IReadOnlyList<string> lines, int fenceIndex, List<PlanningDocumentOutlineBlock> blocks)
         {
             var body = new List<string>();
             var index = fenceIndex + 1;
@@ -273,7 +273,7 @@ namespace Template.Toolkit.CreationPipeline
                 index++;
             }
 
-            blocks.Add(new RequirementDocumentOutlineBlock(KindCode, string.Join("\n", body)));
+            blocks.Add(new PlanningDocumentOutlineBlock(KindCode, string.Join("\n", body)));
 
             // 收尾那行围栏也吃掉；文档结尾少一条围栏时 index 已经到头，不会越界。
             return index < lines.Count ? index + 1 : index;
@@ -316,7 +316,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>认 `![说明](media/x.png)` 与 `[说明](media/x.mp4)` 两种媒体引用。</summary>
-        private static bool TryReadMedia(string trimmed, out RequirementDocumentOutlineBlock block)
+        private static bool TryReadMedia(string trimmed, out PlanningDocumentOutlineBlock block)
         {
             block = null;
             var body = trimmed.StartsWith("!", StringComparison.Ordinal) ? trimmed.Substring(1) : trimmed;
@@ -338,7 +338,7 @@ namespace Template.Toolkit.CreationPipeline
                 return false;
             }
 
-            block = new RequirementDocumentOutlineBlock(KindMedia, caption, 0, target);
+            block = new PlanningDocumentOutlineBlock(KindMedia, caption, 0, target);
             return true;
         }
 

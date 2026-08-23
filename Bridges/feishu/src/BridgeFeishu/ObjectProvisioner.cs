@@ -7,7 +7,7 @@ using Template.Toolkit.CreationPipeline;
 namespace Template.Bridges.Feishu
 {
     /// <summary>
-    /// 确保对象在（ensure）：这个项目要用的四样东西——知识空间、多维表格、任务表、需求文档父节点——
+    /// 确保对象在（ensure）：这个项目要用的四样东西——知识空间、多维表格、任务表、策划文档父节点——
     /// **配了就用，没配就建，建完把 id 交回去**，由引擎回填进下游对象台账。
     ///
     /// 为什么值得单开一个动作：
@@ -34,8 +34,8 @@ namespace Template.Bridges.Feishu
         /// <summary>台账里知识空间那一格的键名。</summary>
         public const string SpaceKey = "知识空间标识";
 
-        /// <summary>台账里需求文档父节点那一格的键名。</summary>
-        public const string RequirementParentKey = "需求文档父节点";
+        /// <summary>台账里策划文档父节点那一格的键名。</summary>
+        public const string PlanningDocumentParentKey = "策划文档父节点";
 
         /// <summary>
         /// 台账里策划设计库文档那一格的键名。
@@ -57,8 +57,8 @@ namespace Template.Bridges.Feishu
         /// <summary>没给标题时，新建知识空间叫什么。</summary>
         private const string DefaultSpaceTitle = "项目协作空间";
 
-        /// <summary>没给标题时，需求文档的父节点叫什么。对应仓库里的 Pools/Requirements/。</summary>
-        private const string DefaultRequirementParentTitle = "需求";
+        /// <summary>没给标题时，策划文档的父节点叫什么。对应仓库里的 Pools/Requirements/。</summary>
+        private const string DefaultPlanningDocumentParentTitle = "策划文档";
 
         /// <summary>策划设计库文档的缺省标题。</summary>
         private const string DefaultGameDesignDocumentTitle = "策划设计库";
@@ -77,7 +77,7 @@ namespace Template.Bridges.Feishu
         /// 干跑只报「哪几样缺、要建什么」，一个写请求都不发（决策 92）。
         /// </summary>
         /// <param name="request">请求信封：配置含 应用标识 / 飞书应用密钥 / 超时秒，
-        /// 以及台账压进来的 知识空间标识 / 需求文档父节点 / 多维表格标识 / 任务表标识；
+        /// 以及台账压进来的 知识空间标识 / 策划文档父节点 / 多维表格标识 / 任务表标识；
         /// 载荷可给 空间标题 / 需求父节点标题 / 多维表格标题 / 任务表名 与 干跑（缺省 true）。</param>
         public static BridgeResponse Ensure(BridgeRequest request)
         {
@@ -103,13 +103,13 @@ namespace Template.Bridges.Feishu
                 TimeoutSeconds = timeoutSeconds,
                 IsDryRun = isDryRun,
                 SpaceTitle = ReadPayloadString(request, "空间标题", DefaultSpaceTitle),
-                RequirementParentTitle = ReadPayloadString(request, "需求父节点标题", DefaultRequirementParentTitle),
+                PlanningDocumentParentTitle = ReadPayloadString(request, "策划文档父节点标题", DefaultPlanningDocumentParentTitle),
                 BitableTitle = ReadPayloadString(request, "多维表格标题", DefaultBitableTitle),
                 TaskTableName = ReadPayloadString(request, "任务表名", DefaultTaskTableName)
             };
 
             state.SpaceId = ReadConfigurationString(request, SpaceKey, "");
-            state.RequirementParent = ReadConfigurationString(request, RequirementParentKey, "");
+            state.PlanningDocumentParent = ReadConfigurationString(request, PlanningDocumentParentKey, "");
             state.GameDesignDocument = ReadConfigurationString(request, GameDesignDocumentKey, "");
             state.ArtDesignDocument = ReadConfigurationString(request, ArtDesignDocumentKey, "");
             state.BitableToken = ReadConfigurationString(request, BitableKey, "");
@@ -120,7 +120,7 @@ namespace Template.Bridges.Feishu
                 return spaceFailure;
             }
 
-            if (!EnsureRequirementParent(state, out var parentFailure))
+            if (!EnsurePlanningDocumentParent(state, out var parentFailure))
             {
                 return parentFailure;
             }
@@ -152,7 +152,7 @@ namespace Template.Bridges.Feishu
             var objects = new JsonObject
             {
                 [SpaceKey] = state.SpaceId,
-                [RequirementParentKey] = state.RequirementParent,
+                [PlanningDocumentParentKey] = state.PlanningDocumentParent,
                 [BitableKey] = state.BitableToken,
                 [TaskTableKey] = state.TaskTableId,
                 [GameDesignDocumentKey] = state.GameDesignDocument,
@@ -211,7 +211,7 @@ namespace Template.Bridges.Feishu
             var body = new JsonObject
             {
                 ["name"] = state.SpaceTitle,
-                ["description"] = "由创作管线自动创建：需求文档与任务表都住在这里。"
+                ["description"] = "由创作管线自动创建：策划文档与任务表都住在这里。"
             }.ToJsonString();
 
             var call = FeishuClient.Send("POST", FeishuClient.WikiSpacesUrl(), body, state.AppId, state.SecretKey, state.TimeoutSeconds);
@@ -244,21 +244,21 @@ namespace Template.Bridges.Feishu
             return true;
         }
 
-        /// <summary>确保需求文档的父节点在：它对应仓库里的 Pools/Requirements/，一条需求一个子节点挂在它下面。</summary>
-        private static bool EnsureRequirementParent(EnsureState state, out BridgeResponse failure)
+        /// <summary>确保策划文档的父节点在：它对应仓库里的 Pools/Requirements/，一条需求一个子节点挂在它下面。</summary>
+        private static bool EnsurePlanningDocumentParent(EnsureState state, out BridgeResponse failure)
         {
             return EnsureNode(
                 state,
-                RequirementParentKey,
-                state.RequirementParent,
-                state.RequirementParentTitle,
+                PlanningDocumentParentKey,
+                state.PlanningDocumentParent,
+                state.PlanningDocumentParentTitle,
                 "docx",
                 out failure,
-                token => state.RequirementParent = token);
+                token => state.PlanningDocumentParent = token);
         }
 
         /// <summary>
-        /// 确保设计库的一份文档在。**走的是与需求文档同一条 EnsureNode**——
+        /// 确保设计库的一份文档在。**走的是与策划文档同一条 EnsureNode**——
         /// 那条路已经跑通过，不另起一套。
         ///
         /// 选文档而不是多维表格：设计库要看的是「有哪些资产、什么风格」，
@@ -681,7 +681,7 @@ namespace Template.Bridges.Feishu
         /// <summary>
         /// 任务表的列，照飞书任务模板那张表来（文本 1 / 单选 3 / 日期 5 / 人员 11 / 超链接 15）。
         ///
-        /// 比模板多两列：**需求id** 与 **需求文档**。任务与需求得连得上——
+        /// 比模板多两列：**需求id** 与 **策划文档**。任务与需求得连得上——
         /// 飞书的关联列只能关联同一个多维表格里的记录，而需求是知识空间里的一份文档，
         /// 关联不过去，所以用一列超链接存文档地址（`doc.push` 推完会把它交回来）。
         ///
@@ -692,7 +692,7 @@ namespace Template.Bridges.Feishu
         {
             new TaskColumn("任务描述", 1),
             new TaskColumn("需求id", 1),
-            new TaskColumn("需求文档", 15),
+            new TaskColumn("策划文档", 15),
             new TaskColumn("任务执行人", 11, new JsonObject { ["multiple"] = false }),
             new TaskColumn("进展", 3, new JsonObject
             {
@@ -739,8 +739,8 @@ namespace Template.Bridges.Feishu
             /// <summary>知识空间 space_id。</summary>
             public string SpaceId = "";
 
-            /// <summary>需求文档父节点 node_token。</summary>
-            public string RequirementParent = "";
+            /// <summary>策划文档父节点 node_token。</summary>
+            public string PlanningDocumentParent = "";
 
             /// <summary>多维表格 app_token。</summary>
             public string BitableToken = "";
@@ -752,7 +752,7 @@ namespace Template.Bridges.Feishu
             public string SpaceTitle = DefaultSpaceTitle;
 
             /// <summary>要建需求父节点时叫什么。</summary>
-            public string RequirementParentTitle = DefaultRequirementParentTitle;
+            public string PlanningDocumentParentTitle = DefaultPlanningDocumentParentTitle;
 
             /// <summary>要建多维表格节点时叫什么。</summary>
             public string BitableTitle = DefaultBitableTitle;

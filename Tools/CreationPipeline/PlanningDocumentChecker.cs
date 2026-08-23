@@ -6,12 +6,12 @@ using System.Text.RegularExpressions;
 namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>
-    /// `gate.reqdoc`：按需求文档规范查 `index.md` 的六条。
+    /// `gate.plandoc`：按策划文档规范查 `index.md` 的六条。
     ///
     /// **没有 index.md 不算违规**——需求可以先有骨架后有文档，doc.render 随时补得出来。
     /// 有 index.md 就得合规：门禁查的是「写了的那份对不对」，不是「写没写」。
     /// </summary>
-    public static class RequirementDocumentChecker
+    public static class PlanningDocumentChecker
     {
         /// <summary>正文里的相对引用：![说明](media/x.png) 与 [说明](media/x.mp4) 都算。</summary>
         private static readonly Regex MediaReferencePattern = new Regex(
@@ -22,8 +22,8 @@ namespace Template.Toolkit.CreationPipeline
         /// 查池子里全部需求的文档。
         /// </summary>
         /// <param name="poolRoot">池子根目录。</param>
-        /// <param name="specification">需求文档规范。</param>
-        public static IReadOnlyList<PoolFinding> CheckAll(string poolRoot, RequirementDocumentSpec specification)
+        /// <param name="specification">策划文档规范。</param>
+        public static IReadOnlyList<PoolFinding> CheckAll(string poolRoot, PlanningDocumentSpec specification)
         {
             var findings = new List<PoolFinding>();
             foreach (var identifier in PoolPaths.EnumerateRequirementIdentifiers(poolRoot))
@@ -39,22 +39,22 @@ namespace Template.Toolkit.CreationPipeline
         /// </summary>
         /// <param name="poolRoot">池子根目录。</param>
         /// <param name="requirementIdentifier">需求 id，如「REQ-0042」。</param>
-        /// <param name="specification">需求文档规范。</param>
+        /// <param name="specification">策划文档规范。</param>
         public static IReadOnlyList<PoolFinding> CheckOne(
             string poolRoot,
             string requirementIdentifier,
-            RequirementDocumentSpec specification)
+            PlanningDocumentSpec specification)
         {
             var findings = new List<PoolFinding>();
-            var documentPath = PoolPaths.RequirementDocument(poolRoot, requirementIdentifier);
+            var documentPath = PoolPaths.PlanningDocument(poolRoot, requirementIdentifier);
             if (!File.Exists(documentPath))
             {
                 return findings;
             }
 
-            if (!RequirementDocument.TryParse(File.ReadAllText(documentPath), specification, out var document, out var reason))
+            if (!PlanningDocument.TryParse(File.ReadAllText(documentPath), specification, out var document, out var reason))
             {
-                findings.Add(Finding(documentPath, 0, "需求文档.解析失败", reason));
+                findings.Add(Finding(documentPath, 0, "策划文档.解析失败", reason));
                 return findings;
             }
 
@@ -71,14 +71,14 @@ namespace Template.Toolkit.CreationPipeline
         private static void CheckFrontMatter(
             string documentPath,
             string requirementIdentifier,
-            RequirementDocument document,
-            RequirementDocumentSpec specification,
+            PlanningDocument document,
+            PlanningDocumentSpec specification,
             List<PoolFinding> findings)
         {
             var frontMatter = document.FrontMatter;
             if (!frontMatter.IsPresent)
             {
-                findings.Add(Finding(documentPath, 1, "需求文档.frontmatter缺失"));
+                findings.Add(Finding(documentPath, 1, "策划文档.frontmatter缺失"));
                 return;
             }
 
@@ -86,7 +86,7 @@ namespace Template.Toolkit.CreationPipeline
             {
                 if (!frontMatter.Has(key) || frontMatter.Scalar(key).Trim().Length == 0)
                 {
-                    findings.Add(Finding(documentPath, 0, "需求文档.必备键缺失", key));
+                    findings.Add(Finding(documentPath, 0, "策划文档.必备键缺失", key));
                 }
             }
 
@@ -97,7 +97,7 @@ namespace Template.Toolkit.CreationPipeline
                 findings.Add(Finding(
                     documentPath,
                     frontMatter.LineOf("需求id"),
-                    "需求文档.id与目录名",
+                    "策划文档.id与目录名",
                     documentIdentifier,
                     requirementIdentifier));
             }
@@ -110,7 +110,7 @@ namespace Template.Toolkit.CreationPipeline
                 findings.Add(Finding(
                     documentPath,
                     frontMatter.LineOf("权威侧"),
-                    "需求文档.权威侧越界",
+                    "策划文档.权威侧越界",
                     authority,
                     string.Join("/", specification.AuthorityValues)));
             }
@@ -121,8 +121,8 @@ namespace Template.Toolkit.CreationPipeline
             string documentPath,
             string requirementIdentifier,
             string poolRoot,
-            RequirementDocument document,
-            RequirementDocumentSpec specification,
+            PlanningDocument document,
+            PlanningDocumentSpec specification,
             List<PoolFinding> findings)
         {
             var requirementType = RequirementTypeOf(poolRoot, requirementIdentifier, document);
@@ -150,7 +150,7 @@ namespace Template.Toolkit.CreationPipeline
             {
                 if (!positions.TryGetValue(title, out var position))
                 {
-                    findings.Add(Finding(documentPath, 0, "需求文档.小节缺失", title));
+                    findings.Add(Finding(documentPath, 0, "策划文档.小节缺失", title));
                     continue;
                 }
 
@@ -159,7 +159,7 @@ namespace Template.Toolkit.CreationPipeline
                     findings.Add(Finding(
                         documentPath,
                         document.Sections[position].LineNumber,
-                        "需求文档.小节乱序",
+                        "策划文档.小节乱序",
                         title,
                         previousTitle));
                 }
@@ -173,8 +173,8 @@ namespace Template.Toolkit.CreationPipeline
         // 散文写的验收标准正是要拦的那种：阶段 4 逐条核，核不动散文。
         private static void CheckAcceptance(
             string documentPath,
-            RequirementDocument document,
-            RequirementDocumentSpec specification,
+            PlanningDocument document,
+            PlanningDocumentSpec specification,
             List<PoolFinding> findings)
         {
             if (specification.AcceptanceSection.Length == 0)
@@ -182,7 +182,7 @@ namespace Template.Toolkit.CreationPipeline
                 return;
             }
 
-            RequirementDocumentSection acceptance = null;
+            PlanningDocumentSection acceptance = null;
             foreach (var section in document.Sections)
             {
                 if (!section.IsInGeneratedRegion
@@ -222,7 +222,7 @@ namespace Template.Toolkit.CreationPipeline
                 findings.Add(Finding(
                     documentPath,
                     acceptance.LineNumber + index + 1,
-                    "需求文档.验收标准非有序列表",
+                    "策划文档.验收标准非有序列表",
                     specification.AcceptanceSection,
                     line.Trim()));
             }
@@ -232,7 +232,7 @@ namespace Template.Toolkit.CreationPipeline
                 findings.Add(Finding(
                     documentPath,
                     acceptance.LineNumber,
-                    "需求文档.验收标准为空",
+                    "策划文档.验收标准为空",
                     specification.AcceptanceSection));
             }
         }
@@ -242,7 +242,7 @@ namespace Template.Toolkit.CreationPipeline
             string documentPath,
             string poolRoot,
             string requirementIdentifier,
-            RequirementDocument document,
+            PlanningDocument document,
             List<PoolFinding> findings)
         {
             var requirementDirectory = PoolPaths.RequirementDirectory(poolRoot, requirementIdentifier);
@@ -263,7 +263,7 @@ namespace Template.Toolkit.CreationPipeline
                 entry.TryGetValue("说明", out var description);
                 if (string.IsNullOrWhiteSpace(description))
                 {
-                    findings.Add(Finding(documentPath, 0, "需求文档.媒体缺说明", relativePath));
+                    findings.Add(Finding(documentPath, 0, "策划文档.媒体缺说明", relativePath));
                 }
             }
 
@@ -290,20 +290,20 @@ namespace Template.Toolkit.CreationPipeline
         {
             if (!IsAsciiPath(relativePath))
             {
-                findings.Add(Finding(documentPath, 0, "需求文档.媒体名非ASCII", relativePath));
+                findings.Add(Finding(documentPath, 0, "策划文档.媒体名非ASCII", relativePath));
             }
 
             var absolute = Path.Combine(requirementDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar));
             if (!File.Exists(absolute))
             {
-                findings.Add(Finding(documentPath, 0, "需求文档.媒体不存在", relativePath));
+                findings.Add(Finding(documentPath, 0, "策划文档.媒体不存在", relativePath));
             }
         }
 
         // 六、生成区没被手改：拿正文实际的哈希与 frontmatter 里记的那个比。
         private static void CheckGeneratedRegion(
             string documentPath,
-            RequirementDocument document,
+            PlanningDocument document,
             List<PoolFinding> findings)
         {
             if (!document.HasGeneratedRegion)
@@ -311,23 +311,23 @@ namespace Template.Toolkit.CreationPipeline
                 return;
             }
 
-            var recorded = document.FrontMatter.Scalar(RequirementDocumentSpec.GeneratedHashKey).Trim();
+            var recorded = document.FrontMatter.Scalar(PlanningDocumentSpec.GeneratedHashKey).Trim();
             if (recorded.Length == 0)
             {
-                findings.Add(Finding(documentPath, document.GeneratedRegionLineNumber, "需求文档.生成区hash缺失"));
+                findings.Add(Finding(documentPath, document.GeneratedRegionLineNumber, "策划文档.生成区hash缺失"));
                 return;
             }
 
-            var actual = RequirementDocument.HashGeneratedRegion(document.GeneratedRegionLines);
+            var actual = PlanningDocument.HashGeneratedRegion(document.GeneratedRegionLines);
             if (!string.Equals(recorded, actual, StringComparison.Ordinal))
             {
-                findings.Add(Finding(documentPath, document.GeneratedRegionLineNumber, "需求文档.生成区被手改"));
+                findings.Add(Finding(documentPath, document.GeneratedRegionLineNumber, "策划文档.生成区被手改"));
             }
         }
 
         // 类型优先取需求骨架里的：骨架是权威（所有权=策划端但由 pool.pull 落盘），
         // 文档 frontmatter 里那份是它的镜像。骨架读不到才退回文档自己写的。
-        private static string RequirementTypeOf(string poolRoot, string requirementIdentifier, RequirementDocument document)
+        private static string RequirementTypeOf(string poolRoot, string requirementIdentifier, PlanningDocument document)
         {
             var requirementFile = PoolPaths.RequirementFile(poolRoot, requirementIdentifier);
             if (File.Exists(requirementFile))
@@ -394,7 +394,7 @@ namespace Template.Toolkit.CreationPipeline
                 location,
                 ValidationMessageCatalog.Format(ruleIdentifier, values),
                 ValidationMessageCatalog.FormatFix(ruleIdentifier),
-                RequirementDocumentSpec.ReferencePath);
+                PlanningDocumentSpec.ReferencePath);
         }
     }
 }

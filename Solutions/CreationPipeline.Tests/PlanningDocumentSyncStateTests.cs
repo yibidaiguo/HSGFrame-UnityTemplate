@@ -7,7 +7,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
     /// 同步账的测试。守两件事：**哈希只算正文**（算上 frontmatter 的话一条需求会自己把自己推到天荒地老），
     /// 以及**回写只动同步块**（正文与别的 frontmatter 键一个字都不许变）。
     /// </summary>
-    public class RequirementDocumentSyncStateTests
+    public class PlanningDocumentSyncStateTests
     {
         private const string DocumentWithoutSync = """
             ---
@@ -42,7 +42,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void ReadsAllFourFields()
         {
-            var state = RequirementDocumentSyncState.Read(Parse(DocumentWithSync));
+            var state = PlanningDocumentSyncState.Read(Parse(DocumentWithSync));
 
             Assert.Equal("wikcnAAAA", state.NodeToken);
             Assert.Equal("https://example.invalid/wiki/wikcnAAAA", state.Link);
@@ -55,7 +55,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void MissingSyncSectionMeansNeverPushed()
         {
-            var state = RequirementDocumentSyncState.Read(Parse(DocumentWithoutSync));
+            var state = PlanningDocumentSyncState.Read(Parse(DocumentWithoutSync));
 
             Assert.Equal("", state.NodeToken);
             Assert.False(state.HasBeenPushed);
@@ -66,7 +66,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void NeedsPushComparesHashes()
         {
-            var state = new RequirementDocumentSyncState("wikcnAAAA", "", "sha256:0011223344556677", "");
+            var state = new PlanningDocumentSyncState("wikcnAAAA", "", "sha256:0011223344556677", "");
 
             Assert.False(state.NeedsPush("sha256:0011223344556677"));
             Assert.True(state.NeedsPush("sha256:ffffffffffffffff"));
@@ -79,11 +79,11 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void HashIgnoresFrontMatter()
         {
-            var before = RequirementDocumentSyncState.HashBody(DocumentWithoutSync);
-            var after = RequirementDocumentSyncState.HashBody(
-                RequirementDocumentSyncState.Write(
+            var before = PlanningDocumentSyncState.HashBody(DocumentWithoutSync);
+            var after = PlanningDocumentSyncState.HashBody(
+                PlanningDocumentSyncState.Write(
                     DocumentWithoutSync,
-                    new RequirementDocumentSyncState("wikcnBBBB", "链接", "sha256:0011223344556677", "2026-08-23T00:00:00Z")));
+                    new PlanningDocumentSyncState("wikcnBBBB", "链接", "sha256:0011223344556677", "2026-08-23T00:00:00Z")));
 
             Assert.Equal(before, after);
         }
@@ -93,19 +93,19 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void HashFollowsBodyChanges()
         {
             Assert.NotEqual(
-                RequirementDocumentSyncState.HashBody(DocumentWithoutSync),
-                RequirementDocumentSyncState.HashBody(DocumentWithoutSync + "\n补一句。"));
+                PlanningDocumentSyncState.HashBody(DocumentWithoutSync),
+                PlanningDocumentSyncState.HashBody(DocumentWithoutSync + "\n补一句。"));
         }
 
         /// <summary>本来没有同步块：补在 frontmatter 末尾，正文与其余键原样不动。</summary>
         [Fact]
         public void WriteAppendsSyncSectionWhenAbsent()
         {
-            var updated = RequirementDocumentSyncState.Write(
+            var updated = PlanningDocumentSyncState.Write(
                 DocumentWithoutSync,
-                new RequirementDocumentSyncState("wikcnBBBB", "https://example.invalid/x", "sha256:aabbccddeeff0011", "2026-08-23T00:00:00Z"));
+                new PlanningDocumentSyncState("wikcnBBBB", "https://example.invalid/x", "sha256:aabbccddeeff0011", "2026-08-23T00:00:00Z"));
 
-            var state = RequirementDocumentSyncState.Read(Parse(updated));
+            var state = PlanningDocumentSyncState.Read(Parse(updated));
             Assert.Equal("wikcnBBBB", state.NodeToken);
             Assert.Contains("需求id: REQ-0042", updated);
             Assert.Contains("次留提升。", updated);
@@ -115,11 +115,11 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void WriteReplacesExistingSyncSectionInPlace()
         {
-            var updated = RequirementDocumentSyncState.Write(
+            var updated = PlanningDocumentSyncState.Write(
                 DocumentWithSync,
-                new RequirementDocumentSyncState("wikcnNEW", "https://example.invalid/new", "sha256:aabbccddeeff0011", "2026-08-23T00:00:00Z"));
+                new PlanningDocumentSyncState("wikcnNEW", "https://example.invalid/new", "sha256:aabbccddeeff0011", "2026-08-23T00:00:00Z"));
 
-            var state = RequirementDocumentSyncState.Read(Parse(updated));
+            var state = PlanningDocumentSyncState.Read(Parse(updated));
             Assert.Equal("wikcnNEW", state.NodeToken);
             Assert.DoesNotContain("wikcnAAAA", updated);
 
@@ -133,19 +133,19 @@ namespace Template.Toolkit.CreationPipeline.Tests
         public void WriteRefusesDocumentWithoutFrontMatter()
         {
             var exception = Assert.Throws<InvalidOperationException>(
-                () => RequirementDocumentSyncState.Write("# 光杆文档", new RequirementDocumentSyncState("a", "b", "c", "d")));
+                () => PlanningDocumentSyncState.Write("# 光杆文档", new PlanningDocumentSyncState("a", "b", "c", "d")));
 
             Assert.Contains("doc.render", exception.Message);
         }
 
         /// <summary>拿一份基线规范来解析：这一族测的是同步块，规范只是解析时的必需品。</summary>
-        private static RequirementDocument Parse(string text)
+        private static PlanningDocument Parse(string text)
         {
             using var workspace = new PoolTestWorkspace();
-            workspace.CopyRequirementDocumentBaseline();
-            var specification = RequirementDocumentSpec.Load(workspace.Root);
+            workspace.CopyPlanningDocumentBaseline();
+            var specification = PlanningDocumentSpec.Load(workspace.Root);
 
-            Assert.True(RequirementDocument.TryParse(text, specification, out var parsed, out var reason), reason);
+            Assert.True(PlanningDocument.TryParse(text, specification, out var parsed, out var reason), reason);
             return parsed;
         }
     }
