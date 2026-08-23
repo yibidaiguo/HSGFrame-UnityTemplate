@@ -36,8 +36,33 @@ namespace Template.Toolkit.CreationPipeline
             bool alsoPush = false,
             int timeoutSeconds = 60)
         {
+            return RefreshForRequirement(
+                repositoryRoot, poolRoot, requirementIdentifier, out notes, out _, alsoPush, timeoutSeconds);
+        }
+
+        /// <summary>
+        /// 同上，但把推的结果也交出来——**调用方要据实回话**，
+        /// 不许照着「渲成了」就说「推上去了」。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="requirementIdentifier">需求 id。</param>
+        /// <param name="notes">这一趟做了什么，一句一条。</param>
+        /// <param name="pushOutcome">推的结果；没推时为 null。</param>
+        /// <param name="alsoPush">渲完顺手推知识库。</param>
+        /// <param name="timeoutSeconds">推知识库的超时秒数。</param>
+        public static bool RefreshForRequirement(
+            string repositoryRoot,
+            string poolRoot,
+            string requirementIdentifier,
+            out IReadOnlyList<string> notes,
+            out ModulePlanPushOutcome pushOutcome,
+            bool alsoPush = false,
+            int timeoutSeconds = 60)
+        {
             var lines = new List<string>();
             notes = lines;
+            pushOutcome = null;
 
             var moduleName = ReadEpic(poolRoot, requirementIdentifier);
             if (moduleName.Length == 0)
@@ -48,7 +73,7 @@ namespace Template.Toolkit.CreationPipeline
                 return false;
             }
 
-            return Refresh(repositoryRoot, poolRoot, moduleName, lines, alsoPush, timeoutSeconds);
+            return Refresh(repositoryRoot, poolRoot, moduleName, lines, out pushOutcome, alsoPush, timeoutSeconds);
         }
 
         /// <summary>
@@ -68,6 +93,29 @@ namespace Template.Toolkit.CreationPipeline
             bool alsoPush = false,
             int timeoutSeconds = 60)
         {
+            return Refresh(repositoryRoot, poolRoot, moduleName, notes, out _, alsoPush, timeoutSeconds);
+        }
+
+        /// <summary>
+        /// 同上，但把推的结果也交出来。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="moduleName">模块名。</param>
+        /// <param name="notes">这一趟做了什么，一句一条。</param>
+        /// <param name="pushOutcome">推的结果；没推时为 null。</param>
+        /// <param name="alsoPush">渲完顺手推知识库。</param>
+        /// <param name="timeoutSeconds">推知识库的超时秒数。</param>
+        public static bool Refresh(
+            string repositoryRoot,
+            string poolRoot,
+            string moduleName,
+            List<string> notes,
+            out ModulePlanPushOutcome pushOutcome,
+            bool alsoPush = false,
+            int timeoutSeconds = 60)
+        {
+            pushOutcome = null;
             if (string.IsNullOrWhiteSpace(moduleName))
             {
                 notes.Add("模块名是空的，模块策划案没得渲");
@@ -97,13 +145,19 @@ namespace Template.Toolkit.CreationPipeline
                     notes.Add("  " + note);
                 }
 
-                // 推那一步**只在真渲出变化时才走**，而且推之前还会再比一次正文哈希
-                // （ModulePlanPusher 自己比）。两道判据看着重复，其实管的是两件事：
-                // 这里挡的是「什么都没变还去调下游」，那里挡的是「渲变了但正文与上次推的一样」
-                // ——后者会发生，因为同步账本身就写在 frontmatter 里，不进正文哈希。
-                if (alsoPush && outcome.IsChanged)
+                // **推不推只由推那一步自己判**，这儿不加第二道闸。
+                //
+                // 曾经加过一道 `outcome.IsChanged`，理由是「什么都没变就别去调下游」。
+                // 那是错的：「**这次渲染没变**」与「**已经推过了**」是两件事。
+                // 冷启动那条路先 plan.draft（它自己渲过一遍），再走到这儿渲第二遍——
+                // 第二遍当然无变化，于是推被整个吃掉，文档躺在本地，
+                // 而回话说「已推知识库」。**假的成功比失败难查得多。**
+                //
+                // 省调用这件事本来就归 PushOne 管：它先比正文哈希与「最后同步hash」，
+                // 一致就回「跳过」，**那之前一次下游调用都没发**。
+                if (alsoPush)
                 {
-                    var pushOutcome = ModulePlanPusher.PushOne(
+                    pushOutcome = ModulePlanPusher.PushOne(
                         repositoryRoot, poolRoot, moduleName, specification,
                         isDryRun: false, isForced: false, timeoutSeconds: timeoutSeconds);
                     notes.Add("  " + pushOutcome.Note);

@@ -2023,16 +2023,28 @@ namespace Template.Toolkit.CommandHost.Commands
                 // 它是幂等的，没变化就什么都不写，而少这一次的代价是
                 // 「有策划案」那条路完全没渲过。
                 ModulePlanRefresher.Refresh(
-                    repositoryRoot, poolRoot, moduleName, lines,
+                    repositoryRoot, poolRoot, moduleName, lines, out var pushed,
                     alsoPush: true, timeoutSeconds: arguments.TimeoutSeconds);
 
                 result = isColdStart ? "已出策划案" : "已刷新策划案";
+
+                // **推没推上去照实说**，不许照着「渲成了」就写「已推知识库」。
+                // 假的成功比失败难查得多：人去知识库里找不到，会先怀疑自己看错了地方。
+                var pushNote = pushed == null
+                    ? "这一趟没推知识库。"
+                    : pushed.Link.Length > 0
+                        ? "已推知识库：" + pushed.Link
+                        : pushed.FailureReason.Length > 0
+                            ? "**没推上知识库**：" + pushed.FailureReason
+                            : pushed.Note;
+
                 replyText = (isColdStart
                         ? moduleName + " 的策划案出好了（第一版是照代码与已有需求产的草案）。"
                         : moduleName + " 的策划案刷新了。")
-                    + "\n落点 Pools/Designs/Modules/" + moduleName + "/index.md，已推知识库。"
+                    + "\n" + "落点 Pools/Designs/Modules/" + moduleName + "/index.md。"
+                    + "\n" + pushNote
                     + (isColdStart
-                        ? "\n**「往后要做成什么样」那一节留给你写**——那是人的判断，代码里没有依据。"
+                        ? "\n" + "**「往后要做成什么样」那一节留给你写**——那是人的判断，代码里没有依据。"
                         : "");
             }
 
