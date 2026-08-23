@@ -1291,6 +1291,34 @@ namespace Template.Toolkit.CommandHost.Commands
             return card.ToPlainText();
         }
 
+        /// <summary>
+        /// 就地跑一次 ui.scaffold，把这份面板定义变成 UXML + USS + C#。
+        ///
+        /// 产物落在 <c>Game.View</c> 的源码树里而不是仓库根：落在仓库根时 Unity 编译不到，
+        /// 而 Logic.Core 又因为零 UnityEngine 铁律链接不了，那条管线是断的。
+        /// 这个落点跟门禁里那一段是同一个，改一处就得改两处——**它们必须一致**，
+        /// 否则拆图写到 A、门禁去 B 校验，永远对不上。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="definitionPath">面板定义文件路径。</param>
+        /// <param name="lines">执行流水。</param>
+        private static bool RunScaffold(string repositoryRoot, string definitionPath, List<string> lines)
+        {
+            var outputDirectory = Path.Combine(
+                repositoryRoot, "UnityProject", "Assets", "Game", "Scripts", "View", "_Generated");
+
+            var result = UiScaffoldCommand.Execute(new UiScaffoldArguments
+            {
+                DefinitionPath = definitionPath,
+                OutputDirectory = outputDirectory,
+                TemplateRoot = repositoryRoot,
+                VerifyOnly = false
+            });
+
+            lines.Add($"生成三件套：{result.Message}");
+            return result.IsSuccess;
+        }
+
         /// <summary>取回来的附件：图片一组，别的文件一组。</summary>
         /// <param name="ImagePaths">图片的本地路径，按消息里的先后。</param>
         /// <param name="FileNotes">别的文件的一句话说明，进提示词用。</param>
@@ -1975,6 +2003,13 @@ namespace Template.Toolkit.CommandHost.Commands
                 repositoryRoot, assetIdentifier + " 界面", panelIdentifier, elements);
             lines.Add($"面板定义：{(definitionPath.Length == 0 ? "写失败" : definitionPath)}");
 
+            // 三件套**当场生成**，不留给人手跑。
+            // 两个理由：一是「接上项目的 UI 工作流」本来就是这条链的目的，
+            // 停在一份 uidef 上等于只做了一半；二是生成物幂等门禁扫 UI/Definitions/ 下每一份定义，
+            // 写了定义却不生成产物，下一次跑门禁必红——而红的原因跟拆图看着毫无关系，
+            // 人要翻半天才找到是这儿留的尾巴。
+            var scaffolded = definitionPath.Length > 0 && RunScaffold(repositoryRoot, definitionPath, lines);
+
             // 留底：下一次人说「那层框大了」时，要靠它把上一次的框喂回给模型。
             if (!AssistantServeTurn.SaveCut(repositoryRoot, conversationIdentifier, assetIdentifier, sourcePath, layers))
             {
@@ -1998,11 +2033,22 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             builder.Append("\n哪层框得不对、漏了什么、多切了什么，直接说，我在这一版基础上改。\n");
-            builder.Append(definitionPath.Length == 0
-                ? "面板定义没写成，得人看一眼磁盘。"
-                : "面板定义写好了：UI/Definitions/" + panelIdentifier + ".uidef.json。\n"
-                    + "跑一次 ui.scaffold 就出 UXML/USS/C#——程序侧读那份 UXML 就知道这个界面怎么用，不用读图。\n"
-                    + "元素类型是按层名猜的，不对改 uidef 一行再重跑。");
+            if (definitionPath.Length == 0)
+            {
+                builder.Append("面板定义没写成，得人看一眼磁盘。");
+            }
+            else if (scaffolded)
+            {
+                builder.Append("面板定义与 UXML/USS/C# 都出好了：UI/Definitions/").Append(panelIdentifier).Append(".uidef.json\n")
+                    .Append("程序侧读那份 UXML 就知道这个界面怎么用，不用读图。\n")
+                    .Append("元素类型是按层名猜的，不对就改 uidef 一行，再说一声我重生成。");
+            }
+            else
+            {
+                builder.Append("面板定义写好了：UI/Definitions/").Append(panelIdentifier).Append(".uidef.json，\n")
+                    .Append("但三件套没生成成（原因在日志里）。得人跑一次 ui.scaffold，\n")
+                    .Append("不然下次跑门禁会因为「生成物幂等」判红。");
+            }
 
             card = AssistantCard.ForGeneratedImages(builder.ToString(), written);
             return card.ToPlainText();
