@@ -1292,6 +1292,95 @@ namespace Template.Toolkit.CommandHost.Commands
         }
 
         /// <summary>
+        /// 让模型照着一小块参考片段，重画一张干净的透明底单元素图。返回重绘出来那张图的路径；没成给空串。
+        ///
+        /// 走的是**正经的资产请求 → 生图**那条路，不是抄近道：每个 UI 元素本来就是一份独立资产，
+        /// 该有自己的 id、自己的请求留痕、自己能被重出一次。抄近道的话，
+        /// 「这个按钮当初是照什么出的」下次没人答得上来。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="imageDriver">生图 driver 名。</param>
+        /// <param name="recipeName">图生图配方名。</param>
+        /// <param name="naming">这个元素归一之后的命名。</param>
+        /// <param name="displayName">这个元素在设计图上叫什么，进提示词。</param>
+        /// <param name="referencePath">裁下来的参考片段路径。</param>
+        /// <param name="width">元素在设计图上的像素宽。</param>
+        /// <param name="height">元素在设计图上的像素高。</param>
+        /// <param name="arguments">命令参数。</param>
+        /// <param name="lines">执行流水。</param>
+        /// <param name="failure">没成时的原因；成了为空串。</param>
+        private static string RedrawElement(
+            string repositoryRoot,
+            string imageDriver,
+            string recipeName,
+            string naming,
+            string displayName,
+            string referencePath,
+            int width,
+            int height,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            out string failure)
+        {
+            failure = "";
+
+            var made = ArtCommands.Request(new ArtRequestArguments
+            {
+                RepositoryRoot = repositoryRoot,
+                PoolRoot = Path.Combine(repositoryRoot, "Pools"),
+                AssetType = UiElementAssetType,
+                NamingText = naming,
+                Description = displayName,
+                VariantCount = 1,
+                Width = width,
+                Height = height
+            });
+
+            if (!made.IsSuccess)
+            {
+                failure = made.Message + Detail(made);
+                return "";
+            }
+
+            var elementIdentifier = ExtractAssetIdentifier(made);
+            if (elementIdentifier.Length == 0)
+            {
+                failure = "资产请求建出来了，但没读回它的 id";
+                return "";
+            }
+
+            var requestPath = AssetPaths.AssetRequestFile(
+                repositoryRoot, AssetRequest.UnownedRequirementIdentifier, elementIdentifier);
+
+            var generate = BridgeCommands.Generate(new BridgeGenerateArguments
+            {
+                Driver = imageDriver,
+                RequestPath = requestPath,
+                RecipeName = recipeName,
+                RepositoryRoot = repositoryRoot,
+                ReferenceImagePath = referencePath,
+                TimeoutSeconds = Math.Max(arguments.TimeoutSeconds, 600)
+            });
+
+            if (!generate.IsSuccess)
+            {
+                failure = generate.Message + Detail(generate);
+                return "";
+            }
+
+            var variantDirectory = AssetPaths.VariantDirectory(
+                repositoryRoot, AssetRequest.UnownedRequirementIdentifier, elementIdentifier);
+            var variants = ListVariantImages(variantDirectory);
+            if (variants.Count == 0)
+            {
+                failure = "生图说成了，但变体目录里一张图都没有（" + variantDirectory + "）";
+                return "";
+            }
+
+            return variants[0];
+        }
+
+        /// <summary>
         /// 就地跑一次 ui.scaffold，把这份面板定义变成 UXML + USS + C#。
         ///
         /// 产物落在 <c>Game.View</c> 的源码树里而不是仓库根：落在仓库根时 Unity 编译不到，
@@ -1916,12 +2005,27 @@ namespace Template.Toolkit.CommandHost.Commands
 
             // 标框那一步是最慢的，过了就报一次进度——人问过「不知道有没有拆完」，
             // 一条「标到 N 个」比一直沉默有用得多，还顺带说清这一趟打算切几片。
-            progress?.Invoke($"标到 {layers.Count} 个元素，正在逐个裁切并落盘…");
+            progress?.Invoke($"标到 {layers.Count} 个元素。接下来逐个重绘成透明底单图——"
+                + "每个元素一次生图调用，这一趟大概要几分钟，跑完我把结果贴上来。");
 
             var decoded = PngDecoder.DecodeFile(sourcePath);
             if (!decoded.Succeeded)
             {
                 return "拆图失败：读不动那张整屏图（" + decoded.FailureReason + "）";
+            }
+
+            // 重绘要用的下游与配方**先查**，查不到就当场停：
+            // 拆到第 8 个元素才发现没配方，前 7 次调用的钱已经花出去了。
+            var routeTable = BridgeRouteTable.Load(repositoryRoot);
+            if (!routeTable.TryResolvePort("生图", out var imageDriver, out var driverReason))
+            {
+                return "拆不了：生图这一域没有可用的下游（" + driverReason + "）";
+            }
+
+            var recipeRoute = AssetRecipeRouteTable.Load(repositoryRoot);
+            if (!recipeRoute.TryResolve(imageDriver, UiElementAssetType, withReferenceImage: true, out var elementRecipe, out var recipeReason))
+            {
+                return "拆不了：" + recipeReason;
             }
 
             var catalog = AssetSpecCatalog.Load(repositoryRoot, "");
@@ -1947,13 +2051,28 @@ namespace Template.Toolkit.CommandHost.Commands
                 return "拆图失败：建不了落点目录 " + outputRoot + "（" + exception.Message + "）";
             }
 
+            var usable = new List<UiLayer>();
             foreach (var layer in layers)
             {
-                if (!layer.IsUsable)
+                if (layer.IsUsable)
+                {
+                    usable.Add(layer);
+                }
+                else
                 {
                     skipped.Add(layer.Name.Length == 0 ? "（没名字的一层）" : layer.Name);
-                    continue;
                 }
+            }
+
+            // 参考图片段落在临时区，不进正式落点：它带着邻居与面板底色，是**给模型看的**，
+            // 不是成品。混进 Art/Texture/ 的话，图集里会多出一堆没人认领的脏图。
+            var pieceRoot = Path.Combine(
+                repositoryRoot, "_Tasks", "cut-pieces", AssistantConversationHistory.SafeFileName(assetIdentifier));
+
+            for (var index = 0; index < usable.Count; index++)
+            {
+                var layer = usable[index];
+                progress?.Invoke($"正在重绘第 {index + 1}/{usable.Count} 个元素（{layer.Name}）…");
 
                 var piece = UiLayerCutter.Cut(decoded.Image, layer);
                 if (piece == null)
@@ -1963,26 +2082,60 @@ namespace Template.Toolkit.CommandHost.Commands
                 }
 
                 var naming = AssetNamingNormalizer.Normalize(layer.Name, spec?.NamingPattern ?? "").Naming;
-                var filePath = Path.Combine(outputRoot, naming + ".png");
-                if (!PngEncoder.EncodeToFile(piece, filePath, out var encodeReason))
+                layer.ToPixels(decoded.Image.Width, decoded.Image.Height, out var x, out var y, out var w, out var h);
+
+                // 裁下来的片段先落临时区当参考图。
+                var piecePath = Path.Combine(pieceRoot, naming + ".png");
+                try
                 {
-                    lines.Add($"写不出 {naming}.png：{encodeReason}");
+                    Directory.CreateDirectory(pieceRoot);
+                }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+                {
+                    return "拆图失败：建不了临时目录 " + pieceRoot + "（" + exception.Message + "）";
+                }
+
+                if (!PngEncoder.EncodeToFile(piece, piecePath, out var encodeReason))
+                {
+                    lines.Add($"{naming} 的参考片段写不出：{encodeReason}");
                     skipped.Add(layer.Name);
                     continue;
                 }
 
-                // 切下来的那块也要按 UI元素 规格走一遍：抠透明。**尺寸不缩**——
-                // 每个元素本来就大小不一，硬塞进 512×512 会把它拉变形。
-                if (needsTransparency)
+                // 让模型照着这一小块**重画**一张透明底单图。
+                // 为什么不直接用裁下来的那块：元素互相压叠时一刀必然带上邻居，
+                // 而白底上的白件抠底会顺着主体灌进去打洞——这两条本地都解不了。
+                var redrawn = RedrawElement(
+                    repositoryRoot, imageDriver, elementRecipe, naming, layer.Name, piecePath, w, h,
+                    arguments, lines, out var redrawFailure);
+
+                if (redrawn.Length == 0)
                 {
-                    var normalized = AssetImageNormalizer.Normalize(filePath, 0, 0, needsTransparency: true);
-                    foreach (var note in normalized.Remaining)
-                    {
-                        lines.Add($"{naming} 还差：{note}");
-                    }
+                    lines.Add($"{naming} 重绘没成：{redrawFailure}");
+                    skipped.Add(layer.Name + "（重绘失败）");
+                    continue;
                 }
 
-                layer.ToPixels(decoded.Image.Width, decoded.Image.Height, out var x, out var y, out var w, out var h);
+                var filePath = Path.Combine(outputRoot, naming + ".png");
+                try
+                {
+                    File.Copy(redrawn, filePath, overwrite: true);
+                }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+                {
+                    lines.Add($"{naming} 落点写不进去：{exception.Message}");
+                    skipped.Add(layer.Name);
+                    continue;
+                }
+
+                // 重绘出来的是下游档位的尺寸（比如 1024 见方），按框的实际尺寸缩回去。
+                // 透明这一步交给规格：模型应当已经给了透明底，归一只在没给时兜底。
+                var normalized = AssetImageNormalizer.Normalize(filePath, w, h, needsTransparency);
+                foreach (var note in normalized.Remaining)
+                {
+                    lines.Add($"{naming} 还差：{note}");
+                }
+
                 elements.Add(new UiPanelElement(
                     layer.Name,
                     UiPanelDefinitionWriter.GuessIdentifier(layer.Name),
@@ -1990,12 +2143,14 @@ namespace Template.Toolkit.CommandHost.Commands
                     destination.TrimEnd('/') + "/" + naming + ".png",
                     x, y, w, h));
                 written.Add(filePath);
-                lines.Add($"拆出 {naming}.png（{w}×{h}）");
+                lines.Add($"重绘出 {naming}.png（{w}×{h}）");
             }
 
             if (written.Count == 0)
             {
-                return "拆图失败：一层都没能拆出来（模型给的框全都不合法）。可以再点一次重试。";
+                return "拆图失败：一个元素都没出来。"
+                    + (skipped.Count > 0 ? "卡在这些上：" + string.Join("、", skipped) + "。" : "")
+                    + "可以再点一次重试。";
             }
 
             var panelIdentifier = UiPanelDefinitionWriter.GuessIdentifier(assetIdentifier) + "Panel";
@@ -2018,8 +2173,8 @@ namespace Template.Toolkit.CommandHost.Commands
 
             cut = true;
             var builder = new StringBuilder();
-            builder.Append("拆出 ").Append(written.Count).Append(" 层，已经落进正式环境：\n")
-                .Append(destination).Append('\n');
+            builder.Append("拆出 ").Append(written.Count).Append(" 个元素，每个都是模型照着设计图重画的透明底单图，")
+                .Append("已经落进正式环境：\n").Append(destination).Append('\n');
             foreach (var element in elements)
             {
                 builder.Append("· ").Append(element.DisplayName).Append("　")
@@ -2032,7 +2187,8 @@ namespace Template.Toolkit.CommandHost.Commands
                 builder.Append("没拆出来的：").Append(string.Join("、", skipped)).Append("（框不合法）\n");
             }
 
-            builder.Append("\n哪层框得不对、漏了什么、多切了什么，直接说，我在这一版基础上改。\n");
+            builder.Append("\n哪个框得不对、漏了什么、多切了什么，直接说，我在这一版基础上改。\n")
+                .Append("（重绘是照着框里那一小块画的，所以框歪了元素也会歪——先说框。）\n");
             if (definitionPath.Length == 0)
             {
                 builder.Append("面板定义没写成，得人看一眼磁盘。");
