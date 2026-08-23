@@ -58,6 +58,18 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("执行后端调用超时秒数")]
         [DefaultValue(120)]
         public int TimeoutSeconds { get; set; }
+
+        /// <summary>
+        /// 出功能图这一步钉死用哪个模型；留空走本机配置那一档。
+        ///
+        /// **单给这一步留一个口子是有来由的**：聊天一轮几百字，轻量档模型又快又便宜；
+        /// 而出功能图要一口气吐出一份几十个字段的 JSON——轻量档在这种长结构化输出上
+        /// 会把预算花在推理里、回一段空 content，报出来是「执行后端回了空文本」，
+        /// 指不到「这个模型干不了这活」上。为这一步单独换个强档，比把整条会话都抬上去省。
+        /// </summary>
+        [Summary("出功能图这一步钉死用哪个模型；留空走本机配置")]
+        [DefaultValue("")]
+        public string InterfaceDraftModel { get; set; }
     }
 
     /// <summary>
@@ -1763,6 +1775,7 @@ namespace Template.Toolkit.CommandHost.Commands
                     // **面板名留空，由模型定**：它正读着这条需求，比这里更清楚是哪一屏。
                     Panel = "",
                     TimeoutSeconds = Math.Max(arguments.TimeoutSeconds, 300),
+                    Model = arguments.InterfaceDraftModel ?? "",
                     DryRun = false
                 });
 

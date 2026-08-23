@@ -70,6 +70,17 @@ namespace Template.Toolkit.CommandHost.Commands
         [DefaultValue(300)]
         public int TimeoutSeconds { get; set; }
 
+        /// <summary>
+        /// 钉死这一次用哪个模型；留空走本机配置那一档（多半是「自动」）。
+        ///
+        /// **这一步比别的步骤更挑模型**：它要一口气吐出一份几十个字段的 JSON，
+        /// 而轻量档模型在这种长结构化输出上会把预算花在推理里、回一段空 content——
+        /// 那时报出来的是「执行后端回了空文本」，指不到「这个模型干不了这活」上。
+        /// </summary>
+        [Summary("钉死这一次用哪个模型；留空走本机配置")]
+        [DefaultValue("")]
+        public string Model { get; set; }
+
         /// <summary>只打提示词不真调。</summary>
         [Summary("为 true 时只把要发的提示词打出来，不调执行后端（不花钱）")]
         [DefaultValue(false)]
@@ -191,7 +202,8 @@ namespace Template.Toolkit.CommandHost.Commands
                 ["上下文"] = InterfaceSpecDraftPrompt.SystemContextText
             });
 
-            var call = BridgeInvoker.Invoke(repositoryRoot, backendDriver, "complete", payload, arguments.TimeoutSeconds);
+            var call = BridgeInvoker.Invoke(
+                repositoryRoot, backendDriver, "complete", payload, arguments.TimeoutSeconds, arguments.Model ?? "");
             if (!call.Succeeded)
             {
                 return CommandResult.Failure($"执行后端调用失败（{call.ErrorCode}）：{call.HumanText}", lines);

@@ -30,6 +30,12 @@ param(
     # 跳过编译，直接用现成产物起。快速重启用；**改过代码就别用**，那样起来的是上一版。
     [switch]$SkipBuild,
 
+    # 出功能图那一步用哪个模型。留空走本机配置那一档。
+    # **这一步比聊天挑模型**：它要一口气吐一份几十个字段的 JSON，
+    # 轻量档会把预算花在推理里、回一段空 content（报出来是「执行后端回了空文本」）。
+    # 为这一步单独换个强档，比把整条会话都抬上去省。
+    [string]$InterfaceDraftModel = '',
+
     # 命令宿主 dll 的路径。默认用仓库 bin 里那份；一键启动脚本会传影子拷贝的路径进来——
     # 常驻进程从 bin 里跑会占住 DLL，门禁与编译全红（老账）。
     [string]$CommandHostDll = ''
@@ -97,6 +103,7 @@ $serveArguments = [ordered]@{
     DryRun                 = $false       # 真调执行后端、真回话
     WriteDownstream        = $WriteDownstream
     TimeoutSeconds         = 180
+    InterfaceDraftModel    = $InterfaceDraftModel
 }
 $serveArgumentsFile = Join-Path $runtimeDirectory 'assist-serve.json'
 $serveArguments | ConvertTo-Json | Set-Content -Path $serveArgumentsFile -Encoding UTF8
