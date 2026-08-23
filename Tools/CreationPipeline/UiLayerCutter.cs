@@ -7,6 +7,15 @@ using System.Text.Json.Nodes;
 
 namespace Template.Toolkit.CreationPipeline
 {
+    /// <summary>清单里的一条:要在图上找的一个元素。</summary>
+    /// <param name="Identifier">元素 id,模型要原样抄回来。</param>
+    /// <param name="ElementType">元素类型,帮模型认出它是什么。</param>
+    /// <param name="DisplayName">人话名字;没有给空串。</param>
+    /// <param name="Width">大致像素宽;不知道给 0。</param>
+    /// <param name="Height">大致像素高;不知道给 0。</param>
+    public sealed record UiLayerRequest(
+        string Identifier, string ElementType, string DisplayName, int Width, int Height);
+
     /// <summary>一层：叫什么、在整图里的哪一块（归一化的 0~1 坐标）。</summary>
     public sealed class UiLayer
     {
@@ -131,6 +140,119 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             return builder.ToString();
+        }
+
+        /// <summary>
+        /// 组一份「照清单找框」的提示词。
+        ///
+        /// 与 <see cref="LayerPrompt"/> 的根本区别:那一份让模型**自己决定有哪些元素**,
+        /// 这一份只让它**在图上找出清单里已经定好的那些**。
+        ///
+        /// 为什么这是对的:元素清单是界面规格定的,那是策划审过的功能契约;
+        /// 让视觉模型自己看图猜的话,一屏猜出上百个、跟需求对不上、通用件认不出来——
+        /// 三样都是从「谁说了算」这一点上错的,不是切图算法的问题。
+        ///
+        /// 职责也因此分干净了:**框错了是规格写错了**(人改规格),**抠差了是模型的事**(重抠)。
+        /// 从前这两件事混在一起,出了问题指不到人。
+        /// </summary>
+        /// <param name="entries">要找的元素:id、类型、大致尺寸。</param>
+        public static string BuildManifestPrompt(IReadOnlyList<UiLayerRequest> entries)
+        {
+            var builder = new StringBuilder();
+            builder.Append("这是一张游戏 UI 界面设计图。下面这些元素**已经定好了**,");
+            builder.Append("你的活是在图上把每一个**找出来**并给出它的框。\n\n");
+            builder.Append("## 要找的元素\n");
+
+            foreach (var entry in entries ?? Array.Empty<UiLayerRequest>())
+            {
+                builder.Append("- `").Append(entry.Identifier).Append("`(").Append(entry.ElementType).Append(')');
+                if (entry.Width > 0 && entry.Height > 0)
+                {
+                    builder.Append(" 大约 ").Append(entry.Width).Append('×').Append(entry.Height);
+                }
+
+                if (entry.DisplayName.Length > 0)
+                {
+                    builder.Append(" —— ").Append(entry.DisplayName);
+                }
+
+                builder.Append('\n');
+            }
+
+            builder.Append("\n只回一份 JSON,不要解释、不要代码块,形状:\n");
+            builder.Append("{\"层\": [{\"名字\": \"上面清单里的 id,原样抄\", ");
+            builder.Append("\"左\": 0.0, \"上\": 0.0, \"右\": 1.0, \"下\": 1.0}]}\n");
+            builder.Append("硬规矩:\n");
+            builder.Append("1. 坐标是**归一化**的 0~1(左上角是 0,0),不是像素。\n");
+            builder.Append("2. 名字**只许用清单里的 id,原样抄**——");
+            builder.Append("别改大小写、别加前缀、别自己起名。清单之外的东西一概不要框。\n");
+            builder.Append("3. 框要**贴着元素本身**,别把一大片背景框进来。\n");
+            builder.Append("4. 图上确实找不到的那一个,**就别放进结果**——");
+            builder.Append("硬编一个框出来,拆出来的会是一块不相干的图,那比缺一张更糟。\n");
+            builder.Append("5. 重复出现的(比如四十个一样的格子)**只框其中一个**,清单里它也只有一条。\n");
+
+            return builder.ToString();
+        }
+
+        /// <summary>
+        /// 按清单筛模型给回来的框:清单之外的丢掉,清单里没找到的报出来。
+        ///
+        /// **不做模糊匹配**——名字对不上就是对不上。模糊匹配会把 `ButtonSort` 和
+        /// `ButtonSortDescending` 认成一个,而这两个是两张不同的图。
+        /// </summary>
+        /// <param name="layers">模型给的框。</param>
+        /// <param name="entries">清单。</param>
+        /// <param name="missing">清单里有、结果里没有的 id。</param>
+        /// <param name="unexpected">结果里有、清单里没有的名字。</param>
+        public static IReadOnlyList<UiLayer> FilterToManifest(
+            IReadOnlyList<UiLayer> layers,
+            IReadOnlyList<UiLayerRequest> entries,
+            out IReadOnlyList<string> missing,
+            out IReadOnlyList<string> unexpected)
+        {
+            var wanted = new Dictionary<string, UiLayerRequest>(StringComparer.Ordinal);
+            foreach (var entry in entries ?? Array.Empty<UiLayerRequest>())
+            {
+                if (entry.Identifier.Length > 0)
+                {
+                    wanted[entry.Identifier] = entry;
+                }
+            }
+
+            var kept = new List<UiLayer>();
+            var extras = new List<string>();
+            var found = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var layer in layers ?? Array.Empty<UiLayer>())
+            {
+                if (wanted.ContainsKey(layer.Name))
+                {
+                    // 同一个 id 模型给了两个框时只认第一个:清单里它只有一条,
+                    // 收两个的话落点会互相覆盖,而覆盖是静默的。
+                    if (found.Add(layer.Name))
+                    {
+                        kept.Add(layer);
+                    }
+                }
+                else
+                {
+                    extras.Add(layer.Name);
+                }
+            }
+
+            var absent = new List<string>();
+            foreach (var identifier in wanted.Keys)
+            {
+                if (!found.Contains(identifier))
+                {
+                    absent.Add(identifier);
+                }
+            }
+
+            absent.Sort(StringComparer.Ordinal);
+            missing = absent;
+            unexpected = extras;
+            return kept;
         }
 
         /// <summary>

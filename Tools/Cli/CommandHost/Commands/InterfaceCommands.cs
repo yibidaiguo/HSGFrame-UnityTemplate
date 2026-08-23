@@ -76,6 +76,33 @@ namespace Template.Toolkit.CommandHost.Commands
         public bool DryRun { get; set; }
     }
 
+    /// <summary>「照界面规格的清单切图」的参数。</summary>
+    public sealed class InterfaceSpecCutArguments
+    {
+        /// <summary>仓库根目录。</summary>
+        [Summary("仓库根目录")]
+        [DefaultValue("")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>照哪份界面规格切。</summary>
+        [Summary("界面 id，如 UI-0007；清单与落点都从它来")]
+        public string Interface { get; set; }
+
+        /// <summary>要切的那张整屏设计图。</summary>
+        [Summary("整屏美术稿的路径")]
+        public string SourceImage { get; set; }
+
+        /// <summary>单次调用超时秒数。</summary>
+        [Summary("单次调用超时秒数")]
+        [DefaultValue(300)]
+        public int TimeoutSeconds { get; set; }
+
+        /// <summary>只打提示词不真调。</summary>
+        [Summary("为 true 时只把要发的提示词打出来，不调视觉模型（不花钱）")]
+        [DefaultValue(false)]
+        public bool DryRun { get; set; }
+    }
+
     /// <summary>
     /// 界面规格这一层的命令：校验、渲布局图、生成 uidef、算资产清单。
     ///
@@ -217,6 +244,146 @@ namespace Template.Toolkit.CommandHost.Commands
                 && element.ValueKind == JsonValueKind.String
                 ? element.GetString() ?? ""
                 : "";
+        }
+
+        /// <summary>
+        /// 照界面规格的清单在设计图上找框。
+        ///
+        /// 与从前那条「看图猜元素」的根本区别在**谁说了算**：
+        /// 元素清单是策划审过的功能契约，不是视觉模型看图看出来的。
+        /// 从前一屏猜出上百个、跟需求对不上、通用件认不出来——三样都是从这一点上错的。
+        ///
+        /// 这条命令只到「框在哪」为止，**不出图也不落盘**：
+        /// 拿到框之后怎么抠、抠完落哪，是拆图那条链的事（它已经能干这个了）。
+        /// 分开是为了让「框得准不准」能单独看、单独重来。
+        /// </summary>
+        /// <param name="arguments">命令参数。</param>
+        [EditorCommand("ui.spec.cut")]
+        [Summary("照界面规格的清单在设计图上找框：清单外的不切，找不到的如实报")]
+        public static CommandResult Cut(InterfaceSpecCutArguments arguments)
+        {
+            if (arguments == null
+                || string.IsNullOrWhiteSpace(arguments.Interface)
+                || string.IsNullOrWhiteSpace(arguments.SourceImage))
+            {
+                return CommandResult.Failure("参数 Interface 与 SourceImage 均为必填项");
+            }
+
+            var repositoryRoot = string.IsNullOrWhiteSpace(arguments.RepositoryRoot)
+                ? Directory.GetCurrentDirectory()
+                : arguments.RepositoryRoot;
+
+            var specPath = InterfaceSpec.FilePathFor(repositoryRoot, arguments.Interface);
+            if (!File.Exists(specPath))
+            {
+                return CommandResult.Failure($"界面规格不存在：{specPath}");
+            }
+
+            if (!InterfaceSpec.TryRead(specPath, out var spec, out var specReason))
+            {
+                return CommandResult.Failure(specReason);
+            }
+
+            if (!File.Exists(arguments.SourceImage))
+            {
+                return CommandResult.Failure($"设计图不存在：{arguments.SourceImage}");
+            }
+
+            var catalog = UiElementTemplateCatalog.Load(repositoryRoot, spec.PanelName);
+            var manifest = InterfaceAssetManifest.Build(repositoryRoot, spec, catalog);
+
+            // 只找**真要出图**的那些：Label 的文案由 UI Toolkit 出、Container 的底图是别的元素、
+            // Decoration 属于底图的一部分——让模型去图上找它们，纯属浪费一次调用。
+            var requests = new List<UiLayerRequest>();
+            var byIdentifier = new Dictionary<string, InterfaceElement>(StringComparer.Ordinal);
+            foreach (var element in spec.Elements)
+            {
+                byIdentifier[element.Identifier] = element;
+            }
+
+            foreach (var entry in manifest)
+            {
+                if (!string.Equals(entry.Action, InterfaceAssetManifest.ActionGenerate, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                byIdentifier.TryGetValue(entry.ElementIdentifier, out var element);
+                requests.Add(new UiLayerRequest(
+                    entry.ElementIdentifier,
+                    entry.ElementType,
+                    element?.DisplayName ?? "",
+                    entry.Width,
+                    entry.Height));
+            }
+
+            if (requests.Count == 0)
+            {
+                return CommandResult.Success(
+                    $"{spec.Identifier} 这一屏没有要出图的元素，不用切",
+                    new[] { $"元素 {manifest.Count} 个，全是不出图的那几类" });
+            }
+
+            var prompt = UiLayerCutter.BuildManifestPrompt(requests);
+            var lines = new List<string> { $"要找 {requests.Count} 个元素（元素总数 {manifest.Count}）" };
+
+            if (arguments.DryRun)
+            {
+                lines.Add("干跑：没有调视觉模型，下面是要发的提示词");
+                lines.Add(prompt);
+                return CommandResult.Success("干跑完成，未发任何请求", lines);
+            }
+
+            var routeTable = BridgeRouteTable.Load(repositoryRoot);
+            if (!routeTable.TryResolvePort("执行后端", out var backendDriver, out var driverReason))
+            {
+                return CommandResult.Failure("执行后端取不到：" + driverReason, lines);
+            }
+
+            // 图以 data: URL 内联发过去，不经任何第三方图床。
+            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["提示"] = prompt,
+                ["上下文"] = "你是给游戏 UI 找框的助手，只回 JSON，不回别的。清单之外的东西一概不要框。",
+                ["图片"] = new JsonArray { arguments.SourceImage }
+            });
+
+            var call = BridgeInvoker.Invoke(repositoryRoot, backendDriver, "complete", payload, arguments.TimeoutSeconds);
+            if (!call.Succeeded)
+            {
+                return CommandResult.Failure($"视觉模型调用失败（{call.ErrorCode}）：{call.HumanText}", lines);
+            }
+
+            var layers = UiLayerCutter.ParseLayers(ReadPayloadText(call.Payload), out var parseFailure);
+            if (layers.Count == 0)
+            {
+                return CommandResult.Failure("框解析失败：" + parseFailure, lines);
+            }
+
+            var kept = UiLayerCutter.FilterToManifest(layers, requests, out var missing, out var unexpected);
+
+            foreach (var layer in kept)
+            {
+                layer.ToPixels(spec.CanvasWidth, spec.CanvasHeight, out var x, out var y, out var w, out var h);
+                lines.Add($"  {layer.Name}　{x},{y}　{w}×{h}");
+            }
+
+            if (unexpected.Count > 0)
+            {
+                lines.Add($"清单外的框已丢掉（{unexpected.Count} 个）：{string.Join("、", unexpected)}");
+            }
+
+            if (missing.Count > 0)
+            {
+                // **缺件不静默**：少一个元素就是少一张图，而少的那张要到进 Unity 摆界面时才发现。
+                lines.Add($"图上没找到（{missing.Count} 个）：{string.Join("、", missing)}");
+                return CommandResult.Failure(
+                    $"找到 {kept.Count}/{requests.Count} 个，缺 {missing.Count} 个——"
+                        + "要么这张稿子上确实没画，要么框歪了；先看一眼再决定重找还是改规格",
+                    lines);
+            }
+
+            return CommandResult.Success($"{requests.Count} 个元素全找到了", lines);
         }
 
         /// <summary>校验界面规格：面板级必填、元素 id 唯一与合规、父子无环、按类型模板查必填。</summary>
