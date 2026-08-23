@@ -206,6 +206,175 @@ namespace Template.Toolkit.CommandHost.Commands
         }
     }
 
+    /// <summary>设计库门禁命令的参数。</summary>
+    public sealed class GateDesignLibraryArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+    }
+
+    /// <summary>
+    /// 设计库门禁：定稿只收紧不放宽、来源不许是机器编的、索引与落点对得上。
+    ///
+    /// 三条查的是同一件事的三个面——**风格会不会在没人察觉的情况下跑偏**：
+    /// 模块偷偷引入新色是跑偏的起点；假定稿会被往后所有资产当成事实继承；
+    /// 对不上的索引会让「查过了，没有」这句话变成假的。
+    /// </summary>
+    public static class GateDesignLibraryCommand
+    {
+        /// <summary>
+        /// 跑设计库门禁。
+        /// </summary>
+        /// <param name="arguments">设计库门禁参数。</param>
+        [EditorCommand("gate.designlibrary")]
+        [Summary("设计库门禁：定稿只收紧、无假定稿、索引与落点对账")]
+        public static CommandResult Execute(GateDesignLibraryArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            var findings = new List<GateFinding>();
+
+            ArtStyleFinal.TryRead(ArtStyleFinal.ProjectFilePath(repositoryRoot), "", out var project, out var projectReason);
+            if (projectReason.Length > 0)
+            {
+                findings.Add(new GateFinding(
+                    ArtStyleFinal.ProjectFilePath(repositoryRoot), projectReason, "把文件修好",
+                    "Doc/creation-pipeline-subdocs/09-design-library.md"));
+            }
+
+            var count = 0;
+            foreach (var final in CollectFinals(repositoryRoot, project, ref count))
+            {
+                foreach (var finding in ArtStyleFinal.InspectOrigin(final))
+                {
+                    findings.Add(ToGateFinding(finding));
+                }
+
+                if (!final.IsProjectLevel)
+                {
+                    foreach (var finding in ArtStyleFinal.InspectNarrowing(project, final))
+                    {
+                        findings.Add(ToGateFinding(finding));
+                    }
+                }
+            }
+
+            // 索引与落点对账。**不在门禁里重写索引**——门禁只判，不改仓库。
+            var expected = DesignLibraryIndex.Rebuild(repositoryRoot, withPalette: false);
+            var actual = DesignLibraryIndex.Read(repositoryRoot);
+            var indexPath = DesignLibraryIndex.FilePathFor(repositoryRoot);
+
+            var actualNamings = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var entry in actual.Entries)
+            {
+                actualNamings.Add(entry.Destination);
+            }
+
+            foreach (var entry in expected.Entries)
+            {
+                if (!actualNamings.Remove(entry.Destination))
+                {
+                    findings.Add(new GateFinding(
+                        indexPath,
+                        $"落点里有「{entry.Destination}」，索引里没有",
+                        "跑一次 design.library.rebuild",
+                        "Doc/creation-pipeline-subdocs/09-design-library.md"));
+                }
+            }
+
+            foreach (var stale in actualNamings)
+            {
+                findings.Add(new GateFinding(
+                    indexPath,
+                    $"索引里有「{stale}」，落点里已经没有了",
+                    "跑一次 design.library.rebuild——对不上的索引比没有索引更糟，"
+                        + "它会让「查过了，没有」这句话变成假的",
+                    "Doc/creation-pipeline-subdocs/09-design-library.md"));
+            }
+
+            // 总设计层长度：它要能被塞进每一次调用而不心疼，写不下说明在往里塞细节。
+            if (DesignDirection.TryRead(repositoryRoot, out var direction, out var directionReason))
+            {
+                if (direction != null && direction.LineCount > DirectionLineLimit)
+                {
+                    findings.Add(new GateFinding(
+                        direction.FilePath,
+                        $"总设计层 {direction.LineCount} 行，超过 {DirectionLineLimit} 行",
+                        "细节挪去模块定稿或设计记录——总设计层要能被完整读进每一次调用而不心疼",
+                        "Doc/creation-pipeline-subdocs/10-direction-and-reading.md"));
+                }
+            }
+            else
+            {
+                findings.Add(new GateFinding(
+                    DesignDirection.FilePathFor(repositoryRoot), directionReason, "把文件修好",
+                    "Doc/creation-pipeline-subdocs/10-direction-and-reading.md"));
+            }
+
+            return GateCommandSupport.ToResult($"设计库门禁（定稿 {count} 份，资产 {expected.Entries.Count} 张）", findings);
+        }
+
+        /// <summary>总设计层的行数上限，与文档长度门禁同一个数。</summary>
+        private const int DirectionLineLimit = 200;
+
+        /// <summary>收齐要查的定稿：项目级一份 + 每个模块一份。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="project">项目级定稿；可为 null。</param>
+        /// <param name="count">数出来一共几份。</param>
+        private static IReadOnlyList<ArtStyleFinal> CollectFinals(
+            string repositoryRoot, ArtStyleFinal project, ref int count)
+        {
+            var finals = new List<ArtStyleFinal>();
+            if (project != null)
+            {
+                finals.Add(project);
+            }
+
+            var artRoot = Path.Combine(repositoryRoot, "Pools", "Designs", "Art");
+            if (!Directory.Exists(artRoot))
+            {
+                count = finals.Count;
+                return finals;
+            }
+
+            foreach (var directory in Directory.EnumerateDirectories(artRoot))
+            {
+                var moduleName = Path.GetFileName(directory);
+                if (string.Equals(moduleName, "project", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (ArtStyleFinal.TryRead(
+                    ArtStyleFinal.ModuleFilePath(repositoryRoot, moduleName), moduleName, out var moduleFinal, out _)
+                    && moduleFinal != null)
+                {
+                    finals.Add(moduleFinal);
+                }
+            }
+
+            count = finals.Count;
+            return finals;
+        }
+
+        /// <summary>把池子发现翻成门禁发现。</summary>
+        /// <param name="finding">池子发现。</param>
+        private static GateFinding ToGateFinding(PoolFinding finding)
+        {
+            return new GateFinding(finding.Location, finding.Reason, finding.FixAction, finding.ReferenceExamplePath);
+        }
+    }
+
     /// <summary>界面规格门禁命令的参数。</summary>
     public sealed class GateInterfaceSpecArguments
     {
