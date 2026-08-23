@@ -60,7 +60,63 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             var findings = InterfaceSpecInspector.Inspect(spec, LoadCatalog(workspace));
 
-            Assert.Contains(findings, finding => finding.Reason.Contains("不是数组"));
+            Assert.Contains(findings, finding => finding.Reason.Contains("不是「不会失败」那一种"));
+        }
+
+        /// <summary>
+        /// 空的「失败」数组要判红。
+        ///
+        /// **它分不清「还没写」与「查过了，确实没有」**，而这两件事对程序的意思完全相反：
+        /// 前者是这条需求还没想清楚，后者是这个件本来就没有失败分支。
+        /// </summary>
+        [Fact]
+        public void EmptyFailureArrayIsReported()
+        {
+            using var workspace = new Workspace();
+            var text = MinimalSpecJson.Replace(
+                "\"失败\": [{ \"条件\": \"列表为空\", \"提示\": \"背包是空的\", \"处置\": \"不重排\" }]",
+                "\"失败\": []");
+            var spec = ReadSpec(workspace, text);
+
+            var findings = InterfaceSpecInspector.Inspect(spec, LoadCatalog(workspace));
+
+            Assert.Contains(findings, finding => finding.Reason.Contains("空数组"));
+        }
+
+        /// <summary>
+        /// 「不会失败：<理由>」是合法写法——有些件真的没有可失败的一步，
+        /// 逼它编一条假失败比空着更坏。
+        /// </summary>
+        [Fact]
+        public void ExplicitNoFailureWithAReasonPasses()
+        {
+            using var workspace = new Workspace();
+            var text = MinimalSpecJson.Replace(
+                "\"失败\": [{ \"条件\": \"列表为空\", \"提示\": \"背包是空的\", \"处置\": \"不重排\" }]",
+                "\"失败\": \"不会失败：纯本地的列表选中，没有可失败的一步\"");
+            var spec = ReadSpec(workspace, text);
+
+            var findings = InterfaceSpecInspector.Inspect(spec, LoadCatalog(workspace));
+
+            Assert.DoesNotContain(findings, finding => finding.Reason.Contains("失败"));
+        }
+
+        /// <summary>
+        /// 只写「不会失败」不给理由要判红——**理由才是这一格的价值**：
+        /// 往后有人要加失败分支时，靠它判断当初是想过还是漏了。
+        /// </summary>
+        [Fact]
+        public void NoFailureWithoutAReasonIsReported()
+        {
+            using var workspace = new Workspace();
+            var text = MinimalSpecJson.Replace(
+                "\"失败\": [{ \"条件\": \"列表为空\", \"提示\": \"背包是空的\", \"处置\": \"不重排\" }]",
+                "\"失败\": \"不会失败\"");
+            var spec = ReadSpec(workspace, text);
+
+            var findings = InterfaceSpecInspector.Inspect(spec, LoadCatalog(workspace));
+
+            Assert.Contains(findings, finding => finding.Reason.Contains("没给理由"));
         }
 
         /// <summary>Button 缺「验收」要判红——写不出可测的断言，说明这条还没想清楚。</summary>
