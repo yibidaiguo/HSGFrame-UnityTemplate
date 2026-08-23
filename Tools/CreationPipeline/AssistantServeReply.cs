@@ -26,6 +26,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="wantedThing">这一轮人要的是什么：功能 / 图；没说时为空串。</param>
         /// <param name="imageRequest">出图请求；不是要图那一支时为 null。</param>
         /// <param name="cutFeedback">拆图意见；不是改拆图那一支时为空串。</param>
+        /// <param name="planModule">要策划案的模块名；不是这一支时为空串。</param>
         public AssistantServeReply(
             bool parsed,
             string replyText,
@@ -36,11 +37,13 @@ namespace Template.Toolkit.CreationPipeline
             string intentSummary = "",
             string wantedThing = "",
             JsonObject imageRequest = null,
-            string cutFeedback = "")
+            string cutFeedback = "",
+            string planModule = "")
         {
             WantedThing = wantedThing ?? "";
             ImageRequest = imageRequest;
             CutFeedback = cutFeedback ?? "";
+            PlanModule = (planModule ?? "").Trim();
             Parsed = parsed;
             ReplyText = replyText ?? "";
             WantsRequirement = wantsRequirement;
@@ -83,6 +86,9 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>「要什么」的取值：人在说上一次拆图哪儿不对。</summary>
         public const string WantRecut = "改拆图";
 
+        /// <summary>「要什么」的第四种：一份模块策划案。</summary>
+        public const string WantPlan = "策划案";
+
         /// <summary>人这次说的拆图意见；不是改拆图那一支时为空串。</summary>
         public string CutFeedback { get; }
 
@@ -91,6 +97,24 @@ namespace Template.Toolkit.CreationPipeline
         /// **判据是「要什么」加「拆图意见」两样都在**：说要改却没说哪儿不对，
         /// 那就没有可改的依据，该接着问而不是拿一句空话去重拆。
         /// </summary>
+        /// <summary>
+        /// 要策划案的是哪个模块；不是这一支时为空串。
+        ///
+        /// **模块名是这一支唯一的入参**：策划案的内容全是从正本投影出来的
+        /// （需求、界面、配置表、参考图、代码），模型不需要、也不许提供正文。
+        /// </summary>
+        public string PlanModule { get; }
+
+        /// <summary>这一轮是不是在要一份模块策划案。</summary>
+        public bool WantsPlan
+        {
+            get
+            {
+                return string.Equals(WantedThing, WantPlan, StringComparison.Ordinal)
+                    && PlanModule.Length > 0;
+            }
+        }
+
         public bool WantsRecut
         {
             get { return string.Equals(WantedThing, WantRecut, StringComparison.Ordinal) && CutFeedback.Length > 0; }
@@ -183,6 +207,13 @@ namespace Template.Toolkit.CreationPipeline
             var wanted = ReadString(root, "要什么");
             var cutFeedback = ReadString(root, "拆图意见");
 
+            // 策划案请求只带一个模块名——正文全是从正本投影出来的，模型不供正文。
+            var planModule = "";
+            if (root.TryGetPropertyValue("策划案请求", out var planNode) && planNode is JsonObject planObject)
+            {
+                planModule = ReadString(planObject, "模块");
+            }
+
             JsonObject imageRequest = null;
             if (root.TryGetPropertyValue("出图请求", out var imageNode) && imageNode is JsonObject imageObject)
             {
@@ -209,12 +240,13 @@ namespace Template.Toolkit.CreationPipeline
                     intentSummary: intent,
                     wantedThing: wanted,
                     imageRequest: imageRequest,
-                    cutFeedback: cutFeedback);
+                    cutFeedback: cutFeedback,
+                    planModule: planModule);
                 return true;
             }
 
             reply = new AssistantServeReply(
-                true, replyText, wants, missing, draft, "", intent, wanted, imageRequest, cutFeedback);
+                true, replyText, wants, missing, draft, "", intent, wanted, imageRequest, cutFeedback, planModule);
             return true;
         }
 

@@ -83,6 +83,15 @@ namespace Template.Toolkit.CreationPipeline
         /// </summary>
         public const string InterfaceAction = "出功能图";
 
+        /// <summary>
+        /// 动作：给一个模块出/刷新一份策划案。
+        ///
+        /// **不必先有需求。** 策划案是模块的正本，一个模块一份、常驻；
+        /// 而需求是一件要做的事。逼人先建一条需求才能拿到模块正本，
+        /// 等于为了记录现状先编一件事出来——池子里会多出一堆「补录 XXX」的假需求。
+        /// </summary>
+        public const string PlanAction = "出策划案";
+
         /// <summary>动作：丢掉这条会话的上下文，从头聊。</summary>
         public const string NewTopicAction = "开新话题";
 
@@ -483,6 +492,27 @@ namespace Template.Toolkit.CreationPipeline
                 System.Array.Empty<System.Collections.Generic.KeyValuePair<string, string>>(),
                 Array.Empty<string>(),
                 new[] { new AssistantCardButton("知道了，接着拆", ConfirmCutAction, carried, isPrimary: true) },
+                Array.Empty<string>());
+        }
+
+        /// <summary>
+        /// 要一份模块策划案时那张卡：主按钮是「出策划案」——点了才真去建/刷新。
+        /// </summary>
+        /// <param name="moduleName">模块名。</param>
+        /// <param name="bodyText">正文。</param>
+        public static AssistantCard ForPlanRequest(string moduleName, string bodyText)
+        {
+            return new AssistantCard(
+                "模块策划案　" + (moduleName ?? ""),
+                bodyText ?? "",
+                Array.Empty<KeyValuePair<string, string>>(),
+                Array.Empty<string>(),
+                new[]
+                {
+                    new AssistantCardButton(
+                        PlanAction, PlanAction, new JsonObject { ["模块"] = moduleName ?? "" }, isPrimary: true),
+                    new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false)
+                },
                 Array.Empty<string>());
         }
 

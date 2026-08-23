@@ -504,6 +504,34 @@ namespace Template.Toolkit.CommandHost.Commands
                 lines.Add($"出图请求带参考图：{attachments.ImagePaths[0]}");
             }
 
+            // 「要一份模块策划案」这一支既不走需求也不走出图：策划案是模块的正本，
+            // 内容全是从正本投影出来的，模型只需要说清是哪个模块。
+            // **不必先有需求**——逼人先建一条需求才能拿到模块正本，
+            // 等于为了记录现状先编一件事出来。
+            if (reply.WantsPlan)
+            {
+                var planCard = AssistantCard.ForPlanRequest(reply.PlanModule, reply.ReplyText);
+                var planSent = SendReply(
+                    repositoryRoot, assistantDriver, message, planCard.ToPlainText(), arguments, lines, planCard);
+                replyDelivered = planSent.Delivered;
+                replyRetryable = planSent.Retryable;
+
+                AssistantConversationHistory.Append(
+                    repositoryRoot, message.ConversationIdentifier, AssistantHistoryTurn.AssistantRole,
+                    reply.ReplyText, DateTimeOffset.Now);
+
+                AppendLedger(repositoryRoot, new JsonObject
+                {
+                    ["时间"] = DateTimeOffset.Now.ToString("o"),
+                    ["信号"] = Path.GetFileName(signalFilePath),
+                    ["结果"] = "策划案待确认",
+                    ["模块"] = reply.PlanModule,
+                    ["回话送出"] = planSent.Delivered
+                });
+
+                return lines;
+            }
+
             var outcome = AssistantServeTurn.Decide(repositoryRoot, poolRoot, message, reply, schema, DateTimeOffset.Now);
             if (outcome.BlockedFields.Count > 0)
             {
@@ -627,6 +655,13 @@ namespace Template.Toolkit.CommandHost.Commands
             if (string.Equals(message.ActionName, AssistantCard.NewTopicAction, StringComparison.Ordinal))
             {
                 return StartNewTopic(repositoryRoot, assistantDriver, signalFilePath, message, arguments, lines, out replyDelivered, out replyRetryable);
+            }
+
+            if (string.Equals(message.ActionName, AssistantCard.PlanAction, StringComparison.Ordinal))
+            {
+                return HandlePlanDraft(
+                    repositoryRoot, poolRoot, assistantDriver, signalFilePath, message, arguments, lines,
+                    out replyDelivered, out replyRetryable);
             }
 
             if (string.Equals(message.ActionName, AssistantCard.CutAction, StringComparison.Ordinal)
@@ -1855,6 +1890,147 @@ namespace Template.Toolkit.CommandHost.Commands
                 ["信号"] = Path.GetFileName(signalFilePath),
                 ["结果"] = result,
                 ["需求id"] = requirementIdentifier,
+                ["回话送出"] = reply.Delivered
+            });
+
+            return lines;
+        }
+
+        /// <summary>
+        /// 人点了「出策划案」：给这个模块建/刷新一份策划案，然后推知识库。
+        ///
+        /// **没有就冷启动、有就只刷新生成区。** 这两件事的区别不在难易，在**碰不碰人写区**：
+        /// 冷启动那次要照代码与已有需求产人写区草案，往后每次都只动生成区——
+        /// 人写区一旦有人动过，重渲染就再也不许碰它。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="assistantDriver">助手 port 路由到的 driver 名。</param>
+        /// <param name="signalFilePath">这一轮的信号文件。</param>
+        /// <param name="message">这次按钮点击的消息。</param>
+        /// <param name="arguments">命令参数。</param>
+        /// <param name="lines">执行流水。</param>
+        /// <param name="replyDelivered">回话送出了没有。</param>
+        /// <param name="replyRetryable">回话失败能不能重试。</param>
+        private static IReadOnlyList<string> HandlePlanDraft(
+            string repositoryRoot,
+            string poolRoot,
+            string assistantDriver,
+            string signalFilePath,
+            AssistantConversationMessage message,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            out bool replyDelivered,
+            out bool replyRetryable)
+        {
+            var moduleName = message.ReadActionValue("模块");
+            string replyText;
+            var result = "出策划案失败";
+
+            if (moduleName.Length == 0)
+            {
+                replyText = "按钮没带模块名，不知道给哪个模块出。";
+            }
+            else if (arguments.DryRun || !arguments.WriteDownstream)
+            {
+                var why = arguments.DryRun ? "--dry-run true" : "--write-downstream false";
+                replyText = "本机是只读模式（" + why + "），没有真出。开了开关再点一次。";
+                result = "只读模式没出";
+            }
+            else
+            {
+                var documentPath = PoolPaths.ModulePlanDocument(poolRoot, moduleName);
+                var isColdStart = !File.Exists(documentPath);
+
+                if (isColdStart)
+                {
+                    var drafted = PlanningDocCommands.Draft(new PlanDraftArguments
+                    {
+                        RepositoryRoot = repositoryRoot,
+                        PoolRoot = poolRoot,
+                        Module = moduleName,
+                        TimeoutSeconds = Math.Max(arguments.TimeoutSeconds, 300),
+                        Model = arguments.InterfaceDraftModel ?? "",
+                        DryRun = false
+                    });
+
+                    lines.Add($"冷启动出草案：{drafted.Message}");
+                    foreach (var line in drafted.OutputLines ?? Array.Empty<string>())
+                    {
+                        lines.Add("  " + line);
+                    }
+
+                    if (!File.Exists(documentPath))
+                    {
+                        replyText = moduleName + " 的策划案没出成：" + drafted.Message
+                            + Detail(drafted) + "\n再点一次可以重试。";
+                        return FinishPlanDraft(
+                            repositoryRoot, assistantDriver, signalFilePath, message, arguments, lines,
+                            moduleName, result, replyText, out replyDelivered, out replyRetryable);
+                    }
+                }
+
+                // 冷启动那一趟已经渲过一次生成区，但**这儿再渲一次不亏**：
+                // 它是幂等的，没变化就什么都不写，而少这一次的代价是
+                // 「有策划案」那条路完全没渲过。
+                ModulePlanRefresher.Refresh(
+                    repositoryRoot, poolRoot, moduleName, lines,
+                    alsoPush: true, timeoutSeconds: arguments.TimeoutSeconds);
+
+                result = isColdStart ? "已出策划案" : "已刷新策划案";
+                replyText = (isColdStart
+                        ? moduleName + " 的策划案出好了（第一版是照代码与已有需求产的草案）。"
+                        : moduleName + " 的策划案刷新了。")
+                    + "\n落点 Pools/Designs/Modules/" + moduleName + "/index.md，已推知识库。"
+                    + (isColdStart
+                        ? "\n**「往后要做成什么样」那一节留给你写**——那是人的判断，代码里没有依据。"
+                        : "");
+            }
+
+            return FinishPlanDraft(
+                repositoryRoot, assistantDriver, signalFilePath, message, arguments, lines,
+                moduleName, result, replyText, out replyDelivered, out replyRetryable);
+        }
+
+        /// <summary>出策划案那一支的收尾：回话、记历史、记台账。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="assistantDriver">助手 driver 名。</param>
+        /// <param name="signalFilePath">这一轮的信号文件。</param>
+        /// <param name="message">这次按钮点击的消息。</param>
+        /// <param name="arguments">命令参数。</param>
+        /// <param name="lines">执行流水。</param>
+        /// <param name="moduleName">模块名。</param>
+        /// <param name="result">台账上记什么结果。</param>
+        /// <param name="replyText">回话正文。</param>
+        /// <param name="replyDelivered">回话送出了没有。</param>
+        /// <param name="replyRetryable">回话失败能不能重试。</param>
+        private static IReadOnlyList<string> FinishPlanDraft(
+            string repositoryRoot,
+            string assistantDriver,
+            string signalFilePath,
+            AssistantConversationMessage message,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            string moduleName,
+            string result,
+            string replyText,
+            out bool replyDelivered,
+            out bool replyRetryable)
+        {
+            var reply = SendReply(repositoryRoot, assistantDriver, message, replyText, arguments, lines, null);
+            replyDelivered = reply.Delivered;
+            replyRetryable = reply.Retryable;
+
+            AssistantConversationHistory.Append(
+                repositoryRoot, message.ConversationIdentifier, AssistantHistoryTurn.AssistantRole,
+                replyText, DateTimeOffset.Now);
+
+            AppendLedger(repositoryRoot, new JsonObject
+            {
+                ["时间"] = DateTimeOffset.Now.ToString("o"),
+                ["信号"] = Path.GetFileName(signalFilePath),
+                ["结果"] = result,
+                ["模块"] = moduleName,
                 ["回话送出"] = reply.Delivered
             });
 
