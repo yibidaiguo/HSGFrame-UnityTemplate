@@ -126,7 +126,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="poolRoot">池子根目录。</param>
         /// <param name="oldIdentifier">旧设计或旧需求 id。</param>
         /// <param name="newIdentifier">新需求 id。</param>
-        /// <param name="discoveryStage">发现阶段，必须是 入库 / 影响评估 之一。</param>
+        /// <param name="discoveryStage">发现阶段，必须是 入库 / 影响评估 / 进度同步 之一。</param>
         public static ConflictEntry Append(string poolRoot, string oldIdentifier, string newIdentifier, string discoveryStage)
         {
             if (!IsAllowedStage(discoveryStage))

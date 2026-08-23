@@ -6,8 +6,13 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>合法的三选一裁决值。</summary>
         public static readonly string[] AllowedChoices = { "改新的", "改旧的", "强制推送" };
 
-        /// <summary>合法的发现阶段。</summary>
-        public static readonly string[] AllowedStages = { "入库", "影响评估" };
+        /// <summary>
+        /// 合法的发现阶段。「进度同步」这一档是后加的：进度在仓库与下游之间双向同步时，
+        /// 同一格两侧相对上次同步都改过 → 不许静默挑一边，落成冲突走同一条裁决通道
+        /// （<see cref="ProgressSyncPlanner"/>）。加一档而不是复用「入库」，
+        /// 是因为人在冲突页上第一眼要看出的就是「这条是从哪儿冒出来的」。
+        /// </summary>
+        public static readonly string[] AllowedStages = { "入库", "影响评估", "进度同步" };
 
         /// <summary>id 模式：CF- 加四位数字。</summary>
         public const string IdentifierPatternText = "^CF-\\d{4}$";
@@ -24,7 +29,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="identifier">冲突 id，形如 CF-0009。</param>
         /// <param name="oldIdentifier">旧设计或旧需求 id。</param>
         /// <param name="newIdentifier">新需求 id。</param>
-        /// <param name="discoveryStage">发现阶段：入库 / 影响评估。</param>
+        /// <param name="discoveryStage">发现阶段：入库 / 影响评估 / 进度同步。</param>
         /// <param name="state">状态：未决 / 已裁决。</param>
         /// <param name="resolverName">裁决人，未决时为空串。</param>
         /// <param name="choice">裁决选择，未决时为空串。</param>
@@ -61,7 +66,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>新需求 id。</summary>
         public string NewIdentifier { get; }
 
-        /// <summary>发现阶段：入库 / 影响评估。</summary>
+        /// <summary>发现阶段：入库 / 影响评估 / 进度同步。</summary>
         public string DiscoveryStage { get; }
 
         /// <summary>状态：未决 / 已裁决。</summary>

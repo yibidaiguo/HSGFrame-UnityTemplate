@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -211,6 +211,9 @@ namespace Template.Toolkit.Dashboard
                         WritePanelPage(response, () => CreationPanelReader.ReadTaskDag(
                             _repositoryRoot,
                             request.QueryString["需求id"] ?? request.QueryString["requirement"] ?? ""));
+                        break;
+                    case "/api/panel/progress":
+                        WritePanelPage(response, () => CreationPanelProgress.Read(_repositoryRoot, _poolRoot));
                         break;
                     case "/api/panel/conflicts":
                         WritePanelPage(response, () => CreationPanelReader.ReadConflicts(_poolRoot));

@@ -20,7 +20,8 @@ var 图标库 = {
     提案: 'M9 4h9v16H6V7l3-3zm0 0v3H6m4 6h6m-6 4h4',
     供给: 'M3 8h13v9H3V8zm13 3h3l2 3v3h-5v-6zM7 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm10 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
     下游: 'M5 4h6v6H5V4zm8 10h6v6h-6v-6zM8 10v4a2 2 0 0 0 2 2h3',
-    桥接: 'M12 3l8 4v10l-8 4-8-4V7l8-4zm-8 4l8 4m0 0l8-4m-8 4v10'
+    桥接: 'M12 3l8 4v10l-8 4-8-4V7l8-4zm-8 4l8 4m0 0l8-4m-8 4v10',
+    进度: 'M4 19h16M6 19V9m5 10V5m5 14v-7'
 };
 
 // ── 页表：每页的名字、接口、渲染函数、一句话职责说明。 ──
@@ -31,6 +32,12 @@ var 页面表 = [
         键: '总览', 别名: 'overview', 组: '纵览', 图: '总览', 地址: '/api/panel/overview',
         说明: '一屏看完管线现状：在跑什么、卡在哪、门禁红没红、下游供给到什么程度。卡片可以点，点进去就是那一页。',
         渲染: 渲染总览, 自备取数: true
+    },
+    {
+        键: '进度', 别名: 'progress', 组: '纵览', 图: '进度', 地址: '/api/panel/progress',
+        说明: '项目进度在仓库与飞书之间同步后的样子。工程侧那几格现算，策划端那几格读回流账——' +
+            '面板自己不与飞书说话，要拉新的去跑 sync.progress。每一格都标了以哪侧为准。',
+        渲染: 渲染进度
     },
     {
         键: '需求池', 别名: 'requirements', 组: '需求与调度', 图: '需求', 地址: '/api/panel/requirements',
@@ -1462,6 +1469,84 @@ function 风险色(风险级) {
     if (风险级.indexOf('高') >= 0) { return '红'; }
     if (风险级.indexOf('中') >= 0) { return '黄'; }
     return '绿';
+}
+
+function 渲染进度(数据) {
+    if (!数据) { return 空态('拉不到进度', '接口没回东西。'); }
+    var 列 = 数据['列'] || [];
+    var 行们 = 数据['行'] || [];
+    记徽章('进度', 行们.length, '');
+
+    var 头 = '';
+    if ((数据['表问题'] || '').length > 0) {
+        头 += 提示态('权威侧表有问题，这一页只能显示工程侧算得出来的部分', 数据['表问题']);
+    }
+
+    var 全局 = 数据['全局'] || {};
+    var 指标们 = '';
+    var 键们 = Object.keys(全局).sort();
+    for (var k = 0; k < 键们.length; k++) {
+        指标们 += 指标(全局[键们[k]], 键们[k], {});
+    }
+    if (指标们) { 头 += '<div class="格 自适应" style="margin-bottom:16px;">' + 指标们 + '</div>'; }
+
+    var 同步行 = [];
+    同步行.push('上次回流：' + ((数据['上次回流'] || '').length > 0 ? 数据['上次回流'] : '还没同步过'));
+    if ((数据['文档链接'] || '').length > 0) {
+        同步行.push('进度文档：<a href="' + 转义(数据['文档链接']) + '" target="_blank" rel="noreferrer">下游那一份</a>');
+    } else {
+        同步行.push('进度文档：还没推上去（跑 sync.progress --PushDocument true --DryRun false）');
+    }
+    头 += '<div class="弱" style="margin-bottom:12px;">' + 同步行.join('　·　') + '</div>';
+
+    // 两个按钮而不是一个：干跑一趟看清「这一轮会动什么」，看清了再真跑。
+    // 真跑会写别人的飞书表，所以它带一次确认——那一步会改别人看得见的东西。
+    头 += '<div style="margin-bottom:16px;">' +
+        '<button class="钮 细" onclick="同步进度(true)">干跑一趟</button> ' +
+        '<button class="钮 细 主" onclick="同步进度(false)">真同步（会写飞书任务表）</button>' +
+        '</div>';
+
+    if (行们.length === 0) {
+        return 头 + 空态('池子里还没有需求', '有了需求这一页才有行。');
+    }
+
+    // 表头把权威侧写进列名：人看这一页最常问的就是「这一格我能不能改」。
+    var 表头 = ['需求'];
+    var 权威 = {};
+    for (var c = 0; c < 列.length; c++) { 权威[列[c]] = ''; }
+    for (var r = 0; r < 行们.length; r++) {
+        var 格们 = 行们[r]['格'] || [];
+        for (var g = 0; g < 格们.length; g++) { 权威[格们[g]['字段']] = 格们[g]['权威侧']; }
+    }
+    for (var c2 = 0; c2 < 列.length; c2++) {
+        表头.push(列[c2] + '（' + (权威[列[c2]] || '?') + '）');
+    }
+
+    return 头 + 表格('', 表头, 行们, function (行) {
+        var 格值 = ['<b>' + 转义(行['id']) + '</b>'];
+        var 表 = {};
+        var 格们 = 行['格'] || [];
+        for (var i = 0; i < 格们.length; i++) { 表[格们[i]['字段']] = 格们[i]['值']; }
+        for (var j = 0; j < 列.length; j++) {
+            var 值 = 表[列[j]];
+            格值.push(值 === undefined || 值 === '' ? '<span class="弱">—</span>' : 转义(值));
+        }
+        // 逐个包，不用 map(原样)：map 会把下标当成第二个参数塞进「类」，
+        // 于是第 1 列往后每个 td 都会挂上一个 class="1" 这样的假类名。
+        var 格子 = [];
+        for (var n = 0; n < 格值.length; n++) { 格子.push(原样(格值[n])); }
+        return { 类: '', 格: 格子 };
+    }, { 脚: '标「工程」的格改了也没用，下一轮同步会照仓库的值盖回去；标「策划端」的格请在飞书任务表里改。' });
+}
+
+// 面板上的进度同步：干跑不确认，真跑确认一次。
+// 命令走白名单里的 sync. 那一族，与终端跑的是同一条命令、同一份代码。
+function 同步进度(干跑) {
+    if (!干跑 && !window.confirm('这一趟会把工程侧那几格写进飞书任务表，并把人在飞书里改的那几格收回仓库。继续？')) {
+        return;
+    }
+    发命令('sync.progress --RepositoryRoot . --PoolRoot Pools --Direction 双向 --DryRun ' +
+        (干跑 ? 'true' : 'false') + ' --PushDocument ' + (干跑 ? 'false' : 'true'));
 }
 
 function 渲染冲突(数据) {

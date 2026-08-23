@@ -15,7 +15,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="identifier">冲突 id，形如 CF-0009。</param>
         /// <param name="oldIdentifier">旧设计或旧需求 id。</param>
         /// <param name="newIdentifier">新需求 id。</param>
-        /// <param name="discoveryStage">发现阶段：入库 / 影响评估。</param>
+        /// <param name="discoveryStage">发现阶段：入库 / 影响评估 / 进度同步。</param>
         /// <param name="isForcePushed">是否强制推送挂的账。</param>
         /// <param name="forcePusherName">强制推送的人；不是强推的是空串。</param>
         /// <param name="summary">一句人话摘要。</param>
@@ -46,7 +46,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>新需求 id。</summary>
         public string NewIdentifier { get; }
 
-        /// <summary>发现阶段：入库 / 影响评估。</summary>
+        /// <summary>发现阶段：入库 / 影响评估 / 进度同步。</summary>
         public string DiscoveryStage { get; }
 
         /// <summary>是不是强制推送挂的账。</summary>

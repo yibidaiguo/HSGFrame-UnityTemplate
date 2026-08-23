@@ -5,7 +5,7 @@
 ## 一、总原则的实现
 
 - **零私有状态**:每页 = 文件读取器 + 渲染;刷新 = 文件监听(FileSystemWatcher)推送 + 手动刷新兜底。
-- **按钮皆命令**:`POST /cmd {命令行}` → 面板起 CLI 子进程 → 输出回显;命令白名单(仅 task.* / pool.* / bridge.* / engine.* / conflict.* / spec.*)。
+- **按钮皆命令**:`POST /cmd {命令行}` → 面板起 CLI 子进程 → 输出回显;命令白名单(仅 task.* / pool.* / bridge.* / engine.* / conflict.* / spec.* / sync.*)。
 - **访问边界**:默认只绑 localhost;开局域网访问需显式配置并提示(面板能触发命令 = 能动仓库)。
 
 ## 二、页面与数据源
@@ -17,6 +17,7 @@
 | 需求池 | `Pools/Requirements/` + `Pools/Epics/` | 看板按专项分组;专项认领/转手按钮;拖到「已确认」列=拨扳机(白名单校验),其余只读 |
 | 设计池 | `Pools/Designs/` | 汇总浏览、记录时间线、定稿预览(色块 + 参考图) |
 | 冲突 | `conflicts.json` | 裁决按钮(补选三选一)→ conflict.resolve |
+| 进度 | 仓库现算 + `_Tasks/sync/progress-inbound.json` | 每格标权威侧;干跑/真同步两颗按钮 → sync.progress(子文档 02 §七)。**这一页自己不与下游说话**——打开网页就发请求的话,网断了人只想看一眼却看到一页错误 |
 | 资产 | 产物 + 项目资产目录 + 边车 | 网格预览、按需求/定稿筛选、离风格报告 |
 | 门禁 | `_Generated/gate-report.json` | 重跑按钮、棘轮余额曲线 |
 | 下游 | `Config/downstream.json` + `local.json` + 各 driver.json | 动态表单、试跑、能力对账、provision |

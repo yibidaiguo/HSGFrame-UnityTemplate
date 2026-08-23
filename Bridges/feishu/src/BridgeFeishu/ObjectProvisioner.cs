@@ -484,6 +484,7 @@ namespace Template.Bridges.Feishu
             if (existingById.Length > 0)
             {
                 state.Reused.Add(TaskTableKey + "=" + existingById);
+                ReconcileTaskColumns(state);
                 return true;
             }
 
@@ -498,6 +499,7 @@ namespace Template.Bridges.Feishu
                 // 再建一张的后果是两张同名表，人分不出该看哪一张。
                 state.TaskTableId = existingByName;
                 state.Reused.Add(TaskTableKey + "=" + existingByName + "（台账里没有，按表名「" + state.TaskTableName + "」认回来的）");
+                ReconcileTaskColumns(state);
                 return true;
             }
 
@@ -542,6 +544,71 @@ namespace Template.Bridges.Feishu
             AddOverdueColumn(state);
             RemoveDefaultTable(state);
             return true;
+        }
+
+        /// <summary>
+        /// 表已经在了时补齐缺掉的列（子文档 02 §四：**加列自动做，删列只列出来等人确认**）。
+        ///
+        /// 存在的理由是这条链会长：进度同步给任务表加了三列引擎侧的格，
+        /// 而绝大多数仓库的任务表是在那之前建出来的。不补齐的话，
+        /// 出站会对着一张没有目标列的表写，飞书回「字段不存在」，
+        /// 而人看到的是「同步失败」——指不到「你的表少三列」这件事上。
+        ///
+        /// **只加不删**：表上多出来的列一概不动，那可能是人自己加的。
+        /// 加不上的逐条记进账，不判整次失败——表本身是好的。
+        /// </summary>
+        /// <param name="state">这一轮的状态。</param>
+        private static void ReconcileTaskColumns(EnsureState state)
+        {
+            var listCall = FeishuClient.Send(
+                "GET",
+                FeishuClient.BitableUrl(state.BitableToken, "tables/" + Uri.EscapeDataString(state.TaskTableId) + "/fields?page_size=100"),
+                null,
+                state.AppId,
+                state.SecretKey,
+                state.TimeoutSeconds);
+            if (!listCall.Succeeded)
+            {
+                state.SkippedColumns.Add("列对账没做成：读不回任务表的列（" + (listCall.Response?.Error?.HumanText ?? "") + "）");
+                return;
+            }
+
+            var present = new HashSet<string>(StringComparer.Ordinal);
+            if (listCall.ResponseBody.ValueKind == JsonValueKind.Object
+                && listCall.ResponseBody.TryGetProperty("data", out var data)
+                && data.ValueKind == JsonValueKind.Object
+                && data.TryGetProperty("items", out var items)
+                && items.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in items.EnumerateArray())
+                {
+                    present.Add(ReadString(item, "field_name"));
+                }
+            }
+
+            foreach (var column in TaskTableColumns)
+            {
+                if (present.Contains(column.Name))
+                {
+                    continue;
+                }
+
+                var call = FeishuClient.Send(
+                    "POST",
+                    FeishuClient.BitableUrl(state.BitableToken, "tables/" + Uri.EscapeDataString(state.TaskTableId) + "/fields"),
+                    column.ToJson().ToJsonString(),
+                    state.AppId,
+                    state.SecretKey,
+                    state.TimeoutSeconds);
+                if (call.Succeeded)
+                {
+                    state.Created.Add("任务表补列「" + column.Name + "」");
+                }
+                else
+                {
+                    state.SkippedColumns.Add("任务表缺列「" + column.Name + "」且补不上：" + (call.Response?.Error?.HumanText ?? ""));
+                }
+            }
         }
 
         /// <summary>
@@ -753,7 +820,15 @@ namespace Template.Bridges.Feishu
             new TaskColumn("预计完成日期", 5, new JsonObject { ["date_formatter"] = "yyyy/MM/dd", ["auto_fill"] = false }),
             new TaskColumn("实际完成日期", 5, new JsonObject { ["date_formatter"] = "yyyy/MM/dd", ["auto_fill"] = false }),
             new TaskColumn("最新进展记录", 1),
-            new TaskColumn("任务情况总结", 1)
+            new TaskColumn("任务情况总结", 1),
+
+            // 下面三列不在飞书那张任务模板里，是进度同步加的**引擎侧只读格**
+            // （权威侧表 Config/progress-sync.json 里那三条「工程」）。
+            // 单独取名带「引擎」前缀，是为了让人在表上一眼看出这几格改了也没用——
+            // 下一轮 sync.progress 会照仓库的值盖回来。
+            new TaskColumn("引擎阶段", 1),
+            new TaskColumn("引擎门禁", 1),
+            new TaskColumn("引擎产出", 1)
         };
 
         /// <summary>一轮 ensure 的状态：凭据、四样对象的当前值、以及给人看的账。</summary>

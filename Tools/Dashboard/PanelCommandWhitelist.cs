@@ -4,8 +4,8 @@ using System.Collections.Generic;
 namespace Template.Toolkit.Dashboard
 {
     /// <summary>
-    /// 面板命令白名单：只判定命令名是否属于 task.* / pool.* / bridge.* / engine.* / conflict.* / spec.*
-    /// 六族之一、命令名里有没有不该出现的字符、整行有没有超长。纯判定不执行任何东西。
+    /// 面板命令白名单：只判定命令名是否属于 task.* / pool.* / bridge.* / engine.* / conflict.* / spec.* / sync.*
+    /// 七族之一、命令名里有没有不该出现的字符、整行有没有超长。纯判定不执行任何东西。
     /// </summary>
     public static class PanelCommandWhitelist
     {
@@ -17,7 +17,11 @@ namespace Template.Toolkit.Dashboard
             "bridge.",
             "engine.",
             "conflict.",
-            "spec."
+            "spec.",
+
+            // sync.* 是进度同步那一族。放进来是为了让人在面板上点一下就能同步，
+            // 而不是回终端敲命令——面板存在的意义就在这儿。
+            "sync."
         };
 
         /// <summary>
@@ -59,7 +63,7 @@ namespace Template.Toolkit.Dashboard
 
             if (!matched)
             {
-                rejectReason = $"命令「{commandName}」不在面板白名单里；白名单只放行 task. / pool. / bridge. / engine. / conflict. / spec. 六族";
+                rejectReason = $"命令「{commandName}」不在面板白名单里；白名单只放行 task. / pool. / bridge. / engine. / conflict. / spec. / sync. 七族";
                 return false;
             }
 
