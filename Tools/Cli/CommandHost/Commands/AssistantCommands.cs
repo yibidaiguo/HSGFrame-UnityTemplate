@@ -376,6 +376,13 @@ namespace Template.Toolkit.CommandHost.Commands
                 return StartNewTopic(repositoryRoot, assistantDriver, signalFilePath, message, arguments, lines, out replyDelivered, out replyRetryable);
             }
 
+            // **模型一开始想，上一张卡的按钮就撤掉。**
+            // 飞书的卡片点完不会消失、翻上去还能点：聊到第十轮时第三轮那张「一键建需求」
+            // 还亮着，手一滑点下去，建出来的是三轮之前那份早就聊废了的草稿；
+            // 出图那种更贵——翻上去点一下就是又一批图，真花钱。
+            // 撤在这里而不是等这一轮跑完：人等回复的那几十秒，恰恰最容易去点上面那张旧卡。
+            RetireStaleCard(repositoryRoot, assistantDriver, message.ConversationIdentifier, arguments, lines);
+
             // 人发的图片与文件先取回本地：那张参考图**就是这句话的一半意思**，
             // 少了它，模型看到的只有「再出一张，可以参考」，参考什么无从谈起。
             var attachments = FetchAttachments(repositoryRoot, assistantDriver, message, arguments, lines);
@@ -599,6 +606,11 @@ namespace Template.Toolkit.CommandHost.Commands
         {
             wroteDownstream = false;
             lines.Add($"卡片按钮：动作={message.ActionName}");
+
+            // 点过的那张卡也算翻篇：**按钮点完不会自己消失**，留着就还能再点一次。
+            // 出图与拆图那两支自己会换卡（要报进度），这里撤的是别的动作留下的按钮。
+            // 撤的是台账里记的那张——正常情况下就是人刚点的这张。
+            RetireStaleCard(repositoryRoot, assistantDriver, message.ConversationIdentifier, arguments, lines);
 
             if (string.Equals(message.ActionName, AssistantCard.NewTopicAction, StringComparison.Ordinal))
             {
@@ -1595,6 +1607,56 @@ namespace Template.Toolkit.CommandHost.Commands
             }
         }
 
+        /// <summary>
+        /// 把上一张还带着按钮的卡换成不带按钮的。
+        ///
+        /// 撤不掉只记一笔，不打断这一轮——**那张卡的按钮多留一会儿，
+        /// 总比因为改不动一张旧卡就不回人的话强**。
+        /// 幂等：撤过就把记录忘掉，下一轮不会重复撤。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="assistantDriver">助手 port 路由到的 driver 名。</param>
+        /// <param name="conversationIdentifier">会话标识。</param>
+        /// <param name="arguments">命令参数。</param>
+        /// <param name="lines">执行流水。</param>
+        private static void RetireStaleCard(
+            string repositoryRoot,
+            string assistantDriver,
+            string conversationIdentifier,
+            AssistantServeArguments arguments,
+            List<string> lines)
+        {
+            if (arguments.DryRun)
+            {
+                return;
+            }
+
+            var staleIdentifier = LiveCardRegistry.Read(repositoryRoot, conversationIdentifier);
+            if (staleIdentifier.Length == 0)
+            {
+                return;
+            }
+
+            var card = AssistantCard.ForRetired();
+            var payload = JsonSerializer.SerializeToElement(new JsonObject
+            {
+                ["干跑"] = false,
+                ["消息标识"] = staleIdentifier,
+                ["卡片"] = card.ToJson()
+            });
+
+            var call = BridgeInvoker.Invoke(repositoryRoot, assistantDriver, "card-update", payload, arguments.TimeoutSeconds);
+            lines.Add(call.Succeeded
+                ? "上一张卡的按钮已撤"
+                : $"上一张卡撤不掉（{call.ErrorCode}）：{call.HumanText}（不影响这一轮）");
+
+            // 撤成了才忘：没撤成的话下一轮再试一次。
+            if (call.Succeeded)
+            {
+                LiveCardRegistry.Forget(repositoryRoot, conversationIdentifier);
+            }
+        }
+
         /// <summary>取回来的附件：图片一组，别的文件一组。</summary>
         /// <param name="ImagePaths">图片的本地路径，按消息里的先后。</param>
         /// <param name="FileNotes">别的文件的一句话说明，进提示词用。</param>
@@ -2573,6 +2635,18 @@ namespace Template.Toolkit.CommandHost.Commands
             lines.Add(call.Succeeded
                 ? "已回话：" + Shorten(text)
                 : $"回话失败（{call.ErrorCode}）：{call.HumanText}");
+
+            // 记下这张带按钮的卡，下一轮开头把它的按钮撤掉。
+            // **只记带按钮的**：没有按钮的卡不会被误点，记了反而多一次白跑的 card-update。
+            if (call.Succeeded && card != null && card.Buttons.Count > 0)
+            {
+                var sentIdentifier = ReadPayloadString(call.Payload, "消息标识");
+                if (sentIdentifier.Length > 0)
+                {
+                    LiveCardRegistry.Remember(repositoryRoot, message.ConversationIdentifier, sentIdentifier);
+                }
+            }
+
             return new ReplyOutcome(call.Succeeded, call.Retryable);
         }
 

@@ -478,6 +478,24 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
+        /// 一张「这条已经过去了」的替身卡：**没有任何按钮**。
+        ///
+        /// 用来把上一轮那张卡换掉。正文刻意留一句话而不是留空——
+        /// 换成空卡的话，人翻上去看到一片空白，会以为消息被撤回或者出错了；
+        /// 一句「这条已翻篇」能让他知道那是正常的。
+        /// </summary>
+        public static AssistantCard ForRetired()
+        {
+            return new AssistantCard(
+                "这条已翻篇",
+                "上面聊的那一版翻篇了——按钮收在最新那张卡上。",
+                Array.Empty<KeyValuePair<string, string>>(),
+                Array.Empty<string>(),
+                Array.Empty<AssistantCardButton>(),
+                Array.Empty<string>());
+        }
+
+        /// <summary>
         /// 组一张「还没聊够」的卡：没有草稿可确认时也给按钮——至少给一个「开新话题」，
         /// 免得人被上一段跑偏的上下文困住却没有出口。
         /// </summary>
