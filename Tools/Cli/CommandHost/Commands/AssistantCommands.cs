@@ -721,6 +721,16 @@ namespace Template.Toolkit.CommandHost.Commands
                         wroteDownstream = true;
                         result = "已建需求";
 
+                        // 记一笔「这条会话在做哪条需求」：**拆图靠它认出该照哪份界面规格切**。
+                        // 资产那边挂的是无主哨兵号（助手聊出来的图本来就不挂需求），
+                        // 所以这条线索只能从会话这一侧留。记不上不影响这一步，
+                        // 只是拆图那会儿会退回「看图猜元素」那条老路。
+                        if (!AssistantServeTurn.RememberConversationRequirement(
+                            repositoryRoot, message.ConversationIdentifier, poolIdentifier))
+                        {
+                            lines.Add("会话需求留底写失败——拆图那步会退回看图猜元素");
+                        }
+
                         // 台账先记：记不上就等于下次点还会再来一遍。
                         var recorded = AssistantServeTurn.RecordConfirmed(
                             repositoryRoot,
@@ -1250,6 +1260,7 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <param name="card">出成了时带图的卡片；没出成为 null。</param>
         /// <param name="generated">真出了图没有。</param>
         /// <param name="assetIdentifier">出来的资产 id；没出成为空串。</param>
+        /// <param name="referenceImagePath">参考图的本地路径；空串表示这趟不走图生图。</param>
         private static string RunGeneration(
             string repositoryRoot,
             JsonObject request,
@@ -1725,6 +1736,11 @@ namespace Template.Toolkit.CommandHost.Commands
             var requirementIdentifier = message.ReadActionValue("需求id");
             string replyText;
             var result = "出功能图失败";
+
+            // 按钮带着需求 id 来，顺手把「这条会话在做哪条需求」记上——
+            // 人可能是在新会话里翻出旧卡片点的这个按钮，那时建需求那一步没经过这条会话。
+            AssistantServeTurn.RememberConversationRequirement(
+                repositoryRoot, message.ConversationIdentifier, requirementIdentifier);
 
             if (requirementIdentifier.Length == 0)
             {
@@ -2324,6 +2340,7 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <param name="feedback">重拆意见；空串表示头一次拆。</param>
         /// <param name="variantIndex">拆第几张变体，从 1 起。</param>
         /// <param name="progress">报进度用；给 null 就不报。标框那一步几十秒，中间不吭声人会以为卡死了。</param>
+        /// <param name="confirmed">人有没有点过那颗确认按钮；框标得太多时靠它放行。</param>
         private static string RunCut(
             string repositoryRoot,
             string backendDriver,
@@ -2373,20 +2390,42 @@ namespace Template.Toolkit.CommandHost.Commands
                     sourcePath = previousSource;
                 }
             }
-            var prompt = feedback.Length > 0 && previousLayers.Count > 0
-                ? UiLayerCutter.BuildRecutPrompt(previousLayers, feedback)
-                : UiLayerCutter.LayerPrompt;
-
-            if (feedback.Length > 0)
+            // 这条会话在做哪条需求 → 那条需求有没有出过功能图。有就照清单切，没有才看图猜。
+            // 两条路的区别不在准不准，在**谁说了算**：清单是策划审过的功能契约，
+            // 猜出来的是视觉模型看图看出来的。从前一屏猜出上百个、跟需求对不上、
+            // 通用件认不出来——三样都是从这一点上错的（子文档 08 §六）。
+            var plan = InterfaceCutPlanner.Resolve(repositoryRoot, conversationIdentifier, feedback);
+            lines.AddRange(plan.Notes);
+            if (plan.Blocker.Length > 0)
             {
+                return plan.Blocker;
+            }
+
+            var interfaceSpec = plan.Spec;
+            var requestedElements = plan.Requests;
+
+            string prompt;
+            if (feedback.Length > 0 && previousLayers.Count > 0)
+            {
+                prompt = UiLayerCutter.BuildRecutPrompt(previousLayers, feedback);
                 lines.Add($"重拆：带上一次 {previousLayers.Count} 层 + 意见「{Shorten(feedback)}」");
+            }
+            else if (requestedElements.Count > 0)
+            {
+                prompt = UiLayerCutter.BuildManifestPrompt(requestedElements);
+            }
+            else
+            {
+                prompt = UiLayerCutter.LayerPrompt;
             }
 
             // 问视觉模型要每个元素的框。图以 data: URL 内联发过去，不经任何第三方图床。
             var payload = JsonSerializer.SerializeToElement(new JsonObject
             {
                 ["提示"] = prompt,
-                ["上下文"] = "你是给游戏 UI 切图的助手，只回 JSON，不回别的。宁可多框一个，也别漏。",
+                ["上下文"] = requestedElements.Count > 0
+                    ? "你是给游戏 UI 找框的助手，只回 JSON，不回别的。清单之外的东西一概不要框。"
+                    : "你是给游戏 UI 切图的助手，只回 JSON，不回别的。宁可多框一个，也别漏。",
                 ["图片"] = new JsonArray { sourcePath }
             });
 
@@ -2398,16 +2437,53 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             var layers = UiLayerCutter.ParseLayers(
-                ReadPayloadString(call.Payload, "文本"), out var parseFailure, out var moduleName);
+                ReadPayloadString(call.Payload, "文本"), out var parseFailure, out var guessedModule);
             if (layers.Count == 0)
             {
                 lines.Add($"层解析失败：{parseFailure}");
                 return "拆图失败：" + parseFailure;
             }
 
+            // 模块名：有规格时取规格的面板名，没有才退回让模型顺带猜的那个。
+            // 面板名是确定的（规格里写着，还决定 uidef 名与图集），猜出来的每趟都可能不一样。
+            var moduleName = interfaceSpec != null
+                ? UiLayerCutter.SafeModuleName(interfaceSpec.PanelName)
+                : guessedModule;
+
+            // 照清单切时把清单外的框就地丢掉，找不到的如实报。
+            // **丢掉不是可惜，正是这一步的意义**：一屏画面上能框出一百多个，
+            // 而真正要出的只有那十几二十个，差额全是钱与后面没人认领的碎图。
+            if (requestedElements.Count > 0)
+            {
+                var beforeCount = layers.Count;
+                layers = UiLayerCutter.FilterToManifest(
+                    layers, requestedElements, out var missingElements, out var unexpectedElements);
+
+                lines.Add($"照 {interfaceSpec.Identifier} 的清单切：要 {requestedElements.Count} 个，"
+                    + $"模型标了 {beforeCount} 个，对上 {layers.Count} 个");
+                if (unexpectedElements.Count > 0)
+                {
+                    lines.Add($"清单外的框已丢掉（{unexpectedElements.Count} 个）：{string.Join("、", unexpectedElements)}");
+                }
+
+                if (missingElements.Count > 0)
+                {
+                    lines.Add($"清单里这几个没在图上找到（{missingElements.Count} 个）：{string.Join("、", missingElements)}");
+                }
+
+                if (layers.Count == 0)
+                {
+                    return "拆图失败：模型标的框没有一个对得上 " + interfaceSpec.Identifier + " 的清单。"
+                        + "多半是这张图不是这一屏——换一张再点，或者先说清这是哪个界面。";
+                }
+            }
+
             // 标框那一步是最慢的，过了就报一次进度——人问过「不知道有没有拆完」，
             // 一条「标到 N 个」比一直沉默有用得多，还顺带说清这一趟打算切几片。
-            progress?.Invoke($"标到 {layers.Count} 个元素。接下来逐个重绘成透明底单图——"
+            progress?.Invoke((requestedElements.Count > 0
+                    ? $"照 {interfaceSpec.Identifier} 的清单对上 {layers.Count} 个元素。"
+                    : $"标到 {layers.Count} 个元素。")
+                + "接下来逐个重绘成透明底单图——"
                 + "每个元素一次生图调用，这一趟大概要几分钟，跑完我把结果贴上来。");
 
             var decoded = PngDecoder.DecodeFile(sourcePath);

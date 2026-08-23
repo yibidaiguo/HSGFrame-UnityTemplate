@@ -674,6 +674,73 @@ namespace Template.Toolkit.CreationPipeline
             }
         }
 
+        /// <summary>会话在做哪条需求的留底目录：&lt;仓库根&gt;/_Tasks/conversations/requirements。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        public static string ConversationRequirementDirectory(string repositoryRoot)
+        {
+            return Path.Combine(repositoryRoot, "_Tasks", "conversations", "requirements");
+        }
+
+        /// <summary>
+        /// 记一笔「这条会话在做哪条需求」。
+        ///
+        /// **拆图要靠它认出该照哪份界面规格切。** 资产那边记的需求 id 是无主哨兵
+        /// （<see cref="AssetRequest.UnownedRequirementIdentifier"/>）——助手聊出来的图本来就不挂需求，
+        /// 所以这条线索只能从会话这一侧留。
+        ///
+        /// 写不动只回 false，不抛：记不下最多是拆图退回「看图猜元素」那条老路，
+        /// 而把整轮判死是另一回事。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="conversationIdentifier">会话标识。</param>
+        /// <param name="requirementIdentifier">需求 id。</param>
+        public static bool RememberConversationRequirement(
+            string repositoryRoot, string conversationIdentifier, string requirementIdentifier)
+        {
+            if (string.IsNullOrWhiteSpace(conversationIdentifier) || string.IsNullOrWhiteSpace(requirementIdentifier))
+            {
+                return false;
+            }
+
+            try
+            {
+                var directory = ConversationRequirementDirectory(repositoryRoot);
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(
+                    Path.Combine(directory, AssistantConversationHistory.SafeFileName(conversationIdentifier) + ".txt"),
+                    requirementIdentifier,
+                    new UTF8Encoding(false));
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>读这条会话在做哪条需求；没有给空串。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="conversationIdentifier">会话标识。</param>
+        public static string ReadConversationRequirement(string repositoryRoot, string conversationIdentifier)
+        {
+            if (string.IsNullOrWhiteSpace(conversationIdentifier))
+            {
+                return "";
+            }
+
+            try
+            {
+                var filePath = Path.Combine(
+                    ConversationRequirementDirectory(repositoryRoot),
+                    AssistantConversationHistory.SafeFileName(conversationIdentifier) + ".txt");
+                return File.Exists(filePath) ? File.ReadAllText(filePath).Trim() : "";
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return "";
+            }
+        }
+
         /// <summary>拆图留底目录：&lt;仓库根&gt;/_Tasks/conversations/cuts。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         public static string CutDirectory(string repositoryRoot)

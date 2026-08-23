@@ -312,43 +312,18 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure($"设计图不存在：{arguments.SourceImage}");
             }
 
-            var catalog = UiElementTemplateCatalog.Load(repositoryRoot, spec.PanelName);
-            var manifest = InterfaceAssetManifest.Build(repositoryRoot, spec, catalog);
-
-            // 只找**真要出图**的那些：Label 的文案由 UI Toolkit 出、Container 的底图是别的元素、
-            // Decoration 属于底图的一部分——让模型去图上找它们，纯属浪费一次调用。
-            var requests = new List<UiLayerRequest>();
-            var byIdentifier = new Dictionary<string, InterfaceElement>(StringComparer.Ordinal);
-            foreach (var element in spec.Elements)
-            {
-                byIdentifier[element.Identifier] = element;
-            }
-
-            foreach (var entry in manifest)
-            {
-                if (!string.Equals(entry.Action, InterfaceAssetManifest.ActionGenerate, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                byIdentifier.TryGetValue(entry.ElementIdentifier, out var element);
-                requests.Add(new UiLayerRequest(
-                    entry.ElementIdentifier,
-                    entry.ElementType,
-                    element?.DisplayName ?? "",
-                    entry.Width,
-                    entry.Height));
-            }
+            // 「真要出图的是哪些」只有一处写法：助手那颗拆图按钮走的是同一个（子文档 08 §六）。
+            var requests = InterfaceCutPlanner.RequestsFor(repositoryRoot, spec, out var elementCount);
 
             if (requests.Count == 0)
             {
                 return CommandResult.Success(
                     $"{spec.Identifier} 这一屏没有要出图的元素，不用切",
-                    new[] { $"元素 {manifest.Count} 个，全是不出图的那几类" });
+                    new[] { $"元素 {elementCount} 个，全是不出图的那几类" });
             }
 
             var prompt = UiLayerCutter.BuildManifestPrompt(requests);
-            var lines = new List<string> { $"要找 {requests.Count} 个元素（元素总数 {manifest.Count}）" };
+            var lines = new List<string> { $"要找 {requests.Count} 个元素（元素总数 {elementCount}）" };
 
             if (arguments.DryRun)
             {
