@@ -38,6 +38,7 @@ namespace Template.Toolkit.CreationPipeline
             var glossaryFile = Path.Combine(knowledgeDirectory, "glossary.md");
             var examplesFile = Path.Combine(knowledgeDirectory, "examples.md");
             var moduleListFile = Path.Combine(knowledgeDirectory, "modules.md");
+            var moduleInterfaceFile = Path.Combine(knowledgeDirectory, "module-interfaces.md");
             var importGuideFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "import-guide.md");
 
             WriteAll(systemPromptFile, BuildSystemPrompt(schema));
@@ -46,16 +47,23 @@ namespace Template.Toolkit.CreationPipeline
             WriteAll(glossaryFile, BuildGlossary(poolRoot));
             WriteAll(examplesFile, BuildExamples(poolRoot));
             WriteAll(moduleListFile, BuildModuleList(repositoryRoot, poolRoot));
+
+            // **模块清单只给名字，这一份给内容。** 只有清单的话，人问「背包系统写了没」，
+            // 助手只能回「有个 Inventory 模块，但我看不到代码」——
+            // 知道有这个抽屉却不知道里面装了什么，而它的活正是
+            // 「顺着既有实现聊需求，别重复建已经有的东西」。
+            WriteAll(moduleInterfaceFile, ModuleInterfaceDigest.Render(ModuleInterfaceDigest.Collect(repositoryRoot)));
+
             WriteAll(importGuideFile, BuildImportGuide(new[]
             {
-                designSummaryFile, conflictListFile, glossaryFile, examplesFile, moduleListFile
+                designSummaryFile, conflictListFile, glossaryFile, examplesFile, moduleListFile, moduleInterfaceFile
             }));
 
             return PackageFiles(repositoryRoot, driverName);
         }
 
         /// <summary>
-        /// 只列assistant-package七个文件的路径，不碰磁盘；供干跑列出将要生成的文件用。
+        /// 只列 assistant-package 八个文件的路径，不碰磁盘；供干跑列出将要生成的文件用。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="driverName">面向的 driver 名称。</param>
@@ -74,6 +82,7 @@ namespace Template.Toolkit.CreationPipeline
             var glossaryFile = Path.Combine(knowledgeDirectory, "glossary.md");
             var examplesFile = Path.Combine(knowledgeDirectory, "examples.md");
             var moduleListFile = Path.Combine(knowledgeDirectory, "modules.md");
+            var moduleInterfaceFile = Path.Combine(knowledgeDirectory, "module-interfaces.md");
             var importGuideFile = Path.Combine(ProvisionPaths.AssistantPackageDirectory(repositoryRoot, driverName), "import-guide.md");
 
             return new[]
@@ -84,6 +93,7 @@ namespace Template.Toolkit.CreationPipeline
                 glossaryFile,
                 examplesFile,
                 moduleListFile,
+                moduleInterfaceFile,
                 importGuideFile
             };
         }
@@ -109,6 +119,12 @@ namespace Template.Toolkit.CreationPipeline
             builder.AppendLine("3. **能推的先替他填**，并说明「我先按 X 填了，不对你就说」。");
             builder.AppendLine("   他说「跟传统 RPG 背包一样」，那格子、拖拽、堆叠、使用、丢弃这些就是已知的，别再问一遍。");
             builder.AppendLine("   推断的边界：只许从他说过的话、下面知识里的既有设计往下推，**不许发明他没提过的数值与范围**。");
+            builder.AppendLine();
+            builder.AppendLine("   **人问「项目里有没有 X」时，先查知识里的「各模块已经实现了什么」**——");
+            builder.AppendLine("   那份是从代码里抽出来的公开面摘要（接口、事件、公开方法）。");
+            builder.AppendLine("   查到了就顺着既有实现聊，别把已经有的当成新需求；");
+            builder.AppendLine("   摘要里没写不等于项目里没有，那时如实说「我看的是接口摘要，具体实现要看代码」，");
+            builder.AppendLine("   **不许断言项目里没有**。也不许说「我看不到代码」——你看得到公开面。");
             builder.AppendLine("4. **要图也要先有需求**。有人来要设定图 / UI 图 / 图标时：");
             builder.AppendLine("   先看知识里有没有对得上的既有需求或设计；对得上就顺着它聊尺寸、风格、用在哪；");
             builder.AppendLine("   对不上就**先把这件事聊成一条需求**（他要的是「做出这个东西」，图是其中一步），");
