@@ -1757,12 +1757,29 @@ namespace Template.Toolkit.CommandHost.Commands
                 }
 
                 result = drafted.IsSuccess ? "已出功能图" : "出功能图失败";
+
+                // **出完就把策划案重推一遍**：界面规格与布局图是策划案的一部分
+                // （元素行为表进生成区、布局图进 media/），不回推的话飞书上那份
+                // 永远停在「建需求」那一刻的样子——目标玩法齐了，界面一个字没有，
+                // 而这一层正是程序照着开工要看的东西。
+                var documentLink = "";
+                if (drafted.IsSuccess)
+                {
+                    documentLink = PublishDocument(
+                        repositoryRoot, poolRoot, requirementIdentifier, arguments, lines, out var republishFailure);
+                    if (republishFailure.Length > 0)
+                    {
+                        lines.Add("策划案重推失败：" + republishFailure);
+                    }
+                }
+
                 replyText = drafted.IsSuccess
                     ? "功能图出好了：" + drafted.Message
                         + "\n" + Detail(drafted)
-                        + "\n白块布局图在 _Generated/Interfaces/ 下，元素清单与行为规格在 Pools/Designs/Interfaces/。"
-                        + "\n哪个功能位不对、少了什么，直接说。"
-                    : "功能图没出成：" + drafted.Message + Detail(drafted) + "\n再点一次可以重试。";
+                        + "\n" + "界面规格与元素行为表已经写进策划案，白块布局图也一并进去了"
+                        + (documentLink.Length > 0 ? "：" + documentLink : "（这次没推上飞书，仓库里那份是全的）")
+                        + "\n" + "哪个功能位不对、少了什么，直接说。"
+                    : "功能图没出成：" + drafted.Message + Detail(drafted) + "\n" + "再点一次可以重试。";
             }
 
             var reply = SendReply(repositoryRoot, assistantDriver, message, replyText, arguments, lines, null);

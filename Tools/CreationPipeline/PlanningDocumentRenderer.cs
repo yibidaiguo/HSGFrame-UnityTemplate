@@ -99,7 +99,7 @@ namespace Template.Toolkit.CreationPipeline
                     throw new InvalidOperationException($"已有的 index.md 解析不了：{parseReason}");
                 }
 
-                var generatedRegionLines = BuildGeneratedRegion(repositoryRoot, requirementIdentifier, root, specification);
+                var generatedRegionLines = BuildGeneratedRegion(repositoryRoot, poolRoot, requirementIdentifier, root, specification);
                 var generatedHash = PlanningDocument.HashGeneratedRegion(generatedRegionLines);
 
                 var frontMatterLines = BuildFrontMatter(
@@ -330,6 +330,7 @@ namespace Template.Toolkit.CreationPipeline
         // 生成区正文：设计记录与工作项两行，都是从别处算出来的，所以人不许手改（决策 99 那一族的老规矩）。
         private static List<string> BuildGeneratedRegion(
             string repositoryRoot,
+            string poolRoot,
             string requirementIdentifier,
             JsonElement requirement,
             PlanningDocumentSpec specification)
@@ -370,12 +371,120 @@ namespace Template.Toolkit.CreationPipeline
                     graph.Nodes.Count);
             }
 
-            return new List<string>
+            var lines = new List<string>
             {
                 "## " + specification.GeneratedSection,
                 "- 设计记录：" + (designRecords.Count == 0 ? "无" : string.Join("、", designRecords)),
                 "- 工作项：" + workItemText
             };
+
+            AppendInterfaceSpecs(lines, repositoryRoot, poolRoot, requirementIdentifier);
+            return lines;
+        }
+
+        // 界面规格进生成区：策划案要写到「程序照着能开工」的粒度，
+        // 而「这一屏有哪些元素、每个元素点了会怎样」正是那个粒度所在。
+        // 从前它只落在 Pools/Designs/Interfaces/ 与 _Generated/ 里，飞书上那份策划案看不到，
+        // 于是文档永远停在第一版：目标、玩法、验收标准，界面一个字没有。
+        //
+        // **放生成区而不是让人手抄**：规格是唯一正本，抄一遍就有两份会各自漂。
+        private static void AppendInterfaceSpecs(
+            List<string> lines, string repositoryRoot, string poolRoot, string requirementIdentifier)
+        {
+            var specs = InterfaceSpec.FindByRequirement(repositoryRoot, requirementIdentifier, out var skipped);
+
+            if (specs.Count == 0)
+            {
+                lines.Add("- 界面规格：尚未出功能图");
+                foreach (var reason in skipped)
+                {
+                    lines.Add("- 界面规格读不动：" + reason);
+                }
+
+                return;
+            }
+
+            var summary = new List<string>();
+            foreach (var spec in specs)
+            {
+                summary.Add(spec.Identifier + "「" + spec.Title + "」");
+            }
+
+            lines.Add("- 界面规格：" + string.Join("、", summary));
+            foreach (var reason in skipped)
+            {
+                lines.Add("- 界面规格读不动：" + reason);
+            }
+
+            foreach (var spec in specs)
+            {
+                lines.Add("");
+                lines.Add("### 界面 " + spec.Identifier + "「" + spec.Title + "」");
+                lines.Add("");
+                lines.Add(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "面板 `{0}` · 画布 {1}×{2} · 元素 {3} 个",
+                    spec.PanelName,
+                    spec.CanvasWidth,
+                    spec.CanvasHeight,
+                    spec.Elements.Count));
+
+                // 布局图只在**真拷进 media/ 之后**才写这一行：引一个不存在的路径，
+                // 在飞书上是一个碎图标，比不放更难查。
+                var mediaRelative = InterfaceLayoutMedia.RelativePathFor(spec.Identifier);
+                var mediaAbsolute = Path.Combine(
+                    PoolPaths.RequirementDirectory(poolRoot, requirementIdentifier),
+                    mediaRelative.Replace('/', Path.DirectorySeparatorChar));
+                if (File.Exists(mediaAbsolute))
+                {
+                    lines.Add("");
+                    lines.Add("![" + spec.Identifier + " 白块布局图](" + mediaRelative + ")");
+                }
+
+                AppendElementTable(lines, spec);
+            }
+        }
+
+        // 元素行为表：程序最常回头问策划的就是这几列——点了干什么、成了怎样、砸了怎样、什么时候不让点。
+        // 空的那格写「—」而不是留白：留白读起来像「还没写」与「本来就没有」是同一件事，而它们不是。
+        private static void AppendElementTable(List<string> lines, InterfaceSpec spec)
+        {
+            if (spec.Elements.Count == 0)
+            {
+                lines.Add("");
+                lines.Add("（这份规格里一个元素都没有。）");
+                return;
+            }
+
+            lines.Add("");
+            lines.Add("| 元素 | 类型 | 交互 | 成功 | 失败 | 边界 |");
+            lines.Add("|---|---|---|---|---|---|");
+
+            foreach (var element in spec.Elements)
+            {
+                var cells = new[]
+                {
+                    Cell(element.DisplayName.Length == 0 ? element.Identifier : element.DisplayName),
+                    Cell(element.ElementType),
+                    Cell(element.ReadString("交互")),
+                    Cell(element.ReadString("成功")),
+                    Cell(element.ReadString("失败")),
+                    Cell(element.ReadString("边界"))
+                };
+
+                lines.Add("| " + string.Join(" | ", cells) + " |");
+            }
+        }
+
+        // 表格单元格：竖线会把这一行拆成两列，换行会把表格整个断开——都得就地拍平。
+        private static string Cell(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return "—";
+            }
+
+            return text.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ').Replace("|", "\\|").Trim();
         }
 
         // 小节正文的来源就是需求骨架里的同名字段：字符串照抄，数组渲成有序列表

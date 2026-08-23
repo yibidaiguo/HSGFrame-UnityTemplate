@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using SystemDirectory = System.IO.Directory;
 
 namespace Template.Toolkit.CreationPipeline
 {
@@ -211,6 +212,80 @@ namespace Template.Toolkit.CreationPipeline
         public int CanvasHeight
         {
             get { return ReadCanvas("高"); }
+        }
+
+        /// <summary>来源需求 id 列表；一个界面会被多条需求改，所以这是数组不是单值。</summary>
+        public IReadOnlyList<string> SourceRequirements
+        {
+            get
+            {
+                var result = new List<string>();
+                if (Raw["来源需求"] is JsonArray array)
+                {
+                    foreach (var item in array)
+                    {
+                        var text = item?.GetValue<string>() ?? "";
+                        if (text.Length > 0)
+                        {
+                            result.Add(text);
+                        }
+                    }
+                }
+
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// 找出归属某条需求的全部界面规格。
+        ///
+        /// **认的是规格里的「来源需求」，不是需求里的一个指针**：一个界面会被多条需求改，
+        /// 反过来一条需求也可能动好几屏，指针放需求那边就得两边同时维护，迟早对不上。
+        /// 规格自己声明它为谁而生，这层关系只有一份写处。
+        ///
+        /// 目录不在、某一份读不动都**不算失败**——那只是「这条需求还没出功能图」，
+        /// 或者某一份坏了不该连累别的；读不动的那份跳过，理由进 reasons 供调用方如实说。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="requirementIdentifier">需求 id。</param>
+        /// <param name="reasons">跳过了哪些、为什么；一份一条。</param>
+        public static IReadOnlyList<InterfaceSpec> FindByRequirement(
+            string repositoryRoot, string requirementIdentifier, out IReadOnlyList<string> reasons)
+        {
+            var skipped = new List<string>();
+            reasons = skipped;
+
+            var result = new List<InterfaceSpec>();
+            var directory = Directory(repositoryRoot);
+            if (string.IsNullOrWhiteSpace(requirementIdentifier) || !SystemDirectory.Exists(directory))
+            {
+                return result;
+            }
+
+            var files = SystemDirectory.GetFiles(directory, "*.json");
+            Array.Sort(files, StringComparer.Ordinal);
+
+            foreach (var file in files)
+            {
+                if (!TryRead(file, out var spec, out var reason))
+                {
+                    skipped.Add(Path.GetFileName(file) + "：" + reason);
+                    continue;
+                }
+
+                foreach (var source in spec.SourceRequirements)
+                {
+                    if (string.Equals(source, requirementIdentifier, StringComparison.Ordinal))
+                    {
+                        result.Add(spec);
+                        break;
+                    }
+                }
+            }
+
+            // 按 id 排序：生成区要幂等，文件系统的枚举顺序不是保证。
+            result.Sort((left, right) => StringComparer.Ordinal.Compare(left.Identifier, right.Identifier));
+            return result;
         }
 
         /// <summary>界面规格目录：Pools/Designs/Interfaces/。</summary>
