@@ -27,6 +27,19 @@ namespace Template.Toolkit.CreationPipeline.Tests
             return PlanningDocumentSpec.Load(workspace.RepositoryRoot);
         }
 
+        /// <summary>写一份最小路由表，让「模块策划案端」解析得出 driver。</summary>
+        /// <param name="workspace">测试工作区。</param>
+        private static void WriteRouteTable(PoolTestWorkspace workspace)
+        {
+            var path = Path.Combine(
+                workspace.RepositoryRoot, "Tools", "CreationPipeline", "Config", "downstream.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllText(
+                path,
+                "{\"契约版本\": \"1.0.0\", \"域路由\": {\"模块策划案端\": \"feishu\"}, "
+                    + "\"实现\": {\"bridge-feishu\": {\"可执行\": \"dotnet\", \"参数\": []}}}");
+        }
+
         private static void Render(PoolTestWorkspace workspace)
         {
             PlanningDocumentRenderer.Render(
@@ -137,6 +150,24 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             Assert.Equal("模块策划案父节点", ModulePlanPusher.ParentKeyName);
             Assert.Equal("模块策划案端", ModulePlanPusher.DocumentPortName);
+        }
+
+        /// <summary>
+        /// 干跑时**只查不建**：干跑的定义就是什么都不往下游发（决策 92），补建也是发。
+        /// 这时如实报「真推那次会建出来」，让人干跑一趟就知道下一步会发生什么。
+        /// </summary>
+        [Fact]
+        public void DryRunOnlyReportsTheMissingParentInsteadOfCreatingIt()
+        {
+            using var workspace = NewWorkspace();
+            Render(workspace);
+            WriteRouteTable(workspace);
+
+            var outcome = ModulePlanPusher.PushOne(
+                workspace.RepositoryRoot, workspace.Root, Module, Spec(workspace), true, true, 5);
+
+            // 台账压根不存在 → 那一格当然是空的 → 该报「真推那次会建」，而不是现在就去建。
+            Assert.Contains("真推那次会先把它建出来", outcome.Note);
         }
 
         /// <summary>渲完顺手推那条路：没变化时**连推都不试**，省掉一次下游调用。</summary>

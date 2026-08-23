@@ -92,6 +92,33 @@ namespace Template.Toolkit.CreationPipeline
                     moduleName + "　跳过：正文与上次推上去的一致（" + bodyHash + "）");
             }
 
+            // **父节点没有就建**，与需求、任务那条链一样。
+            // 不建的话桥读到空串，会把节点建成一级节点——不报错，但挂错地方，
+            // 而静默挂错比报错难查：人在知识库里找不到，会先怀疑自己记错了路径。
+            //
+            // **干跑时只查不建**：干跑的定义就是什么都不往下游发（决策 92），
+            // 补建也是发。这时如实报「还没有，真推那次会建出来」，
+            // 让人干跑一趟就知道下一步会发生什么。
+            var ensureNotes = new List<string>();
+            var routeTable = BridgeRouteTable.Load(repositoryRoot);
+            if (!routeTable.TryResolvePort(DocumentPortName, out var driverName, out var portReason))
+            {
+                ensureNotes.Add($"补建父节点跳过：{DocumentPortName} 取不到（{portReason}）");
+            }
+            else if (isDryRun)
+            {
+                var ledger = DownstreamObjectLedger.Load(repositoryRoot);
+                if (ledger.LoadFailureReason.Length == 0 && ledger.Read(driverName, ParentKeyName).Length == 0)
+                {
+                    ensureNotes.Add($"台账里还没有「{ParentKeyName}」，真推那次会先把它建出来");
+                }
+            }
+            else
+            {
+                DownstreamObjectEnsurer.EnsureKey(
+                    repositoryRoot, driverName, ParentKeyName, timeoutSeconds, ensureNotes);
+            }
+
             var blocks = RequirementDocumentOutline.Build(documentText);
             var payload = JsonSerializer.SerializeToElement(new JsonObject
             {
@@ -111,14 +138,15 @@ namespace Template.Toolkit.CreationPipeline
             {
                 return new ModulePlanPushOutcome(
                     false, false, "", call.Result.HumanText,
-                    moduleName + "　失败（" + call.Result.ErrorCode + "）：" + call.Result.HumanText);
+                    Prefix(ensureNotes) + moduleName + "　失败（" + call.Result.ErrorCode + "）："
+                        + call.Result.HumanText);
             }
 
             if (isDryRun)
             {
                 return new ModulePlanPushOutcome(
                     true, false, "", "",
-                    moduleName + "　干跑：" + ReadString(call.Result.Payload, "动作")
+                    Prefix(ensureNotes) + moduleName + "　干跑：" + ReadString(call.Result.Payload, "动作")
                         + "，" + blocks.Count + " 块（" + bodyHash + "）");
             }
 
@@ -153,7 +181,14 @@ namespace Template.Toolkit.CreationPipeline
 
             return new ModulePlanPushOutcome(
                 true, false, link, "",
-                moduleName + "　推上去了：" + (link.Length > 0 ? link : nodeToken));
+                Prefix(ensureNotes) + moduleName + "　推上去了：" + (link.Length > 0 ? link : nodeToken));
+        }
+
+        /// <summary>补建父节点那一趟的流水，拼在结果那句话前面；什么都没做时是空串。</summary>
+        /// <param name="notes">补建流水。</param>
+        private static string Prefix(IReadOnlyList<string> notes)
+        {
+            return notes == null || notes.Count == 0 ? "" : string.Join("；", notes) + "。";
         }
 
         /// <summary>知识库节点叫什么：frontmatter 的「标题」优先，没有就用模块名。</summary>
