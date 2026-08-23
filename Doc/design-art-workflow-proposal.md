@@ -19,6 +19,8 @@
 | [06 美术管线](creation-pipeline-subdocs/06-art-pipeline.md) | 资产请求契约、生图/模型链路逐步、选片与接管、定稿与离风格报告 | §八 |
 | [07 规范与门禁](creation-pipeline-subdocs/07-specs-and-gates.md) | 三层目录与合并语义、三档执行链、检查器要点、提交钩子、棘轮、双向规则来源、升级豁免 | §九–§十 |
 | [08 界面规格](creation-pipeline-subdocs/08-interface-spec.md) | 需求与资产之间缺的那一层:元素清单与行为规格、按类型给模板、布局图/uidef/资产清单三个生成物 | §二、§八(新增) |
+| [09 设计库](creation-pipeline-subdocs/09-design-library.md) | 策划库与美术库分家、三层只收紧、资产库索引与「参考已有资产」、md 只放引用 | §三(重写) |
+| [10 总设计层与读取策略](creation-pipeline-subdocs/10-direction-and-reading.md) | 一份短的总设计供指导、读取分三档(默认/锚点/深入)、冷启动先聊不许编、会话只提醒一次 | §三、§八(新增) |
 
 ## 〇、六条铁律(叠加在模板五条之上)
 
