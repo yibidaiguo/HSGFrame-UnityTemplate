@@ -124,6 +124,56 @@ namespace Template.Toolkit.CommandHost.Commands
                 lines);
         }
 
+        /// <summary>把设计库渲成两份给人看的文档：策划一份、美术一份。</summary>
+        /// <param name="arguments">命令参数。</param>
+        [EditorCommand("design.library.view")]
+        [Summary("渲设计库视图：策划与美术各一份 markdown，推飞书用的就是它们")]
+        public static CommandResult View(DesignLibraryArguments arguments)
+        {
+            var repositoryRoot = ResolveRoot(arguments);
+            var index = DesignLibraryIndex.Read(repositoryRoot);
+            var notes = new List<string>();
+
+            // **读磁盘上那份索引，不现扫**：视图要跟索引一致，
+            // 现扫的话会出现「视图里有、索引里没有」，而门禁比的是索引。
+            if (index.Entries.Count == 0)
+            {
+                notes.Add("索引是空的——先跑 design.library.rebuild");
+            }
+
+            if (arguments.VerifyOnly)
+            {
+                var gameSame = SameOnDisk(DesignLibraryView.GameDocumentPath(repositoryRoot), DesignLibraryView.RenderGame(repositoryRoot));
+                var artSame = SameOnDisk(DesignLibraryView.ArtDocumentPath(repositoryRoot), DesignLibraryView.RenderArt(repositoryRoot, index));
+
+                return gameSame && artSame
+                    ? CommandResult.Success("设计库视图与仓库一致", notes)
+                    : CommandResult.Failure("设计库视图过期了，重跑 design.library.view", notes);
+            }
+
+            var written = DesignLibraryView.Write(repositoryRoot, index, notes);
+            notes.Add("推给飞书：bridge.ensure 建/取两份文档的 key，再 doc.push 推正文");
+
+            return written
+                ? CommandResult.Success("设计库视图已渲", notes)
+                : CommandResult.Failure("设计库视图没渲全", notes);
+        }
+
+        /// <summary>磁盘上那份跟现渲的一不一样。</summary>
+        /// <param name="path">文件路径。</param>
+        /// <param name="content">现渲的正文。</param>
+        private static bool SameOnDisk(string path, string content)
+        {
+            try
+            {
+                return File.Exists(path) && string.Equals(File.ReadAllText(path), content, StringComparison.Ordinal);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
         /// <summary>取仓库根：参数给了用参数的，没给用当前目录。</summary>
         /// <param name="arguments">命令参数。</param>
         private static string ResolveRoot(DesignLibraryArguments arguments)

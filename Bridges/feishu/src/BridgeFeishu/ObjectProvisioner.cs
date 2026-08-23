@@ -37,6 +37,17 @@ namespace Template.Bridges.Feishu
         /// <summary>台账里需求文档父节点那一格的键名。</summary>
         public const string RequirementParentKey = "需求文档父节点";
 
+        /// <summary>
+        /// 台账里策划设计库文档那一格的键名。
+        /// **与美术库分开是刻意的**：「断签从第 1 天重计」和「UI 图标一律 Q 版」
+        /// 是两种东西——读者不同、改的人不同、过期的方式也不同。
+        /// 堆在一份文档里，两边都得从一堆不相干的条目里筛自己那部分。
+        /// </summary>
+        public const string GameDesignDocumentKey = "策划设计库文档";
+
+        /// <summary>台账里美术设计库文档那一格的键名。</summary>
+        public const string ArtDesignDocumentKey = "美术设计库文档";
+
         /// <summary>台账里多维表格那一格的键名。</summary>
         public const string BitableKey = "多维表格标识";
 
@@ -48,6 +59,12 @@ namespace Template.Bridges.Feishu
 
         /// <summary>没给标题时，需求文档的父节点叫什么。对应仓库里的 Pools/Requirements/。</summary>
         private const string DefaultRequirementParentTitle = "需求";
+
+        /// <summary>策划设计库文档的缺省标题。</summary>
+        private const string DefaultGameDesignDocumentTitle = "策划设计库";
+
+        /// <summary>美术设计库文档的缺省标题。</summary>
+        private const string DefaultArtDesignDocumentTitle = "美术设计库";
 
         /// <summary>没给标题时，多维表格那个节点叫什么。</summary>
         private const string DefaultBitableTitle = "任务管理";
@@ -93,6 +110,8 @@ namespace Template.Bridges.Feishu
 
             state.SpaceId = ReadConfigurationString(request, SpaceKey, "");
             state.RequirementParent = ReadConfigurationString(request, RequirementParentKey, "");
+            state.GameDesignDocument = ReadConfigurationString(request, GameDesignDocumentKey, "");
+            state.ArtDesignDocument = ReadConfigurationString(request, ArtDesignDocumentKey, "");
             state.BitableToken = ReadConfigurationString(request, BitableKey, "");
             state.TaskTableId = ReadConfigurationString(request, TaskTableKey, "");
 
@@ -116,12 +135,28 @@ namespace Template.Bridges.Feishu
                 return tableFailure;
             }
 
+            // 设计库那两份文档跟别的对象一视同仁：**没有就建，有就沿用**，
+            // 建完 id 回填台账（换台机器不会重建一份）。
+            if (!EnsureDesignDocument(state, GameDesignDocumentKey, state.GameDesignDocument,
+                state.GameDesignDocumentTitle, out var gameFailure, token => state.GameDesignDocument = token))
+            {
+                return gameFailure;
+            }
+
+            if (!EnsureDesignDocument(state, ArtDesignDocumentKey, state.ArtDesignDocument,
+                state.ArtDesignDocumentTitle, out var artFailure, token => state.ArtDesignDocument = token))
+            {
+                return artFailure;
+            }
+
             var objects = new JsonObject
             {
                 [SpaceKey] = state.SpaceId,
                 [RequirementParentKey] = state.RequirementParent,
                 [BitableKey] = state.BitableToken,
-                [TaskTableKey] = state.TaskTableId
+                [TaskTableKey] = state.TaskTableId,
+                [GameDesignDocumentKey] = state.GameDesignDocument,
+                [ArtDesignDocumentKey] = state.ArtDesignDocument
             };
 
             var payload = new JsonObject
@@ -220,6 +255,31 @@ namespace Template.Bridges.Feishu
                 "docx",
                 out failure,
                 token => state.RequirementParent = token);
+        }
+
+        /// <summary>
+        /// 确保设计库的一份文档在。**走的是与需求文档同一条 EnsureNode**——
+        /// 那条路已经跑通过，不另起一套。
+        ///
+        /// 选文档而不是多维表格：设计库要看的是「有哪些资产、什么风格」，
+        /// 一张 markdown 表格就够；而多维表格要另建 base 里的表、另写一套列定义，
+        /// 换来的筛选能力这里用不上。真需要筛的那天再换，台账里换个键的事。
+        /// </summary>
+        /// <param name="state">这一轮的状态。</param>
+        /// <param name="key">台账键名。</param>
+        /// <param name="current">台账里现有的值。</param>
+        /// <param name="title">要建时叫什么。</param>
+        /// <param name="failure">失败响应。</param>
+        /// <param name="assign">把最终值写回状态。</param>
+        private static bool EnsureDesignDocument(
+            EnsureState state,
+            string key,
+            string current,
+            string title,
+            out BridgeResponse failure,
+            Action<string> assign)
+        {
+            return EnsureNode(state, key, current, title, "docx", out failure, assign);
         }
 
         /// <summary>确保多维表格在：它也是知识空间下的一个节点（obj_type=bitable），obj_token 就是 app_token。</summary>
@@ -699,6 +759,18 @@ namespace Template.Bridges.Feishu
 
             /// <summary>要建任务表时叫什么。</summary>
             public string TaskTableName = DefaultTaskTableName;
+
+            /// <summary>策划设计库文档的节点 token。</summary>
+            public string GameDesignDocument = "";
+
+            /// <summary>美术设计库文档的节点 token。</summary>
+            public string ArtDesignDocument = "";
+
+            /// <summary>要建策划设计库文档时叫什么。</summary>
+            public string GameDesignDocumentTitle = DefaultGameDesignDocumentTitle;
+
+            /// <summary>要建美术设计库文档时叫什么。</summary>
+            public string ArtDesignDocumentTitle = DefaultArtDesignDocumentTitle;
 
             /// <summary>这一轮新建了哪些。</summary>
             public readonly List<string> Created = new List<string>();
