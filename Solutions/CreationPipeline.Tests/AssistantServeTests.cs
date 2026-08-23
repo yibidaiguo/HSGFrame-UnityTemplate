@@ -676,5 +676,43 @@ namespace Template.Toolkit.CreationPipeline.Tests
         {
             Assert.Equal("", LiveCardRegistry.StripActions(cardJson));
         }
+
+        /// <summary>
+        /// 拿占位号校验才过得了「id 与目录名一致」那一条。
+        ///
+        /// **这个坑踩过两次**：草稿 key 是内容哈希（REQ-草稿-xxxxxx），
+        /// 而草稿里的 id 是占位号 REQ-0000；校验器比的正是「id 字段 vs 所在目录名」，
+        /// 拿草稿 key 当目录名必然对不上，于是每次点「一键建需求」都被判「过不了校验」。
+        /// 整理草稿那一步与点按钮那一步都要用占位号，漏一处就复现。
+        /// </summary>
+        [Fact]
+        public void ValidatingWithThePlaceholderIdentifierPasses()
+        {
+            var draft = new JsonObject
+            {
+                ["id"] = AssistantServeTurn.ValidationPlaceholderIdentifier,
+                ["类型"] = "系统",
+                ["标题"] = "背包系统现状梳理",
+                ["描述"] = "梳理现状",
+                ["验收标准"] = new JsonArray { "文档列出物品定义" },
+                ["目标"] = "记录现状",
+                ["玩法"] = "物品进出、堆叠上限",
+                ["状态"] = "草稿",
+                ["锁定"] = false,
+                ["schema版本"] = "1.0.0",
+                ["关联设计记录"] = new JsonArray(),
+                ["依赖"] = new JsonArray(),
+                ["来源"] = new JsonObject { ["渠道"] = "助手会话", ["记录id"] = "m-1", ["提交人"] = "u-1", ["提交时间"] = "2026-08-23T10:00:00+09:00" }
+            };
+
+            var passed = AssistantServeTurn.Validate(
+                draft, AssistantServeTurn.ValidationPlaceholderIdentifier, BuildRequirementSchema());
+            Assert.DoesNotContain(passed, finding => finding.Reason.Contains("目录名"));
+
+            // 拿草稿 key 当目录名就会报「id 与目录名不一致」——这正是人看到的那句话。
+            var failed = AssistantServeTurn.Validate(
+                draft, AssistantServeTurn.DraftKey(draft), BuildRequirementSchema());
+            Assert.Contains(failed, finding => finding.Reason.Contains("目录名"));
+        }
     }
 }
