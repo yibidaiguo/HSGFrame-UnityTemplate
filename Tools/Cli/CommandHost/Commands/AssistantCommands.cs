@@ -1799,17 +1799,23 @@ namespace Template.Toolkit.CommandHost.Commands
                     lines.Add("  " + line);
                 }
 
-                result = drafted.IsSuccess ? "已出功能图" : "出功能图失败";
+                // **草案落没落盘，与校验过不过，是两件事。**
+                // ui.spec.draft 在有校验发现时回 Failure，但那时规格已经写进池子了——
+                // 照着 IsSuccess 说「没出成」，人会以为要重出一次，
+                // 于是再点一次，再花一次钱，再得到同一份草案。
+                // 落没落盘按「池子里现在有没有这条需求名下的规格」认，不解析回话文本——
+                // 文案会改，而这条判据的正确性不该跟着文案走。
+                var landed = InterfaceSpec.FindByRequirement(
+                    repositoryRoot, requirementIdentifier, out _).Count > 0;
+                result = drafted.IsSuccess ? "已出功能图" : landed ? "出了功能图但校验没过" : "出功能图失败";
 
-                // 出完重渲染的是**模块策划案**，不是需求案：元素行为表与布局图住在那一层
-                // （一个模块一份，常驻）。需求案这边只跟着更新那一行指针。
-                //
-                // 不回写的话，那份模块正本上「界面与交互」永远是空的，
-                // 而它正是程序照着开工要看的东西。
                 var moduleName = ModulePlanRefresher.ReadEpic(poolRoot, requirementIdentifier);
                 var documentLink = "";
-                if (drafted.IsSuccess)
+                if (landed)
                 {
+                    // **校验没过也照渲。** 规格已经是池子里的事实，模块策划案是它的投影——
+                    // 投影落后于事实，人看策划案时会以为这一屏还没出。
+                    // 校验那几条单独报，改的是规格本身，不是这份投影。
                     documentLink = PublishDocument(
                         repositoryRoot, poolRoot, requirementIdentifier, arguments, lines, out var republishFailure);
                     if (republishFailure.Length > 0)
@@ -1817,20 +1823,22 @@ namespace Template.Toolkit.CommandHost.Commands
                         lines.Add("需求案重推失败：" + republishFailure);
                     }
 
-                    // 走到这儿必然不是只读模式（上面那一支已经拦掉了），所以真推。
                     ModulePlanRefresher.RefreshForRequirement(
                         repositoryRoot, poolRoot, requirementIdentifier, out var planNotes,
                         alsoPush: true, timeoutSeconds: arguments.TimeoutSeconds);
                     lines.AddRange(planNotes);
                 }
 
-                replyText = drafted.IsSuccess
-                    ? "功能图出好了：" + drafted.Message
+                replyText = landed
+                    ? (drafted.IsSuccess ? "功能图出好了：" : "功能图出好了，但有几条要改：") + drafted.Message
                         + "\n" + Detail(drafted)
                         + "\n" + "元素行为表与白块布局图已经写进模块策划案"
                         + (moduleName.Length > 0 ? "（" + moduleName + "）" : "")
                         + (documentLink.Length > 0 ? "；需求案：" + documentLink : "")
-                        + "\n" + "哪个功能位不对、少了什么，直接说。"
+                        + "\n" + (drafted.IsSuccess
+                            ? "哪个功能位不对、少了什么，直接说。"
+                            : "**别再点一次**——草案已经落盘了，再点是重出一份。"
+                                + "改上面那几条，或者直接跟我说哪儿不对。")
                     : "功能图没出成：" + drafted.Message + Detail(drafted) + "\n" + "再点一次可以重试。";
             }
 
@@ -2131,7 +2139,10 @@ namespace Template.Toolkit.CommandHost.Commands
             {
                 if (shown >= MaxDetailLines)
                 {
-                    builder.Append("\n（还有 ").Append(lines.Count - shown).Append(" 条，看日志）");
+                    // 说清楚数的是**流水行数**，不是问题条数。上一句往往刚说完
+                    // 「校验有 4 条问题」，紧跟一句「还有 7 条」——两个数说的不是一回事，
+                    // 摆在一起读起来像自相矛盾，而人只会记住后一个数。
+                    builder.Append("\n（执行流水还有 ").Append(lines.Count - shown).Append(" 行，看日志）");
                     break;
                 }
 

@@ -149,6 +149,12 @@ namespace Template.Toolkit.CreationPipeline
                     continue;
                 }
 
+                if (string.Equals(field, FailureField, StringComparison.Ordinal))
+                {
+                    InspectFailureField(element, label, elementType, where, findings);
+                    continue;
+                }
+
                 if (!element.HasValue(field))
                 {
                     findings.Add(new PoolFinding(
@@ -158,18 +164,92 @@ namespace Template.Toolkit.CreationPipeline
                         "Specifications/Baseline/ui-element-template.baseline.json"));
                 }
             }
+        }
 
-            // 「失败」写成一句话是最常见也最贵的偷懒：背包满了 / 钱不够 / 网络断了
-            // 三条的文案与处置完全不同，合成一句「失败提示」等于没写，
-            // 而程序照着这句写出来的就是三种失败一个提示框。
-            if (element.Raw["失败"] != null && element.Raw["失败"] is not JsonArray)
+        /// <summary>「失败」这一格的取值前缀：一句以它开头的话表示「查过了，这个件不会失败」。</summary>
+        public const string NoFailurePrefix = "不会失败";
+
+        /// <summary>「失败」这一格的字段名。</summary>
+        private const string FailureField = "失败";
+
+        /// <summary>
+        /// 查「失败」这一格。它有两种合法形状，**空数组不在其中**。
+        ///
+        /// ① **数组，一种失败一条** `{条件, 提示, 处置}`。写成一句话是最常见也最贵的偷懒：
+        ///    背包满了 / 钱不够 / 网络断了，三条的文案与处置完全不同，合成一句等于没写，
+        ///    而程序照着这句写出来的就是三种失败一个提示框。
+        ///
+        /// ② **一句以「不会失败」开头、后面跟理由的话**。有些件真的不会失败——
+        ///    纯本地的列表选中就没有可失败的一步，逼它编一条假失败比空着更坏。
+        ///
+        /// **空数组两种都不算**：它分不清「还没写」与「查过了，确实没有」，
+        /// 而这两件事对程序的意思完全相反（决策 42 那一类）。要说没有，就把理由说出来。
+        /// </summary>
+        /// <param name="element">元素。</param>
+        /// <param name="label">元素的人话名字，报错时指给人看。</param>
+        /// <param name="elementType">元素类型。</param>
+        /// <param name="where">位置。</param>
+        /// <param name="findings">发现表。</param>
+        private static void InspectFailureField(
+            InterfaceElement element,
+            string label,
+            string elementType,
+            string where,
+            List<PoolFinding> findings)
+        {
+            var raw = element.Raw[FailureField];
+
+            if (raw is JsonArray array)
             {
-                findings.Add(new PoolFinding(
-                    where,
-                    $"元素「{label}」的「失败」不是数组",
-                    "一种失败一条 {条件, 提示, 处置}——合成一句等于没写",
-                    "Pools/Schema/Baseline/interface-spec.schema.json"));
+                if (array.Count == 0)
+                {
+                    findings.Add(new PoolFinding(
+                        where,
+                        $"元素「{label}」（{elementType}）的「失败」是个空数组",
+                        $"这个件真的不会失败的话，写成一句「{NoFailurePrefix}：<为什么>」；"
+                            + "会失败就一种一条 {条件, 提示, 处置}。"
+                            + "空数组分不清「还没写」与「查过了没有」，而这两件事对程序的意思完全相反",
+                        "Pools/Schema/Baseline/interface-spec.schema.json"));
+                }
+
+                return;
             }
+
+            if (raw is JsonValue value && value.TryGetValue<string>(out var text))
+            {
+                var trimmed = (text ?? "").Trim();
+                if (!trimmed.StartsWith(NoFailurePrefix, StringComparison.Ordinal))
+                {
+                    findings.Add(new PoolFinding(
+                        where,
+                        $"元素「{label}」的「失败」是一句话，但不是「{NoFailurePrefix}」那一种",
+                        "会失败就写成数组，一种一条 {条件, 提示, 处置}——合成一句等于没写；"
+                            + $"真不会失败就写「{NoFailurePrefix}：<为什么>」",
+                        "Pools/Schema/Baseline/interface-spec.schema.json"));
+                    return;
+                }
+
+                // 只写「不会失败」三个字不算——**理由才是这一格的价值**：
+                // 往后有人要加失败分支时，靠它判断当初是想过还是漏了。
+                if (trimmed.Length <= NoFailurePrefix.Length + 1)
+                {
+                    findings.Add(new PoolFinding(
+                        where,
+                        $"元素「{label}」写了「{NoFailurePrefix}」但没给理由",
+                        $"写成「{NoFailurePrefix}：<为什么>」。往后有人要加失败分支时，"
+                            + "靠这句话判断当初是想过还是漏了",
+                        "Pools/Schema/Baseline/interface-spec.schema.json"));
+                }
+
+                return;
+            }
+
+            findings.Add(new PoolFinding(
+                where,
+                $"元素「{label}」（{elementType}）缺必填字段「{FailureField}」",
+                $"会失败就写成数组，一种一条 {{条件, 提示, 处置}}；"
+                    + $"真不会失败就写「{NoFailurePrefix}：<为什么>」",
+                "Specifications/Baseline/ui-element-template.baseline.json"));
         }
 
         /// <summary>父容器必须存在，且不许成环。</summary>
