@@ -39,7 +39,7 @@
     "Solutions/CreationPipeline.Tests/AssistantConversationTests.cs": "f3262cefa93af66996190bd2259bc0afb6c72f6c6b6dd1f91ded7b6d37ba104c",
     "Solutions/CreationPipeline.Tests/AssistantPackageBuilderTests.cs": "cfbb9e25bffc7f18002513d3e3f7686182ce3d0d72150968dae3dedc0a940fe5",
     "Solutions/CreationPipeline.Tests/AssistantPackageInspectorTests.cs": "86a44eccccb38cbbb2b70868ed29ed2b9efed52bf297ec9e0f45d2508dbfb9cb",
-    "Solutions/CreationPipeline.Tests/AssistantServeTests.cs": "df184b34165b61711f18ab30b27cf325e9362d2a2fc013af9aef1d4eebf2d23a",
+    "Solutions/CreationPipeline.Tests/AssistantServeTests.cs": "b1426ea217968083c29f136f7c00e785ec30ffe273a9da1a59766db8c5339b07",
     "Solutions/CreationPipeline.Tests/BridgeCallEnvelopeTests.cs": "f530349c50f474a7608d01e7b7750dc7ea35414ae428a5067e4600f1d1c596f6",
     "Solutions/CreationPipeline.Tests/BridgeDriverDescriptorTests.cs": "2110a026962c7ece860e9f12df1cdb78db0abd29897131ebedaf74f91149fb3b",
     "Solutions/CreationPipeline.Tests/BridgeInvokerTests.cs": "0bb4a6845f5aaa703c557fd3ca5dd1c764f2a3b00510a8cbb5a65282bda95456",
