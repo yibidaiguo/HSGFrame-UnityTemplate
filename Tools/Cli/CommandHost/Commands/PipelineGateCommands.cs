@@ -206,6 +206,94 @@ namespace Template.Toolkit.CommandHost.Commands
         }
     }
 
+    /// <summary>界面规格门禁命令的参数。</summary>
+    public sealed class GateInterfaceSpecArguments
+    {
+        /// <summary>仓库根目录，相对当前工作目录。</summary>
+        [Summary("仓库根目录，相对当前工作目录")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>业务模块名，用于取 Specifications/Business/&lt;模块&gt;/ 的就近覆盖。</summary>
+        [Summary("业务模块名，用于取 Specifications/Business/<模块>/ 的就近覆盖")]
+        [DefaultValue("")]
+        public string Module { get; set; }
+    }
+
+    /// <summary>
+    /// 界面规格门禁命令：界面规格本身合规，且布局图与它一致。
+    ///
+    /// 两件事合在一道门禁里是有意的——它们坏的是同一件事：
+    /// **人看到的与机器读到的对不上**。规格写错了下游全错；
+    /// 布局图没跟着重渲，策划照着一张过期的图确认功能位，
+    /// 确认完了才发现跟规格不是一回事。
+    /// </summary>
+    public static class GateInterfaceSpecCommand
+    {
+        /// <summary>
+        /// 跑界面规格门禁：全扫 Pools/Designs/Interfaces/，逐份校验并核对布局图是否最新。
+        /// </summary>
+        /// <param name="arguments">界面规格门禁参数。</param>
+        [EditorCommand("gate.interfacespec")]
+        [Summary("界面规格门禁：规格合规 + 布局图与规格一致")]
+        public static CommandResult Execute(GateInterfaceSpecArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.RepositoryRoot))
+            {
+                return CommandResult.Failure("参数 RepositoryRoot 为必填项");
+            }
+
+            var repositoryRoot = Path.GetFullPath(arguments.RepositoryRoot);
+            if (!Directory.Exists(repositoryRoot))
+            {
+                return CommandResult.Failure($"位置：{repositoryRoot}；原因：仓库根目录不存在；修复：把 RepositoryRoot 指向仓库根");
+            }
+
+            var findings = InterfaceSpecInspector.InspectAll(repositoryRoot, arguments.Module)
+                .Select(finding => new GateFinding(finding.Location, finding.Reason, finding.FixAction, finding.ReferenceExamplePath))
+                .ToList();
+
+            var directory = InterfaceSpec.Directory(repositoryRoot);
+            var count = 0;
+
+            if (Directory.Exists(directory))
+            {
+                foreach (var filePath in Directory.EnumerateFiles(directory, "*.json", SearchOption.TopDirectoryOnly))
+                {
+                    if (!InterfaceSpec.TryRead(filePath, out var spec, out _))
+                    {
+                        // 读不动那一条已经由 InspectAll 记过了，这里不重复报。
+                        continue;
+                    }
+
+                    count++;
+                    var layoutPath = LayoutImageRenderer.OutputPath(repositoryRoot, spec.Identifier);
+                    var expected = LayoutImageRenderer.Render(spec);
+
+                    if (!File.Exists(layoutPath))
+                    {
+                        findings.Add(new GateFinding(
+                            layoutPath,
+                            "布局图尚未生成",
+                            "跑一次 ui.spec.layout",
+                            "Doc/creation-pipeline-subdocs/08-interface-spec.md"));
+                        continue;
+                    }
+
+                    if (!string.Equals(File.ReadAllText(layoutPath), expected, StringComparison.Ordinal))
+                    {
+                        findings.Add(new GateFinding(
+                            layoutPath,
+                            "布局图与界面规格不一致",
+                            "重跑 ui.spec.layout——布局图是生成物，改规格就得重渲，别手改它",
+                            "Doc/creation-pipeline-subdocs/08-interface-spec.md"));
+                    }
+                }
+            }
+
+            return GateCommandSupport.ToResult($"界面规格门禁（界面 {count} 份）", findings);
+        }
+    }
+
     /// <summary>放行策略门禁命令的参数。</summary>
     public sealed class GateReleaseArguments
     {

@@ -211,6 +211,9 @@ Invoke-Gate -GateName '层边界' -CommandName 'gate.layerboundary' -CommandArgu
 Write-GateHeader '资产规格'
 Invoke-Gate -GateName '资产规格' -CommandName 'gate.assetspec' -CommandArguments @{ RepositoryRoot = $templateRoot }
 
+Write-GateHeader '界面规格'
+Invoke-Gate -GateName '界面规格' -CommandName 'gate.interfacespec' -CommandArguments @{ RepositoryRoot = $templateRoot }
+
 Write-GateHeader '配方门禁'
 Invoke-Gate -GateName '配方门禁' -CommandName 'gate.recipe' -CommandArguments @{ RepositoryRoot = $templateRoot }
 
