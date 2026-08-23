@@ -186,6 +186,48 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Equal(expected, InterfaceSpecProjection.PanelIdentifier(spec));
         }
 
+        /// <summary>
+        /// SVG 能转成 PNG，且真是一张 PNG（认它的魔数）。
+        ///
+        /// 这条**同时在验 SkiaSharp 的原生库在不在**——那是这个仓库第一个原生依赖，
+        /// 缺了它的报错跟「SVG 不合法」长得完全不一样，值得单独钉一条。
+        /// </summary>
+        [Fact]
+        public void LayoutSvgConvertsToRealPng()
+        {
+            using var workspace = new Workspace();
+            var spec = ReadSpec(workspace, ConvergenceSpecJson);
+
+            var encoded = SvgRasterizer.ToPng(LayoutImageRenderer.Render(spec), out var reason);
+
+            Assert.True(encoded != null, reason);
+            Assert.True(encoded.Length > 8, "PNG 太短，不像是一张真图");
+            Assert.Equal(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, encoded[..4]);
+        }
+
+        /// <summary>转不动时回 null 加一句原因，不抛异常——布局图渲不出来不该让整条链停下。</summary>
+        [Theory]
+        [InlineData("")]
+        [InlineData("这不是 SVG")]
+        public void UnreadableSvgIsReportedNotThrown(string svgText)
+        {
+            Assert.Null(SvgRasterizer.ToPng(svgText, out var reason));
+            Assert.NotEqual("", reason);
+        }
+
+        /// <summary>块放不下的标签要截断——不截的话小块上的字会越界跟邻居叠成一团。</summary>
+        [Fact]
+        public void LongCaptionIsTruncatedToFitTheBlock()
+        {
+            using var workspace = new Workspace();
+            var spec = ReadSpec(workspace, ConvergenceSpecJson);
+
+            var svg = LayoutImageRenderer.Render(spec);
+
+            // SlotItem 那个块只有 120 宽，装不下「SlotItem  Image  x40」整串。
+            Assert.Contains("…", svg);
+        }
+
         /// <summary>按 id 取清单里的一条。</summary>
         private static InterfaceAssetEntry Find(IReadOnlyList<InterfaceAssetEntry> manifest, string identifier)
         {
