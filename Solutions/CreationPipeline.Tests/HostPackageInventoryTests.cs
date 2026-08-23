@@ -585,7 +585,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             var field = Field(Host(workspace.Root, "feishu"), "知识空间标识");
 
-            Assert.Equal("策划文档落脚的知识库空间：space_id，一串纯数字", field.Hint);
+            Assert.Equal("需求文档落脚的知识库空间：space_id，一串纯数字", field.Hint);
         }
 
         /// <summary>自述没写「说明」的通用格退回内置那句；两种格子在同一份自述里各走各的。</summary>
@@ -632,7 +632,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 "知识空间标识": {
                   "类型": "string",
                   "默认": "",
-                  "说明": "策划文档落脚的知识库空间：space_id，一串纯数字"
+                  "说明": "需求文档落脚的知识库空间：space_id，一串纯数字"
                 },
                 "测试收件人": { "类型": "string", "默认": "", "说明": "卡片发给谁：open_id" },
                 "超时秒": { "类型": "number", "默认": 60 }

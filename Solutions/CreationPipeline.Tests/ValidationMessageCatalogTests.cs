@@ -8,7 +8,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
     /// <summary>ValidationMessageCatalog 与 ValidationMessageEntry 的行为测试。</summary>
     public class ValidationMessageCatalogTests
     {
-        /// <summary>条目总数恰好 28 条（需求骨架 14 条 + 策划文档 14 条），且规则 id 互不重复。</summary>
+        /// <summary>条目总数恰好 28 条（需求骨架 14 条 + 需求文档 14 条），且规则 id 互不重复。</summary>
         [Fact]
         public void EntriesCountIsTwentyEightAndRuleIdentifiersAreUnique()
         {

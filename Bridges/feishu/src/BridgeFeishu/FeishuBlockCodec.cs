@@ -9,7 +9,7 @@ namespace Template.Bridges.Feishu
     /// <summary>
     /// 中性文档块 → 飞书 docx 块。与 <see cref="FeishuFieldTypeCodec"/> 同一个位置、同一个职责：
     /// **「飞书长什么样」这件事只许住在飞书桥里**，工具链那边出的是中性的
-    /// <see cref="PlanningDocumentOutline"/>，一个 block_type 数字都不认识。
+    /// <see cref="RequirementDocumentOutline"/>，一个 block_type 数字都不认识。
     ///
     /// block_type 取值是飞书 docx 定的：2 文本、3/4/5 一二三级标题、12 无序项、13 有序项、
     /// 14 代码块、15 引用。认不出来的中性类型一律降级成文本块——
@@ -75,7 +75,7 @@ namespace Template.Bridges.Feishu
         /// <c>POST /docx/v1/documents/{id}/blocks/{id}/children</c> 的请求体。
         /// </summary>
         /// <param name="blocks">中性块。</param>
-        public static JsonArray ToChildren(IReadOnlyList<PlanningDocumentOutlineBlock> blocks)
+        public static JsonArray ToChildren(IReadOnlyList<RequirementDocumentOutlineBlock> blocks)
         {
             return ToChildren(blocks, out _);
         }
@@ -87,7 +87,7 @@ namespace Template.Bridges.Feishu
         /// <param name="blocks">中性块。</param>
         /// <param name="pendingMedia">要在块建好后补传的素材。</param>
         public static JsonArray ToChildren(
-            IReadOnlyList<PlanningDocumentOutlineBlock> blocks,
+            IReadOnlyList<RequirementDocumentOutlineBlock> blocks,
             out IReadOnlyList<PendingMedia> pendingMedia)
         {
             var children = new JsonArray();
@@ -100,7 +100,7 @@ namespace Template.Bridges.Feishu
 
             foreach (var block in blocks)
             {
-                if (string.Equals(block.Kind, PlanningDocumentOutline.KindMedia, StringComparison.Ordinal)
+                if (string.Equals(block.Kind, RequirementDocumentOutline.KindMedia, StringComparison.Ordinal)
                     && block.Target.Length > 0)
                 {
                     var isImage = ImageExtensions.Contains(Path.GetExtension(block.Target));
@@ -126,21 +126,21 @@ namespace Template.Bridges.Feishu
 
         /// <summary>翻一个块。</summary>
         /// <param name="block">中性块。</param>
-        private static JsonObject ToChild(PlanningDocumentOutlineBlock block)
+        private static JsonObject ToChild(RequirementDocumentOutlineBlock block)
         {
             switch (block.Kind)
             {
-                case PlanningDocumentOutline.KindHeading:
+                case RequirementDocumentOutline.KindHeading:
                     return HeadingChild(block);
-                case PlanningDocumentOutline.KindOrderedItem:
+                case RequirementDocumentOutline.KindOrderedItem:
                     return TextChild(BlockTypeOrdered, "ordered", block.Text);
-                case PlanningDocumentOutline.KindBulletItem:
+                case RequirementDocumentOutline.KindBulletItem:
                     return TextChild(BlockTypeBullet, "bullet", block.Text);
-                case PlanningDocumentOutline.KindQuote:
+                case RequirementDocumentOutline.KindQuote:
                     return TextChild(BlockTypeQuote, "quote", block.Text);
-                case PlanningDocumentOutline.KindCode:
+                case RequirementDocumentOutline.KindCode:
                     return TextChild(BlockTypeCode, "code", block.Text);
-                case PlanningDocumentOutline.KindMedia:
+                case RequirementDocumentOutline.KindMedia:
                     return TextChild(BlockTypeText, "text", MediaLine(block));
                 default:
                     return TextChild(BlockTypeText, "text", block.Text);
@@ -148,7 +148,7 @@ namespace Template.Bridges.Feishu
         }
 
         /// <summary>标题块：层级 1/2/3 对应 heading1/2/3，超出三级的按三级放。</summary>
-        private static JsonObject HeadingChild(PlanningDocumentOutlineBlock block)
+        private static JsonObject HeadingChild(RequirementDocumentOutlineBlock block)
         {
             switch (block.Level)
             {
@@ -169,7 +169,7 @@ namespace Template.Bridges.Feishu
         /// 跑不了的东西不写（决策 91）。降级成文字至少让「这里有张图、图里是什么」跟着文档过去，
         /// 而不是悄悄丢掉。真做那三步的条件与做法记在待办账本里。
         /// </summary>
-        private static string MediaLine(PlanningDocumentOutlineBlock block)
+        private static string MediaLine(RequirementDocumentOutlineBlock block)
         {
             var caption = block.Text.Length == 0 ? "（无说明）" : block.Text;
             return $"［媒体］{caption}（{block.Target}，本体在仓库里，暂未随文档上传）";

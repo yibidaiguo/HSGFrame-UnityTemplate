@@ -1,7 +1,7 @@
 {
   "_说明": "预审提示词的规范裁剪表：diff 命中哪类路径才带上哪份规范。没列进表的规范文件一律始终带上（宁多勿漏）；diff 解析不出路径时回退全量。",
   "规则": [
-    { "规范路径前缀": "Specifications/Baseline/planning-doc.baseline.md", "diff路径前缀": ["Pools/", "Doc/"] },
+    { "规范路径前缀": "Specifications/Baseline/requirement-doc.baseline.md", "diff路径前缀": ["Pools/", "Doc/"] },
     { "规范路径前缀": "Specifications/structure-assets.md", "diff路径前缀": ["UnityProject/", "Pools/", "_Generated/", "Bridges/"] },
     { "规范路径前缀": "Specifications/structure-code.md", "diff扩展名": [".cs", ".csproj", ".asmdef", ".ps1"] },
     { "规范路径前缀": "Specifications/Baseline/asset-spec.baseline.json", "diff路径前缀": ["Pools/", "UnityProject/"] },

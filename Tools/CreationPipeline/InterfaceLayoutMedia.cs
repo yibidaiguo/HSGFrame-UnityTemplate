@@ -4,11 +4,11 @@ using System.IO;
 namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>
-    /// 把界面布局图交给策划案：从 `_Generated/Interfaces/` 拷一份进这条需求的 `media/`。
+    /// 把界面布局图交给需求案：从 `_Generated/Interfaces/` 拷一份进这条需求的 `media/`。
     ///
     /// **为什么要拷而不是直接引 `_Generated/`**：md 文档只存引用，引到哪就得保证那儿一直有。
     /// `_Generated/` 是本机产物、进 .gitignore，换台机器 clone 下来那张图不在——
-    /// 而策划案是要推给别人看的，图断了整份文档就废了一半。
+    /// 而需求案是要推给别人看的，图断了整份文档就废了一半。
     /// `media/` 跟着需求进 git（决策 99 那一族），拷进去才是「这条需求自带的一张图」。
     ///
     /// 文件名走 ASCII（决策 1）：`media/UI-0001-layout.png`。
@@ -28,7 +28,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>
         /// 把布局位图拷进这条需求的 media/。
         ///
-        /// 拷不成**不抛异常**，回空串加一句原因：布局图是策划案里的一张插图，
+        /// 拷不成**不抛异常**，回空串加一句原因：布局图是需求案里的一张插图，
         /// 它没拷进去不该让「出功能图」这件事整体算失败——规格与清单都还好好的。
         /// </summary>
         /// <param name="poolRoot">池子根目录。</param>

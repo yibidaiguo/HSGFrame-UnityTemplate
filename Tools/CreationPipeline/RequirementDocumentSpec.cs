@@ -7,21 +7,21 @@ using System.Text.Json;
 namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>
-    /// 策划文档规范：`doc.render` 生成什么、`gate.plandoc` 查什么，两边读的是同一份契约。
+    /// 需求文档规范：`doc.render` 生成什么、`gate.reqdoc` 查什么，两边读的是同一份契约。
     ///
-    /// 契约的正本是 `Specifications/Baseline/planning-doc.baseline.md` 里那段 JSON——
+    /// 契约的正本是 `Specifications/Baseline/requirement-doc.baseline.md` 里那段 JSON——
     /// **规范与它的机器可读形式住在同一个文件里**，不是散文一份、配置一份。
     /// 散文与 JSON 分家的规范活不过三次改动：改的人只会改自己看得见的那一份。
     /// </summary>
-    public sealed class PlanningDocumentSpec
+    public sealed class RequirementDocumentSpec
     {
         /// <summary>基线文件里那段 JSON 的锚点：这个小标题之后的第一个 json 围栏就是契约。</summary>
         private const string ContractHeadingMarker = "机器读的那份";
 
         /// <summary>参考示例路径，报错时指给人看。</summary>
-        public const string ReferencePath = "Specifications/Baseline/planning-doc.baseline.md";
+        public const string ReferencePath = "Specifications/Baseline/requirement-doc.baseline.md";
 
-        private PlanningDocumentSpec(
+        private RequirementDocumentSpec(
             IReadOnlyList<string> frontMatterRequiredKeys,
             IReadOnlyList<string> authorityValues,
             IReadOnlyDictionary<string, IReadOnlyList<string>> requiredSectionsByType,
@@ -85,20 +85,20 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>
         /// 读基线契约，再把项目层的追加项叠上去。
         ///
-        /// 项目层文件（`Specifications/Project/planning-doc.json`）**只表达得出「加」**：
+        /// 项目层文件（`Specifications/Project/requirement-doc.json`）**只表达得出「加」**：
         /// 两个键都叫「追加…」，没有任何一个键能删掉基线定的小节。
         /// 「不可删」这条规矩靠形状保证，不靠校验器事后骂人——校验器骂完，人照样能把它删了。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <exception cref="FileNotFoundException">基线规范文件不在时抛出。</exception>
         /// <exception cref="InvalidOperationException">基线里找不到契约 JSON，或契约 JSON 语法不合法时抛出。</exception>
-        public static PlanningDocumentSpec Load(string repositoryRoot)
+        public static RequirementDocumentSpec Load(string repositoryRoot)
         {
-            var baselineFile = SpecificationPaths.BaselinePlanningDocumentFile(repositoryRoot);
+            var baselineFile = SpecificationPaths.BaselineRequirementDocumentFile(repositoryRoot);
             if (!File.Exists(baselineFile))
             {
                 throw new FileNotFoundException(
-                    $"策划文档规范基线不在：{baselineFile}。从模板同步一份 {ReferencePath}。",
+                    $"需求文档规范基线不在：{baselineFile}。从模板同步一份 {ReferencePath}。",
                     baselineFile);
             }
 
@@ -120,7 +120,7 @@ namespace Template.Toolkit.CreationPipeline
                     readOnlySections[pair.Key] = pair.Value;
                 }
 
-                return new PlanningDocumentSpec(
+                return new RequirementDocumentSpec(
                     frontMatterKeys,
                     authorityValues,
                     readOnlySections,
@@ -139,7 +139,7 @@ namespace Template.Toolkit.CreationPipeline
             List<string> frontMatterKeys,
             Dictionary<string, List<string>> requiredSections)
         {
-            var projectFile = SpecificationPaths.ProjectPlanningDocumentFile(repositoryRoot);
+            var projectFile = SpecificationPaths.ProjectRequirementDocumentFile(repositoryRoot);
             if (!File.Exists(projectFile))
             {
                 return;
@@ -153,7 +153,7 @@ namespace Template.Toolkit.CreationPipeline
             catch (JsonException exception)
             {
                 throw new InvalidOperationException(
-                    $"项目层策划文档规范 JSON 语法不合法：{projectFile}：{exception.Message}",
+                    $"项目层需求文档规范 JSON 语法不合法：{projectFile}：{exception.Message}",
                     exception);
             }
 
@@ -216,7 +216,7 @@ namespace Template.Toolkit.CreationPipeline
             if (headingIndex < 0)
             {
                 throw new InvalidOperationException(
-                    $"策划文档规范基线里找不到「{ContractHeadingMarker}」那一节，读不出契约 JSON。");
+                    $"需求文档规范基线里找不到「{ContractHeadingMarker}」那一节，读不出契约 JSON。");
             }
 
             for (var index = headingIndex + 1; index < lines.Length; index++)
@@ -237,11 +237,11 @@ namespace Template.Toolkit.CreationPipeline
                     body.Add(lines[inner]);
                 }
 
-                throw new InvalidOperationException("策划文档规范基线里的契约 JSON 围栏没有闭合。");
+                throw new InvalidOperationException("需求文档规范基线里的契约 JSON 围栏没有闭合。");
             }
 
             throw new InvalidOperationException(
-                $"策划文档规范基线的「{ContractHeadingMarker}」一节底下没有 json 围栏。");
+                $"需求文档规范基线的「{ContractHeadingMarker}」一节底下没有 json 围栏。");
         }
 
         private static JsonDocument ParseContract(string contractJson, string baselineFile)
@@ -253,7 +253,7 @@ namespace Template.Toolkit.CreationPipeline
             catch (JsonException exception)
             {
                 throw new InvalidOperationException(
-                    $"策划文档规范基线里的契约 JSON 语法不合法：{baselineFile}：{exception.Message}",
+                    $"需求文档规范基线里的契约 JSON 语法不合法：{baselineFile}：{exception.Message}",
                     exception);
             }
         }

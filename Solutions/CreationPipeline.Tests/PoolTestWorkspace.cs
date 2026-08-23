@@ -92,15 +92,15 @@ namespace Template.Toolkit.CreationPipeline.Tests
         }
 
         /// <summary>
-        /// 把模板里那份**真的**策划文档规范基线复制进工作区。
+        /// 把模板里那份**真的**需求文档规范基线复制进工作区。
         ///
         /// 刻意不在测试里另写一份假契约：契约的正本是那个文件里的 JSON，
         /// 测试照着假的写、假的一直绿，而发出去的那份错了——这种绿是最贵的。
         /// </summary>
-        public void CopyPlanningDocumentBaseline()
+        public void CopyRequirementDocumentBaseline()
         {
-            var source = SpecificationPaths.BaselinePlanningDocumentFile(FindTemplateRoot());
-            var target = SpecificationPaths.BaselinePlanningDocumentFile(Root);
+            var source = SpecificationPaths.BaselineRequirementDocumentFile(FindTemplateRoot());
+            var target = SpecificationPaths.BaselineRequirementDocumentFile(Root);
             Directory.CreateDirectory(Path.GetDirectoryName(target));
             File.Copy(source, target, true);
         }
@@ -115,29 +115,29 @@ namespace Template.Toolkit.CreationPipeline.Tests
         }
 
         /// <summary>
-        /// 把项目层的策划文档规范追加项写到 Specifications/Project/planning-doc.json。
+        /// 把项目层的需求文档规范追加项写到 Specifications/Project/requirement-doc.json。
         /// </summary>
         /// <param name="json">追加项的 JSON 文本。</param>
-        public void WriteProjectPlanningDocumentSpec(string json)
+        public void WriteProjectRequirementDocumentSpec(string json)
         {
-            WriteFile(SpecificationPaths.ProjectPlanningDocumentFile(Root), json);
+            WriteFile(SpecificationPaths.ProjectRequirementDocumentFile(Root), json);
         }
 
         /// <summary>读某条需求的 index.md 全文；文件不存在返回空串。</summary>
         /// <param name="identifier">需求 id，如「REQ-0001」。</param>
-        public string ReadPlanningDocument(string identifier)
+        public string ReadRequirementDocument(string identifier)
         {
-            var path = PoolPaths.PlanningDocument(Root, identifier);
+            var path = PoolPaths.RequirementDocument(Root, identifier);
             return File.Exists(path) ? File.ReadAllText(path) : "";
         }
 
-        /// <summary>从测试运行目录逐级向上找模板根（以策划文档规范基线存在为标志）。</summary>
+        /// <summary>从测试运行目录逐级向上找模板根（以需求文档规范基线存在为标志）。</summary>
         private static string FindTemplateRoot()
         {
             var directory = new DirectoryInfo(AppContext.BaseDirectory);
             while (directory != null)
             {
-                if (File.Exists(SpecificationPaths.BaselinePlanningDocumentFile(directory.FullName)))
+                if (File.Exists(SpecificationPaths.BaselineRequirementDocumentFile(directory.FullName)))
                 {
                     return directory.FullName;
                 }
@@ -145,7 +145,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 directory = directory.Parent;
             }
 
-            throw new InvalidOperationException("找不到模板根目录（缺 Specifications/Baseline/planning-doc.baseline.md）。");
+            throw new InvalidOperationException("找不到模板根目录（缺 Specifications/Baseline/requirement-doc.baseline.md）。");
         }
 
         /// <summary>读取某条需求的 requirement.json 全文。</summary>

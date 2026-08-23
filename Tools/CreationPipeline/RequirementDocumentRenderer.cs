@@ -8,7 +8,7 @@ using System.Text.Json;
 namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>一次 doc.render 的结果：落点、是新建还是刷新、动了什么、最终全文。</summary>
-    public sealed class PlanningDocumentRenderOutcome
+    public sealed class RequirementDocumentRenderOutcome
     {
         /// <summary>
         /// 构造一次渲染结果。
@@ -18,7 +18,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="isChanged">最终全文与原文有没有差别。</param>
         /// <param name="addedSections">这次补上的小节标题列表。</param>
         /// <param name="documentText">渲染后的全文。</param>
-        public PlanningDocumentRenderOutcome(
+        public RequirementDocumentRenderOutcome(
             string documentPath,
             bool isCreated,
             bool isChanged,
@@ -55,7 +55,7 @@ namespace Template.Toolkit.CreationPipeline
     /// 工程所有权的 frontmatter 字段、缺掉的必填小节、生成区。
     /// 一个会重写人写的段落的渲染器，第二次就没人敢跑了；而没人敢跑的生成器等于没有。
     /// </summary>
-    public static class PlanningDocumentRenderer
+    public static class RequirementDocumentRenderer
     {
         /// <summary>没有对应字段可填的小节，正文先摆这一行。</summary>
         private const string PlaceholderLine = "（待补）";
@@ -66,14 +66,14 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="repositoryRoot">仓库根目录，用来读工作项与规范基线。</param>
         /// <param name="poolRoot">池子根目录。</param>
         /// <param name="requirementIdentifier">需求 id，如「REQ-0042」。</param>
-        /// <param name="specification">策划文档规范。</param>
+        /// <param name="specification">需求文档规范。</param>
         /// <param name="isDryRun">干跑：算出全文但不写盘。</param>
         /// <exception cref="InvalidOperationException">需求骨架不存在，或已有文档解析不了时抛出。</exception>
-        public static PlanningDocumentRenderOutcome Render(
+        public static RequirementDocumentRenderOutcome Render(
             string repositoryRoot,
             string poolRoot,
             string requirementIdentifier,
-            PlanningDocumentSpec specification,
+            RequirementDocumentSpec specification,
             bool isDryRun)
         {
             var requirementFile = PoolPaths.RequirementFile(poolRoot, requirementIdentifier);
@@ -82,7 +82,7 @@ namespace Template.Toolkit.CreationPipeline
                 throw new InvalidOperationException($"需求骨架不存在：{requirementFile}");
             }
 
-            var documentPath = PoolPaths.PlanningDocument(poolRoot, requirementIdentifier);
+            var documentPath = PoolPaths.RequirementDocument(poolRoot, requirementIdentifier);
             var originalText = File.Exists(documentPath) ? File.ReadAllText(documentPath) : "";
             var isCreated = originalText.Length == 0;
 
@@ -93,14 +93,14 @@ namespace Template.Toolkit.CreationPipeline
                 var requirementType = ReadString(root, "类型");
                 var status = ReadString(root, "状态");
 
-                if (!PlanningDocument.TryParse(originalText, specification, out var parsed, out var parseReason)
+                if (!RequirementDocument.TryParse(originalText, specification, out var parsed, out var parseReason)
                     && !isCreated)
                 {
                     throw new InvalidOperationException($"已有的 index.md 解析不了：{parseReason}");
                 }
 
                 var generatedRegionLines = BuildGeneratedRegion(repositoryRoot, poolRoot, requirementIdentifier, root, specification);
-                var generatedHash = PlanningDocument.HashGeneratedRegion(generatedRegionLines);
+                var generatedHash = RequirementDocument.HashGeneratedRegion(generatedRegionLines);
 
                 var frontMatterLines = BuildFrontMatter(
                     originalText,
@@ -143,7 +143,7 @@ namespace Template.Toolkit.CreationPipeline
                     File.WriteAllText(documentPath, documentText, new UTF8Encoding(false));
                 }
 
-                return new PlanningDocumentRenderOutcome(documentPath, isCreated, isChanged, addedSections, documentText);
+                return new RequirementDocumentRenderOutcome(documentPath, isCreated, isChanged, addedSections, documentText);
             }
         }
 
@@ -151,7 +151,7 @@ namespace Template.Toolkit.CreationPipeline
         // 整段重建的写法看着干净，代价是每跑一次 doc.render 就悄悄吃掉一批它不认识的键。
         private static List<string> BuildFrontMatter(
             string originalText,
-            PlanningDocumentSpec specification,
+            RequirementDocumentSpec specification,
             string requirementIdentifier,
             string title,
             string requirementType,
@@ -162,7 +162,7 @@ namespace Template.Toolkit.CreationPipeline
             // 人只会以为是自己抄错了。
             var desiredOrder = new List<string>
             {
-                "需求id", "标题", "类型", "状态", "文档版本", "权威侧", PlanningDocumentSpec.GeneratedHashKey
+                "需求id", "标题", "类型", "状态", "文档版本", "权威侧", RequirementDocumentSpec.GeneratedHashKey
             };
 
             var engineOwned = new List<KeyValuePair<string, string>>
@@ -171,7 +171,7 @@ namespace Template.Toolkit.CreationPipeline
                 new KeyValuePair<string, string>("标题", title),
                 new KeyValuePair<string, string>("类型", requirementType),
                 new KeyValuePair<string, string>("状态", status),
-                new KeyValuePair<string, string>(PlanningDocumentSpec.GeneratedHashKey, generatedHash)
+                new KeyValuePair<string, string>(RequirementDocumentSpec.GeneratedHashKey, generatedHash)
             };
 
             // 这两样人可以改，工程只在缺的时候给个初值：文档版本从 1 起，
@@ -279,9 +279,9 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         private static List<string> BuildBody(
-            PlanningDocument parsed,
+            RequirementDocument parsed,
             bool isCreated,
-            PlanningDocumentSpec specification,
+            RequirementDocumentSpec specification,
             JsonElement requirement,
             string title,
             string requirementType,
@@ -333,7 +333,7 @@ namespace Template.Toolkit.CreationPipeline
             string poolRoot,
             string requirementIdentifier,
             JsonElement requirement,
-            PlanningDocumentSpec specification)
+            RequirementDocumentSpec specification)
         {
             var designRecords = ReadStringArray(requirement, "关联设计记录");
             var graph = WorkItemGraph.Load(repositoryRoot, requirementIdentifier);
@@ -382,9 +382,9 @@ namespace Template.Toolkit.CreationPipeline
             return lines;
         }
 
-        // 界面规格进生成区：策划案要写到「程序照着能开工」的粒度，
+        // 界面规格进生成区：需求案要写到「程序照着能开工」的粒度，
         // 而「这一屏有哪些元素、每个元素点了会怎样」正是那个粒度所在。
-        // 从前它只落在 Pools/Designs/Interfaces/ 与 _Generated/ 里，飞书上那份策划案看不到，
+        // 从前它只落在 Pools/Designs/Interfaces/ 与 _Generated/ 里，飞书上那份需求案看不到，
         // 于是文档永远停在第一版：目标、玩法、验收标准，界面一个字没有。
         //
         // **放生成区而不是让人手抄**：规格是唯一正本，抄一遍就有两份会各自漂。
@@ -531,7 +531,7 @@ namespace Template.Toolkit.CreationPipeline
         // 插在「按基线顺序排在它后面、且已经在位」的那一节之前；后面全没有就插到末尾。
         private static void InsertSection(
             List<string> lines,
-            PlanningDocumentSpec specification,
+            RequirementDocumentSpec specification,
             string requirementType,
             string sectionTitle,
             IReadOnlyList<string> body)
@@ -579,7 +579,7 @@ namespace Template.Toolkit.CreationPipeline
             lines.InsertRange(position, block);
         }
 
-        private static void StripGeneratedRegion(List<string> lines, PlanningDocumentSpec specification)
+        private static void StripGeneratedRegion(List<string> lines, RequirementDocumentSpec specification)
         {
             var start = -1;
             var end = -1;
@@ -697,7 +697,7 @@ namespace Template.Toolkit.CreationPipeline
             return null;
         }
 
-        private static string DefaultAuthority(PlanningDocumentSpec specification)
+        private static string DefaultAuthority(RequirementDocumentSpec specification)
         {
             foreach (var value in specification.AuthorityValues)
             {

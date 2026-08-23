@@ -11,8 +11,8 @@ using Template.Toolkit.CreationPipeline;
 
 namespace Template.Toolkit.CommandHost.Commands
 {
-    /// <summary>策划文档渲染命令的参数。</summary>
-    public sealed class PlanningDocRenderArguments
+    /// <summary>需求文档渲染命令的参数。</summary>
+    public sealed class RequirementDocRenderArguments
     {
         /// <summary>要渲染的需求 id，如「REQ-0042」；留空表示池子里全部需求。</summary>
         [Summary("要渲染的需求 id，如 REQ-0042；留空表示池子里全部需求")]
@@ -34,8 +34,8 @@ namespace Template.Toolkit.CommandHost.Commands
         public bool DryRun { get; set; }
     }
 
-    /// <summary>策划文档门禁命令的参数。</summary>
-    public sealed class PlanningDocGateArguments
+    /// <summary>需求文档门禁命令的参数。</summary>
+    public sealed class RequirementDocGateArguments
     {
         /// <summary>仓库根目录，相对当前工作目录。</summary>
         [Summary("仓库根目录，相对当前工作目录")]
@@ -48,8 +48,8 @@ namespace Template.Toolkit.CommandHost.Commands
         public string PoolRoot { get; set; }
     }
 
-    /// <summary>策划文档推送命令的参数。</summary>
-    public sealed class PlanningDocPushArguments
+    /// <summary>需求文档推送命令的参数。</summary>
+    public sealed class RequirementDocPushArguments
     {
         /// <summary>要推的需求 id，如「REQ-0042」；留空表示池子里全部需求。</summary>
         [Summary("要推的需求 id，如 REQ-0042；留空表示池子里全部需求")]
@@ -81,14 +81,14 @@ namespace Template.Toolkit.CommandHost.Commands
         public int TimeoutSeconds { get; set; }
     }
 
-    /// <summary>策划文档命令：doc.render 生成/刷新文档，doc.push 推去下游，gate.plandoc 按规范查六条。</summary>
-    public static class PlanningDocCommands
+    /// <summary>需求文档命令：doc.render 生成/刷新文档，doc.push 推去下游，gate.reqdoc 按规范查六条。</summary>
+    public static class RequirementDocCommands
     {
-        /// <summary>推策划文档走的 port 名；具体落到哪个 driver 由域路由表说了算。</summary>
-        private const string DocumentPortName = "策划文档端";
+        /// <summary>推需求文档走的 port 名；具体落到哪个 driver 由域路由表说了算。</summary>
+        private const string DocumentPortName = "需求文档端";
 
         /// <summary>
-        /// 把策划文档推去下游（飞书知识库是当前唯一的落点，但这条命令一个飞书的字都不认识——
+        /// 把需求文档推去下游（飞书知识库是当前唯一的落点，但这条命令一个飞书的字都不认识——
         /// 它只认 port，driver 由域路由表挑）。
         ///
         /// **默认干跑**：真推是写别人的工作区，与 bridge.push / bridge.card 同一条规矩。
@@ -99,18 +99,18 @@ namespace Template.Toolkit.CommandHost.Commands
         /// </summary>
         /// <param name="arguments">推送命令参数。</param>
         [EditorCommand("doc.push")]
-        [Summary("把策划文档推成下游的一份文档；默认干跑，--dry-run false 才真推")]
-        public static CommandResult Push(PlanningDocPushArguments arguments)
+        [Summary("把需求文档推成下游的一份文档；默认干跑，--dry-run false 才真推")]
+        public static CommandResult Push(RequirementDocPushArguments arguments)
         {
             if (!TryResolveRoots(arguments?.RepositoryRoot, arguments?.PoolRoot, out var repositoryRoot, out var poolRoot, out var failure))
             {
                 return failure;
             }
 
-            PlanningDocumentSpec specification;
+            RequirementDocumentSpec specification;
             try
             {
-                specification = PlanningDocumentSpec.Load(repositoryRoot);
+                specification = RequirementDocumentSpec.Load(repositoryRoot);
             }
             catch (Exception exception) when (exception is FileNotFoundException || exception is InvalidOperationException)
             {
@@ -132,7 +132,7 @@ namespace Template.Toolkit.CommandHost.Commands
 
             foreach (var identifier in identifiers)
             {
-                var documentPath = PoolPaths.PlanningDocument(poolRoot, identifier);
+                var documentPath = PoolPaths.RequirementDocument(poolRoot, identifier);
                 if (!File.Exists(documentPath))
                 {
                     // 没有 index.md 不是违规（规范第五节最后一句），跳过并说清楚。
@@ -142,13 +142,13 @@ namespace Template.Toolkit.CommandHost.Commands
                 }
 
                 var documentText = File.ReadAllText(documentPath);
-                if (!PlanningDocument.TryParse(documentText, specification, out var parsed, out var parseReason))
+                if (!RequirementDocument.TryParse(documentText, specification, out var parsed, out var parseReason))
                 {
                     return CommandResult.Failure($"{identifier} 的 index.md 解析不了：{parseReason}");
                 }
 
-                var syncState = PlanningDocumentSyncState.Read(parsed);
-                var bodyHash = PlanningDocumentSyncState.HashBody(documentText);
+                var syncState = RequirementDocumentSyncState.Read(parsed);
+                var bodyHash = RequirementDocumentSyncState.HashBody(documentText);
                 if (!isForced && !syncState.NeedsPush(bodyHash))
                 {
                     lines.Add($"{identifier}　跳过：正文与上次推上去的一致（{bodyHash}）");
@@ -156,13 +156,13 @@ namespace Template.Toolkit.CommandHost.Commands
                     continue;
                 }
 
-                var blocks = PlanningDocumentOutline.Build(documentText);
+                var blocks = RequirementDocumentOutline.Build(documentText);
                 var payload = JsonSerializer.SerializeToElement(new JsonObject
                 {
                     ["干跑"] = isDryRun,
                     ["标题"] = ComposeTitle(identifier, parsed),
                     ["节点token"] = syncState.NodeToken,
-                    ["块"] = PlanningDocumentOutline.ToJsonArray(blocks),
+                    ["块"] = RequirementDocumentOutline.ToJsonArray(blocks),
 
                     // 媒体的相对路径（media/x.png）要有个根才展得开。给需求目录而不是 media 目录：
                     // 正文里写的就是 media/… 这个相对写法，根给深一层就对不上了。
@@ -196,9 +196,9 @@ namespace Template.Toolkit.CommandHost.Commands
                     link = syncState.Link;
                 }
 
-                var updated = PlanningDocumentSyncState.Write(
+                var updated = RequirementDocumentSyncState.Write(
                     documentText,
-                    new PlanningDocumentSyncState(
+                    new RequirementDocumentSyncState(
                         nodeToken,
                         link,
                         bodyHash,
@@ -231,7 +231,7 @@ namespace Template.Toolkit.CommandHost.Commands
         /// 下游那个节点叫什么：`REQ-0042 七日签到`。
         /// **id 摆在最前面**——飞书那边一屏全是标题，没有 id 的话认不出哪份对应哪条需求。
         /// </summary>
-        private static string ComposeTitle(string identifier, PlanningDocument document)
+        private static string ComposeTitle(string identifier, RequirementDocument document)
         {
             var title = document.FrontMatter.Scalar("标题");
             return title.Length == 0 ? identifier : identifier + " " + title;
@@ -289,18 +289,18 @@ namespace Template.Toolkit.CommandHost.Commands
         /// </summary>
         /// <param name="arguments">渲染命令参数。</param>
         [EditorCommand("doc.render")]
-        [Summary("按需求骨架生成或刷新策划文档 index.md")]
-        public static CommandResult Render(PlanningDocRenderArguments arguments)
+        [Summary("按需求骨架生成或刷新需求文档 index.md")]
+        public static CommandResult Render(RequirementDocRenderArguments arguments)
         {
             if (!TryResolveRoots(arguments?.RepositoryRoot, arguments?.PoolRoot, out var repositoryRoot, out var poolRoot, out var failure))
             {
                 return failure;
             }
 
-            PlanningDocumentSpec specification;
+            RequirementDocumentSpec specification;
             try
             {
-                specification = PlanningDocumentSpec.Load(repositoryRoot);
+                specification = RequirementDocumentSpec.Load(repositoryRoot);
             }
             catch (Exception exception) when (exception is FileNotFoundException || exception is InvalidOperationException)
             {
@@ -319,10 +319,10 @@ namespace Template.Toolkit.CommandHost.Commands
 
             foreach (var identifier in identifiers)
             {
-                PlanningDocumentRenderOutcome outcome;
+                RequirementDocumentRenderOutcome outcome;
                 try
                 {
-                    outcome = PlanningDocumentRenderer.Render(repositoryRoot, poolRoot, identifier, specification, isDryRun);
+                    outcome = RequirementDocumentRenderer.Render(repositoryRoot, poolRoot, identifier, specification, isDryRun);
                 }
                 catch (InvalidOperationException exception)
                 {
@@ -346,36 +346,36 @@ namespace Template.Toolkit.CommandHost.Commands
         }
 
         /// <summary>
-        /// 按策划文档规范查全部 index.md：frontmatter、id、小节顺序、验收标准、媒体、生成区。
+        /// 按需求文档规范查全部 index.md：frontmatter、id、小节顺序、验收标准、媒体、生成区。
         /// </summary>
         /// <param name="arguments">门禁命令参数。</param>
-        [EditorCommand("gate.plandoc")]
-        [Summary("策划文档门禁：按基线规范查 index.md 的六条")]
-        public static CommandResult Check(PlanningDocGateArguments arguments)
+        [EditorCommand("gate.reqdoc")]
+        [Summary("需求文档门禁：按基线规范查 index.md 的六条")]
+        public static CommandResult Check(RequirementDocGateArguments arguments)
         {
             if (!TryResolveRoots(arguments?.RepositoryRoot, arguments?.PoolRoot, out var repositoryRoot, out var poolRoot, out var failure))
             {
                 return failure;
             }
 
-            PlanningDocumentSpec specification;
+            RequirementDocumentSpec specification;
             try
             {
-                specification = PlanningDocumentSpec.Load(repositoryRoot);
+                specification = RequirementDocumentSpec.Load(repositoryRoot);
             }
             catch (Exception exception) when (exception is FileNotFoundException || exception is InvalidOperationException)
             {
                 return CommandResult.Failure(exception.Message);
             }
 
-            var findings = PlanningDocumentChecker.CheckAll(poolRoot, specification);
+            var findings = RequirementDocumentChecker.CheckAll(poolRoot, specification);
             if (findings.Count == 0)
             {
-                return CommandResult.Success("策划文档门禁通过，问题 0 条");
+                return CommandResult.Success("需求文档门禁通过，问题 0 条");
             }
 
             return CommandResult.Failure(
-                $"策划文档门禁失败，问题 {findings.Count} 条",
+                $"需求文档门禁失败，问题 {findings.Count} 条",
                 findings.Select(finding => finding.ToDisplayText()).ToList());
         }
 

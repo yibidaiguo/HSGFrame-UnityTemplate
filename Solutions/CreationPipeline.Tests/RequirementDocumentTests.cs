@@ -2,14 +2,14 @@
 
 namespace Template.Toolkit.CreationPipeline.Tests
 {
-    /// <summary>PlanningDocument 的解析行为测试：frontmatter 三种形状、小节、生成区与哈希。</summary>
-    public class PlanningDocumentTests
+    /// <summary>RequirementDocument 的解析行为测试：frontmatter 三种形状、小节、生成区与哈希。</summary>
+    public class RequirementDocumentTests
     {
         /// <summary>造一份规范对象：直接读工作区里那份真的基线，不另写假契约。</summary>
-        private static PlanningDocumentSpec LoadSpecification(PoolTestWorkspace workspace)
+        private static RequirementDocumentSpec LoadSpecification(PoolTestWorkspace workspace)
         {
-            workspace.CopyPlanningDocumentBaseline();
-            return PlanningDocumentSpec.Load(workspace.Root);
+            workspace.CopyRequirementDocumentBaseline();
+            return RequirementDocumentSpec.Load(workspace.Root);
         }
 
         /// <summary>标量、一层嵌套映射、对象列表三种形状都读得出来。</summary>
@@ -35,7 +35,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             # 七日签到
             """;
 
-            Assert.True(PlanningDocument.TryParse(text, specification, out var document, out var reason));
+            Assert.True(RequirementDocument.TryParse(text, specification, out var document, out var reason));
 
             Assert.Equal("", reason);
             Assert.True(document.FrontMatter.IsPresent);
@@ -59,7 +59,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             ---
             """;
 
-            Assert.True(PlanningDocument.TryParse(text, specification, out var document, out _));
+            Assert.True(RequirementDocument.TryParse(text, specification, out var document, out _));
 
             Assert.Equal("项目", document.FrontMatter.Scalar("权威侧"));
             Assert.Equal("第 3 天 #签到", document.FrontMatter.Scalar("标题"));
@@ -78,7 +78,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             # 七日签到
             """;
 
-            Assert.False(PlanningDocument.TryParse(text, specification, out _, out var reason));
+            Assert.False(RequirementDocument.TryParse(text, specification, out _, out var reason));
 
             Assert.Contains("frontmatter", reason);
         }
@@ -105,7 +105,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             <!-- 生成区结束 -->
             """;
 
-            Assert.True(PlanningDocument.TryParse(text, specification, out var document, out _));
+            Assert.True(RequirementDocument.TryParse(text, specification, out var document, out _));
 
             Assert.True(document.HasGeneratedRegion);
             Assert.Equal(2, document.Sections.Count);
@@ -134,7 +134,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             ```
             """;
 
-            Assert.True(PlanningDocument.TryParse(text, specification, out var document, out _));
+            Assert.True(RequirementDocument.TryParse(text, specification, out var document, out _));
 
             Assert.Single(document.Sections);
             Assert.Equal("目标", document.Sections[0].Title);
@@ -145,9 +145,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
         [Fact]
         public void GeneratedRegionHashIgnoresTrailingWhitespaceOnly()
         {
-            var baseline = PlanningDocument.HashGeneratedRegion(new[] { "## 关联", "- 设计记录：DR-0107" });
-            var padded = PlanningDocument.HashGeneratedRegion(new[] { "## 关联", "- 设计记录：DR-0107   ", "", "" });
-            var edited = PlanningDocument.HashGeneratedRegion(new[] { "## 关联", "- 设计记录：DR-0108" });
+            var baseline = RequirementDocument.HashGeneratedRegion(new[] { "## 关联", "- 设计记录：DR-0107" });
+            var padded = RequirementDocument.HashGeneratedRegion(new[] { "## 关联", "- 设计记录：DR-0107   ", "", "" });
+            var edited = RequirementDocument.HashGeneratedRegion(new[] { "## 关联", "- 设计记录：DR-0108" });
 
             Assert.Equal(baseline, padded);
             Assert.NotEqual(baseline, edited);

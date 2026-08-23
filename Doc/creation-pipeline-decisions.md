@@ -1,7 +1,7 @@
 # 创作管线 · 锁定的设计决策
 
 > 创作管线的锁定决策 1–79（80 起在 [P8 那份](creation-pipeline-decisions-p8.md)，
-> 99 起在 [策划文档那份](creation-pipeline-decisions-plandoc.md)）。
+> 99 起在 [需求文档那份](creation-pipeline-decisions-reqdoc.md)）。
 > **改这里的任何一条都要重新走设计审查。**
 
 1. **全仓路径一律 ASCII：目录名与文件名都不许有中文，中文只留在文件内容里**（注释、文案、数据值、JSON 的键都不受限）。2026-08-21 改过一次：原文只管「含 `.cs` 的目录」，还明说中文可以出现在文件名里；实测全仓有 206 个中文路径，而中文路径是一类低频但很贵的故障源（git quotepath、CI locale、MSBuild/Unity 的历史坑）。命名门禁的 `directoryNamePattern` 仍只作用于含 `.cs` 的目录，全仓那一道是新增的 `gate.pathascii`。

@@ -196,8 +196,8 @@ Invoke-Gate -GateName '池子校验' -CommandName 'pool.validate' -CommandArgume
 Write-GateHeader '扩展合法性'
 Invoke-Gate -GateName '扩展合法性' -CommandName 'schema.check' -CommandArguments @{ PoolRoot = (Join-Path $templateRoot 'Pools'); EntityName = '需求' }
 
-Write-GateHeader '策划文档'
-Invoke-Gate -GateName '策划文档' -CommandName 'gate.plandoc' -CommandArguments @{ RepositoryRoot = $templateRoot; PoolRoot = (Join-Path $templateRoot 'Pools') }
+Write-GateHeader '需求文档'
+Invoke-Gate -GateName '需求文档' -CommandName 'gate.reqdoc' -CommandArguments @{ RepositoryRoot = $templateRoot; PoolRoot = (Join-Path $templateRoot 'Pools') }
 
 Write-GateHeader '供给对账'
 Invoke-Gate -GateName '供给对账' -CommandName 'gate.provision' -CommandArguments @{ RepositoryRoot = $templateRoot; PoolRoot = (Join-Path $templateRoot 'Pools') }

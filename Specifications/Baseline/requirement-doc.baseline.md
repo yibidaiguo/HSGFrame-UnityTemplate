@@ -1,12 +1,16 @@
-﻿# 策划文档规范 · 基线
+﻿# 需求文档规范 · 基线
 
 一条需求在仓库里是一个目录（`Pools/Requirements/REQ-0042/`，决策 99），
-目录里的 `index.md` 就是这份规范管的东西：**这条需求的策划案**——
-目标、玩法、验收标准、界面与美术的定稿，写到程序照着能开工的粒度。
-人看得懂，AI 定位得到。
+目录里的 `index.md` 就是这份规范管的东西：**一件要做的事**——
+目标、玩法、验收标准，写到能派给人（或执行后端）开工的粒度。人看得懂，AI 定位得到。
+
+它**不是**这个模块的正本。「这个模块统共是什么、代码现在什么样、往后要做成什么样」
+属于**模块策划案**（一个模块一份，`Pools/Designs/Modules/<模块>/index.md`）。
+两层分工不同：需求案是一次交付，做完就归档；策划案常驻，随需求验收更新。
+把两件事塞进一份文档，结果是同一个模块的现状散在几十条已归档的需求里，谁也拼不回来。
 
 规范分两层：**这份基线由模板发**，项目层可以在
-`Specifications/Project/planning-doc.json` 里**追加**小节与 frontmatter 键，
+`Specifications/Project/requirement-doc.json` 里**追加**小节与 frontmatter 键，
 **删不掉基线定的任何一条**——那个文件的形状只表达得出「加」，表达不出「删」。
 
 ## 一、形状
@@ -94,7 +98,7 @@
 `gate.pathascii` 仍然管着：`media/` 底下的文件名全 ASCII。
 **媒体入库要走 ASCII 归一，不许复用资产名归一化器**——那个现在产中文名。
 
-## 五、门禁 `gate.plandoc` 查六条
+## 五、门禁 `gate.reqdoc` 查六条
 
 1. frontmatter 必备键齐全
 2. `需求id` 与目录名一致
@@ -108,7 +112,7 @@
 
 ## 六、机器读的那份
 
-下面这段 JSON 是 `doc.render` 与 `gate.plandoc` 真正读的契约。
+下面这段 JSON 是 `doc.render` 与 `gate.reqdoc` 真正读的契约。
 改上面的散文不影响判定，改这段才影响——**两边要一起改**。
 
 ```json
@@ -131,7 +135,7 @@
 
 ## 七、项目层怎么加
 
-`Specifications/Project/planning-doc.json`，只有两个键，都只表达「加」：
+`Specifications/Project/requirement-doc.json`，只有两个键，都只表达「加」：
 
 ```json
 {

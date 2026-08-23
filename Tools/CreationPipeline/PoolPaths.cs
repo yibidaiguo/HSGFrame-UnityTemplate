@@ -91,12 +91,12 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(RequirementDirectory(poolRoot, requirementIdentifier), RequirementFileName);
         }
 
-        /// <summary>策划文档正文：Requirements/REQ-0042/index.md。</summary>
+        /// <summary>需求文档正文：Requirements/REQ-0042/index.md。</summary>
         /// <param name="poolRoot">池根目录。</param>
         /// <param name="requirementIdentifier">需求 id。</param>
-        public static string PlanningDocument(string poolRoot, string requirementIdentifier)
+        public static string RequirementDocument(string poolRoot, string requirementIdentifier)
         {
-            return Path.Combine(RequirementDirectory(poolRoot, requirementIdentifier), PlanningDocumentFileName);
+            return Path.Combine(RequirementDirectory(poolRoot, requirementIdentifier), RequirementDocumentFileName);
         }
 
         /// <summary>需求媒体目录：Requirements/REQ-0042/media。图片与视频本体落这里。</summary>
@@ -107,7 +107,7 @@ namespace Template.Toolkit.CreationPipeline
             return Path.Combine(RequirementDirectory(poolRoot, requirementIdentifier), RequirementMediaDirectoryName);
         }
 
-        /// <summary>策划文档快照目录：Requirements/REQ-0042/snapshots。覆盖对侧内容前的留底（决策 101）。</summary>
+        /// <summary>需求文档快照目录：Requirements/REQ-0042/snapshots。覆盖对侧内容前的留底（决策 101）。</summary>
         /// <param name="poolRoot">池根目录。</param>
         /// <param name="requirementIdentifier">需求 id。</param>
         public static string RequirementSnapshotsDirectory(string poolRoot, string requirementIdentifier)
@@ -118,8 +118,8 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>需求骨架 JSON 的固定文件名。</summary>
         public const string RequirementFileName = "requirement.json";
 
-        /// <summary>策划文档正文的固定文件名。</summary>
-        public const string PlanningDocumentFileName = "index.md";
+        /// <summary>需求文档正文的固定文件名。</summary>
+        public const string RequirementDocumentFileName = "index.md";
 
         /// <summary>
         /// 需求媒体目录的固定目录名。文档正文里的媒体引用写成 <c>media/x.png</c>，

@@ -28,8 +28,8 @@ namespace Template.Bridges.Feishu
         /// <summary>任务表里存需求 id 的列名，幂等查的就是它。</summary>
         private const string RequirementIdentifierColumn = "需求id";
 
-        /// <summary>任务表里存策划文档地址的列名。</summary>
-        private const string DocumentLinkColumn = "策划文档";
+        /// <summary>任务表里存需求文档地址的列名。</summary>
+        private const string DocumentLinkColumn = "需求文档";
 
         /// <summary>任务表里存任务描述的列名。</summary>
         private const string DescriptionColumn = "任务描述";
@@ -38,7 +38,7 @@ namespace Template.Bridges.Feishu
         /// 执行 task-row 动作：查一遍有没有同一条需求的行，没有才加。
         /// </summary>
         /// <param name="request">请求信封：配置含 应用标识 / 飞书应用密钥 / 超时秒 / 多维表格标识 / 任务表标识；
-        /// 载荷含 干跑（缺省 true）、需求id、任务描述，可选 策划文档链接。</param>
+        /// 载荷含 干跑（缺省 true）、需求id、任务描述，可选 需求文档链接。</param>
         public static BridgeResponse AddRow(BridgeRequest request)
         {
             var appId = ReadConfigurationString(request, "应用标识", "");
@@ -50,7 +50,7 @@ namespace Template.Bridges.Feishu
 
             var requirementIdentifier = ReadPayloadString(request, "需求id");
             var description = ReadPayloadString(request, "任务描述");
-            var documentLink = ReadPayloadString(request, "策划文档链接");
+            var documentLink = ReadPayloadString(request, "需求文档链接");
 
             if (appId.Length == 0 || secretKey.Length == 0)
             {
@@ -83,7 +83,7 @@ namespace Template.Bridges.Feishu
                 fields[DocumentLinkColumn] = new JsonObject
                 {
                     ["link"] = documentLink,
-                    ["text"] = requirementIdentifier + " 策划文档"
+                    ["text"] = requirementIdentifier + " 需求文档"
                 };
             }
 

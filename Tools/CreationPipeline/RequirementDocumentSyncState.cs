@@ -7,11 +7,11 @@ using System.Text;
 namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>
-    /// 一条策划文档与下游那份文档的同步账：节点 token、链接、上次同步的正文哈希与时间。
-    /// 四样东西住在 frontmatter 的「同步」块里（策划文档规范基线第一节已经把形状定死了），
+    /// 一条需求文档与下游那份文档的同步账：节点 token、链接、上次同步的正文哈希与时间。
+    /// 四样东西住在 frontmatter 的「同步」块里（需求文档规范基线第一节已经把形状定死了），
     /// 这里只负责读它、算它、写回它。
     /// </summary>
-    public sealed class PlanningDocumentSyncState
+    public sealed class RequirementDocumentSyncState
     {
         /// <summary>frontmatter 里同步块的键名。</summary>
         public const string SectionKey = "同步";
@@ -35,7 +35,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="link">下游那份文档的链接；没推过时空串。</param>
         /// <param name="lastHash">上次推上去的正文哈希，形如 <c>sha256:1f4b…</c>；没推过时空串。</param>
         /// <param name="lastTime">上次推上去的时间，ISO-8601 UTC；没推过时空串。</param>
-        public PlanningDocumentSyncState(string nodeToken, string link, string lastHash, string lastTime)
+        public RequirementDocumentSyncState(string nodeToken, string link, string lastHash, string lastTime)
         {
             NodeToken = nodeToken ?? "";
             Link = link ?? "";
@@ -72,16 +72,16 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>从一份解析好的文档里读同步账；没有同步块时四项全空。</summary>
-        /// <param name="document">解析好的策划文档。</param>
-        public static PlanningDocumentSyncState Read(PlanningDocument document)
+        /// <param name="document">解析好的需求文档。</param>
+        public static RequirementDocumentSyncState Read(RequirementDocument document)
         {
             if (document == null)
             {
-                return new PlanningDocumentSyncState("", "", "", "");
+                return new RequirementDocumentSyncState("", "", "", "");
             }
 
             var map = document.FrontMatter.Map(SectionKey);
-            return new PlanningDocumentSyncState(
+            return new RequirementDocumentSyncState(
                 ReadValue(map, NodeTokenKey),
                 ReadValue(map, LinkKey),
                 ReadValue(map, LastHashKey),
@@ -119,7 +119,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="documentText">index.md 全文。</param>
         /// <param name="state">要写进去的同步账。</param>
         /// <exception cref="InvalidOperationException">文档没有 frontmatter 时抛出：没有地方可写。</exception>
-        public static string Write(string documentText, PlanningDocumentSyncState state)
+        public static string Write(string documentText, RequirementDocumentSyncState state)
         {
             if (state == null)
             {
@@ -181,7 +181,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>拼同步块的四行；缩进两格，与规范里那份样例一模一样。</summary>
-        private static List<string> BuildBlock(PlanningDocumentSyncState state)
+        private static List<string> BuildBlock(RequirementDocumentSyncState state)
         {
             return new List<string>
             {

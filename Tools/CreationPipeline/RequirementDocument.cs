@@ -6,8 +6,8 @@ using System.Text;
 
 namespace Template.Toolkit.CreationPipeline
 {
-    /// <summary>策划文档里的一个二级小节：标题、起始行号与正文行。</summary>
-    public sealed class PlanningDocumentSection
+    /// <summary>需求文档里的一个二级小节：标题、起始行号与正文行。</summary>
+    public sealed class RequirementDocumentSection
     {
         /// <summary>
         /// 构造一个小节。
@@ -16,7 +16,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="lineNumber">标题所在行号，从 1 起。</param>
         /// <param name="lines">正文行，不含标题行本身。</param>
         /// <param name="isInGeneratedRegion">这一节在不在生成区里。</param>
-        public PlanningDocumentSection(string title, int lineNumber, IReadOnlyList<string> lines, bool isInGeneratedRegion)
+        public RequirementDocumentSection(string title, int lineNumber, IReadOnlyList<string> lines, bool isInGeneratedRegion)
         {
             Title = title;
             LineNumber = lineNumber;
@@ -38,7 +38,7 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 策划文档的 frontmatter。
+    /// 需求文档的 frontmatter。
     ///
     /// **这是个只认三种形状的窄解析器，不是 YAML 实现**：标量、一层嵌套的映射、对象列表。
     /// 规范（基线第三节）把话说死在这三种上，就是为了不必往工具链里拖一个 YAML 依赖，
@@ -46,14 +46,14 @@ namespace Template.Toolkit.CreationPipeline
     /// 认不出来的写法不报语法错，而是**读不出那个键**——于是「必备键缺失」替它报红，
     /// 报出来的话人看得懂，比「第 7 行缩进不对」有用。
     /// </summary>
-    public sealed class PlanningDocumentFrontMatter
+    public sealed class RequirementDocumentFrontMatter
     {
         private readonly IReadOnlyDictionary<string, string> _scalars;
         private readonly IReadOnlyDictionary<string, int> _lineNumbers;
         private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> _maps;
         private readonly IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyDictionary<string, string>>> _lists;
 
-        internal PlanningDocumentFrontMatter(
+        internal RequirementDocumentFrontMatter(
             bool isPresent,
             IReadOnlyDictionary<string, string> scalars,
             IReadOnlyDictionary<string, int> lineNumbers,
@@ -111,14 +111,14 @@ namespace Template.Toolkit.CreationPipeline
     }
 
     /// <summary>
-    /// 解析出来的策划文档：frontmatter、二级小节列表、生成区。
-    /// 解析只做「读得出什么」，一条合规判定都不做——判定全在 <see cref="PlanningDocumentChecker"/> 里。
+    /// 解析出来的需求文档：frontmatter、二级小节列表、生成区。
+    /// 解析只做「读得出什么」，一条合规判定都不做——判定全在 <see cref="RequirementDocumentChecker"/> 里。
     /// </summary>
-    public sealed class PlanningDocument
+    public sealed class RequirementDocument
     {
-        private PlanningDocument(
-            PlanningDocumentFrontMatter frontMatter,
-            IReadOnlyList<PlanningDocumentSection> sections,
+        private RequirementDocument(
+            RequirementDocumentFrontMatter frontMatter,
+            IReadOnlyList<RequirementDocumentSection> sections,
             IReadOnlyList<string> bodyLines,
             IReadOnlyList<string> generatedRegionLines,
             bool hasGeneratedRegion,
@@ -133,10 +133,10 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>文档的 frontmatter。</summary>
-        public PlanningDocumentFrontMatter FrontMatter { get; }
+        public RequirementDocumentFrontMatter FrontMatter { get; }
 
         /// <summary>全部二级小节，按出现顺序。</summary>
-        public IReadOnlyList<PlanningDocumentSection> Sections { get; }
+        public IReadOnlyList<RequirementDocumentSection> Sections { get; }
 
         /// <summary>frontmatter 之后的全部正文行（含生成区），供正文里找媒体引用用。</summary>
         public IReadOnlyList<string> BodyLines { get; }
@@ -151,20 +151,20 @@ namespace Template.Toolkit.CreationPipeline
         public int GeneratedRegionLineNumber { get; }
 
         /// <summary>
-        /// 解析一份策划文档。
+        /// 解析一份需求文档。
         ///
         /// 只有两种情况算解析失败：frontmatter 开了头没收尾，生成区开了头没收尾。
         /// 其余一律解析成功——**读不出来的东西交给检查器去报**，
         /// 解析器一旦开始拒收，人拿到的就只有一句「格式不对」，指不到具体哪里。
         /// </summary>
         /// <param name="text">文档全文。</param>
-        /// <param name="specification">策划文档规范，用于识别生成区标记。</param>
+        /// <param name="specification">需求文档规范，用于识别生成区标记。</param>
         /// <param name="document">解析结果。</param>
         /// <param name="failureReason">解析失败原因；成功时为空串。</param>
         public static bool TryParse(
             string text,
-            PlanningDocumentSpec specification,
-            out PlanningDocument document,
+            RequirementDocumentSpec specification,
+            out RequirementDocument document,
             out string failureReason)
         {
             document = null;
@@ -203,13 +203,13 @@ namespace Template.Toolkit.CreationPipeline
             var frontMatter = ParseFrontMatter(frontMatterPresent, frontMatterLines, frontMatterStartLine);
 
             var bodyLines = new List<string>();
-            var sections = new List<PlanningDocumentSection>();
+            var sections = new List<RequirementDocumentSection>();
             var generatedLines = new List<string>();
             var hasGeneratedRegion = false;
             var generatedRegionLineNumber = 0;
             var insideGeneratedRegion = false;
             var insideFence = false;
-            PlanningDocumentSection currentSection = null;
+            RequirementDocumentSection currentSection = null;
             var currentLines = new List<string>();
 
             for (; index < lines.Length; index++)
@@ -252,7 +252,7 @@ namespace Template.Toolkit.CreationPipeline
                 if (!insideFence && line.StartsWith("## ", StringComparison.Ordinal))
                 {
                     FlushSection(sections, ref currentSection, currentLines);
-                    currentSection = new PlanningDocumentSection(
+                    currentSection = new RequirementDocumentSection(
                         line.Substring(3).Trim(),
                         lineNumber,
                         Array.Empty<string>(),
@@ -275,7 +275,7 @@ namespace Template.Toolkit.CreationPipeline
 
             FlushSection(sections, ref currentSection, currentLines);
 
-            document = new PlanningDocument(
+            document = new RequirementDocument(
                 frontMatter,
                 sections,
                 bodyLines,
@@ -314,8 +314,8 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         private static void FlushSection(
-            List<PlanningDocumentSection> sections,
-            ref PlanningDocumentSection currentSection,
+            List<RequirementDocumentSection> sections,
+            ref RequirementDocumentSection currentSection,
             List<string> currentLines)
         {
             if (currentSection == null)
@@ -323,7 +323,7 @@ namespace Template.Toolkit.CreationPipeline
                 return;
             }
 
-            sections.Add(new PlanningDocumentSection(
+            sections.Add(new RequirementDocumentSection(
                 currentSection.Title,
                 currentSection.LineNumber,
                 currentLines.ToArray(),
@@ -332,7 +332,7 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         // 三种形状的窄解析：标量、一层嵌套映射、对象列表。缩进按空格数分层，制表符不认。
-        private static PlanningDocumentFrontMatter ParseFrontMatter(
+        private static RequirementDocumentFrontMatter ParseFrontMatter(
             bool isPresent,
             IReadOnlyList<string> lines,
             int startLineNumber)
@@ -415,7 +415,7 @@ namespace Template.Toolkit.CreationPipeline
 
             CommitPending(maps, lists, ref pendingKey, ref pendingMap, ref pendingList, ref pendingListItem);
 
-            return new PlanningDocumentFrontMatter(isPresent, scalars, lineNumbers, maps, lists);
+            return new RequirementDocumentFrontMatter(isPresent, scalars, lineNumbers, maps, lists);
         }
 
         private static void CommitPending(

@@ -252,13 +252,13 @@ namespace Template.Toolkit.CommandHost.Commands
                 ? $"位图：{RelativeTo(repositoryRoot, rasterPath)}"
                 : $"位图没转成：{rasterFailure}");
 
-            // 布局图要进策划案，而策划案只存引用——所以位图得先落到这条需求自己的 media/ 里。
+            // 布局图要进需求案，而需求案只存引用——所以位图得先落到这条需求自己的 media/ 里。
             // 引 _Generated/ 不行：那是本机产物、进 .gitignore，换台机器那张图就断了。
             var media = InterfaceLayoutMedia.Publish(
                 poolRoot, arguments.Requirement, identifier, rasterPath, out var mediaReason);
             lines.Add(media.Length > 0
-                ? $"布局图进策划案：{RelativeTo(repositoryRoot, media)}"
-                : $"布局图没进策划案：{mediaReason}");
+                ? $"布局图进需求案：{RelativeTo(repositoryRoot, media)}"
+                : $"布局图没进需求案：{mediaReason}");
 
             var manifest = InterfaceAssetManifest.Build(repositoryRoot, spec, catalog);
             lines.Add($"资产清单：元素 {manifest.Count} 个，真要出 {InterfaceAssetManifest.CountToGenerate(manifest)} 张");
