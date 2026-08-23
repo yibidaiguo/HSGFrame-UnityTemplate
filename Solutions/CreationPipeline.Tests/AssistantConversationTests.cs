@@ -600,5 +600,30 @@ namespace Template.Toolkit.CreationPipeline.Tests
             {
             }
         }
+
+        /// <summary>
+        /// 建成之后那张卡带「出功能图」按钮，并把真需求号带上。
+        /// 做成按钮不做成自动跑：它要调执行后端（花钱、要等），
+        /// 而且不是每条需求都有界面——「把某个系统的现状纳入知识库」这种就没有。
+        /// </summary>
+        [Fact]
+        public void CreatedRequirementCardOffersTheInterfaceButton()
+        {
+            var card = AssistantCard.ForCreatedRequirement("建好了：REQ-0001", "REQ-0001");
+
+            var interfaceButton = Assert.Single(
+                card.Buttons.Where(button => button.Action == AssistantCard.InterfaceAction));
+            Assert.Equal("REQ-0001", interfaceButton.Value["需求id"].GetValue<string>());
+            Assert.Contains(AssistantCard.NewTopicAction, card.Buttons.Select(button => button.Action));
+        }
+
+        /// <summary>没有需求号时不给「出功能图」按钮——点了也不知道照哪条需求出。</summary>
+        [Fact]
+        public void CreatedRequirementCardWithoutIdentifierHasNoInterfaceButton()
+        {
+            var card = AssistantCard.ForCreatedRequirement("建好了", "");
+
+            Assert.DoesNotContain(AssistantCard.InterfaceAction, card.Buttons.Select(button => button.Action));
+        }
     }
 }
