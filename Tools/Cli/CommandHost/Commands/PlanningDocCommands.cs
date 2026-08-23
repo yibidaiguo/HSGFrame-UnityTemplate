@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Template.Toolkit.CommandFramework;
@@ -45,6 +46,40 @@ namespace Template.Toolkit.CommandHost.Commands
         [Summary("池子根目录；留空取 <仓库根>/Pools")]
         [DefaultValue("")]
         public string PoolRoot { get; set; }
+    }
+
+    /// <summary>plan.push 的参数。</summary>
+    public sealed class PlanPushArguments
+    {
+        /// <summary>仓库根目录。</summary>
+        [Summary("仓库根目录")]
+        [DefaultValue("")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>池子根目录。</summary>
+        [Summary("池子根目录；留空取 <仓库根>/Pools")]
+        [DefaultValue("")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>推哪个模块；留空表示把已有的策划案全推一遍。</summary>
+        [Summary("模块名；留空表示把已有的策划案全推一遍")]
+        [DefaultValue("")]
+        public string Module { get; set; }
+
+        /// <summary>干跑：算出要推什么但不真发（缺省 true，决策 92）。</summary>
+        [Summary("干跑：算出要推什么但不真发；缺省 true")]
+        [DefaultValue(true)]
+        public bool DryRun { get; set; }
+
+        /// <summary>强推：正文没变也推一次。</summary>
+        [Summary("强推：正文没变也推一次")]
+        [DefaultValue(false)]
+        public bool Force { get; set; }
+
+        /// <summary>下游调用超时秒数。</summary>
+        [Summary("下游调用超时秒数")]
+        [DefaultValue(60)]
+        public int TimeoutSeconds { get; set; }
     }
 
     /// <summary>plan.draft 的参数。</summary>
@@ -385,6 +420,78 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             return rows;
+        }
+
+        /// <summary>
+        /// 把模块策划案推成知识库节点。
+        ///
+        /// 一份怎么推在 <see cref="ModulePlanPusher"/> 里（需求验收那条链也调它），
+        /// 这儿只管挑哪几份、把结果汇总成人话。
+        /// </summary>
+        /// <param name="arguments">命令参数。</param>
+        [EditorCommand("plan.push")]
+        [Summary("把模块策划案推成知识库节点；默认干跑，--dry-run false 才真推")]
+        public static CommandResult Push(PlanPushArguments arguments)
+        {
+            if (arguments == null)
+            {
+                return CommandResult.Failure("参数为空");
+            }
+
+            var repositoryRoot = ResolveRepositoryRoot(arguments.RepositoryRoot);
+            var poolRoot = ResolvePoolRoot(repositoryRoot, arguments.PoolRoot);
+
+            PlanningDocumentSpec specification;
+            try
+            {
+                specification = PlanningDocumentSpec.Load(repositoryRoot);
+            }
+            catch (Exception exception)
+                when (exception is FileNotFoundException || exception is InvalidOperationException)
+            {
+                return CommandResult.Failure(exception.Message);
+            }
+
+            var modules = ResolveModules(repositoryRoot, poolRoot, arguments.Module);
+            if (modules.Count == 0)
+            {
+                return CommandResult.Success("池子里还没有模块策划案，没什么可推的");
+            }
+
+            var timeoutSeconds = arguments.TimeoutSeconds <= 0 ? 60 : arguments.TimeoutSeconds;
+            var lines = new List<string>();
+            var pushed = 0;
+            var skipped = 0;
+
+            foreach (var module in modules)
+            {
+                var outcome = ModulePlanPusher.PushOne(
+                    repositoryRoot, poolRoot, module, specification,
+                    arguments.DryRun, arguments.Force, timeoutSeconds);
+
+                lines.Add(outcome.Note);
+
+                // 一份推挂了就停：下游多半是整体不通（凭据、空间、父节点），
+                // 接着推剩下的只会把同一个错重复十遍，还多花十次调用。
+                if (outcome.FailureReason.Length > 0 && !outcome.Pushed)
+                {
+                    return CommandResult.Failure("推 " + module + " 失败：" + outcome.FailureReason, lines);
+                }
+
+                if (outcome.Pushed)
+                {
+                    pushed++;
+                }
+                else if (outcome.Skipped)
+                {
+                    skipped++;
+                }
+            }
+
+            return CommandResult.Success(
+                "模块策划案推了 " + pushed + " 份，跳过 " + skipped + " 份"
+                    + (arguments.DryRun ? "（干跑，什么都没真发）" : ""),
+                lines);
         }
 
         /// <summary>要渲哪些模块：给了名字就只渲那一个，没给就渲已经建过策划案的全部。</summary>

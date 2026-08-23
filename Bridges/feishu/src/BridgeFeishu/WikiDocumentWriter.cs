@@ -33,14 +33,21 @@ namespace Template.Bridges.Feishu
         /// <summary>
         /// 执行 doc 动作：干跑返回将建还是将刷新、块数与要写的 children JSON；真跑建/刷新那份文档。
         /// </summary>
-        /// <param name="request">请求信封：配置含 应用标识/飞书应用密钥/知识空间标识/需求文档父节点/超时秒，
-        /// 载荷含 干跑（缺省 true）、标题、节点token（可空）、块（中性块数组）。</param>
+        /// <param name="request">请求信封：配置含 应用标识/飞书应用密钥/知识空间标识/需求文档父节点/
+        /// 模块策划案父节点/超时秒，载荷含 干跑（缺省 true）、标题、节点token（可空）、
+        /// 块（中性块数组），可选「父节点键」（挂到台账里的哪一格下面，缺省需求文档父节点）。</param>
         public static BridgeResponse PushDocument(BridgeRequest request)
         {
             var appId = ReadConfigurationString(request, "应用标识", "");
             var secretKey = ReadConfigurationString(request, "飞书应用密钥", "");
             var spaceId = ReadConfigurationString(request, "知识空间标识", "");
-            var parentNode = ReadConfigurationString(request, "需求文档父节点", "");
+
+            // 挂哪个父节点由**载荷**说了算，缺省是需求文档那个。
+            // 一个模块一份、常驻的策划案，与几十条做完就归档的需求摆在同一层，
+            // 人往知识库里找模块正本时会被需求淹掉——而那正是他最常找的一份。
+            var parentKey = ReadPayloadString(request, "父节点键");
+            var parentNode = ReadConfigurationString(
+                request, parentKey.Length > 0 ? parentKey : "需求文档父节点", "");
             var timeoutSeconds = ReadConfigurationInt(request, "超时秒", DefaultTimeoutSeconds);
 
             var isDryRun = ReadPayloadBool(request, "干跑", defaultValue: true);

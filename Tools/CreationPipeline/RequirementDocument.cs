@@ -167,6 +167,34 @@ namespace Template.Toolkit.CreationPipeline
             out RequirementDocument document,
             out string failureReason)
         {
+            return TryParse(
+                text,
+                specification.GeneratedRegionBegin,
+                specification.GeneratedRegionEnd,
+                out document,
+                out failureReason);
+        }
+
+        /// <summary>
+        /// 按一对生成区标记解析。
+        ///
+        /// **这一层其实与「需求」无关**：frontmatter + 二级小节 + 一段生成区，
+        /// 模块策划案是同一副骨架。所以按标记而不是按规范对象来解析，
+        /// 两份文档共用这一份实现——各写一遍的话，哪天改了 frontmatter 的容错规则
+        /// 只改了一边，两份文档就开始对同一段 YAML 给出不同答案。
+        /// </summary>
+        /// <param name="text">文档全文。</param>
+        /// <param name="generatedRegionBegin">生成区开始标记行。</param>
+        /// <param name="generatedRegionEnd">生成区结束标记行。</param>
+        /// <param name="document">解析结果。</param>
+        /// <param name="failureReason">解析失败原因；成功时为空串。</param>
+        public static bool TryParse(
+            string text,
+            string generatedRegionBegin,
+            string generatedRegionEnd,
+            out RequirementDocument document,
+            out string failureReason)
+        {
             document = null;
             failureReason = "";
 
@@ -223,7 +251,7 @@ namespace Template.Toolkit.CreationPipeline
                     insideFence = !insideFence;
                 }
 
-                if (!insideFence && line.Trim() == specification.GeneratedRegionBegin)
+                if (!insideFence && line.Trim() == generatedRegionBegin)
                 {
                     insideGeneratedRegion = true;
                     hasGeneratedRegion = true;
@@ -231,7 +259,7 @@ namespace Template.Toolkit.CreationPipeline
                     continue;
                 }
 
-                if (!insideFence && line.Trim() == specification.GeneratedRegionEnd)
+                if (!insideFence && line.Trim() == generatedRegionEnd)
                 {
                     if (!insideGeneratedRegion)
                     {

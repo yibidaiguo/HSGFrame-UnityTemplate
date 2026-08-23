@@ -1817,8 +1817,10 @@ namespace Template.Toolkit.CommandHost.Commands
                         lines.Add("需求案重推失败：" + republishFailure);
                     }
 
+                    // 走到这儿必然不是只读模式（上面那一支已经拦掉了），所以真推。
                     ModulePlanRefresher.RefreshForRequirement(
-                        repositoryRoot, poolRoot, requirementIdentifier, out var planNotes);
+                        repositoryRoot, poolRoot, requirementIdentifier, out var planNotes,
+                        alsoPush: true, timeoutSeconds: arguments.TimeoutSeconds);
                     lines.AddRange(planNotes);
                 }
 

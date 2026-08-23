@@ -25,9 +25,16 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="poolRoot">池子根目录。</param>
         /// <param name="requirementIdentifier">需求 id。</param>
         /// <param name="notes">这一趟做了什么、为什么跳过，一句一条。</param>
+        /// <param name="alsoPush">渲完顺手推知识库；干跑或只读模式下给 false。</param>
+        /// <param name="timeoutSeconds">推知识库的超时秒数。</param>
         /// <returns>真渲了就回 true；跳过或失败回 false。</returns>
         public static bool RefreshForRequirement(
-            string repositoryRoot, string poolRoot, string requirementIdentifier, out IReadOnlyList<string> notes)
+            string repositoryRoot,
+            string poolRoot,
+            string requirementIdentifier,
+            out IReadOnlyList<string> notes,
+            bool alsoPush = false,
+            int timeoutSeconds = 60)
         {
             var lines = new List<string>();
             notes = lines;
@@ -41,7 +48,7 @@ namespace Template.Toolkit.CreationPipeline
                 return false;
             }
 
-            return Refresh(repositoryRoot, poolRoot, moduleName, lines);
+            return Refresh(repositoryRoot, poolRoot, moduleName, lines, alsoPush, timeoutSeconds);
         }
 
         /// <summary>
@@ -51,8 +58,15 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="poolRoot">池子根目录。</param>
         /// <param name="moduleName">模块名。</param>
         /// <param name="notes">这一趟做了什么，一句一条。</param>
+        /// <param name="alsoPush">渲完顺手推知识库。</param>
+        /// <param name="timeoutSeconds">推知识库的超时秒数。</param>
         public static bool Refresh(
-            string repositoryRoot, string poolRoot, string moduleName, List<string> notes)
+            string repositoryRoot,
+            string poolRoot,
+            string moduleName,
+            List<string> notes,
+            bool alsoPush = false,
+            int timeoutSeconds = 60)
         {
             if (string.IsNullOrWhiteSpace(moduleName))
             {
@@ -81,6 +95,18 @@ namespace Template.Toolkit.CreationPipeline
                 foreach (var note in outcome.Notes)
                 {
                     notes.Add("  " + note);
+                }
+
+                // 推那一步**只在真渲出变化时才走**，而且推之前还会再比一次正文哈希
+                // （ModulePlanPusher 自己比）。两道判据看着重复，其实管的是两件事：
+                // 这里挡的是「什么都没变还去调下游」，那里挡的是「渲变了但正文与上次推的一样」
+                // ——后者会发生，因为同步账本身就写在 frontmatter 里，不进正文哈希。
+                if (alsoPush && outcome.IsChanged)
+                {
+                    var pushOutcome = ModulePlanPusher.PushOne(
+                        repositoryRoot, poolRoot, moduleName, specification,
+                        isDryRun: false, isForced: false, timeoutSeconds: timeoutSeconds);
+                    notes.Add("  " + pushOutcome.Note);
                 }
 
                 return true;

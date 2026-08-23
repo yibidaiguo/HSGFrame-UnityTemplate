@@ -706,9 +706,13 @@ namespace Template.Toolkit.CommandHost.Commands
                 // 渲不动只多记一笔，不影响出站本身——出站意图已经落盘了。
                 if (string.Equals(arguments.EventName, CompletedEventName, StringComparison.Ordinal))
                 {
+                    // pool.push 只产出站意图、不碰下游，所以这儿**只渲不推**——
+                    // 推知识库是一次真调用，不该藏在一条「生成意图」的命令里
+                    // （决策 92：真发要显式）。推走 plan.push。
                     ModulePlanRefresher.RefreshForRequirement(
                         repositoryRoot, poolRoot, arguments.RequirementIdentifier, out var planNotes);
                     lines.AddRange(planNotes);
+                    lines.Add("模块策划案还没推知识库——那是一次真调用，跑 plan.push --dry-run false");
                 }
 
                 return CommandResult.Success($"出站意图已生成：{result.FilePath}", lines);

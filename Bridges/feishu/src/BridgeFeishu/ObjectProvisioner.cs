@@ -38,6 +38,15 @@ namespace Template.Bridges.Feishu
         public const string RequirementDocumentParentKey = "需求文档父节点";
 
         /// <summary>
+        /// 台账里模块策划案父节点那一格的键名。
+        ///
+        /// **与需求文档父节点分开是刻意的**：一个模块一份、常驻、随验收更新，
+        /// 与「一条需求一份、做完归档」摆在同一个父节点下，几十条需求会把
+        /// 十来份模块正本淹掉——而人往知识库里找的，九成是模块正本那一份。
+        /// </summary>
+        public const string ModulePlanParentKey = "模块策划案父节点";
+
+        /// <summary>
         /// 台账里策划设计库文档那一格的键名。
         /// **与美术库分开是刻意的**：「断签从第 1 天重计」和「UI 图标一律 Q 版」
         /// 是两种东西——读者不同、改的人不同、过期的方式也不同。
@@ -56,6 +65,9 @@ namespace Template.Bridges.Feishu
 
         /// <summary>没给标题时，新建知识空间叫什么。</summary>
         private const string DefaultSpaceTitle = "项目协作空间";
+
+        /// <summary>没给标题时，模块策划案的父节点叫什么。对应仓库里的 Pools/Designs/Modules/。</summary>
+        private const string DefaultModulePlanParentTitle = "模块策划案";
 
         /// <summary>没给标题时，需求文档的父节点叫什么。对应仓库里的 Pools/Requirements/。</summary>
         private const string DefaultRequirementDocumentParentTitle = "需求文档";
@@ -104,12 +116,14 @@ namespace Template.Bridges.Feishu
                 IsDryRun = isDryRun,
                 SpaceTitle = ReadPayloadString(request, "空间标题", DefaultSpaceTitle),
                 RequirementDocumentParentTitle = ReadPayloadString(request, "需求文档父节点标题", DefaultRequirementDocumentParentTitle),
+                ModulePlanParentTitle = ReadPayloadString(request, "模块策划案父节点标题", DefaultModulePlanParentTitle),
                 BitableTitle = ReadPayloadString(request, "多维表格标题", DefaultBitableTitle),
                 TaskTableName = ReadPayloadString(request, "任务表名", DefaultTaskTableName)
             };
 
             state.SpaceId = ReadConfigurationString(request, SpaceKey, "");
             state.RequirementDocumentParent = ReadConfigurationString(request, RequirementDocumentParentKey, "");
+            state.ModulePlanParent = ReadConfigurationString(request, ModulePlanParentKey, "");
             state.GameDesignDocument = ReadConfigurationString(request, GameDesignDocumentKey, "");
             state.ArtDesignDocument = ReadConfigurationString(request, ArtDesignDocumentKey, "");
             state.BitableToken = ReadConfigurationString(request, BitableKey, "");
@@ -123,6 +137,11 @@ namespace Template.Bridges.Feishu
             if (!EnsureRequirementDocumentParent(state, out var parentFailure))
             {
                 return parentFailure;
+            }
+
+            if (!EnsureModulePlanParent(state, out var planParentFailure))
+            {
+                return planParentFailure;
             }
 
             if (!EnsureBitable(state, out var bitableFailure))
@@ -153,6 +172,7 @@ namespace Template.Bridges.Feishu
             {
                 [SpaceKey] = state.SpaceId,
                 [RequirementDocumentParentKey] = state.RequirementDocumentParent,
+                [ModulePlanParentKey] = state.ModulePlanParent,
                 [BitableKey] = state.BitableToken,
                 [TaskTableKey] = state.TaskTableId,
                 [GameDesignDocumentKey] = state.GameDesignDocument,
@@ -255,6 +275,21 @@ namespace Template.Bridges.Feishu
                 "docx",
                 out failure,
                 token => state.RequirementDocumentParent = token);
+        }
+
+        /// <summary>确保模块策划案的父节点在：它对应仓库里的 Pools/Designs/Modules/，一个模块一个子节点。</summary>
+        /// <param name="state">这一趟的状态。</param>
+        /// <param name="failure">失败时的协议响应。</param>
+        private static bool EnsureModulePlanParent(EnsureState state, out BridgeResponse failure)
+        {
+            return EnsureNode(
+                state,
+                ModulePlanParentKey,
+                state.ModulePlanParent,
+                state.ModulePlanParentTitle,
+                "docx",
+                out failure,
+                token => state.ModulePlanParent = token);
         }
 
         /// <summary>
@@ -738,6 +773,12 @@ namespace Template.Bridges.Feishu
 
             /// <summary>知识空间 space_id。</summary>
             public string SpaceId = "";
+
+            /// <summary>模块策划案父节点 node_token。</summary>
+            public string ModulePlanParent = "";
+
+            /// <summary>模块策划案父节点标题。</summary>
+            public string ModulePlanParentTitle = DefaultModulePlanParentTitle;
 
             /// <summary>需求文档父节点 node_token。</summary>
             public string RequirementDocumentParent = "";
