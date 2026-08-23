@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text.Json.Nodes;
 using Xunit;
@@ -5,10 +6,11 @@ using Xunit;
 namespace Template.Toolkit.CreationPipeline.Tests
 {
     /// <summary>
-    /// 界面规格回写需求案这条链的测试：找归属、布局图进 media/、元素行为表进生成区。
+    /// 界面规格与需求案的关系：**只留一行指针**。
     ///
-    /// 这一层要盯住的是「**需求案里读不读得到界面**」——从前规格只落在
-    /// Pools/Designs/Interfaces/ 与 _Generated/ 里，飞书上那份需求案永远停在建需求那一刻。
+    /// 元素行为表与布局图住在模块策划案里（一个模块一份，常驻）——
+    /// 需求案做完就归档，把整屏契约铺在它里面的结果是同一个面板被 N 条需求
+    /// 各存一份快照，谁是正本说不清。这一层要盯住的就是「别再往需求案里铺表」。
     /// </summary>
     public class InterfaceSpecInRequirementDocumentTests
     {
@@ -136,9 +138,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Contains("- 界面规格：尚未出功能图", workspace.ReadRequirementDocument("REQ-0042"));
         }
 
-        /// <summary>出过功能图之后，元素行为表进需求案；换行与竖线就地拍平，不许把表格拆散。</summary>
+        /// <summary>出过功能图之后，需求案里只多一行指针——表在模块策划案那边。</summary>
         [Fact]
-        public void GeneratedRegionCarriesTheElementBehaviourTable()
+        public void GeneratedRegionCarriesOnlyAPointer()
         {
             using var workspace = new PoolTestWorkspace();
             workspace.CopyRequirementDocumentBaseline();
@@ -150,40 +152,36 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 RequirementDocumentSpec.Load(workspace.Root), false);
 
             var text = workspace.ReadRequirementDocument("REQ-0042");
-            Assert.Contains("- 界面规格：UI-0001「签到主界面」", text);
-            Assert.Contains("### 界面 UI-0001「签到主界面」", text);
-            Assert.Contains("面板 `SignIn` · 画布 1280×720 · 元素 1 个", text);
-            Assert.Contains("| 元素 | 类型 | 交互 | 成功 | 失败 | 边界 |", text);
-            Assert.Contains(
-                "| 领取按钮 | Button | 点一下领当天奖励 | 按钮变灰 并弹一条飘字 | 提示「今天领过了」 | 断签时\\|从第 1 天重计 |",
-                text);
+            Assert.Contains("- 界面规格：UI-0001「签到主界面」（元素 1 个）→ 详见模块策划案 SignIn", text);
+
+            // 表不在这儿：铺在需求案里就等于给同一个面板存了 N 份快照，谁是正本说不清。
+            Assert.DoesNotContain("| 元素 | 类型 | 交互 |", text);
+            Assert.DoesNotContain("### 界面 UI-0001", text);
         }
 
-        /// <summary>布局图只在真拷进 media/ 之后才写那一行——引一个不存在的路径比不放更难查。</summary>
+        /// <summary>布局图落的是**模块策划案**的 media/，需求案那份里一张图都不引。</summary>
         [Fact]
-        public void ReferencesTheLayoutImageOnlyWhenItIsActuallyInMedia()
+        public void PutsTheLayoutImageInTheModulePlanNotTheRequirement()
         {
             using var workspace = new PoolTestWorkspace();
             workspace.CopyRequirementDocumentBaseline();
             workspace.WriteRequirement("REQ-0042", SystemRequirementJson());
             WriteSpec(workspace, "UI-0001", "REQ-0042", OneButton());
-            var specification = RequirementDocumentSpec.Load(workspace.Root);
-
-            RequirementDocumentRenderer.Render(
-                workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
-            Assert.DoesNotContain("UI-0001-layout.png", workspace.ReadRequirementDocument("REQ-0042"));
 
             var raster = Path.Combine(workspace.Root, "layout.png");
             File.WriteAllBytes(raster, new byte[] { 1, 2, 3 });
-            var media = InterfaceLayoutMedia.Publish(workspace.Root, "REQ-0042", "UI-0001", raster, out var reason);
+            var media = InterfaceLayoutMedia.PublishToModule(
+                workspace.Root, "SignIn", "UI-0001", raster, out var reason);
 
             Assert.Equal("", reason);
             Assert.True(File.Exists(media));
+            Assert.Contains(
+                Path.Combine("Designs", "Modules", "SignIn", "media"), media, StringComparison.Ordinal);
 
             RequirementDocumentRenderer.Render(
-                workspace.RepositoryRoot, workspace.Root, "REQ-0042", specification, false);
-            Assert.Contains(
-                "![UI-0001 白块布局图](media/UI-0001-layout.png)", workspace.ReadRequirementDocument("REQ-0042"));
+                workspace.RepositoryRoot, workspace.Root, "REQ-0042",
+                RequirementDocumentSpec.Load(workspace.Root), false);
+            Assert.DoesNotContain("UI-0001-layout.png", workspace.ReadRequirementDocument("REQ-0042"));
         }
 
         /// <summary>位图没渲出来时不算失败，只说清为什么没进去。</summary>
