@@ -201,6 +201,69 @@ namespace Template.Toolkit.CreationPipeline.Tests
             }
         }
 
+        /// <summary>
+        /// 裁掉四周的透明边。**这一步不可少**：下游只出它自己那几档尺寸，
+        /// 一条细长元素会被画在方画布中间、四周全透明，不裁就直接缩的话会被压成几个像素高。
+        /// </summary>
+        [Fact]
+        public void TransparentBorderIsTrimmedToContent()
+        {
+            var image = MakePng(64, 64, (x, y) =>
+                x >= 20 && x <= 39 && y >= 30 && y <= 33
+                    ? new byte[] { 10, 20, 30, 255 }
+                    : new byte[] { 0, 0, 0, 0 });
+
+            var trimmed = AssetImageNormalizer.TrimTransparentBorder(image, out var note);
+
+            Assert.Equal(20, trimmed.Width);
+            Assert.Equal(4, trimmed.Height);
+            Assert.Contains("裁掉透明边", note);
+        }
+
+        /// <summary>整张都透明时原样返回——裁成 0×0 只会让后面崩在跟真因无关的地方。</summary>
+        [Fact]
+        public void FullyTransparentImageIsLeftAlone()
+        {
+            var image = MakePng(8, 8, (x, y) => new byte[] { 0, 0, 0, 0 });
+
+            var trimmed = AssetImageNormalizer.TrimTransparentBorder(image, out var note);
+
+            Assert.Equal(8, trimmed.Width);
+            Assert.Contains("什么都没画出来", note);
+        }
+
+        /// <summary>本来就没有透明边时原样返回，不白拷一遍。</summary>
+        [Fact]
+        public void ImageWithoutTransparentBorderIsReturnedAsIs()
+        {
+            var image = MakePng(8, 8, (x, y) => new byte[] { 1, 2, 3, 255 });
+
+            var trimmed = AssetImageNormalizer.TrimTransparentBorder(image, out var note);
+
+            Assert.Same(image, trimmed);
+            Assert.Equal("", note);
+        }
+
+        /// <summary>按像素函数造一张图。</summary>
+        private static PngImage MakePng(int width, int height, Func<int, int, byte[]> pixelAt)
+        {
+            var pixels = new byte[width * height * 4];
+            for (var y = 0; y < height; y++)
+            {
+                for (var x = 0; x < width; x++)
+                {
+                    var rgba = pixelAt(x, y);
+                    var offset = (((y * width) + x) * 4);
+                    pixels[offset] = rgba[0];
+                    pixels[offset + 1] = rgba[1];
+                    pixels[offset + 2] = rgba[2];
+                    pixels[offset + 3] = rgba[3];
+                }
+            }
+
+            return new PngImage(width, height, pixels);
+        }
+
         private static string NewTemporaryPng(int width, int height, Func<int, int, byte[]> pixelAt)
         {
             var pixels = new byte[width * height * 4];
