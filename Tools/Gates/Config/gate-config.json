@@ -1,4 +1,4 @@
-﻿{
+{
   "abbreviationBlacklist": [
     "Mgr",
     "Cfg",
@@ -38,8 +38,10 @@
     "_Scratch"
   ],
   "documentLineLimit": 200,
-  "_documentExemptions说明": "留空是目标态：豁免哪份文档按定义是宿主自己的事，写在通用配置里等于让模板记住宿主有哪些文档（G5）。宿主要豁免自己的长文档，往 gate-config.host.json 里写同名项覆盖这份。",
-  "documentExemptions": [],
+  "_documentExemptions说明": "长度门禁的豁免。**每加一条都是在门禁上开一个洞**，所以只许放一类：长度不由人决定的**生成物**—— 里那两份视图的行数是「项目有多少张资产」的函数，198 张就 221 行，而门禁那句「拆分文档或精简内容」对它无从执行：精简等于藏起一部分资产，那正是这份视图要给人看的东西。手写的文档一律不许进这份名单——写不下就是该拆。",
+  "documentExemptions": [
+    "_Generated/"
+  ],
   "_bridgeBoundaryExemptions说明": "下游边界门禁的豁免：引擎代码里确实要出现 driver 名的地方（面板下游页渲染代码之类）。以 / 结尾按目录前缀豁免。默认空——第一天就别破例。",
   "bridgeBoundaryExemptions": [],
   "_collaborationDirectoryNames说明": "协作/过程数据的目录名。它们出现在 Unity 资产树里即违规——产品层零协作感知（总纲 §一 三条纪律之一）。_Generated 刻意不在里面，那是 UI 代码生成的合法落点。",
