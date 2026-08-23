@@ -81,6 +81,7 @@
     "Solutions/CreationPipeline.Tests/ModulePlanChainTests.cs": "99664b2d1d2134912106ab5eb2d9adc298520c2fc5300c024ecba22baeb6d6ab",
     "Solutions/CreationPipeline.Tests/ModulePlanPushTests.cs": "d5960775a2a88004b5f14a09f6df0799f35bc4a636a8e2b5f55e3c525fdbec17",
     "Solutions/CreationPipeline.Tests/PanelDraftWriterTests.cs": "deb6a312ace53fa9cbc42ba35cd2fae75cc517f63e08d8dad404d65271c40eda",
+    "Solutions/CreationPipeline.Tests/PlanRequestIntentTests.cs": "254a8f62a7430a44a9753059ae6e83204da6601b50b38532e3801161dff882fe",
     "Solutions/CreationPipeline.Tests/PlanningDocumentTests.cs": "765c317e069b7d582ed774f3fe82876f11d6e7faf6a472ece6de599e9695adad",
     "Solutions/CreationPipeline.Tests/PngImageTests.cs": "0bb7e92f577ead591c65f614d846cbfc1b244aa26146b3ec917dd8a8e172e5ab",
     "Solutions/CreationPipeline.Tests/PolicyFallbackPlannerTests.cs": "0555766d841343c4a4572cec6585799ba6d30518ee183c14e5cb3a1b51850756",
