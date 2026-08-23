@@ -48,6 +48,21 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
+        /// 位图版布局图的落点：_Generated/Interfaces/&lt;id&gt;.layout.png。
+        ///
+        /// **两份都要**：SVG 是文本，进 git 能 diff 出「哪个块动了」；
+        /// PNG 给下游看——飞书文档的图片块塞不进 SVG。
+        /// PNG 是从那份 SVG 转出来的（<see cref="SvgRasterizer"/>），
+        /// 所以两张图讲的必是同一件事。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="identifier">界面 id。</param>
+        public static string RasterOutputPath(string repositoryRoot, string identifier)
+        {
+            return Path.Combine(repositoryRoot, "_Generated", "Interfaces", identifier + ".layout.png");
+        }
+
+        /// <summary>
         /// 渲成 SVG 文本。
         ///
         /// 元素**按父子深度排序**再画：父在前、子在后，后画的盖在前面画的上面。
@@ -121,6 +136,49 @@ namespace Template.Toolkit.CreationPipeline
 
                 File.WriteAllText(path, content, new UTF8Encoding(false));
                 changed = true;
+                return path;
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                reason = exception.Message;
+                return "";
+            }
+        }
+
+        /// <summary>
+        /// 顺手写一份 PNG（从 SVG 转）。
+        ///
+        /// **转不出来不算失败**：布局图的 PNG 是给下游看的辅助产物，
+        /// SVG 那份才是仓库里的事实。转不动就把原因说出来，别让整条链停在这儿。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="spec">界面规格。</param>
+        /// <param name="reason">转不动或写不下去的原因；成功为空串。</param>
+        public static string WriteRaster(string repositoryRoot, InterfaceSpec spec, out string reason)
+        {
+            reason = "";
+            if (spec == null || spec.Identifier.Length == 0)
+            {
+                reason = "界面规格没有 id，不知道写到哪";
+                return "";
+            }
+
+            var encoded = SvgRasterizer.ToPng(Render(spec), out reason);
+            if (encoded == null)
+            {
+                return "";
+            }
+
+            var path = RasterOutputPath(repositoryRoot, spec.Identifier);
+            try
+            {
+                var directory = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                File.WriteAllBytes(path, encoded);
                 return path;
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
@@ -204,10 +262,46 @@ namespace Template.Toolkit.CreationPipeline
                 + (element.IsShared ? "  [通用]" : "");
 
             var fontSize = Math.Max(12, Math.Min(24, height / 3));
+
+            // **标签截到块里为止**：不截的话小块上的字会越出边界、跟邻居叠成一团，
+            // 而这张图的用处正是「一眼看清哪个功能位在哪」——糊成一片就白渲了。
+            // 等宽字按 0.6 倍字号估每个字的宽，估得保守一点（宁可少一个字，不许压线）。
+            caption = Truncate(caption, Math.Max(0, width - 16), fontSize);
+            if (caption.Length == 0)
+            {
+                builder.Append("  </g>\n");
+                return;
+            }
+
             builder.Append("    <text x=\"").Append(Number(x + 8)).Append("\" y=\"").Append(Number(y + fontSize + 4))
                 .Append("\" font-family=\"monospace\" font-size=\"").Append(Number(fontSize))
                 .Append("\" fill=\"#333333\">").Append(Escape(caption)).Append("</text>\n");
             builder.Append("  </g>\n");
+        }
+
+        /// <summary>
+        /// 把标签截到给定像素宽以内；一个字都放不下就返回空串（那时干脆不写字）。
+        /// 截掉时末尾留一个 … ，让人知道这里还有内容，而不是以为名字就这么短。
+        /// </summary>
+        /// <param name="text">原文。</param>
+        /// <param name="availableWidth">可用像素宽。</param>
+        /// <param name="fontSize">字号。</param>
+        private static string Truncate(string text, int availableWidth, int fontSize)
+        {
+            var characterWidth = Math.Max(1, fontSize * 6 / 10);
+            var capacity = availableWidth / characterWidth;
+
+            if (capacity <= 0)
+            {
+                return "";
+            }
+
+            if (text.Length <= capacity)
+            {
+                return text;
+            }
+
+            return capacity <= 1 ? "…" : text.Substring(0, capacity - 1) + "…";
         }
 
         /// <summary>数字按不变文化输出——跟着机器区域设置走的话，小数点会变成逗号，SVG 当场坏掉。</summary>

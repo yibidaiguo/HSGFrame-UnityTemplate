@@ -8,4 +8,16 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>CS1591</NoWarn>
   </PropertyGroup>
+
+  <!--
+    Svg.Skia：把布局图的 SVG 转成 PNG。
+    飞书文档的图片块只收位图，SVG 塞不进去；而 SVG 那份要留着进 git 看 diff。
+    **选 Svg.Skia 而不是裸 SkiaSharp**：我们已经在渲 SVG，转一道能保证两张图
+    天然一致；自己再画一遍 PNG 就是两套渲染器，迟早漂成两个样子。
+    它会带进 SkiaSharp 的原生库（每平台一份，十几 MB）——这是这个仓库
+    第一个原生依赖，值得记一笔：换来的是不必自带点阵字，且将来标中文也能画。
+  -->
+  <ItemGroup>
+    <PackageReference Include="Svg.Skia" Version="5.2.1" />
+  </ItemGroup>
 </Project>

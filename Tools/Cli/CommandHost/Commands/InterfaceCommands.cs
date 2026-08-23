@@ -235,6 +235,11 @@ namespace Template.Toolkit.CommandHost.Commands
                 ? $"布局图：{RelativeTo(repositoryRoot, layout)}"
                 : $"布局图没渲成：{layoutReason}");
 
+            var rasterPath = LayoutImageRenderer.WriteRaster(repositoryRoot, spec, out var rasterFailure);
+            lines.Add(rasterPath.Length > 0
+                ? $"位图：{RelativeTo(repositoryRoot, rasterPath)}"
+                : $"位图没转成：{rasterFailure}");
+
             var manifest = InterfaceAssetManifest.Build(repositoryRoot, spec, catalog);
             lines.Add($"资产清单：元素 {manifest.Count} 个，真要出 {InterfaceAssetManifest.CountToGenerate(manifest)} 张");
 
@@ -474,6 +479,13 @@ namespace Template.Toolkit.CommandHost.Commands
                 }
 
                 lines.Add($"{spec.Identifier}　{(changed ? "已更新" : "无变化")}　{RelativeTo(repositoryRoot, written)}");
+
+                // 顺手出一份 PNG：飞书文档的图片块塞不进 SVG。
+                // **转不出来只记一笔**——SVG 那份才是事实，PNG 是给下游看的。
+                var raster = LayoutImageRenderer.WriteRaster(repositoryRoot, spec, out var rasterReason);
+                lines.Add(raster.Length > 0
+                    ? $"　位图：{RelativeTo(repositoryRoot, raster)}"
+                    : $"　位图没转成：{rasterReason}");
             }
 
             foreach (var finding in findings)
