@@ -84,6 +84,53 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
         /// <summary>落点与数据不一致时报 1 条。</summary>
         [Fact]
+        public void DestinationWithModuleFolderIsAccepted()
+        {
+            using var workspace = new Workspace();
+            WriteBaseline(workspace.Root);
+            WriteRequest(workspace.Root, "REQ-0001", "ASSET-0001-01",
+                ValidRequestJson.Replace("\"落点\": \"Assets/Game/Icons/\"", "\"落点\": \"Assets/Game/Icons/Inventory/\""));
+
+            var findings = AssetSpecInspector.Inspect(workspace.Root, "REQ-0001", "");
+
+            // 《结构规范-资源》的层级公式是「类型 → 功能 → 模块 → 内容」，模块那一层本来就该有。
+            // 只认精确相等的话，所有界面的图都会平铺在功能层下，而图集是按模块建的。
+            Assert.Empty(findings);
+        }
+
+        /// <summary>模块目录只放行一层——再深就不是「模块」，是随手建的子目录。</summary>
+        [Fact]
+        public void DestinationWithTwoExtraFoldersIsReported()
+        {
+            using var workspace = new Workspace();
+            WriteBaseline(workspace.Root);
+            WriteRequest(workspace.Root, "REQ-0001", "ASSET-0001-01",
+                ValidRequestJson.Replace("\"落点\": \"Assets/Game/Icons/\"", "\"落点\": \"Assets/Game/Icons/Inventory/Slots/\""));
+
+            var findings = AssetSpecInspector.Inspect(workspace.Root, "REQ-0001", "");
+
+            Assert.Contains(findings, finding => finding.Reason.Contains("落点"));
+        }
+
+        /// <summary>
+        /// 模块目录带非 ASCII 就判红：全仓路径只许 ASCII（gate.pathascii 是 block 档），
+        /// 而模块名是视觉模型现编的字符串，不许原样拿来拼路径。
+        /// </summary>
+        [Fact]
+        public void DestinationWithNonAsciiModuleIsReported()
+        {
+            using var workspace = new Workspace();
+            WriteBaseline(workspace.Root);
+            WriteRequest(workspace.Root, "REQ-0001", "ASSET-0001-01",
+                ValidRequestJson.Replace("\"落点\": \"Assets/Game/Icons/\"", "\"落点\": \"Assets/Game/Icons/背包/\""));
+
+            var findings = AssetSpecInspector.Inspect(workspace.Root, "REQ-0001", "");
+
+            Assert.Contains(findings, finding => finding.Reason.Contains("落点"));
+        }
+
+        /// <summary>落点写到规格落点之外去要判红。</summary>
+        [Fact]
         public void WrongDestinationIsReported()
         {
             using var workspace = new Workspace();
