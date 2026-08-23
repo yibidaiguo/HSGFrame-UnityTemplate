@@ -47,7 +47,11 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="repositoryRoot">仓库根目录。</param>
         /// <param name="conversationIdentifier">会话标识。</param>
         /// <param name="messageIdentifier">卡片所在消息的标识。</param>
-        public static bool Remember(string repositoryRoot, string conversationIdentifier, string messageIdentifier)
+        /// <param name="cardJson">**真发出去的那份卡 JSON**。撤按钮时要拿它原样送回去，
+        /// 只少掉按钮那一个元素——重拼一份的话图会没（card-update 不传图），
+        /// 而人要的是「按钮没了」，不是「聊天记录没了」。</param>
+        public static bool Remember(
+            string repositoryRoot, string conversationIdentifier, string messageIdentifier, string cardJson)
         {
             if (conversationIdentifier.Length == 0 || messageIdentifier.Length == 0)
             {
@@ -61,6 +65,7 @@ namespace Template.Toolkit.CreationPipeline
                 var body = new JsonObject
                 {
                     ["消息标识"] = messageIdentifier,
+                    ["卡片JSON"] = cardJson ?? "",
                     ["记于"] = DateTimeOffset.Now.ToString("o")
                 };
 
@@ -80,6 +85,23 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="conversationIdentifier">会话标识。</param>
         public static string Read(string repositoryRoot, string conversationIdentifier)
         {
+            return ReadField(repositoryRoot, conversationIdentifier, "消息标识");
+        }
+
+        /// <summary>取那张卡真发出去的 JSON；没有给空串。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="conversationIdentifier">会话标识。</param>
+        public static string ReadCardJson(string repositoryRoot, string conversationIdentifier)
+        {
+            return ReadField(repositoryRoot, conversationIdentifier, "卡片JSON");
+        }
+
+        /// <summary>读台账里的一个字段。</summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="conversationIdentifier">会话标识。</param>
+        /// <param name="fieldName">字段名。</param>
+        private static string ReadField(string repositoryRoot, string conversationIdentifier, string fieldName)
+        {
             if (conversationIdentifier.Length == 0)
             {
                 return "";
@@ -94,9 +116,9 @@ namespace Template.Toolkit.CreationPipeline
             try
             {
                 return JsonNode.Parse(File.ReadAllText(path)) is JsonObject root
-                    && root["消息标识"] is JsonValue value
-                    && value.TryGetValue<string>(out var identifier)
-                    ? identifier
+                    && root[fieldName] is JsonValue value
+                    && value.TryGetValue<string>(out var text)
+                    ? text
                     : "";
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
@@ -104,6 +126,66 @@ namespace Template.Toolkit.CreationPipeline
                 // 读不动就当没有：多留一会儿按钮，比让整轮崩掉强。
                 return "";
             }
+        }
+
+        /// <summary>
+        /// 把一份卡 JSON 里的按钮去掉，**别的一个字不动**。
+        ///
+        /// 按钮在飞书卡里是一个 <c>tag: action</c> 的元素，删掉它就行——
+        /// 正文、条目、图片、标题全部原样留着。
+        /// 从前这里是「换成一张写着『已翻篇』的替身卡」，那等于把聊天记录抹了：
+        /// 人翻上去想看之前聊到哪，看到的是一句没有信息的占位话。
+        ///
+        /// 解析不动就返回空串，让调用方放弃这次撤——**宁可按钮多留一会儿，
+        /// 也不许推一份残缺的卡上去**。
+        /// </summary>
+        /// <param name="cardJson">原卡 JSON。</param>
+        public static string StripActions(string cardJson)
+        {
+            if (string.IsNullOrWhiteSpace(cardJson))
+            {
+                return "";
+            }
+
+            JsonNode node;
+            try
+            {
+                node = JsonNode.Parse(cardJson);
+            }
+            catch (JsonException)
+            {
+                return "";
+            }
+
+            if (node is not JsonObject root || root["elements"] is not JsonArray elements)
+            {
+                return "";
+            }
+
+            var kept = new JsonArray();
+            var removed = 0;
+            foreach (var element in elements)
+            {
+                if (element is JsonObject item
+                    && item["tag"] is JsonValue tag
+                    && tag.TryGetValue<string>(out var tagName)
+                    && string.Equals(tagName, "action", StringComparison.Ordinal))
+                {
+                    removed++;
+                    continue;
+                }
+
+                kept.Add(element?.DeepClone());
+            }
+
+            // 本来就没有按钮时返回空串：没什么可撤的，别白跑一次往返。
+            if (removed == 0)
+            {
+                return "";
+            }
+
+            root["elements"] = kept;
+            return root.ToJsonString(WriteOptions);
         }
 
         /// <summary>忘掉这条会话的记录。撤过按钮之后调，免得下一轮再去撤同一条。</summary>

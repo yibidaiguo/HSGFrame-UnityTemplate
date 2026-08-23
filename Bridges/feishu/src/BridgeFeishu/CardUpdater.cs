@@ -46,15 +46,29 @@ namespace Template.Bridges.Feishu
                 return Failure("请求不合协议", "载荷缺「消息标识」：不知道要改哪一条消息", retryable: false);
             }
 
-            var card = ReadPayloadObject(request, "卡片");
-            if (card == null)
-            {
-                return Failure("请求不合协议", "载荷缺「卡片」：不知道要换成什么", retryable: false);
-            }
+            // **原样透传那一路优先**：调用方给了「卡片JSON」就直接用它，不重拼。
+            // 撤按钮走的正是这条——把上一轮真发出去的那份 JSON 原样送回来，
+            // 只少掉按钮那一个元素。重拼的话图会没（这条路不传图），
+            // 而人要的是「按钮没了」，不是「聊天记录没了」。
+            var rawCardJson = ReadPayloadString(request, "卡片JSON");
+            string cardJson;
 
-            // 更新卡片不带图：贴图要先上传拿 image_key，而这条路径是「点了立刻换掉按钮」，
-            // 争的就是那几百毫秒；结果图走 reply 发新卡，那一条才需要传图。
-            var cardJson = MessageReplier.BuildCardJson(card, "", appId, secretKey, timeoutSeconds, uploadImages: false);
+            if (rawCardJson.Length > 0)
+            {
+                cardJson = rawCardJson;
+            }
+            else
+            {
+                var card = ReadPayloadObject(request, "卡片");
+                if (card == null)
+                {
+                    return Failure("请求不合协议", "载荷既没有「卡片JSON」也没有「卡片」：不知道要换成什么", retryable: false);
+                }
+
+                // 重拼这一路不带图：贴图要先上传拿 image_key，而它服务的是
+                // 「点了立刻换掉按钮」那种争几百毫秒的场景；结果图走 reply 发新卡。
+                cardJson = MessageReplier.BuildCardJson(card, "", appId, secretKey, timeoutSeconds, uploadImages: false);
+            }
             var body = new JsonObject { ["content"] = cardJson }.ToJsonString();
 
             if (isDryRun)

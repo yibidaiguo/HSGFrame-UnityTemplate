@@ -105,6 +105,16 @@ namespace Template.Bridges.Feishu
                 ["消息标识"] = messageIdentifier,
                 ["字数"] = text.Length
             };
+
+            // 把**真发出去的那份卡 JSON** 带回去。引擎要留着它：
+            // 下一轮撤按钮时，只有拿着这份原样的 JSON 才能做到「只去掉按钮、别的一个字不动」。
+            // 尤其是图——图片在这份 JSON 里已经是 image_key 了，
+            // 重新拼一遍的话 card-update 那条路不传图，图会当场消失。
+            if (card != null)
+            {
+                payload["卡片JSON"] = contentText;
+            }
+
             return Success(JsonSerializer.SerializeToElement(payload));
         }
 

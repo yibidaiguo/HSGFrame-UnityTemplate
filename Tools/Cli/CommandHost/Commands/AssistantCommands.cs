@@ -1642,12 +1642,26 @@ namespace Template.Toolkit.CommandHost.Commands
                 return;
             }
 
-            var card = AssistantCard.ForRetired();
+            // **只去掉按钮，正文原样留着。**
+            // 从前这里换的是一张写着「已翻篇」的替身卡，那等于把聊天记录抹了——
+            // 人翻上去想看之前聊到哪，看到的是一句没有信息的占位话。
+            // 拿的是那张卡真发出去的 JSON：图在里面已经是 image_key，
+            // 重拼一份的话 card-update 不传图，图会当场消失。
+            var stripped = LiveCardRegistry.StripActions(
+                LiveCardRegistry.ReadCardJson(repositoryRoot, conversationIdentifier));
+            if (stripped.Length == 0)
+            {
+                // 解析不动、或那张卡本来就没有按钮：放弃这次撤。
+                // **宁可按钮多留一会儿，也不许推一份残缺的卡上去。**
+                LiveCardRegistry.Forget(repositoryRoot, conversationIdentifier);
+                return;
+            }
+
             var payload = JsonSerializer.SerializeToElement(new JsonObject
             {
                 ["干跑"] = false,
                 ["消息标识"] = staleIdentifier,
-                ["卡片"] = card.ToJson()
+                ["卡片JSON"] = stripped
             });
 
             var call = BridgeInvoker.Invoke(repositoryRoot, assistantDriver, "card-update", payload, arguments.TimeoutSeconds);
@@ -2648,7 +2662,11 @@ namespace Template.Toolkit.CommandHost.Commands
                 var sentIdentifier = ReadPayloadString(call.Payload, "消息标识");
                 if (sentIdentifier.Length > 0)
                 {
-                    LiveCardRegistry.Remember(repositoryRoot, message.ConversationIdentifier, sentIdentifier);
+                    LiveCardRegistry.Remember(
+                        repositoryRoot,
+                        message.ConversationIdentifier,
+                        sentIdentifier,
+                        ReadPayloadString(call.Payload, "卡片JSON"));
                 }
             }
 
