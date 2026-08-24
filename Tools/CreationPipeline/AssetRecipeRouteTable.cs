@@ -165,6 +165,29 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
+        /// 反查：哪几个 driver 给这个资产类型配了配方，按名字序。
+        ///
+        /// 存在的理由是**别把 driver 名写进代码**（下游边界那道门禁盯的就是这件事）：
+        /// 帧动画那三份配方眼下只有一个 driver 有，但「只有一个」是这张表此刻的事实，
+        /// 不是代码该知道的常识——换个下游补上同名配方，链路就该跟着走，而不是等人改代码。
+        /// </summary>
+        /// <param name="assetType">资产类型，如「帧动画」。</param>
+        public IReadOnlyList<string> DriversFor(string assetType)
+        {
+            var names = new List<string>();
+            foreach (var pair in ByDriver)
+            {
+                if (pair.Value != null && pair.Value.ContainsKey(assetType ?? ""))
+                {
+                    names.Add(pair.Key);
+                }
+            }
+
+            names.Sort(StringComparer.Ordinal);
+            return names;
+        }
+
+        /// <summary>
         /// 按 driver 与资产类型取配方名。查不到时给一句**能照做的话**，而不是回落到某个默认配方。
         /// </summary>
         /// <param name="driverName">要用哪个下游，值来自域路由表，不在这里写死。</param>

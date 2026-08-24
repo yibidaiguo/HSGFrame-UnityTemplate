@@ -18,14 +18,14 @@ namespace Template.Toolkit.CommandHost.Commands
         public string Kind { get; set; }
 
         /// <summary>
-        /// 2D 那两路用哪个生图 driver。**缺省钉死 comfyui 而不是走域路由**：
-        /// 这三份帧动画配方是 ComfyUI 工作流（recipes/ 下的 workflow.json），
-        /// 线上驱动的配方目录是 presets/，同一个配方名在那边根本不存在。
-        /// 交给域路由的话，「生图」首选是谁就发给谁，报出来的是「找不到预设文件」——
-        /// 那句话指不到真正的问题（这一路本来就只有 ComfyUI 能跑）。
+        /// 2D 那两路用哪个生图 driver。**留空时不走域路由，而是反查配方路由表**：
+        /// 帧动画那几份配方只有配了它的 driver 才跑得起来，交给域路由的话，
+        /// 「生图」首选是谁就发给谁，而那个 driver 多半没有这份配方，
+        /// 报出来是「找不到预设文件」——那句话指不到真正的问题。
+        /// 反查而不是写死一个名字：换个下游补上同名配方，链路该跟着走，不该等人改代码。
         /// </summary>
-        [Summary("2D 那两路用哪个生图 driver；缺省 comfyui（这三份配方是 ComfyUI 工作流）")]
-        [DefaultValue("comfyui")]
+        [Summary("2D 那两路用哪个生图 driver；留空按配方路由表反查谁配了这个资产类型")]
+        [DefaultValue("")]
         public string Driver { get; set; }
 
         /// <summary>资产请求 JSON 路径（两条 2D 路要）。</summary>
@@ -112,7 +112,8 @@ namespace Template.Toolkit.CommandHost.Commands
     ///
     /// **第一步 `anim.frames`**：出逐帧透明底 PNG + 一份帧序列描述（几帧 / 多快 / 以哪个点对齐），
     /// 摆给人看。三路共用这一条命令，差别只在帧从哪来——
-    /// 帧动画与人物帧动画走生图配方，3D动画走 Blender 转台。
+    /// 帧动画与人物帧动画走生图配方，3D动画走「模型加工」port 的转台动作。
+    /// 哪个 driver 接这个 port 由路由表说了算，这里一个 driver 名都不写死。
     ///
     /// **第二步 `anim.assemble`**：人看过之后才拼精灵图集。
     ///
@@ -292,8 +293,28 @@ namespace Template.Toolkit.CommandHost.Commands
                 return false;
             }
 
-            var driverName = string.IsNullOrWhiteSpace(arguments.Driver) ? "comfyui" : arguments.Driver.Trim();
             var routeTable = AssetRecipeRouteTable.Load(repositoryRoot);
+            var driverName = (arguments.Driver ?? "").Trim();
+            if (driverName.Length == 0)
+            {
+                var candidates = routeTable.DriversFor(kind);
+                if (candidates.Count == 0)
+                {
+                    failureReason = $"配方路由表里没有任何 driver 配了「{kind}」的配方"
+                        + $"（{AssetRecipeRouteTable.RelativeRoutePath()}）。补一条，或者用 --Driver 明确点名。";
+                    return false;
+                }
+
+                // 有多个就用第一个（名字序），并把这件事说出来——
+                // 静默挑一个的话，人根本不知道还有别的选择。
+                driverName = candidates[0];
+                if (candidates.Count > 1)
+                {
+                    lines.Add($"「{kind}」有 {candidates.Count} 个 driver 配了配方（{string.Join("、", candidates)}），"
+                        + $"这次用的是 {driverName}；要换用 --Driver 点名。");
+                }
+            }
+
             var recipeName = ResolveRecipeName(routeTable, driverName, kind, arguments.ReferenceImagePath.Length > 0, out var routeReason);
             if (recipeName.Length == 0)
             {
@@ -422,10 +443,13 @@ namespace Template.Toolkit.CommandHost.Commands
                 && modeValue.ValueKind == JsonValueKind.String
                 ? modeValue.GetString() ?? ""
                 : "";
-            lines.Add($"转台渲完：{Path.GetFileName(modelPath)}（模式 {mode}）");
+            lines.Add($"转台渲完：{Path.GetFileName(modelPath)}（模式 {mode}，driver={call.DriverName}）");
 
             frameDirectory = outputDirectory;
-            source = "blender 转台 · " + mode;
+
+            // 出处记的是**这次真接活的那个 driver**，不是代码里预设的名字：
+            // 路由换了人，帧序列描述上的出处就该跟着换，不然那一栏会一直说着旧下游。
+            source = call.DriverName + " 转台 · " + mode;
             return true;
         }
 
