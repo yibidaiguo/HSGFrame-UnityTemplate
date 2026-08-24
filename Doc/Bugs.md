@@ -41,7 +41,43 @@
 
 ## 未处理
 
-（还没有。第一条从 BUG-0001 起。）
+### BUG-0003 本机代理把国内域名的直连解析弄坏了，飞书与 DeepSeek 一个都连不上
+
+- **状态**：新报（**上游问题：本机代理配置，不是仓库代码**）
+- **现象**：所有走 `open.feishu.cn`、`api.deepseek.com`、`www.baidu.com` 的请求
+  在 TLS 握手阶段挂掉（`Received an unexpected EOF or 0 bytes from the transport stream`）。
+  `bridge.ensure` 报的是「连不上飞书：无法建立连接（取 token 阶段）」。
+- **复现步骤**：1. `curl https://open.feishu.cn/` → 000；
+  2. `curl --resolve open.feishu.cn:443:163.177.118.61 https://open.feishu.cn/...` → **400（通了）**；
+  3. `curl https://openapi.tripo3d.ai/v3` → **401（通了）**。
+- **期望 / 实际**：期望国内域名与国外域名都能连。实际是**只有走代理节点的域名通，判 DIRECT 的国内域名全断**。
+- **环境**：Windows；Clash Verge（verge-mihomo）TUN 模式、gvisor 栈、`enhanced-mode: fake-ip`、
+  `dns-hijack: any:53`。规则 `RULE-SET,cn_domain,DIRECT,no-resolve`。
+- **影响面**：**挡**。挡住飞书全链（供给、推文档、任务表、助手回话）与执行后端（DeepSeek）。
+  Tripo 与 GitHub 这类走代理节点的不受影响。
+- **根因（已定位到这一步）**：系统 DNS 被劫持成 fake-ip（`open.feishu.cn` → `198.18.0.64`）。
+  mihomo 把 fake-ip 映射回域名后命中 `cn_domain,DIRECT,no-resolve`，**直连前要自己再解析一次域名，
+  而这一次解析失败**——所以拿真实 IP 绕过 DNS（`--resolve`）就立刻通。
+  「TCP 连得上」在 TUN 下不是证据：gvisor 一律先接受 SYN，再去拨上游。
+- **不在这里修的理由**：这是本机代理的配置，改它属于动系统网络设置，不该由仓库代码或 AI 代劳。
+  绕法：把代理的 TUN 关掉，或给 mihomo 配一个能用的 `direct-nameserver`。
+
+### BUG-0004 Tripo 模型生成一直失败：配置里那把密钥是无效的，而有效的那把余额是 0
+
+- **状态**：新报
+- **现象**：`bridge.model` 走 API 一直不出模型（老账记成「API 返回 0」）。
+- **复现步骤**：1. 用 `local.json` 里的 `模型生成密钥` 调 `GET /v3/account/balance`
+  → `{"code":2,"status":"error","message":"Invalid API key"}`；
+  2. 用 Tripo CLI 登录的那把（`~/.tripo/config.json`）调同一个接口
+  → `{"code":0,"data":{"balance":0.00,"frozen":0.00}}`。
+- **期望 / 实际**：期望配置里的密钥能认证并有额度。实际是**两件事各错一半**——
+  配置里那把认证就过不去，能认证的那把额度是 0。
+- **环境**：Windows；`Tools/CreationPipeline/Config/local.json` 的 `模型生成密钥`；
+  Tripo CLI 装在 `D:\Tools\Tripo	ripo.cmd`（不在 PATH 里）。
+- **影响面**：**挡**模型生成的真跑。链路本身可以接通并验证到「下游明确回额度不足」这一步为止。
+- **根因与下一步**：不是代理问题（Tripo 域名连得通，401/4001 都是正常回包）。
+  密钥这一半已就地改掉（换成 CLI 那把有效密钥）；**额度这一半要人去充值**——
+  充值是花钱动作，AI 不做。
 
 ## 已归档
 
