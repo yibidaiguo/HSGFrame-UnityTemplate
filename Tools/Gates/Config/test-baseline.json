@@ -231,6 +231,7 @@
     "Solutions/Toolkit.Tests/CommandProgressTests.cs": "9c69d89f48111cefe23e53663611f2f5a0493c04141eb2ca2c5ff38852c093e3",
     "Solutions/Toolkit.Tests/CommandRegistryTests.cs": "81492885755e8ad87a54e6d985ea6a20f3b4f1b7c09ef87993eba418e6ddb5a2",
     "Solutions/Toolkit.Tests/ConfigQueryCommandTests.cs": "9803e78051a7d8ed0460b09d35f93cb8b10acfd82576be508d75c4dccee2a41d",
+    "Solutions/Toolkit.Tests/DriverSmokeCommandTests.cs": "ecdd1adfd50c6f413591e15e9d2cbeef86e574e1aef9e9432e76b624a51f8630",
     "Solutions/Toolkit.Tests/GateCommandConfigurationPathTests.cs": "fbc5b28deb216fa1b52847501e5cd7a5e213153374fc068e5fc83dedd16a5158",
     "Solutions/Toolkit.Tests/GateDocumentScanTests.cs": "86f4b72315ea69f6ba5619d52ba6a8baf20ac75097b7ed929bf58122fc11b68c",
     "Solutions/Toolkit.Tests/ResourceVerifyCommandTests.cs": "fc6d2532ee12aa29986851eb1948d37588b3dfb746b3dab2f57e8be27e6674c8",
