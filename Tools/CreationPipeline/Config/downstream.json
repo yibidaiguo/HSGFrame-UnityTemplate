@@ -12,7 +12,8 @@
     },
     "模型生成": {
       "候选": [
-        "tripo"
+        "tripo",
+        "tripocli"
       ],
       "策略": "首选固定"
     },
@@ -62,6 +63,16 @@
         "--no-build",
         "--project",
         "Bridges/tripo/src/BridgeTripo",
+        "--"
+      ]
+    },
+    "bridge-tripocli": {
+      "可执行": "dotnet",
+      "参数": [
+        "run",
+        "--no-build",
+        "--project",
+        "Bridges/tripocli/src/BridgeTripocli",
         "--"
       ]
     },

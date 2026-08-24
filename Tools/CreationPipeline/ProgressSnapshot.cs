@@ -309,33 +309,14 @@ namespace Template.Toolkit.CreationPipeline
             return gateConclusion;
         }
 
-        /// <summary>读全局门禁结论：_Generated/gate-report.json 里的「结论」；读不到写「未跑」。</summary>
+        /// <summary>
+        /// 读全局门禁结论。**推法只在 <see cref="GateReportConclusion"/> 里有一份**——
+        /// 这里曾经自己照一个不存在的「结论」键读，于是进度页永远说「未跑」，
+        /// 而总览页同时说「绿」。两页对同一件事给两个答案，比两页都错更难查。
+        /// </summary>
         private static string ReadGateConclusion(string repositoryRoot)
         {
-            var reportPath = Path.Combine(repositoryRoot ?? "", "_Generated", "gate-report.json");
-            if (!File.Exists(reportPath))
-            {
-                return "未跑";
-            }
-
-            try
-            {
-                using (var document = JsonDocument.Parse(File.ReadAllText(reportPath)))
-                {
-                    if (document.RootElement.ValueKind == JsonValueKind.Object
-                        && document.RootElement.TryGetProperty("结论", out var conclusion)
-                        && conclusion.ValueKind == JsonValueKind.String)
-                    {
-                        return conclusion.GetString() ?? "未跑";
-                    }
-                }
-            }
-            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
-            {
-                return "未跑";
-            }
-
-            return "未跑";
+            return GateReportConclusion.Read(repositoryRoot);
         }
 
         /// <summary>模型文件的扩展名，产出计数时与图分开数。</summary>

@@ -1,0 +1,13 @@
+{
+  "契约版本": "1.0.0",
+  "依赖": [
+    {
+      "名称": "tripo-cli",
+      "类别": "节点",
+      "版本": ">=1.0",
+      "来源": "https://www.npmjs.com/package/tripo-cli",
+      "安装命令": "npm i -g tripo-cli",
+      "说明": "Tripo 官方命令行。装完要先 `tripo login` 一次，密钥落在 ~/.tripo/config.json，本桥不碰它——那把钥匙归 CLI 管，仓库这边一个字节都不存。"
+    }
+  ]
+}

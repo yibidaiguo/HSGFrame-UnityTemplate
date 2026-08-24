@@ -1,0 +1,30 @@
+{
+  "名称": "tripocli",
+  "port": ["模型生成"],
+  "形态": "本地",
+  "契约版本": ">=1.0 <2.0",
+  "配置schema": {
+    "可执行文件": {
+      "类型": "string",
+      "默认": "",
+      "_说明": "Tripo CLI 的可执行文件路径（Windows 上是 tripo.cmd）。它**不在 PATH 里**，所以这一格必须填绝对路径；留空时本桥只会报「没配可执行文件」，不去猜。"
+    },
+    "超时秒": { "类型": "number", "默认": 900 },
+    "场景预设": {
+      "类型": "string",
+      "默认": "game-mobile",
+      "_说明": "透传 CLI 的 --for：game-mobile / game-pc / film / print / ar-web / anim / toy。留空则不传，走 CLI 自己的默认。"
+    },
+    "加工链": {
+      "类型": "string",
+      "默认": "",
+      "_说明": "透传 CLI 的 --then，如 texture,rig,convert:fbx。留空则不传。"
+    }
+  },
+  "密钥字段": [],
+  "试跑": "bridge.model --Driver tripocli --DryRun true",
+  "能力探测": "bridge.probe --Driver tripocli",
+  "实现": "bridge-tripocli",
+  "字段类型映射": {},
+  "表单分组字段": ""
+}

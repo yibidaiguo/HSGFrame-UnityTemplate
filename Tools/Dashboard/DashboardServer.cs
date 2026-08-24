@@ -262,8 +262,17 @@ namespace Template.Toolkit.Dashboard
                         {
                             var detailIdentifier = request.QueryString["id"] ?? "";
                             WritePanelPage(response, () =>
-                                CreationPanelReader.ReadTaskDetailData(_repositoryRoot, _poolRoot, detailIdentifier)
-                                ?? (object)new Dictionary<string, string> { ["错误"] = $"需求 {detailIdentifier} 不存在或读不出来" });
+                            {
+                                // 「没给 id」与「给了个不存在的 id」是两件事。合成一句的话，
+                                // 人看到的是「需求  不存在或读不出来」——中间那个空洞正是他要找的信息。
+                                if (detailIdentifier.Trim().Length == 0)
+                                {
+                                    return new Dictionary<string, string> { ["错误"] = "没给需求 id：这一页要 ?id=REQ-xxxx" };
+                                }
+
+                                return CreationPanelReader.ReadTaskDetailData(_repositoryRoot, _poolRoot, detailIdentifier)
+                                    ?? (object)new Dictionary<string, string> { ["错误"] = $"需求 {detailIdentifier} 不存在或读不出来" };
+                            });
                         }
                         break;
                     case "/cmd":

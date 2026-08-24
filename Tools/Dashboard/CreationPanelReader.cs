@@ -2069,7 +2069,6 @@ namespace Template.Toolkit.Dashboard
                 }
 
                 var entries = new List<PanelGateEntry>();
-                var allSucceeded = true;
                 foreach (var element in entriesElement.EnumerateArray())
                 {
                     if (element.ValueKind != JsonValueKind.Object)
@@ -2077,20 +2076,17 @@ namespace Template.Toolkit.Dashboard
                         continue;
                     }
 
-                    var result = ReadStringOrEmpty(element, "结果");
-                    if (!string.Equals(result, "成功", StringComparison.Ordinal))
-                    {
-                        allSucceeded = false;
-                    }
-
                     entries.Add(new PanelGateEntry(
                         ReadStringOrEmpty(element, "名称"),
-                        result,
+                        ReadStringOrEmpty(element, GateReportConclusion.ResultKey),
                         ReadInt(element, "问题数", 0)));
                 }
 
                 var reportRelativePath = Path.GetRelativePath(Path.GetFullPath(repositoryRoot), Path.GetFullPath(reportPath)).Replace('\\', '/');
-                return new PanelGateReport(allSucceeded ? "绿" : "红", reportRelativePath, entries);
+                // 结论不在这里推：绿红的判法只在 GateReportConclusion 里有一份。
+                // 从前这里自己数一遍 allSucceeded，而进度页那边另数一遍——
+                // 两处只要差一点，面板上同一件事就有两个答案（真出过：这里说「绿」，进度页说「未跑」）。
+                return new PanelGateReport(GateReportConclusion.FromDocument(root), reportRelativePath, entries);
             }
         }
 
