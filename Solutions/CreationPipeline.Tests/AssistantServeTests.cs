@@ -352,7 +352,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
                 Assert.True(outcome.DraftReady);
                 Assert.Empty(outcome.Findings);
                 // 草稿拿到的是内容哈希，不是编号——号在落池子那一刻才发。
-                Assert.StartsWith("REQ-草稿-", outcome.RequirementIdentifier);
+                Assert.StartsWith("REQ-draft-", outcome.RequirementIdentifier);
                 Assert.Equal(AssistantServeTurn.ValidationPlaceholderIdentifier, outcome.Draft["id"].GetValue<string>());
                 Assert.Contains("状态", outcome.BlockedFields);
                 Assert.Equal("草稿", outcome.Draft["状态"].GetValue<string>());
@@ -471,14 +471,18 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.NotEqual(AssistantServeTurn.DraftKey(one), AssistantServeTurn.DraftKey(other));
         }
 
-        /// <summary>草稿 key 不长得像编号——摆到人眼前时不会被当成 REQ 号。</summary>
+        /// <summary>
+        /// 草稿 key 不长得像编号——摆到人眼前时不会被当成 REQ 号；
+        /// 而且**整个 key 都是 ASCII**：它会直接当文件名，带中文的话路径 ASCII 那道门禁必红。
+        /// </summary>
         [Fact]
         public void DraftKeyIsNotShapedLikeARequirementNumber()
         {
             var key = AssistantServeTurn.DraftKey(new JsonObject { ["标题"] = "背包整理" });
 
-            Assert.StartsWith("REQ-草稿-", key);
+            Assert.StartsWith("REQ-draft-", key);
             Assert.DoesNotMatch(@"^REQ-\d{4}$", key);
+            Assert.All(key, character => Assert.InRange(character, (char)0x20, (char)0x7E));
         }
 
         /// <summary>唤醒信号能被自己投出来，且落的是唤醒目录、带得上明细。</summary>
