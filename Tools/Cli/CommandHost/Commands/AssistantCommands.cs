@@ -1463,8 +1463,10 @@ namespace Template.Toolkit.CommandHost.Commands
                     "generate",
                     JsonSerializer.SerializeToElement(new JsonObject
                     {
-                        ["描述"] = ReadDraftString(request, "描述"),
-                        ["命名"] = ReadDraftString(request, "命名"),
+                        // 键名照桥的契约写：模型生成那一族收的是「提示词」，不是「描述」。
+                        // 我一开始按助手这边的叫法发了「描述」，桥当场判「请求不合协议」——
+                        // 而那种错只有真调一次才看得见，读代码是看不出来的。
+                        ["提示词"] = ReadDraftString(request, "描述"),
                         ["输出目录"] = outputDirectory
                     }),
                     arguments.TimeoutSeconds);
