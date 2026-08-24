@@ -321,6 +321,7 @@ namespace Template.Toolkit.Dashboard
             Name = name ?? "";
             Result = result ?? "";
             FindingCount = findingCount;
+            Passed = GateReportConclusion.IsPassed(Result);
         }
 
         /// <summary>门禁名称。</summary>
@@ -334,6 +335,15 @@ namespace Template.Toolkit.Dashboard
         /// <summary>问题数。</summary>
         [JsonPropertyName("问题数")]
         public int FindingCount { get; }
+
+        /// <summary>
+        /// 这一道过没过。**判定在服务端做，页面只读这个布尔**：
+        /// 报告里写的是「成功」，而页面从前自己认「绿 / 通过」两个词，
+        /// 于是三十道全成功的报告在页面上显示成「通过道次 0 / 30」、
+        /// 每个方格都是灰的——总状态却是绿。同一件事两处判，迟早各说各话。
+        /// </summary>
+        [JsonPropertyName("通过")]
+        public bool Passed { get; }
     }
 
     /// <summary>门禁报告：状态（绿 / 红 / 未跑）、报告路径与条目列表。</summary>

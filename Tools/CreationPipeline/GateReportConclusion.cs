@@ -37,6 +37,16 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>一道门禁「过了」的结果值。</summary>
         public const string SucceededResult = "成功";
 
+        /// <summary>
+        /// 逐道结果算不算「过」。抽成方法是为了让面板也能问同一个问题——
+        /// 页面自己认一套词的时候，三十道全成功的报告在页面上显示成 0 / 30 通过。
+        /// </summary>
+        /// <param name="result">报告里那一道的「结果」值。</param>
+        public static bool IsPassed(string result)
+        {
+            return string.Equals(result, SucceededResult, StringComparison.Ordinal);
+        }
+
         /// <summary>门禁报告路径：_Generated/gate-report.json。</summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
         public static string ReportFile(string repositoryRoot)
