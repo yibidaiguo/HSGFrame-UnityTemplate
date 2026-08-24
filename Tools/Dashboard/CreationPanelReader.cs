@@ -963,7 +963,8 @@ namespace Template.Toolkit.Dashboard
             IReadOnlyList<string> options,
             string optionSourceNote,
             bool isModelField = false,
-            string autoNote = "")
+            string autoNote = "",
+            bool isLedgerOwned = false)
         {
             Name = name ?? "";
             FieldType = fieldType ?? "";
@@ -975,6 +976,7 @@ namespace Template.Toolkit.Dashboard
             OptionSourceNote = optionSourceNote ?? "";
             IsModelField = isModelField;
             AutoNote = autoNote ?? "";
+            IsLedgerOwned = isLedgerOwned;
         }
 
         /// <summary>字段名。</summary>
@@ -996,6 +998,10 @@ namespace Template.Toolkit.Dashboard
         /// <summary>配没配。</summary>
         [JsonPropertyName("已配")]
         public bool IsConfigured { get; }
+
+        /// <summary>这一格由下游对象台账托管：面板上只显示、不给改（改了也不生效，台账压在本机配置之上）。</summary>
+        [JsonPropertyName("台账托管")]
+        public bool IsLedgerOwned { get; }
 
         /// <summary>一句提示：这个字段该填什么。</summary>
         [JsonPropertyName("提示")]
@@ -3180,7 +3186,8 @@ namespace Template.Toolkit.Dashboard
                         field.Options,
                         field.OptionSourceNote,
                         field.IsModelField,
-                        field.AutoNote))
+                        field.AutoNote,
+                        field.IsLedgerOwned))
                     .ToList();
                 rows.Add(new PanelHostRow(
                     host.Name,
@@ -3437,79 +3444,34 @@ namespace Template.Toolkit.Dashboard
             return Path.Combine(repositoryRoot, "Tools", "CreationPipeline", "Config", "local.json");
         }
 
-        /// <summary>判一个密钥字段在 Tools/CreationPipeline/Config/local.json 里配没配。只判键在不在，一次都不取它的值（决策 5、78）。</summary>
+        /// <summary>
+        /// 判一个密钥字段配没配。
+        ///
+        /// **判据不在这里**：走 <see cref="DriverConfigurationView"/>，与桥接包页、
+        /// bridge.inventory 命令同源。从前这里自己读一遍 local.json，
+        /// 于是同一个问题有两套实现——真出过错：台账里已经建好回填的那几样对象
+        /// （任务表 / 多维表格 / 各种父节点）两边都报「未配」，而照提示手填还不生效。
+        /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="secretFieldName">密钥键名。</param>
         private static string SecretStateOf(string repositoryRoot, string secretFieldName)
         {
-            var localFilePath = LocalConfigFilePath(repositoryRoot);
-            if (!File.Exists(localFilePath))
-            {
-                return "未配";
-            }
-
-            try
-            {
-                using (var document = JsonDocument.Parse(File.ReadAllText(localFilePath)))
-                {
-                    var root = document.RootElement;
-                    if (root.ValueKind != JsonValueKind.Object)
-                    {
-                        return "未配";
-                    }
-
-                    // out _ 就是只判存在：密钥的值永远不落进任何返回、日志或文案。
-                    return root.TryGetProperty(secretFieldName, out _) ? "已配" : "未配";
-                }
-            }
-            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
-            {
-                return "未配";
-            }
+            return DriverConfigurationView.StateOf(
+                DriverConfigurationView.ResolveSecret(repositoryRoot, secretFieldName));
         }
 
         /// <summary>
-        /// 判一个非密钥字段在 Tools/CreationPipeline/Config/local.json 的「下游配置.&lt;driver&gt;.&lt;字段名&gt;」里配没配。
-        /// 判据是「键在不在、且不是空串」：缺失、空串、文件不存在统一算「未配」（决策 78 的精神——
-        /// 非密钥字段也只报配没配，值不显示、不出现在任何返回字段）。「文件不存在」与「没填」两支
-        /// 由 LocalConfigNoteOf 的说明行区分，这里不合并成同一个原因。
+        /// 判一个非密钥字段配没配。判据同样走 <see cref="DriverConfigurationView"/>——
+        /// 那一处会把下游对象台账压在本机配置之上，与 <see cref="BridgeInvoker"/> 取值同序。
+        /// 「文件不存在」与「没填」两支由 LocalConfigNoteOf 的说明行区分，这里不合并成同一个原因。
         /// </summary>
+        /// <param name="repositoryRoot">仓库根目录。</param>
+        /// <param name="driverName">driver 名。</param>
+        /// <param name="fieldName">字段名。</param>
         private static string NonSecretFieldStateOf(string repositoryRoot, string driverName, string fieldName)
         {
-            var localFilePath = LocalConfigFilePath(repositoryRoot);
-            if (!File.Exists(localFilePath))
-            {
-                return "未配";
-            }
-
-            try
-            {
-                using (var document = JsonDocument.Parse(File.ReadAllText(localFilePath)))
-                {
-                    var root = document.RootElement;
-                    if (root.ValueKind != JsonValueKind.Object
-                        || !root.TryGetProperty("下游配置", out var downstream) || downstream.ValueKind != JsonValueKind.Object
-                        || !downstream.TryGetProperty(driverName, out var driver) || driver.ValueKind != JsonValueKind.Object
-                        || !driver.TryGetProperty(fieldName, out var value))
-                    {
-                        return "未配";
-                    }
-
-                    // 值只判「非空串」：数字/布尔转成字符串判，空串与键缺失同判「未配」。
-                    // 判完即弃，值本身绝不放进任何返回、日志或文案。
-                    var text = value.ValueKind switch
-                    {
-                        JsonValueKind.String => value.GetString() ?? "",
-                        JsonValueKind.Number => value.ToString(),
-                        JsonValueKind.True => "true",
-                        JsonValueKind.False => "false",
-                        _ => ""
-                    };
-                    return string.IsNullOrEmpty(text) ? "未配" : "已配";
-                }
-            }
-            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
-            {
-                return "未配";
-            }
+            return DriverConfigurationView.StateOf(
+                DriverConfigurationView.Resolve(repositoryRoot, driverName, fieldName));
         }
 
         /// <summary>读一份设计文档：解析成 JSON 对象成功则取名称/标题、版本与时间；定稿行额外取色板、数字版本与参考图。时间取不到「时间」字段时退化成文件最后写入时间（ISO 8601，UTC），并置 MomentFromFileTime。失败照样产一行不可读（决策 43）。</summary>

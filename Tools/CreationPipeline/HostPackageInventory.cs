@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -92,6 +92,7 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="optionSourceNote">选项从哪来的一句话；没有选项来源时为空串。</param>
         /// <param name="isModelField">这一格是不是这个 driver 的「模型」字段（声明了「选项来源: 探测.模型」）。</param>
         /// <param name="autoNote">「自动」这一档现在会挑谁的一句话；不是模型格时为空串。</param>
+        /// <param name="isLedgerOwned">这一格的值是不是由下游对象台账托管的（托管的不许手填）。</param>
         public HostConfigFieldEntry(
             string name,
             string fieldType,
@@ -102,13 +103,15 @@ namespace Template.Toolkit.CreationPipeline
             IReadOnlyList<string> options = null,
             string optionSourceNote = "",
             bool isModelField = false,
-            string autoNote = "")
+            string autoNote = "",
+            bool isLedgerOwned = false)
         {
             Name = name ?? "";
             FieldType = fieldType ?? "";
             IsSecret = isSecret;
             Value = isSecret ? "" : (value ?? "");
             IsConfigured = isConfigured;
+            IsLedgerOwned = isLedgerOwned;
             Hint = hint ?? "";
             Options = options ?? Array.Empty<string>();
             OptionSourceNote = optionSourceNote ?? "";
@@ -130,6 +133,15 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>配没配：非密钥看值非空，密钥看键在不在。</summary>
         public bool IsConfigured { get; }
+
+        /// <summary>
+        /// 这一格的值是不是由下游对象台账托管的。
+        ///
+        /// 台账托管的格**不许在面板上手填**：BridgeInvoker 把台账压在本机配置之上，
+        /// 写进 local.json 的同名键根本不生效。摆一个填了没用的输入框比不摆更坏——
+        /// 人会以为自己配好了，然后去别处找为什么还是不通。
+        /// </summary>
+        public bool IsLedgerOwned { get; }
 
         /// <summary>一句提示：这个字段该填什么。</summary>
         public string Hint { get; }
@@ -904,7 +916,10 @@ namespace Template.Toolkit.CreationPipeline
             var schemaTypes = ReadSchemaTypes(repositoryRoot, driverName);
             var schemaNotes = ReadSchemaNotes(repositoryRoot, driverName);
             var optionSources = ReadSchemaOptionSources(repositoryRoot, driverName);
-            var hasConfiguration = settings.TryGetDriverConfiguration(driverName, out var configuration);
+            // 配没配、值是什么、是不是台账托管——**一律走 DriverConfigurationView**。
+            // 那是全仓唯一的判据，与 BridgeInvoker 的取值顺序同源；
+            // 这里再自己读一遍 local.json 的话，就又多出一套「各算各的」。
+            var ledger = DownstreamObjectLedger.Load(repositoryRoot);
             var fields = new List<HostConfigFieldEntry>();
 
             foreach (var fieldName in descriptor.ConfigurationFieldNames.OrderBy(name => name, StringComparer.Ordinal))
@@ -913,11 +928,13 @@ namespace Template.Toolkit.CreationPipeline
                 var isSecret = secretNames.Contains(fieldName) || string.Equals(fieldType, "secret", StringComparison.Ordinal);
                 if (isSecret)
                 {
-                    fields.Add(SecretField(fieldName, settings));
+                    fields.Add(SecretFieldUnified(fieldName, settings));
                     continue;
                 }
 
-                var value = hasConfiguration ? ReadConfigurationValue(configuration, fieldName) : "";
+                var cell = DriverConfigurationView.Resolve(settings, ledger, driverName, fieldName);
+                var value = cell.Value;
+                var isLedgerOwned = cell.IsLedgerOwned;
                 var options = ReadFieldOptions(repositoryRoot, driverName, fieldName, optionSources, out var optionSourceNote);
 
                 // 模型格：声明了「选项来源: 探测.模型」的那一格。它比别的可选格多两样东西——
@@ -935,8 +952,9 @@ namespace Template.Toolkit.CreationPipeline
                 }
 
                 fields.Add(new HostConfigFieldEntry(
-                    fieldName, fieldType.Length == 0 ? "string" : fieldType, false, value, value.Length > 0,
-                    HintFor(fieldName, driverName, schemaNotes), options, optionSourceNote, isModelField, autoNote));
+                    fieldName, fieldType.Length == 0 ? "string" : fieldType, false, value, cell.IsConfigured,
+                    HintFor(fieldName, driverName, schemaNotes), options, optionSourceNote, isModelField, autoNote,
+                    isLedgerOwned));
             }
 
             // 「密钥字段」数组点名、但配置 schema 里没有的密钥，照样得给一格——
@@ -948,7 +966,7 @@ namespace Template.Toolkit.CreationPipeline
                     continue;
                 }
 
-                fields.Add(SecretField(secretName, settings));
+                fields.Add(SecretFieldUnified(secretName, settings));
             }
 
             return fields;
@@ -957,12 +975,12 @@ namespace Template.Toolkit.CreationPipeline
         /// <summary>拼一格密钥字段：只判键在不在，值不取、不带出去。</summary>
         /// <param name="secretName">密钥键名。</param>
         /// <param name="settings">本机配置。</param>
-        private static HostConfigFieldEntry SecretField(string secretName, LocalBridgeSettings settings)
+        private static HostConfigFieldEntry SecretFieldUnified(string secretName, LocalBridgeSettings settings)
         {
-            // out 参数拿到的值在这一行之后就不再被引用：判完「有没有」就丢。
-            var isConfigured = settings.TryGetSecret(secretName, out var value) && value.Length > 0;
+            // 判据走统一那一处，与非密钥格同源；密钥的值一次都不往外带。
+            var cell = DriverConfigurationView.ResolveSecret(settings, secretName);
             return new HostConfigFieldEntry(
-                secretName, "secret", true, "", isConfigured,
+                secretName, "secret", true, "", cell.IsConfigured,
                 "密钥：写得进、永不读回。页面只报「已配 / 未配」，输入框每次都是空的。");
         }
 

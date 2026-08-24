@@ -2535,6 +2535,18 @@ function 字段行(宿主, 字段, 序号, 探测命令) {
     var 行 = '<div style="display:flex;gap:5px;align-items:center;margin-bottom:5px;flex-wrap:wrap;">';
     行 += '<span class="小字" style="min-width:82px;">' + 转义(名) + (密 ? ' 🔒' : '') + '</span>';
     行 += 态(字段['已配'] ? '已配' : '未配', 字段['已配'] ? '绿' : '黄');
+
+    // 台账托管的格：只显示，不给改。
+    // BridgeInvoker 把下游对象台账压在 local.json 之上，所以这几格**填了也不生效**——
+    // 摆一个填了没用的输入框比不摆更坏：人会以为自己配好了，然后去别处找为什么还是不通。
+    // 这几样由 bridge.ensure 建完自动回填，本来就不该手打。
+    if (字段['台账托管']) {
+        行 += '<code class="小字" style="flex:1;min-width:160px;overflow-wrap:anywhere;">' +
+            转义(字段['值']) + '</code>';
+        行 += '<span class="弱 小字">台账托管 · 由 bridge.ensure 回填，改 local.json 不生效</span>';
+        return 行 + '</div>';
+    }
+
     if (!可拼实参(宿主) || !可拼实参(名)) {
         行 += '<span class="黄 小字">这个字段名里有引号或反斜杠，面板改不了它，手开 local.json 改。</span>';
         return 行 + '</div>';
