@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -259,7 +259,20 @@ namespace Template.Bridges.Tripocli
             }
 
             var version = Execute(executable, new List<string> { "--version" }, 30);
-            result["版本"] = version.Failure == null ? version.StandardOutput.Trim() : "";
+            var versionText = version.Failure == null ? version.StandardOutput.Trim() : "";
+            result["版本"] = versionText;
+
+            // 把 CLI 自己报成一条「节点」。**能力对账查的就是这一栏**：
+            // dependencies.json 里那条依赖叫 tripo-cli、类别是「节点」，
+            // 对账拿名字去探测结果的「节点」里找，找不到就判 0/1。
+            // blender 那条同理（它的 probe.py 也把自己报成节点「blender」）。
+            //
+            // 名字必须与 dependencies.json 里那条**逐字一致**，否则对账永远对不上——
+            // 而那种红看起来像「CLI 没装」，人会去重装一个本来就在的东西。
+            result["节点"] = new JsonArray
+            {
+                new JsonObject { ["名"] = "tripo-cli", ["版本"] = versionText, ["hash"] = "" }
+            };
 
             var who = Execute(executable, new List<string> { "whoami", "--json", "--quiet" }, 60);
             var whoPayload = who.Failure == null ? ParseJsonObject(who.StandardOutput) : null;
