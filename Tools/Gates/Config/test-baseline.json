@@ -160,6 +160,7 @@
     "Solutions/Dashboard.Tests/CreationPanelSpecificationTests.cs": "1d51d8315986039547e10529eefd4fc65b4a4e32c400a556e8670e434f71b8d1",
     "Solutions/Dashboard.Tests/DashboardServerTests.cs": "ac39881278a477eb938eaac9b293e0d0a65bb9f4506074f54a58ed46559df28f",
     "Solutions/Dashboard.Tests/PanelCommandWhitelistTests.cs": "cdad3dafa7c520871dc0c115b346f0a2c9180e2eea518dea1e3f58ab2d644517",
+    "Solutions/Dashboard.Tests/PanelGateEntryPassedTests.cs": "614c856e761209e1da5fb510a70f8a510c8012da9241b3c5d2c4344a6ee9e4cf",
     "Solutions/Dashboard.Tests/PipelineRunnerTests.cs": "94b96f7e32566cac2194c73b807a7d1e73b3e3d2096d669a93feea4d5cfeef50",
     "Solutions/Dashboard.Tests/SseReconnectTests.cs": "53c3788c92f8f89ca549ca7743880097e32c54a7fce74362fb6a8dcc670ece8c",
     "Solutions/Event.Tests/EventBusTests.cs": "a442014ac44d73de75eb4468965b938f22d03ed08df32c9843bfe01eb0ab082b",
