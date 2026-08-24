@@ -1,4 +1,4 @@
-{
+﻿{
   "名称": "tripocli",
   "port": ["模型生成"],
   "形态": "本地",
@@ -22,7 +22,7 @@
     }
   },
   "密钥字段": [],
-  "试跑": "bridge.model --Driver tripocli --DryRun true",
+  "试跑": "bridge.probe --Driver tripocli",
   "能力探测": "bridge.probe --Driver tripocli",
   "实现": "bridge-tripocli",
   "字段类型映射": {},

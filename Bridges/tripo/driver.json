@@ -9,7 +9,7 @@
     "模型版本": { "类型": "string", "默认": "v3.0-20250812", "选项来源": "探测.模型" }
   },
   "密钥字段": ["模型生成密钥"],
-  "试跑": "bridge.model --Driver tripo --DryRun true",
+  "试跑": "bridge.probe --Driver tripo",
   "能力探测": "bridge.probe --Driver tripo",
   "实现": "bridge-tripo",
   "字段类型映射": {},
