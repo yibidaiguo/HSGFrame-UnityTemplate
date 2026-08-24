@@ -100,3 +100,32 @@ P1-20260311 · P2-20260801 · v2.5-20250123 · v3.0-20250812 · v3.1-20260211
   桥现在按 `model` / `pbr_model` / `base_model` 三个候选键挨个试，取到哪个用哪个。
   **第一次真跑到成功，必须核对实际键名并把这段收敛成实证过的那一个。**
 - **`queued` / `running` / `success` 这几个状态字符串**同理，只有单测覆盖，没有真回包。
+
+## text-to-model 成功回包（2026-08-25 实证）
+
+第一次真跑到成功（余额到账后）。任务 `c552715e-…`，`credits_consumed: 20.0`，约 3 分钟。
+
+`GET /v3/tasks/<task_id>` 成功时：
+
+```json
+{"code":0,"status":"success","data":{
+  "type":"text_to_model","status":"success","progress":100,
+  "output":{
+    "model_url":"https://tripo-data…/tripo_pbr_model_<task_id>.glb?Policy=…&Signature=…",
+    "rendered_image_url":"…legacy_mesh.webp?…",
+    "generated_image_url":"…text2image_<task_id>.jpeg?…"
+  },
+  "task_id":"…","credits_consumed":20.0}}
+```
+
+**下载地址的键是 `model_url`**，不是 `model` / `pbr_model` / `base_model`——
+桥里原来按那三个候选挨个试，三个都不中。后果不是「没跑成」，
+而是**跑成了、积分扣了、模型没落地**：Tripo 那边 success，桥这边报「响应里没有模型下载地址」。
+猜键名的账就是这么烂的——它偏偏在成功那一刻才失败，而那一刻最贵。
+
+链接带 CloudFront 签名与有效期（`DateLessThan` 约一年），所以**要当场下载落盘**，
+别把 URL 当成长期地址存进边车。
+
+提交那一侧：`model` 是**必填**，缺了回 `code 1004` 并把允许值原样列出来
+（P1-20260311 / P2-20260801 / v2.5-20250123 / v3.0-20250812 / v3.1-20260211）——
+探清单那条路走的就是这个回包。

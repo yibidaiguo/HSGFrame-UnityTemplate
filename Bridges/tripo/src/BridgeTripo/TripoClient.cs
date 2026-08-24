@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -925,25 +925,25 @@ namespace Template.Bridges.Tripo
                 output = topOutput;
             }
 
-            // 成功回包的 output 形状**至今没有真回包验证过**（提交那一步一直卡在 2010 积分关），
-            // 所以这里按「几个已知候选键挨个试」写，取到哪个用哪个，并把没取到当作明确失败。
-            // 第一次真跑到成功时，务必核对实际键名并把这段收敛成实证过的那一个（决策 94）。
-            if (output.ValueKind == JsonValueKind.Object)
+            // **已实证**（2026-08-25，text_to_model / v3.1-20260211 真跑成功，见 endpoints-verified.md）：
+            // 成功回包是 data.output.model_url，一个带签名的 .glb 直链。
+            //
+            // 从前这里写的是「model / pbr_model / base_model 挨个试」——三个都不对，
+            // 于是任务在 Tripo 那边真跑成了、积分也真扣了（credits_consumed 20），
+            // 而桥报「任务成功了但响应里没有模型下载地址」。钱花了，模型没落地。
+            // 猜键名的写法就是这么烂账的：它在成功那一刻才失败，而那一刻最贵。
+            if (output.ValueKind == JsonValueKind.Object
+                && output.TryGetProperty("model_url", out var model)
+                && model.ValueKind == JsonValueKind.String)
             {
-                foreach (var candidate in new[] { "model", "pbr_model", "base_model" })
+                modelUrl = model.GetString() ?? "";
+                if (modelUrl.Length > 0)
                 {
-                    if (output.TryGetProperty(candidate, out var model) && model.ValueKind == JsonValueKind.String)
-                    {
-                        modelUrl = model.GetString() ?? "";
-                        if (modelUrl.Length > 0)
-                        {
-                            return true;
-                        }
-                    }
+                    return true;
                 }
             }
 
-            reason = "output 里没有 model / pbr_model / base_model 任何一个下载地址";
+            reason = "output 里没有 model_url——真跑成功的回包一定有它（见 Bridges/tripo/endpoints-verified.md）";
             return false;
         }
 
