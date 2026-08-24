@@ -1315,17 +1315,18 @@ namespace Template.Toolkit.CommandHost.Commands
             }
 
             var request = reply.AssetSubmitRequest ?? new JsonObject();
+            var moduleName = ReadDraftString(request, "模块");
             var plan = AssetSubmission.Plan(
                 repositoryRoot,
                 sourcePath,
                 ReadDraftString(request, "资产类型"),
-                ReadDraftString(request, "模块"),
+                moduleName,
                 ReadDraftString(request, "命名"));
 
             lines.Add($"提交资产推断：类型「{plan.AssetType}」落点「{plan.DestinationPath}」"
                 + $"　问题 {plan.Questions.Count} 条　拦阻 {plan.Blockers.Count} 条");
 
-            var card = AssistantCard.ForAssetSubmit(sourcePath, plan, reply.ReplyText);
+            var card = AssistantCard.ForAssetSubmit(sourcePath, moduleName, plan, reply.ReplyText);
             var sent = SendReply(repositoryRoot, assistantDriver, message, card.ToPlainText(), arguments, lines, card);
             replyDelivered = sent.Delivered;
             replyRetryable = sent.Retryable;
@@ -1362,6 +1363,7 @@ namespace Template.Toolkit.CommandHost.Commands
         {
             var sourcePath = message.ReadActionValue("源文件");
             var assetType = message.ReadActionValue("资产类型");
+            var moduleName = message.ReadActionValue("模块");
             var naming = message.ReadActionValue("命名");
             string replyText;
             var result = "提交失败";
@@ -1388,7 +1390,7 @@ namespace Template.Toolkit.CommandHost.Commands
                     Path.Combine(repositoryRoot, "UnityProject"),
                     sourcePath,
                     assetType,
-                    moduleName: "",
+                    moduleName: moduleName,
                     naming: naming,
                     confirmed: true);
 

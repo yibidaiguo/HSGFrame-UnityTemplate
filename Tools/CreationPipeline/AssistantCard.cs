@@ -510,9 +510,11 @@ namespace Template.Toolkit.CreationPipeline
         /// 不是一个点得下去的动作。此时不给主按钮——给了等于请人点一个必然失败的东西。
         /// </summary>
         /// <param name="sourcePath">附件在本机的路径，按钮要带着它。</param>
+        /// <param name="moduleName">模块名，按钮也要带着它。</param>
         /// <param name="plan">推断结果。</param>
         /// <param name="bodyText">正文。</param>
-        public static AssistantCard ForAssetSubmit(string sourcePath, AssetSubmissionPlan plan, string bodyText)
+        public static AssistantCard ForAssetSubmit(
+            string sourcePath, string moduleName, AssetSubmissionPlan plan, string bodyText)
         {
             var facts = new List<KeyValuePair<string, string>>();
             if (plan != null)
@@ -545,6 +547,12 @@ namespace Template.Toolkit.CreationPipeline
                     {
                         ["源文件"] = sourcePath ?? "",
                         ["资产类型"] = plan.AssetType,
+
+                        // **模块也要带**：落点与命名要按模块级的资产规格覆盖算，
+                        // 而按钮是隔了一会儿才点的，那时推断时的上下文早没了。
+                        // 不带的结果是点下去被问「它属于哪个模块」——
+                        // 而那个问题人在点按钮之前就已经答过一次了。
+                        ["模块"] = moduleName ?? "",
                         ["命名"] = Path.GetFileNameWithoutExtension(plan.FileName)
                     },
                     isPrimary: true));
