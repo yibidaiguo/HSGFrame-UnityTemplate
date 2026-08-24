@@ -219,16 +219,33 @@ namespace Template.Bridges.Tripocli
         }
 
         /// <summary>
-        /// caps 动作：这条路能干什么。
-        /// **不去问 CLI 要能力清单**（它没有这么个子命令）——报的是「本机装没装、登没登、余额多少」，
-        /// 那才是这条路可用性的真判据。能力探测报「装了但余额 0」远比报一串支持的模型名有用。
+        /// caps 动作：这条路能干什么，**并把清单写到载荷给的「输出路径」**。
+        ///
+        /// 写盘不是可选项：<c>bridge.probe</c> 的契约就是「桥往那个路径写一份
+        /// <c>{节点,模型,lora}</c>」，面板下游页读的正是那份文件。只回响应不写盘的话，
+        /// 命令会报「探测输出已写到 …」而那个文件根本不存在——假成功。
+        ///
+        /// **不去问 CLI 要模型清单**（它没有这么个子命令），所以「模型」那一栏放的是
+        /// CLI 自己 <c>--model</c> 认的几个版本名。真正有价值的是后面几格：
+        /// 装没装、登没登、余额多少——能力探测报「装了但余额 0」远比报一串模型名有用。
         /// </summary>
-        /// <param name="request">请求信封。</param>
+        /// <param name="request">请求信封，载荷含「输出路径」。</param>
         public static BridgeResponse RunCaps(BridgeRequest request)
         {
+            var outputPath = ReadPayloadString(request, "输出路径");
+            if (outputPath.Length == 0)
+            {
+                return Failure("请求不合协议", "载荷缺「输出路径」：探测清单要落盘，面板读的是那份文件", retryable: false);
+            }
+
             var executable = ReadConfigurationString(request, "可执行文件", "");
             var result = new JsonObject
             {
+                // 这三栏是 bridge.probe 的契约形状，一格都不许少——少了它数出来是 0，
+                // 而 0 与「这个 driver 没有节点这个概念」长得一样。
+                ["节点"] = new JsonArray(),
+                ["模型"] = new JsonArray(),
+                ["lora"] = new JsonArray(),
                 ["形态"] = "本地",
                 ["可执行文件"] = executable,
                 ["装了"] = executable.Length > 0 && File.Exists(executable)
@@ -238,7 +255,7 @@ namespace Template.Bridges.Tripocli
             {
                 result["可用"] = false;
                 result["为什么"] = "「可执行文件」没配或不存在";
-                return Success(JsonSerializer.SerializeToElement(result));
+                return WriteAndReturn(result, outputPath);
             }
 
             var version = Execute(executable, new List<string> { "--version" }, 30);
@@ -250,7 +267,7 @@ namespace Template.Bridges.Tripocli
             {
                 result["可用"] = false;
                 result["为什么"] = "问不出登录状态（还没跑过 tripo login？）";
-                return Success(JsonSerializer.SerializeToElement(result));
+                return WriteAndReturn(result, outputPath);
             }
 
             var balanceValue = whoPayload.TryGetPropertyValue("balance", out var node) && node != null
@@ -260,6 +277,18 @@ namespace Template.Bridges.Tripocli
             result["区域"] = ReadString(whoPayload, "region");
             result["余额"] = balanceValue;
 
+            // 「模型」那一栏填 CLI 的 --model 认的版本名。写死在这里是实话：
+            // 它们来自 CLI 的 --help，不是下游报的——所以旁边挂一句说明，
+            // 别让人以为这是探回来的。
+            var models = new JsonArray();
+            foreach (var name in new[] { "tripo-v3.1", "tripo-p1" })
+            {
+                models.Add(new JsonObject { ["名"] = name, ["版本"] = name, ["hash"] = "" });
+            }
+
+            result["模型"] = models;
+            result["模型清单来源"] = "CLI 的 --model 帮助文本，不是下游探回来的";
+
             // 余额 0 时**明说不可用**，别让上层拿着「装了、登了」就去派活——
             // 那会在真提交那一刻才炸，而那时人已经等了几分钟。
             var hasCredits = double.TryParse(balanceValue, NumberStyles.Any, CultureInfo.InvariantCulture, out var amount) && amount > 0;
@@ -267,6 +296,29 @@ namespace Template.Bridges.Tripocli
             if (!hasCredits)
             {
                 result["为什么"] = "登录了但余额是 " + (balanceValue.Length == 0 ? "未知" : balanceValue) + "，提交必然被判额度不足";
+            }
+
+            return WriteAndReturn(result, outputPath);
+        }
+
+        /// <summary>把探测清单写到指定路径再返回；写不动就报失败——写不动时报成功就是假成功。</summary>
+        /// <param name="result">探测清单。</param>
+        /// <param name="outputPath">落盘路径。</param>
+        private static BridgeResponse WriteAndReturn(JsonObject result, string outputPath)
+        {
+            try
+            {
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                File.WriteAllText(outputPath, result.ToJsonString(), new UTF8Encoding(false));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return Failure("请求不合协议", $"探测输出写盘失败：{exception.Message}", retryable: false);
             }
 
             return Success(JsonSerializer.SerializeToElement(result));

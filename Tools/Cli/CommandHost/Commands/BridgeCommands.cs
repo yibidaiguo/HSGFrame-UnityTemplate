@@ -998,6 +998,22 @@ namespace Template.Toolkit.CommandHost.Commands
             var modelCount = ReadArrayLength(result.Payload, "模型");
             var loraCount = ReadArrayLength(result.Payload, "lora");
 
+            // 写盘这件事**要看一眼再说**。桥回「成功」只证明它跑完了，不证明它写了文件——
+            // 写盘归桥（契约：载荷给「输出路径」，桥往那儿写一份），而漏写的桥不会自己招。
+            // 从前这里无条件先印一句「探测输出已写到 …」，紧接着盖章那一步再说
+            // 「文件不存在」，最后整条命令还是报成功。真踩过：新加的本地 driver 只回响应没写盘，
+            // 面板下游页一直空着，而命令行三句话里两句说已经写好了。
+            if (!File.Exists(outputPath))
+            {
+                return CommandResult.Failure(
+                    $"{arguments.Driver} 的 caps 回了成功，但没把清单写到 {RelativeTo(repositoryRoot, outputPath)}",
+                    new[]
+                    {
+                        "探测清单归桥写：载荷里给了「输出路径」，桥要往那儿落一份 {节点,模型,lora}。",
+                        $"节点 {nodeCount} 项、模型 {modelCount} 项、lora {loraCount} 项（这是响应里的数，不是文件里的）"
+                    });
+            }
+
             var lines = new List<string>
             {
                 $"探测输出已写到：{RelativeTo(repositoryRoot, outputPath)}",
