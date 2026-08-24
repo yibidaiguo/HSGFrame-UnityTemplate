@@ -119,7 +119,7 @@ namespace Template.Bridges.Tripocli
             arguments.Add("--timeout");
             arguments.Add(Math.Max(30, timeoutSeconds - 30).ToString(CultureInfo.InvariantCulture));
 
-            var run = Execute(executable, arguments, timeoutSeconds);
+            var run = Execute(executable, arguments, timeoutSeconds, outputDirectory);
             if (run.Failure != null)
             {
                 return run.Failure;
@@ -190,7 +190,7 @@ namespace Template.Bridges.Tripocli
                 return Failure("本机配置错误", $"「可执行文件」没配或不存在：{executable}", retryable: false);
             }
 
-            var run = Execute(executable, new List<string> { "balance", "--json", "--quiet" },
+            var run = ExecuteInScratch(executable, new List<string> { "balance", "--json", "--quiet" },
                 ReadConfigurationInt(request, "超时秒", 60));
             if (run.Failure != null)
             {
@@ -258,7 +258,7 @@ namespace Template.Bridges.Tripocli
                 return WriteAndReturn(result, outputPath);
             }
 
-            var version = Execute(executable, new List<string> { "--version" }, 30);
+            var version = ExecuteInScratch(executable, new List<string> { "--version" }, 30);
             var versionText = version.Failure == null ? version.StandardOutput.Trim() : "";
             result["版本"] = versionText;
 
@@ -274,7 +274,7 @@ namespace Template.Bridges.Tripocli
                 new JsonObject { ["名"] = "tripo-cli", ["版本"] = versionText, ["hash"] = "" }
             };
 
-            var who = Execute(executable, new List<string> { "whoami", "--json", "--quiet" }, 60);
+            var who = ExecuteInScratch(executable, new List<string> { "whoami", "--json", "--quiet" }, 60);
             var whoPayload = who.Failure == null ? ParseJsonObject(who.StandardOutput) : null;
             if (whoPayload == null)
             {
@@ -469,11 +469,46 @@ namespace Template.Bridges.Tripocli
         /// 两条流都钉成 UTF-8：CLI 会吐中文（它自己带 i18n），
         /// 不钉就跟着控制台走（本机 GBK），收回来是乱码，而报错会指到「JSON 不合法」上。
         /// </summary>
-        private static CliRun Execute(string executable, List<string> arguments, int timeoutSeconds)
+        /// <summary>
+        /// 起一次只读的 CLI（探测那几支：--version / whoami / balance）。
+        /// 工作目录一律给临时目录——这几支不产出任何东西，也就不该在仓库里留下任何东西。
+        /// </summary>
+        /// <param name="executable">CLI 可执行文件。</param>
+        /// <param name="arguments">命令行参数。</param>
+        /// <param name="timeoutSeconds">超时秒数。</param>
+        private static CliRun ExecuteInScratch(string executable, List<string> arguments, int timeoutSeconds)
         {
+            return Execute(executable, arguments, timeoutSeconds, Path.GetTempPath());
+        }
+
+        /// <summary>
+        /// 起一次 CLI。
+        /// </summary>
+        /// <param name="executable">CLI 可执行文件。</param>
+        /// <param name="arguments">命令行参数。</param>
+        /// <param name="timeoutSeconds">超时秒数。</param>
+        /// <param name="workingDirectory">
+        /// 工作目录。**必须显式给**：不给的话进程继承调用方的当前目录，
+        /// 而调用方是从仓库根跑的——Tripo CLI 会在那儿拉一个 <c>.tripo/</c>
+        /// 放自己的 <c>last_task_id</c>，于是仓库根多出一个没人认识的目录，
+        /// 改动文件白名单那道门禁当场变红，而红的原因跟这次生成毫无关系（真踩过）。
+        /// 生成时给输出目录（状态跟着产物走），探测时给临时目录（什么都不该留下）。
+        /// </param>
+        private static CliRun Execute(
+            string executable, List<string> arguments, int timeoutSeconds, string workingDirectory)
+        {
+            var effectiveWorkingDirectory = workingDirectory;
+            if (string.IsNullOrWhiteSpace(effectiveWorkingDirectory) || !Directory.Exists(effectiveWorkingDirectory))
+            {
+                // 给不出一个存在的目录时退到临时目录——**绝不退回「继承调用方」**，
+                // 那正是要防的那种落法。
+                effectiveWorkingDirectory = Path.GetTempPath();
+            }
+
             var startInfo = new ProcessStartInfo
             {
                 FileName = executable,
+                WorkingDirectory = effectiveWorkingDirectory,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
