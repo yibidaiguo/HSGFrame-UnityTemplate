@@ -36,6 +36,7 @@
     "Solutions/CreationPipeline.Tests/AssetRequestTests.cs": "d3b35248501074145f820d5074f073ab8603b2fdecf9a2a60845b94bd3a06e68",
     "Solutions/CreationPipeline.Tests/AssetSpecCatalogTests.cs": "75e39bd91938ae91be55972dc607436a12ddc696c244760c8c808b84811f765f",
     "Solutions/CreationPipeline.Tests/AssetSpecInspectorTests.cs": "e2d14a72e96c0ed26e809584a4e935e00174c185073a431d79ec979a93fbf2bb",
+    "Solutions/CreationPipeline.Tests/AssetSubmissionTests.cs": "591507e7d0d08b79347201f3788be67730211662ed01c367944c693f5ba71085",
     "Solutions/CreationPipeline.Tests/AssistantConversationTests.cs": "fc0cd823a232a3c949cbb309032a019cbd716ba2dee81dcbef3ac452937eba16",
     "Solutions/CreationPipeline.Tests/AssistantPackageBuilderTests.cs": "58445416bb5c07aab78babc27facebdf72fe9421a87b750e820001b1109c1a75",
     "Solutions/CreationPipeline.Tests/AssistantPackageInspectorTests.cs": "181787c146707a903f7e7f22cf5a69aebf430b960ddd0ef146220d1e95a2973c",
