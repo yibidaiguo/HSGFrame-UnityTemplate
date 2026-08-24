@@ -149,7 +149,11 @@ namespace Template.Toolkit.CreationPipeline
         public static string DraftKey(JsonObject draft)
         {
             var text = draft == null ? "" : draft.ToJsonString(LedgerWriteOptions);
-            return "REQ-草稿-" + AssistantServePrompt.ShortHash(text);
+
+            // 前缀是 ASCII 的：**这个 key 会直接当文件名**（drafts/<key>.json），
+            // 而路径 ASCII 那道门禁不许目录名与文件名带中文。
+            // 从前写的是「REQ-草稿-」，于是每聊出一份草稿就在门禁上多一条红。
+            return "REQ-draft-" + AssistantServePrompt.ShortHash(text);
         }
 
         /// <summary>
@@ -264,7 +268,7 @@ namespace Template.Toolkit.CreationPipeline
 
             // **草稿里的 id 是个占位号，不是它将来的号。**
             // 真号在落池子那一刻才发；但校验器要按 `^REQ-\d{4}$` 判 id、还要比对目录名，
-            // 拿草稿 key（`REQ-草稿-xxxxxx`）去喂它，每条草稿都会白报一条「id 不合法」，
+            // 拿草稿 key（`REQ-draft-xxxxxx`）去喂它，每条草稿都会白报一条「id 不合法」，
             // 于是助手永远判「这条立不住」，而那份草稿明明是好的。
             // 占位号只活到落池子那一步，届时被真号覆盖（见 TryLandRequirement 的调用方）。
             draft["id"] = ValidationPlaceholderIdentifier;
