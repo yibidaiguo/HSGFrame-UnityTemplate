@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
@@ -408,6 +408,21 @@ namespace Template.Bridges.Feishu
         /// <param name="appId">飞书应用标识。</param>
         /// <param name="appSecret">飞书应用密钥，只进 token 请求体，绝不出现在任何文案里。</param>
         /// <param name="timeoutSeconds">单次 HTTP 超时秒数。</param>
+        /// <summary>按扩展名给图片的 MIME；不认识的一律按 png（飞书只收位图，png 是最安全的兜底）。</summary>
+        /// <param name="filePath">图片路径。</param>
+        private static string MediaTypeOf(string filePath)
+        {
+            return (Path.GetExtension(filePath) ?? "").ToLowerInvariant() switch
+            {
+                ".gif" => "image/gif",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                ".webp" => "image/webp",
+                ".bmp" => "image/bmp",
+                _ => "image/png"
+            };
+        }
+
         public static HttpCall UploadImage(string filePath, string appId, string appSecret, int timeoutSeconds)
         {
             if (!File.Exists(filePath))
@@ -447,7 +462,10 @@ namespace Template.Bridges.Feishu
                 using var content = new MultipartFormDataContent();
                 content.Add(new StringContent("message"), "image_type");
                 var imageContent = new ByteArrayContent(imageBytes);
-                imageContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+                // 按扩展名给 Content-Type，**不许一律写死 png**：
+                // 预览动图是 GIF，谎报成 png 传上去，飞书那侧要么拒收、要么只显示第一帧——
+                // 而只显示第一帧最坑：图是出来了，人却看不出它本该会动。
+                imageContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeOf(filePath));
                 content.Add(imageContent, "image", Path.GetFileName(filePath));
                 request.Content = content;
 
