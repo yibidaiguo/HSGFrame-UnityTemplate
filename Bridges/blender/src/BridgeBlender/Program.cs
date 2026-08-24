@@ -46,8 +46,11 @@ namespace Template.Bridges.Blender
                     case "render":
                         response = BlenderRunner.RunRender(request);
                         break;
+                    case "turntable":
+                        response = BlenderRunner.RunTurntable(request);
+                        break;
                     default:
-                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥只支持 caps / process / render", retryable: false);
+                        response = BridgeResponse.Failure(ContractVersion, "未知动作", $"不认识动作「{request.Action}」，本桥只支持 caps / process / render / turntable", retryable: false);
                         break;
                 }
 

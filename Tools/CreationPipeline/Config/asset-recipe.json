@@ -3,7 +3,11 @@
   "契约版本": "1.0.0",
   "配方路由": {
     "comfyui": {
-      "图标": "icon@v5"
+      "图标": "icon@v5",
+      "帧动画": "frame-anim@v1",
+      "人物帧动画": {
+        "图生图": "char-frame-anim@v1"
+      }
     },
     "oaiimage": {
       "图标": {

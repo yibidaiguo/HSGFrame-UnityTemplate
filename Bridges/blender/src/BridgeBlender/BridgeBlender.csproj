@@ -20,5 +20,6 @@
     <None Include="../../scripts/probe.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../scripts/process.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../scripts/render_views.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../scripts/render_turntable.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,146 @@
+{
+  "1": {
+    "类型": "CheckpointLoaderSimple",
+    "参数": {
+      "ckpt_name": "sd_xl_base_1.0.safetensors"
+    }
+  },
+  "2": {
+    "类型": "CLIPTextEncode",
+    "参数": {
+      "text": ""
+    },
+    "连线": {
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "4": {
+    "类型": "SaveImage",
+    "参数": {
+      "filename_prefix": ""
+    },
+    "连线": {
+      "images": [
+        "8",
+        0
+      ]
+    }
+  },
+  "5": {
+    "类型": "LoadImage",
+    "参数": {
+      "image": ""
+    }
+  },
+  "6": {
+    "类型": "CLIPTextEncode",
+    "参数": {
+      "text": "gradient background, vignette, drop shadow, ground shadow, floor, scenery, background details, text, watermark, logo, signature, border, frame, extra limbs, changed outfit, changed hair colour, different character, cropped, low quality, blurry, jpeg artifacts"
+    },
+    "连线": {
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "7": {
+    "类型": "KSampler",
+    "参数": {
+      "seed": 0,
+      "steps": 30,
+      "cfg": 7.0,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.55
+    },
+    "连线": {
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "11",
+        0
+      ]
+    }
+  },
+  "8": {
+    "类型": "VAEDecode",
+    "参数": {},
+    "连线": {
+      "samples": [
+        "7",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    }
+  },
+  "9": {
+    "类型": "CLIPTextEncode",
+    "参数": {
+      "text": "same character as the reference, identical outfit and hair, side view full body, consistent silhouette, feet on the same baseline, flat solid uniform magenta background, no shadows, even flat lighting, 2d game sprite frame",
+      "_说明": "这一段是配方自己的约束，不是人写的描述。「feet on the same baseline」这一句是给锚点用的：帧序列描述里的锚点默认是底边中点，脚不在同一条线上，拼出来的动画会上下抖。"
+    },
+    "连线": {
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "10": {
+    "类型": "ConditioningConcat",
+    "参数": {},
+    "连线": {
+      "conditioning_to": [
+        "2",
+        0
+      ],
+      "conditioning_from": [
+        "9",
+        0
+      ]
+    }
+  },
+  "12": {
+    "类型": "VAEEncode",
+    "参数": {},
+    "连线": {
+      "pixels": [
+        "5",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    }
+  },
+  "11": {
+    "类型": "RepeatLatentBatch",
+    "参数": {
+      "amount": 1
+    },
+    "连线": {
+      "samples": [
+        "12",
+        0
+      ]
+    }
+  }
+}

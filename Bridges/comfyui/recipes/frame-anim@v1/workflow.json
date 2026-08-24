@@ -1,0 +1,121 @@
+{
+  "1": {
+    "类型": "CheckpointLoaderSimple",
+    "参数": {
+      "ckpt_name": "sd_xl_base_1.0.safetensors"
+    }
+  },
+  "2": {
+    "类型": "CLIPTextEncode",
+    "参数": {
+      "text": ""
+    },
+    "连线": {
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "3": {
+    "类型": "EmptyLatentImage",
+    "参数": {
+      "width": 512,
+      "height": 512,
+      "batch_size": 1
+    }
+  },
+  "4": {
+    "类型": "SaveImage",
+    "参数": {
+      "filename_prefix": ""
+    },
+    "连线": {
+      "images": [
+        "8",
+        0
+      ]
+    }
+  },
+  "6": {
+    "类型": "CLIPTextEncode",
+    "参数": {
+      "text": "gradient background, vignette, drop shadow, ground shadow, floor, scenery, background details, text, watermark, logo, signature, border, frame, multiple subjects, cropped, low quality, blurry, jpeg artifacts"
+    },
+    "连线": {
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "8": {
+    "类型": "VAEDecode",
+    "参数": {},
+    "连线": {
+      "samples": [
+        "7",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    }
+  },
+  "7": {
+    "类型": "KSampler",
+    "参数": {
+      "seed": 0,
+      "steps": 30,
+      "cfg": 7.0,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1.0
+    },
+    "连线": {
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "3",
+        0
+      ]
+    }
+  },
+  "9": {
+    "类型": "CLIPTextEncode",
+    "参数": {
+      "text": "single subject centered in frame, full body visible, flat solid uniform magenta background, no shadows, even flat lighting, sprite sheet frame, game asset"
+    },
+    "连线": {
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "10": {
+    "类型": "ConditioningConcat",
+    "参数": {},
+    "连线": {
+      "conditioning_to": [
+        "2",
+        0
+      ],
+      "conditioning_from": [
+        "9",
+        0
+      ]
+    }
+  }
+}

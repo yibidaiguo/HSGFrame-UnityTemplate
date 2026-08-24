@@ -239,6 +239,137 @@ namespace Template.Bridges.Blender
             }
         }
 
+        /// <summary>帧数的合法区间，与 render_turntable.py 里的钳制同源。</summary>
+        private const int MinimumFrameCount = 2;
+
+        /// <summary>帧数上限。一帧一次渲，几百帧要跑很久，而这条链的第一步是给人看方向的。</summary>
+        private const int MaximumFrameCount = 240;
+
+        /// <summary>缺省帧数。</summary>
+        private const int DefaultFrameCount = 12;
+
+        /// <summary>
+        /// 转台帧渲：跑 render_turntable.py，返回
+        /// <c>{"模式":"环绕","边长":512,"输出帧":[{"序号":0,"路径":…},…]}</c>。
+        ///
+        /// 这是 3D 动画那一支的第一步。出的帧是**真透明底**（Blender 的 film_transparent），
+        /// 不像 2D 那两支要先铺纯色再回本地抠——本机 ComfyUI 的 background_removal 里
+        /// 一个模型都没有，而 Blender 本来就能出 alpha。
+        ///
+        /// 文件名是跨环硬约定 <c>&lt;模型文件名（带后缀）&gt;.frame_&lt;四位序号&gt;.png</c>，
+        /// 帧序列描述按这个名字找帧。
+        /// </summary>
+        /// <param name="request">请求信封，载荷含 输入模型 / 输出目录，可选 边长 / 帧数 / 模式。</param>
+        public static BridgeResponse RunTurntable(BridgeRequest request)
+        {
+            if (!TryGetPayloadString(request, "输入模型", out var inputModel, out var reason))
+            {
+                return FailureResponse("载荷缺「输入模型」或它不是字符串：" + reason);
+            }
+
+            if (!TryGetPayloadString(request, "输出目录", out var outputDirectory, out reason))
+            {
+                return FailureResponse("载荷缺「输出目录」或它不是字符串：" + reason);
+            }
+
+            if (!File.Exists(inputModel))
+            {
+                return FailureResponse($"输入模型不存在：{inputModel}");
+            }
+
+            try
+            {
+                Directory.CreateDirectory(outputDirectory);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is ArgumentException || exception is NotSupportedException)
+            {
+                return FailureResponse($"输出目录建不出来：{exception.Message}");
+            }
+
+            var sideLength = Clamp(ReadPayloadInt(request, "边长", DefaultSideLength), MinimumSideLength, MaximumSideLength);
+            var frameCount = Clamp(ReadPayloadInt(request, "帧数", DefaultFrameCount), MinimumFrameCount, MaximumFrameCount);
+
+            // 模式不认识时**在这里就报**，不要让它跑到脚本里才炸：报错要指到「你传的模式不对」，
+            // 而不是一段 Python traceback。脚本侧另有同一道判断，谁被单独调用都拦得住。
+            var mode = ReadOptionalPayloadString(request, "模式", "环绕");
+            if (mode != "环绕" && mode != "自带动画")
+            {
+                return FailureResponse($"不认识的模式「{mode}」，只有：环绕、自带动画");
+            }
+
+            var argumentsObject = new JsonObject
+            {
+                ["输入模型"] = inputModel,
+                ["输出目录"] = outputDirectory,
+                ["边长"] = sideLength,
+                ["帧数"] = frameCount,
+                ["模式"] = mode
+            };
+
+            var argumentsFile = WriteTemporaryArgumentsFile(argumentsObject.ToJsonString());
+            try
+            {
+                var run = RunBlender(request, "render_turntable.py", argumentsFile);
+                if (!run.Succeeded)
+                {
+                    return run.Response;
+                }
+
+                if (!TryParseJson(run.ResultJson, out var document, out var parseReason))
+                {
+                    return FailureResponse($"加工站回传的不是合法 JSON：{parseReason}");
+                }
+
+                using (document)
+                {
+                    var root = document.RootElement;
+                    if (!IsTurntableShape(root))
+                    {
+                        return FailureResponse("加工站回传的结果不是「输出帧」数组，或数组里有项缺 序号 / 路径");
+                    }
+
+                    return BridgeResponse.Success("1.0.0", root.Clone());
+                }
+            }
+            finally
+            {
+                TryDelete(argumentsFile);
+            }
+        }
+
+        /// <summary>把一个整数钳回区间。</summary>
+        private static int Clamp(int value, int minimum, int maximum)
+        {
+            if (value < minimum)
+            {
+                return minimum;
+            }
+
+            return value > maximum ? maximum : value;
+        }
+
+        /// <summary>转台结果的形状检查：顶层「输出帧」是数组，每项有 序号（数字）与 路径（非空字符串）。</summary>
+        private static bool IsTurntableShape(JsonElement root)
+        {
+            if (root.ValueKind != JsonValueKind.Object || !IsArray(root, "输出帧"))
+            {
+                return false;
+            }
+
+            foreach (var item in root.GetProperty("输出帧").EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object
+                    || !item.TryGetProperty("序号", out var index) || index.ValueKind != JsonValueKind.Number
+                    || !item.TryGetProperty("路径", out var path) || path.ValueKind != JsonValueKind.String
+                    || string.IsNullOrEmpty(path.GetString()))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         /// <summary>一次 Blender 子进程执行的结果：成功时带回传的 JSON 文本，失败时带协议响应。</summary>
         private sealed class BlenderRun
         {
@@ -475,6 +606,23 @@ namespace Template.Bridges.Blender
             }
 
             return true;
+        }
+
+        /// <summary>读载荷里的可选字符串键；缺失、空串、类型不对都给缺省值。</summary>
+        /// <param name="request">请求信封。</param>
+        /// <param name="key">键名。</param>
+        /// <param name="fallback">缺省值。</param>
+        private static string ReadOptionalPayloadString(BridgeRequest request, string key, string fallback)
+        {
+            if (request.Payload.ValueKind != JsonValueKind.Object
+                || !request.Payload.TryGetProperty(key, out var value)
+                || value.ValueKind != JsonValueKind.String)
+            {
+                return fallback;
+            }
+
+            var text = value.GetString() ?? "";
+            return text.Length == 0 ? fallback : text;
         }
 
         /// <summary>读载荷里的整数键；缺失、类型不对给缺省值。</summary>
