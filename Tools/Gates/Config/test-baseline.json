@@ -99,7 +99,7 @@
     "Solutions/CreationPipeline.Tests/PreReviewPromptTests.cs": "0f25d05743fd8036bff7c311d46ace97bbb893473becc562d03a3148400931bf",
     "Solutions/CreationPipeline.Tests/PreReviewReportTests.cs": "a3d120290fe897b45bf38bd58e4a4819a5d5cbeb30c2ef604e359495c7f02737",
     "Solutions/CreationPipeline.Tests/ProcessingPlanBuilderTests.cs": "955a7551ed85db4d2a4d3606b49bccc9472ac386b7faf67421d866a9c18b1555",
-    "Solutions/CreationPipeline.Tests/ProgressSyncTests.cs": "f51cffde3c4ba6dbde3d0f95b733ca43fab22afbf784f18060a415ca0b70889a",
+    "Solutions/CreationPipeline.Tests/ProgressSyncTests.cs": "45335f7955ed2e9ed546802b2ba4aa86975d9bc6ba5b15095b49d1b115357f51",
     "Solutions/CreationPipeline.Tests/ProjectCodeReaderTests.cs": "c6210c748cdd4fb7dfe9d49bccad0d76b8ba7637bddcb1e41fdc3c985d66bb4b",
     "Solutions/CreationPipeline.Tests/PromotionLandingPlannerTests.cs": "7129ac97d7ff02e4dd8142e0d05833a480b412f3cfc338871a25c914bb48531a",
     "Solutions/CreationPipeline.Tests/PromotionLedgerTests.cs": "94cdedfb6b80603c8b4093503494f1e083f085d8d5a7f21363cca6fc9066d765",

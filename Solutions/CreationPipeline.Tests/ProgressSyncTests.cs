@@ -161,9 +161,15 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.Empty(plan.Decisions);
         }
 
-        /// <summary>冲突那几格进基线时取工程侧当前值——基线记事实，不记愿望。</summary>
+        /// <summary>
+        /// 冲突那几格进基线时**保持上一次的基线值**。
+        ///
+        /// 这条断言原本写的是「取工程侧当前值」，理由是「基线记事实」——听着对，做出来是错的：
+        /// 下一轮那一格就变成「只有下游改过」，于是按权威侧把下游盖掉，
+        /// 冲突自己化解了。真跑飞书时抓到的（连跑两轮，第二轮出站 1 格把人手改的值冲了）。
+        /// </summary>
         [Fact]
-        public void SettledSnapshotKeepsEngineValueForConflicts()
+        public void SettledSnapshotFreezesBaselineForConflicts()
         {
             var schema = LoadSchema(DefaultSchemaJson);
             var baseline = Snapshot(("REQ-0001", "阶段", "实现中"), ("REQ-0001", "进展", "进行中"));
@@ -173,7 +179,7 @@ namespace Template.Toolkit.CreationPipeline.Tests
             var plan = ProgressSyncPlanner.Plan(engine, downstream, baseline, hasBaseline: true, schema);
             var settled = plan.SettledSnapshot(engine);
 
-            Assert.Equal("已停滞", settled.Find("REQ-0001").Value("进展"));
+            Assert.Equal("进行中", settled.Find("REQ-0001").Value("进展"));
         }
 
         /// <summary>基线文件不存在 = 没有基线，且不算失败。</summary>
@@ -319,6 +325,82 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             Assert.Equal("进度同步", entry.DiscoveryStage);
             Assert.Contains("进度同步", ConflictEntry.AllowedStages);
+        }
+
+        /// <summary>
+        /// 冲突那一格的基线**保持不动**，不取工程侧当前值。
+        /// 真跑出来的：取工程侧值的话，下一轮那格变成「只有下游改过」，
+        /// 于是按权威侧把下游直接盖掉——一条刚落账的冲突自己化解了，人没来得及看见。
+        /// </summary>
+        [Fact]
+        public void ConflictCellKeepsBaselineSoItStaysFrozen()
+        {
+            var schema = LoadSchema(DefaultSchemaJson);
+            var baseline = Snapshot(("REQ-0001", "阶段", "尚未开跑"), ("REQ-0001", "进展", ""));
+            var engine = Snapshot(("REQ-0001", "阶段", "实现/跑着"), ("REQ-0001", "进展", ""));
+            var downstream = Snapshot(("REQ-0001", "阶段", "人手改的"), ("REQ-0001", "进展", ""));
+
+            var plan = ProgressSyncPlanner.Plan(engine, downstream, baseline, hasBaseline: true, schema);
+            var settled = plan.SettledSnapshot(engine);
+
+            Assert.Single(plan.Conflicts());
+            Assert.Equal("尚未开跑", settled.Find("REQ-0001").Value("阶段"));
+        }
+
+        /// <summary>
+        /// 拿上一轮的基线再比一次，**还是冲突**、还是一格都不出站——那一格冻到有人来对齐为止。
+        /// </summary>
+        [Fact]
+        public void FrozenConflictStaysConflictOnTheNextRound()
+        {
+            var schema = LoadSchema(DefaultSchemaJson);
+            var baseline = Snapshot(("REQ-0001", "阶段", "尚未开跑"), ("REQ-0001", "进展", ""));
+            var engine = Snapshot(("REQ-0001", "阶段", "实现/跑着"), ("REQ-0001", "进展", ""));
+            var downstream = Snapshot(("REQ-0001", "阶段", "人手改的"), ("REQ-0001", "进展", ""));
+
+            var first = ProgressSyncPlanner.Plan(engine, downstream, baseline, hasBaseline: true, schema);
+            var second = ProgressSyncPlanner.Plan(
+                engine, downstream, first.SettledSnapshot(engine), hasBaseline: true, schema);
+
+            Assert.Single(second.Conflicts());
+            Assert.Empty(second.Outbound());
+            Assert.Empty(second.Inbound());
+        }
+
+        /// <summary>
+        /// 仓库侧对策划端那几格的值来自回流账，不是空串。
+        /// 不并回流账的话每一轮都会判成「下游单边改过」，同样两格反复回流、永不收敛
+        /// （真跑出来的：第 3 轮回流 2 格对，第 4 轮什么都没动却又回流同样 2 格）。
+        /// </summary>
+        [Fact]
+        public void MergingInboundLedgerMakesPlannerCellsConverge()
+        {
+            var schema = LoadSchema(DefaultSchemaJson);
+            var engine = Snapshot(("REQ-0001", "阶段", "尚未开跑"), ("REQ-0001", "进展", ""));
+            var inbound = Snapshot(("REQ-0001", "进展", "进行中"));
+            var downstream = Snapshot(("REQ-0001", "阶段", "尚未开跑"), ("REQ-0001", "进展", "进行中"));
+            var baseline = Snapshot(("REQ-0001", "阶段", "尚未开跑"), ("REQ-0001", "进展", "进行中"));
+
+            var merged = engine.MergePlannerFields(inbound, schema.PlannerFields().Select(field => field.Name));
+            var plan = ProgressSyncPlanner.Plan(merged, downstream, baseline, hasBaseline: true, schema);
+
+            Assert.Equal("进行中", merged.Find("REQ-0001").Value("进展"));
+            Assert.Empty(plan.Inbound());
+            Assert.Empty(plan.Conflicts());
+        }
+
+        /// <summary>合并只动策划端那几格，工程格一格都不许被回流账盖掉。</summary>
+        [Fact]
+        public void MergingInboundLedgerNeverTouchesEngineCells()
+        {
+            var schema = LoadSchema(DefaultSchemaJson);
+            var engine = Snapshot(("REQ-0001", "阶段", "实现/跑着"));
+            var inbound = Snapshot(("REQ-0001", "阶段", "回流账里的脏值"), ("REQ-0001", "进展", "已完成"));
+
+            var merged = engine.MergePlannerFields(inbound, schema.PlannerFields().Select(field => field.Name));
+
+            Assert.Equal("实现/跑着", merged.Find("REQ-0001").Value("阶段"));
+            Assert.Equal("已完成", merged.Find("REQ-0001").Value("进展"));
         }
 
         /// <summary>缺省的权威侧表 JSON：一格工程、一格策划端，够比对用。</summary>
