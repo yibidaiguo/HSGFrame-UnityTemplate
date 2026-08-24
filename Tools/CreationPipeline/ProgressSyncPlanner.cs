@@ -127,9 +127,16 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>
         /// 按裁定折出「这一轮结束时两侧应该长什么样」的快照，用来更新基线。
-        /// **冲突那几格取工程侧当前值**，不是取下游、也不是取基线：
-        /// 冲突尚未裁决，这一轮谁也没盖谁，工程侧的值就是仓库此刻的事实。
-        /// 基线记事实，不记愿望。
+        ///
+        /// **冲突那几格保持上一次的基线值不动**。这一条是真跑出来的：
+        /// 原来写的是「取工程侧当前值」（理由听着也对——基线记事实）。
+        /// 后果是下一轮那一格变成「只有下游改过」，于是按权威侧**把下游直接盖掉**，
+        /// 一条刚落账的冲突就这么自己化解了，而人根本没来得及看见它。
+        ///
+        /// 基线不动，下一轮两侧就仍然都「相对基线动过」，仍然判冲突（重复的那条不再落账），
+        /// 那一格于是**一直冻着，直到有人真去把两侧对齐**——这才是「不许静默挑一边」的落法。
+        /// 注意裁决本身（conflict.resolve）只销账，不改这一格：人还得照裁决把某一侧改成一致，
+        /// 那之后两侧不再打架，冲突自然消失。
         /// </summary>
         /// <param name="engineSnapshot">工程侧快照，全局那一块原样带过去。</param>
         public ProgressSnapshot SettledSnapshot(ProgressSnapshot engineSnapshot)
@@ -143,7 +150,9 @@ namespace Template.Toolkit.CreationPipeline
                     byIdentifier[decision.Identifier] = fields;
                 }
 
-                fields[decision.FieldName] = decision.SettledValue;
+                fields[decision.FieldName] = decision.Direction == ProgressSyncDirection.Conflict
+                    ? decision.BaselineValue
+                    : decision.SettledValue;
             }
 
             var entries = byIdentifier

@@ -154,6 +154,42 @@ namespace Template.Toolkit.CreationPipeline
             return new ProgressSnapshot(entries, new Dictionary<string, string>(StringComparer.Ordinal));
         }
 
+        /// <summary>
+        /// 把回流账并进这份快照：**仓库侧对策划端那几格的值，源头是回流账，不是空串**。
+        ///
+        /// 不并的后果是这条链最隐蔽的一种病：工程侧对「进展」这类格永远拿不出值，
+        /// 于是每一轮比对都得出「下游单边改过」，同样两格被反复"回流"一次又一次，永不收敛；
+        /// 更糟的是等下游再改一次，`engineMoved` 与 `downstreamMoved` 就会同时为真，
+        /// 判出一条**假冲突**——而人打开冲突页看到的是一件根本没发生过的争抢。
+        ///
+        /// 真跑出来的：第 3 轮回流 2 格（对），第 4 轮什么都没动却又回流同样 2 格（错）。
+        /// </summary>
+        /// <param name="inbound">回流账快照。</param>
+        /// <param name="plannerFieldNames">归策划端的字段名——只并这几格，工程格一格都不许被盖。</param>
+        public ProgressSnapshot MergePlannerFields(ProgressSnapshot inbound, IEnumerable<string> plannerFieldNames)
+        {
+            var plannerFields = new HashSet<string>(plannerFieldNames ?? Array.Empty<string>(), StringComparer.Ordinal);
+            if (plannerFields.Count == 0)
+            {
+                return this;
+            }
+
+            var merged = new List<ProgressEntry>();
+            foreach (var entry in Entries)
+            {
+                var fields = new Dictionary<string, string>(entry.Fields, StringComparer.Ordinal);
+                var inboundEntry = inbound?.Find(entry.Identifier);
+                foreach (var name in plannerFields)
+                {
+                    fields[name] = inboundEntry?.Value(name) ?? "";
+                }
+
+                merged.Add(new ProgressEntry(entry.Identifier, fields));
+            }
+
+            return new ProgressSnapshot(merged, Global);
+        }
+
         /// <summary>摊成 JSON（基线落盘与面板接口共用一个形状）。</summary>
         public JsonObject ToJson()
         {

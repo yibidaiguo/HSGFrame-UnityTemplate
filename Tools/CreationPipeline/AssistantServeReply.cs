@@ -28,6 +28,8 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="cutFeedback">拆图意见；不是改拆图那一支时为空串。</param>
         /// <param name="planModule">要策划案的模块名；不是这一支时为空串。</param>
         /// <param name="readCodeFiles">要读的代码文件；不是这一支时为空表。</param>
+        /// <param name="assetSubmitRequest">提交资产请求；不是这一支时为 null。</param>
+        /// <param name="modelRequest">生成模型请求；不是这一支时为 null。</param>
         public AssistantServeReply(
             bool parsed,
             string replyText,
@@ -40,10 +42,14 @@ namespace Template.Toolkit.CreationPipeline
             JsonObject imageRequest = null,
             string cutFeedback = "",
             string planModule = "",
-            IReadOnlyList<string> readCodeFiles = null)
+            IReadOnlyList<string> readCodeFiles = null,
+            JsonObject assetSubmitRequest = null,
+            JsonObject modelRequest = null)
         {
             WantedThing = wantedThing ?? "";
             ImageRequest = imageRequest;
+            AssetSubmitRequest = assetSubmitRequest;
+            ModelRequest = modelRequest;
             CutFeedback = cutFeedback ?? "";
             PlanModule = (planModule ?? "").Trim();
             ReadCodeFiles = readCodeFiles ?? Array.Empty<string>();
@@ -99,6 +105,47 @@ namespace Template.Toolkit.CreationPipeline
         /// 引擎读完文件会把内容贴回提示词再问一遍模型，最终产出还是那四种之一。
         /// </summary>
         public const string WantReadCode = "读代码";
+
+        /// <summary>
+        /// 「要什么」的第六种：**把人丢过来的那个文件收进项目**。
+        ///
+        /// 与「图」那一支正好相反——图是**现产**一个文件，这一支是把**已经有的**
+        /// 一个文件规范化后落进正式资产目录。两者混起来的后果很具体：
+        /// 人甩来一张画好的图说「收进项目」，助手却拿它当参考图又生了一张新的，
+        /// 钱花了、活没干，而人给的那张还躺在临时目录里。
+        /// </summary>
+        public const string WantAssetSubmit = "提交资产";
+
+        /// <summary>「要什么」的第七种：生成一个 3D 模型。</summary>
+        public const string WantModel = "模型";
+
+        /// <summary>提交资产请求（资产类型 / 模块 / 命名）；不是这一支时为 null。</summary>
+        public JsonObject AssetSubmitRequest { get; }
+
+        /// <summary>生成模型请求（描述 / 命名）；不是这一支时为 null。</summary>
+        public JsonObject ModelRequest { get; }
+
+        /// <summary>
+        /// 这一轮是不是「把这个文件收进项目」。
+        /// **判据只有「要什么」这一样**：与出图不同，提交资产的那几格
+        /// （类型 / 模块 / 命名）本来就允许推不出来——推不出来才要问人，
+        /// 而问人这件事要发生在**已经认出这是一次提交**之后。
+        /// 若也要求请求对象非空，模型每次没推全就会掉回闲聊那一支，人永远等不到那两条问题。
+        /// </summary>
+        public bool WantsAssetSubmit
+        {
+            get { return string.Equals(WantedThing, WantAssetSubmit, StringComparison.Ordinal); }
+        }
+
+        /// <summary>
+        /// 这一轮是不是「生成一个模型」。判据与出图同款：
+        /// 「要什么」加「模型请求」两样都在——只说要模型却没说建什么，
+        /// 那是没说完，该接着聊，不该去下游烧额度。
+        /// </summary>
+        public bool WantsModel
+        {
+            get { return string.Equals(WantedThing, WantModel, StringComparison.Ordinal) && ModelRequest != null; }
+        }
 
         /// <summary>人这次说的拆图意见；不是改拆图那一支时为空串。</summary>
         public string CutFeedback { get; }
@@ -250,6 +297,18 @@ namespace Template.Toolkit.CreationPipeline
                 imageRequest = (JsonObject)imageObject.DeepClone();
             }
 
+            JsonObject assetSubmitRequest = null;
+            if (root.TryGetPropertyValue("提交资产请求", out var submitNode) && submitNode is JsonObject submitObject)
+            {
+                assetSubmitRequest = (JsonObject)submitObject.DeepClone();
+            }
+
+            JsonObject modelRequest = null;
+            if (root.TryGetPropertyValue("模型请求", out var modelNode) && modelNode is JsonObject modelObject)
+            {
+                modelRequest = (JsonObject)modelObject.DeepClone();
+            }
+
             JsonObject draft = null;
             if (root.TryGetPropertyValue("需求草稿", out var draftNode) && draftNode is JsonObject draftObject)
             {
@@ -272,13 +331,15 @@ namespace Template.Toolkit.CreationPipeline
                     imageRequest: imageRequest,
                     cutFeedback: cutFeedback,
                     planModule: planModule,
-                    readCodeFiles: readCodeFiles);
+                    readCodeFiles: readCodeFiles,
+                    assetSubmitRequest: assetSubmitRequest,
+                    modelRequest: modelRequest);
                 return true;
             }
 
             reply = new AssistantServeReply(
                 true, replyText, wants, missing, draft, "", intent, wanted, imageRequest, cutFeedback,
-                planModule, readCodeFiles);
+                planModule, readCodeFiles, assetSubmitRequest, modelRequest);
             return true;
         }
 

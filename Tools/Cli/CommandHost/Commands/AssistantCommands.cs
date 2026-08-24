@@ -553,6 +553,49 @@ namespace Template.Toolkit.CommandHost.Commands
                 lines.Add($"出图请求带参考图：{attachments.ImagePaths[0]}");
             }
 
+            // 「把这个文件收进项目」这一支：文件人已经给了，**不生图**。
+            // 它必须在这里处理而不是在 Decide 里——附件路径只有这一层知道
+            // （Decide 拿到的是一条已经归一过的消息，附件早落盘了）。
+            if (reply.WantsAssetSubmit)
+            {
+                return HandleAssetSubmitIntent(
+                    repositoryRoot, assistantDriver, signalFilePath, message, reply, attachments,
+                    arguments, lines, out replyDelivered, out replyRetryable);
+            }
+
+            // 「生成一个模型」这一支：与出图同形状——先给人看要建什么，点了才真去下游。
+            if (reply.WantsModel)
+            {
+                var modelIdentifier = AssistantServeTurn.ImageRequestKey(reply.ModelRequest);
+                var modelCard = AssistantCard.ForModelRequest(
+                    modelIdentifier, reply.ModelRequest, reply.ReplyText, reply.MissingItems);
+
+                // 留底：按钮是隔了一会儿才点的，那时这条消息早处理完了，
+                // 只有留底还记着「要建什么」。与出图请求同一套路。
+                var modelDraftPath = AssistantServeTurn.SaveDraft(repositoryRoot, modelIdentifier, reply.ModelRequest);
+                lines.Add($"模型请求留底待确认：{(modelDraftPath.Length == 0 ? "写失败" : modelDraftPath)}");
+
+                var modelSent = SendReply(
+                    repositoryRoot, assistantDriver, message, modelCard.ToPlainText(), arguments, lines, modelCard);
+                replyDelivered = modelSent.Delivered;
+                replyRetryable = modelSent.Retryable;
+
+                AssistantConversationHistory.Append(
+                    repositoryRoot, message.ConversationIdentifier, AssistantHistoryTurn.AssistantRole,
+                    reply.ReplyText, DateTimeOffset.Now);
+
+                AppendLedger(repositoryRoot, new JsonObject
+                {
+                    ["时间"] = DateTimeOffset.Now.ToString("o"),
+                    ["信号"] = Path.GetFileName(signalFilePath),
+                    ["结果"] = "模型待确认",
+                    ["模型请求id"] = modelIdentifier,
+                    ["回话送出"] = modelSent.Delivered
+                });
+
+                return lines;
+            }
+
             // 「要一份模块策划案」这一支既不走需求也不走出图：策划案是模块的正本，
             // 内容全是从正本投影出来的，模型只需要说清是哪个模块。
             // **不必先有需求**——逼人先建一条需求才能拿到模块正本，
@@ -734,6 +777,20 @@ namespace Template.Toolkit.CommandHost.Commands
             {
                 return HandleGenerate(
                     repositoryRoot, assistantDriver, signalFilePath, message, arguments, lines, out replyDelivered, out replyRetryable);
+            }
+
+            if (string.Equals(message.ActionName, AssistantCard.SubmitAssetAction, StringComparison.Ordinal))
+            {
+                return HandleAssetSubmit(
+                    repositoryRoot, assistantDriver, signalFilePath, message, arguments, lines,
+                    out replyDelivered, out replyRetryable);
+            }
+
+            if (string.Equals(message.ActionName, AssistantCard.ModelAction, StringComparison.Ordinal))
+            {
+                return HandleModelGenerate(
+                    repositoryRoot, assistantDriver, signalFilePath, message, arguments, lines,
+                    out replyDelivered, out replyRetryable);
             }
 
             if (!string.Equals(message.ActionName, AssistantCard.CreateAction, StringComparison.Ordinal))
@@ -1223,6 +1280,224 @@ namespace Template.Toolkit.CommandHost.Commands
         /// 图不挂需求（落进无主那一档）：人在聊天里说「先出张图看看」时往往连需求都还没有，
         /// 硬要一条需求才让出图，等于把「试一张」挡在门外。事后要认领给某条需求是挪目录的事。
         /// </summary>
+        /// <summary>
+        /// 「提交资产」这一支的第一步：把附件推成一份提交计划，摆张卡等人点。
+        ///
+        /// **这一步一个字节都不往正式目录写**。任务书 §4.2 那条「会写正式环境 → 留确认」
+        /// 落在这里：推断给人看，人点了按钮才真落盘（<see cref="HandleAssetSubmit"/>）。
+        /// </summary>
+        private static IReadOnlyList<string> HandleAssetSubmitIntent(
+            string repositoryRoot,
+            string assistantDriver,
+            string signalFilePath,
+            AssistantConversationMessage message,
+            AssistantServeReply reply,
+            FetchedAttachments attachments,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            out bool replyDelivered,
+            out bool replyRetryable)
+        {
+            // 附件是这一支的前提。**没有附件时不许硬跑**——那会把「他说要提交但忘了带文件」
+            // 变成一句莫名其妙的「类型推不出来」，而真正该说的是「你还没把文件发过来」。
+            var sourcePath = attachments.AllPaths.Count > 0 ? attachments.AllPaths[0] : "";
+            if (sourcePath.Length == 0)
+            {
+                var noFileText = reply.ReplyText
+                    + "\n\n（引擎注：这一轮没收到附件。要把文件收进项目，把它发过来我再看。）";
+                var noFileCard = AssistantCard.ForConversation(noFileText, reply.MissingItems);
+                var noFileSent = SendReply(
+                    repositoryRoot, assistantDriver, message, noFileCard.ToPlainText(), arguments, lines, noFileCard);
+                replyDelivered = noFileSent.Delivered;
+                replyRetryable = noFileSent.Retryable;
+                lines.Add("提交资产：这一轮没有附件，只回话");
+                return lines;
+            }
+
+            var request = reply.AssetSubmitRequest ?? new JsonObject();
+            var plan = AssetSubmission.Plan(
+                repositoryRoot,
+                sourcePath,
+                ReadDraftString(request, "资产类型"),
+                ReadDraftString(request, "模块"),
+                ReadDraftString(request, "命名"));
+
+            lines.Add($"提交资产推断：类型「{plan.AssetType}」落点「{plan.DestinationPath}」"
+                + $"　问题 {plan.Questions.Count} 条　拦阻 {plan.Blockers.Count} 条");
+
+            var card = AssistantCard.ForAssetSubmit(sourcePath, plan, reply.ReplyText);
+            var sent = SendReply(repositoryRoot, assistantDriver, message, card.ToPlainText(), arguments, lines, card);
+            replyDelivered = sent.Delivered;
+            replyRetryable = sent.Retryable;
+
+            AssistantConversationHistory.Append(
+                repositoryRoot, message.ConversationIdentifier, AssistantHistoryTurn.AssistantRole,
+                reply.ReplyText, DateTimeOffset.Now);
+
+            AppendLedger(repositoryRoot, new JsonObject
+            {
+                ["时间"] = DateTimeOffset.Now.ToString("o"),
+                ["信号"] = Path.GetFileName(signalFilePath),
+                ["结果"] = plan.CanProceed ? "提交资产待确认" : "提交资产待补料",
+                ["源文件"] = sourcePath,
+                ["资产类型"] = plan.AssetType,
+                ["回话送出"] = sent.Delivered
+            });
+
+            return lines;
+        }
+
+        /// <summary>
+        /// 「提交资产」按钮：人点了才真往正式资产目录写，写完把落点与门禁结果照实说。
+        /// </summary>
+        private static IReadOnlyList<string> HandleAssetSubmit(
+            string repositoryRoot,
+            string assistantDriver,
+            string signalFilePath,
+            AssistantConversationMessage message,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            out bool replyDelivered,
+            out bool replyRetryable)
+        {
+            var sourcePath = message.ReadActionValue("源文件");
+            var assetType = message.ReadActionValue("资产类型");
+            var naming = message.ReadActionValue("命名");
+            string replyText;
+            var result = "提交失败";
+
+            if (sourcePath.Length == 0 || !File.Exists(sourcePath))
+            {
+                // 附件早就落盘了，按钮隔天点也该找得到；找不到就**如实说**，
+                // 不许拿一个不存在的源文件跑下去——那会写出一个空文件而报成功。
+                replyText = "这个文件我找不到了（" + (sourcePath.Length == 0 ? "按钮没带路径" : sourcePath)
+                    + "）。重新发一次我再收。";
+                lines.Add("提交资产：源文件不在了");
+            }
+            else if (arguments.DryRun || !arguments.WriteDownstream)
+            {
+                var why = arguments.DryRun ? "--dry-run true" : "--write-downstream false";
+                replyText = "本机是只读模式（" + why + "），没有真往资产目录写。开了开关再点一次。";
+                result = "只读模式没提交";
+                lines.Add($"只读模式（{why}），提交资产按钮点了但没落盘");
+            }
+            else
+            {
+                var outcome = AssetSubmitCommands.Run(
+                    repositoryRoot,
+                    Path.Combine(repositoryRoot, "UnityProject"),
+                    sourcePath,
+                    assetType,
+                    moduleName: "",
+                    naming: naming,
+                    confirmed: true);
+
+                replyText = outcome.HumanText;
+                result = outcome.Landed ? "已提交" : "提交失败";
+                foreach (var line in outcome.Lines)
+                {
+                    lines.Add(line);
+                }
+            }
+
+            var sent = SendReply(repositoryRoot, assistantDriver, message, replyText, arguments, lines, null);
+            replyDelivered = sent.Delivered;
+            replyRetryable = sent.Retryable;
+
+            AppendLedger(repositoryRoot, new JsonObject
+            {
+                ["时间"] = DateTimeOffset.Now.ToString("o"),
+                ["信号"] = Path.GetFileName(signalFilePath),
+                ["结果"] = result,
+                ["源文件"] = sourcePath,
+                ["回话送出"] = sent.Delivered
+            });
+
+            return lines;
+        }
+
+        /// <summary>
+        /// 「生成模型」按钮：人点了才真去下游建模型。与出图那一支同一套防重复与只读判据。
+        /// </summary>
+        private static IReadOnlyList<string> HandleModelGenerate(
+            string repositoryRoot,
+            string assistantDriver,
+            string signalFilePath,
+            AssistantConversationMessage message,
+            AssistantServeArguments arguments,
+            List<string> lines,
+            out bool replyDelivered,
+            out bool replyRetryable)
+        {
+            var identifier = message.ReadActionValue("模型请求id");
+            string replyText;
+            var result = "建模型失败";
+
+            if (AssistantServeTurn.IsGenerated(repositoryRoot, identifier))
+            {
+                // 与出图同一条：卡挂在聊天记录里，隔天再点一次是常事，而建模型是真花钱的。
+                replyText = "这份模型请求已经建过了，没有重建。要换个方向就直说，我按新描述再建一版。";
+                result = "已建过";
+                lines.Add($"模型请求 {identifier} 已在台账里，挡掉重复生成");
+            }
+            else if (!AssistantServeTurn.TryLoadDraft(repositoryRoot, identifier, out var request, out var loadReason))
+            {
+                replyText = "这个模型我建不了：" + loadReason;
+            }
+            else if (arguments.DryRun || !arguments.WriteDownstream)
+            {
+                var why = arguments.DryRun ? "--dry-run true" : "--write-downstream false";
+                replyText = "本机是只读模式（" + why + "），没有真去建模型。开了开关再点一次。";
+                result = "只读模式没建";
+                lines.Add($"只读模式（{why}），按钮点了但没建模型");
+            }
+            else
+            {
+                var outputDirectory = Path.Combine(
+                    repositoryRoot, "_Tasks", "conversations", "models", identifier);
+                var call = BridgeInvoker.InvokeByPort(
+                    repositoryRoot,
+                    "模型生成",
+                    "generate",
+                    JsonSerializer.SerializeToElement(new JsonObject
+                    {
+                        ["描述"] = ReadDraftString(request, "描述"),
+                        ["命名"] = ReadDraftString(request, "命名"),
+                        ["输出目录"] = outputDirectory
+                    }),
+                    arguments.TimeoutSeconds);
+
+                if (call.Result.Succeeded)
+                {
+                    replyText = "模型建好了，落在 " + outputDirectory + "。";
+                    result = "已建模型";
+                    lines.Add("模型生成成功：" + outputDirectory);
+                }
+                else
+                {
+                    // 失败照实说，连错误码一起给——「额度不够」与「参数不对」是两件事，
+                    // 合成一句「建不了」的话，人不知道该去充值还是该改描述。
+                    replyText = "模型没建成（" + call.Result.ErrorCode + "）：" + call.Result.HumanText;
+                    lines.Add("模型生成失败：" + call.Result.ErrorCode + "　" + call.Result.HumanText);
+                }
+            }
+
+            var sent = SendReply(repositoryRoot, assistantDriver, message, replyText, arguments, lines, null);
+            replyDelivered = sent.Delivered;
+            replyRetryable = sent.Retryable;
+
+            AppendLedger(repositoryRoot, new JsonObject
+            {
+                ["时间"] = DateTimeOffset.Now.ToString("o"),
+                ["信号"] = Path.GetFileName(signalFilePath),
+                ["结果"] = result,
+                ["模型请求id"] = identifier,
+                ["回话送出"] = sent.Delivered
+            });
+
+            return lines;
+        }
+
         private static IReadOnlyList<string> HandleGenerate(
             string repositoryRoot,
             string assistantDriver,
@@ -2101,7 +2376,28 @@ namespace Template.Toolkit.CommandHost.Commands
         /// <summary>取回来的附件：图片一组，别的文件一组。</summary>
         /// <param name="ImagePaths">图片的本地路径，按消息里的先后。</param>
         /// <param name="FileNotes">别的文件的一句话说明，进提示词用。</param>
-        private sealed record FetchedAttachments(IReadOnlyList<string> ImagePaths, IReadOnlyList<string> FileNotes);
+        /// <param name="FilePaths">
+        /// 别的文件的本地路径。**与 FileNotes 分开存**：那一组是给模型看的人话，
+        /// 里面混着原始文件名与括号，拿去当路径用会找不到文件——而「提交资产」要的正是路径。
+        /// </param>
+        private sealed record FetchedAttachments(
+            IReadOnlyList<string> ImagePaths,
+            IReadOnlyList<string> FileNotes,
+            IReadOnlyList<string> FilePaths)
+        {
+            /// <summary>所有附件的本地路径：**别的文件排在图前面**。
+            /// 「提交资产」取第一个，而人要收进项目的多半是那个模型/音频文件，
+            /// 图更常是随手配的说明图。</summary>
+            public IReadOnlyList<string> AllPaths
+            {
+                get
+                {
+                    var all = new List<string>(FilePaths);
+                    all.AddRange(ImagePaths);
+                    return all;
+                }
+            }
+        }
 
         /// <summary>
         /// 把这条消息里带的图片与文件取回本地。
@@ -2127,9 +2423,10 @@ namespace Template.Toolkit.CommandHost.Commands
         {
             var imagePaths = new List<string>();
             var fileNotes = new List<string>();
+            var filePaths = new List<string>();
             if (message.Attachments.Count == 0)
             {
-                return new FetchedAttachments(imagePaths, fileNotes);
+                return new FetchedAttachments(imagePaths, fileNotes, filePaths);
             }
 
             var directory = Path.Combine(
@@ -2177,6 +2474,7 @@ namespace Template.Toolkit.CommandHost.Commands
                         ? Path.GetFileName(destination)
                         : attachment.FileName;
                     fileNotes.Add(shownName + "（已存到 " + destination + "）");
+                    filePaths.Add(destination);
                 }
             }
 
@@ -2185,7 +2483,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 lines.Add($"附件取回：图 {imagePaths.Count} 张、文件 {fileNotes.Count} 个");
             }
 
-            return new FetchedAttachments(imagePaths, fileNotes);
+            return new FetchedAttachments(imagePaths, fileNotes, filePaths);
         }
 
         /// <summary>

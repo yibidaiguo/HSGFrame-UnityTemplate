@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -71,6 +71,59 @@ namespace Template.Toolkit.CommandHost.Commands
                 return CommandResult.Failure("必须给 --SourcePath（附件取回来的那个本机文件）");
             }
 
+            var outcome = Run(
+                string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot,
+                string.IsNullOrWhiteSpace(arguments.UnityProjectRoot) ? "UnityProject" : arguments.UnityProjectRoot,
+                arguments.SourcePath,
+                arguments.AssetType,
+                arguments.Module,
+                arguments.Naming,
+                arguments.Confirmed);
+
+            return outcome.Succeeded
+                ? CommandResult.Success(outcome.HumanText, outcome.Lines)
+                : CommandResult.Failure(outcome.HumanText, outcome.Lines);
+        }
+
+        /// <summary>一次提交的结果：成没成、给人看的一句话、逐条流水、落没落盘。</summary>
+        /// <param name="Succeeded">这一趟算不算成功（要问人、被拦下都算不成）。</param>
+        /// <param name="HumanText">给人看的一句话。</param>
+        /// <param name="Lines">逐条流水。</param>
+        /// <param name="Landed">真往正式目录写了没有。</param>
+        public sealed record AssetSubmitOutcome(
+            bool Succeeded, string HumanText, IReadOnlyList<string> Lines, bool Landed);
+
+        /// <summary>
+        /// 跑一次提交。**命令与飞书助手共用这一段**——各写一遍的话，
+        /// 「落点已经有一份了」这种拦阻只会在其中一条路上生效，而另一条路会静默覆盖掉人的资产。
+        /// </summary>
+        /// <param name="repositoryRootArgument">仓库根目录。</param>
+        /// <param name="unityProjectRootArgument">Unity 工程目录，落点相对它解析。</param>
+        /// <param name="sourcePathArgument">本机源文件。</param>
+        /// <param name="assetType">资产类型；空串表示没推出来。</param>
+        /// <param name="moduleName">模块名；空串表示没推出来。</param>
+        /// <param name="naming">落地叫什么；空串表示没推出来。</param>
+        /// <param name="confirmed">人确认过了没有。</param>
+        public static AssetSubmitOutcome Run(
+            string repositoryRootArgument,
+            string unityProjectRootArgument,
+            string sourcePathArgument,
+            string assetType,
+            string moduleName,
+            string naming,
+            bool confirmed)
+        {
+            var arguments = new AssetSubmitArguments
+            {
+                RepositoryRoot = repositoryRootArgument,
+                UnityProjectRoot = unityProjectRootArgument,
+                SourcePath = sourcePathArgument,
+                AssetType = assetType,
+                Module = moduleName,
+                Naming = naming,
+                Confirmed = confirmed
+            };
+
             var repositoryRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(arguments.RepositoryRoot) ? "." : arguments.RepositoryRoot);
             var sourcePath = Path.GetFullPath(arguments.SourcePath);
             var lines = new List<string>();
@@ -90,13 +143,13 @@ namespace Template.Toolkit.CommandHost.Commands
             if (plan.Questions.Count > 0)
             {
                 // 有要问的就停在这儿：一轮最多两条，回话里就这两条。
-                return CommandResult.Failure(
-                    $"还差 {plan.Questions.Count} 条推不出来，先问人", lines);
+                return new AssetSubmitOutcome(
+                    false, $"还差 {plan.Questions.Count} 条推不出来，先问人", lines, false);
             }
 
             if (plan.Blockers.Count > 0)
             {
-                return CommandResult.Failure("这次提交过不去", lines);
+                return new AssetSubmitOutcome(false, "这次提交过不去", lines, false);
             }
 
             var unityRoot = Path.GetFullPath(Path.Combine(
@@ -112,15 +165,16 @@ namespace Template.Toolkit.CommandHost.Commands
             if (File.Exists(destinationPath))
             {
                 // 覆盖已有资产是**毁东西**那一档，不许静默做。
-                return CommandResult.Failure(
-                    $"那个落点已经有一份了：{plan.DestinationPath}。换个命名，或者先确认要不要替换它", lines);
+                return new AssetSubmitOutcome(
+                    false, $"那个落点已经有一份了：{plan.DestinationPath}。换个命名，或者先确认要不要替换它", lines, false);
             }
 
             if (!arguments.Confirmed)
             {
                 lines.Add("");
                 lines.Add("这一趟没有写任何文件。确认无误再跑一次并带 --Confirmed true。");
-                return CommandResult.Success($"算好了：{plan.AssetType} → {plan.DestinationPath}（等确认）", lines);
+                return new AssetSubmitOutcome(
+                    true, $"算好了：{plan.AssetType} → {plan.DestinationPath}（等确认）", lines, false);
             }
 
             try
@@ -130,7 +184,7 @@ namespace Template.Toolkit.CommandHost.Commands
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
             {
-                return CommandResult.Failure("落盘失败：" + exception.Message, lines);
+                return new AssetSubmitOutcome(false, "落盘失败：" + exception.Message, lines, false);
             }
 
             lines.Add("已落盘：" + plan.DestinationPath);
@@ -139,7 +193,7 @@ namespace Template.Toolkit.CommandHost.Commands
                 + "在那之前 gate.meta 会把这一份报成缺 meta——那不是提交错了，是还没让 Unity 见过它。");
             lines.Add("接着跑：gate.assetspec、gate.naming、gate.meta；没过的那几道会逐条说怎么改。");
 
-            return CommandResult.Success($"落好了：{plan.DestinationPath}", lines);
+            return new AssetSubmitOutcome(true, $"落好了：{plan.DestinationPath}", lines, true);
         }
     }
 }

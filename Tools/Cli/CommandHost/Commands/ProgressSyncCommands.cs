@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
@@ -122,7 +122,13 @@ namespace Template.Toolkit.CommandHost.Commands
 
             lines.Add($"权威侧表：工程 {schema.EngineFields().Count} 格，策划端 {schema.PlannerFields().Count} 格");
 
-            var engineSnapshot = ProgressSnapshot.CollectFromRepository(repositoryRoot, poolRoot);
+            // 仓库侧那一份要**带上回流账**：策划端那几格在仓库里的值就住在回流账里。
+            // 不带的话工程侧对它们永远是空串，每一轮都会判成「下游单边改过」而反复回流。
+            var engineSnapshot = ProgressSnapshot
+                .CollectFromRepository(repositoryRoot, poolRoot)
+                .MergePlannerFields(
+                    ProgressInboundLedger.Load(repositoryRoot),
+                    schema.PlannerFields().Select(field => field.Name));
             lines.Add($"仓库侧：{engineSnapshot.Entries.Count} 条需求，门禁 {Global(engineSnapshot, "门禁")}，队列 {Global(engineSnapshot, "队列长度")}");
 
             if (!TryReadDownstream(repositoryRoot, schema, timeoutSeconds, out var downstreamSnapshot, out var downstreamFailure))

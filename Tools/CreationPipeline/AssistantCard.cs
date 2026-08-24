@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -91,6 +92,12 @@ namespace Template.Toolkit.CreationPipeline
         /// 等于为了记录现状先编一件事出来——池子里会多出一堆「补录 XXX」的假需求。
         /// </summary>
         public const string PlanAction = "出策划案";
+
+        /// <summary>按钮动作：把附件收进正式资产目录。**这一步真写正式环境**，所以必须由人点。</summary>
+        public const string SubmitAssetAction = "提交资产";
+
+        /// <summary>按钮动作：真去下游生成模型。与出图同理——花钱的动作由人点。</summary>
+        public const string ModelAction = "生成模型";
 
         /// <summary>动作：丢掉这条会话的上下文，从头聊。</summary>
         public const string NewTopicAction = "开新话题";
@@ -492,6 +499,103 @@ namespace Template.Toolkit.CreationPipeline
                 System.Array.Empty<System.Collections.Generic.KeyValuePair<string, string>>(),
                 Array.Empty<string>(),
                 new[] { new AssistantCardButton("知道了，接着拆", ConfirmCutAction, carried, isPrimary: true) },
+                Array.Empty<string>());
+        }
+
+        /// <summary>
+        /// 提交资产那张卡：正文说清**推出来了什么**（类型 / 落点 / 落地叫什么），
+        /// 主按钮是「提交资产」——点了才真往正式资产目录写。
+        ///
+        /// **推不出来的那几条摆进「待确认」而不是按钮上**：那是要人回话的问题，
+        /// 不是一个点得下去的动作。此时不给主按钮——给了等于请人点一个必然失败的东西。
+        /// </summary>
+        /// <param name="sourcePath">附件在本机的路径，按钮要带着它。</param>
+        /// <param name="plan">推断结果。</param>
+        /// <param name="bodyText">正文。</param>
+        public static AssistantCard ForAssetSubmit(string sourcePath, AssetSubmissionPlan plan, string bodyText)
+        {
+            var facts = new List<KeyValuePair<string, string>>();
+            if (plan != null)
+            {
+                if (plan.AssetType.Length > 0)
+                {
+                    facts.Add(new KeyValuePair<string, string>("类型", plan.AssetType));
+                }
+
+                if (plan.DestinationPath.Length > 0)
+                {
+                    facts.Add(new KeyValuePair<string, string>("落点", plan.DestinationPath));
+                }
+            }
+
+            var pending = new List<string>();
+            if (plan != null)
+            {
+                pending.AddRange(plan.Blockers);
+                pending.AddRange(plan.Questions);
+            }
+
+            var buttons = new List<AssistantCardButton>();
+            if (plan != null && plan.CanProceed)
+            {
+                buttons.Add(new AssistantCardButton(
+                    SubmitAssetAction,
+                    SubmitAssetAction,
+                    new JsonObject
+                    {
+                        ["源文件"] = sourcePath ?? "",
+                        ["资产类型"] = plan.AssetType,
+                        ["命名"] = Path.GetFileNameWithoutExtension(plan.FileName)
+                    },
+                    isPrimary: true));
+            }
+
+            buttons.Add(new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false));
+
+            return new AssistantCard(
+                "提交资产",
+                bodyText ?? "",
+                facts,
+                pending,
+                buttons,
+                Array.Empty<string>());
+        }
+
+        /// <summary>
+        /// 生成模型那张卡：与出图那张同形状——先给人看要建什么，点了才真去下游。
+        /// 理由也同一个：**建模型花钱**，不给人看一眼就开跑，钱花在误解上。
+        /// </summary>
+        /// <param name="identifier">模型请求 id（内容哈希）。</param>
+        /// <param name="request">模型请求。</param>
+        /// <param name="bodyText">正文。</param>
+        /// <param name="pending">待确认的那几条。</param>
+        public static AssistantCard ForModelRequest(
+            string identifier, JsonObject request, string bodyText, IReadOnlyList<string> pending)
+        {
+            var facts = new List<KeyValuePair<string, string>>();
+            if (request != null)
+            {
+                foreach (var key in new[] { "命名", "描述" })
+                {
+                    if (request.TryGetPropertyValue(key, out var node) && node is JsonValue value
+                        && value.TryGetValue<string>(out var text) && text.Length > 0)
+                    {
+                        facts.Add(new KeyValuePair<string, string>(key, text));
+                    }
+                }
+            }
+
+            return new AssistantCard(
+                "生成模型",
+                bodyText ?? "",
+                facts,
+                pending ?? Array.Empty<string>(),
+                new[]
+                {
+                    new AssistantCardButton(
+                        ModelAction, ModelAction, new JsonObject { ["模型请求id"] = identifier ?? "" }, isPrimary: true),
+                    new AssistantCardButton("开新话题", NewTopicAction, new JsonObject(), isPrimary: false)
+                },
                 Array.Empty<string>());
         }
 
