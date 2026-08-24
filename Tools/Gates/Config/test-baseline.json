@@ -68,6 +68,7 @@
     "Solutions/CreationPipeline.Tests/ExecutionQueueTests.cs": "21eaeac13e3c730aa207c4fc81c853706c001967f8960a637e9a742fad504036",
     "Solutions/CreationPipeline.Tests/FeishuFieldTypeTests.cs": "ef1bfecff9831e588d0a8e7593c71f8f4542990d30680072b33ddbfc5c969171",
     "Solutions/CreationPipeline.Tests/FeishuRecordMapTests.cs": "24f2a6250052712a72bd8ffb7424d65b108528151ffc6fd9f789252645e0c7a4",
+    "Solutions/CreationPipeline.Tests/GateReportConclusionTests.cs": "9b94ee6ecc13fd6f86cba16429c3563b4593e5310371630ca152d1235f7f2027",
     "Solutions/CreationPipeline.Tests/HostPackageInventoryTests.cs": "4a7185af3d52d1f1414487156e2dc2c5cfa1baf690b73c5b8b509d0a32f65d1e",
     "Solutions/CreationPipeline.Tests/IdentifierAllocatorTests.cs": "e31050198bb46ac867b70053fa66a7106c8ac5adc0fefe45f0dd25474a3f6857",
     "Solutions/CreationPipeline.Tests/ImpactAssessTests.cs": "312b6cb7ab81097fb80cc5b725e5afa04f1654ccfa377ee80f4c7a4a109e6039",
