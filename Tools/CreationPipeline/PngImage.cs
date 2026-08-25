@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
-using System.Text;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Template.Toolkit.CreationPipeline
 {
@@ -36,8 +37,8 @@ namespace Template.Toolkit.CreationPipeline
     /// <summary>解码结果：成功给图，失败给不含猜测的原因。</summary>
     public sealed class PngDecodeResult
     {
-        /// <summary>构造一个解码结果。</summary>
-        /// <param name="succeeded">解码成功没有。</param>
+        /// <summary>构造一次解码结果。</summary>
+        /// <param name="succeeded">成没成。</param>
         /// <param name="image">解码出来的图；失败时为 null。</param>
         /// <param name="failureReason">失败原因；成功时为空串。</param>
         public PngDecodeResult(bool succeeded, PngImage image, string failureReason)
@@ -47,529 +48,223 @@ namespace Template.Toolkit.CreationPipeline
             FailureReason = failureReason ?? "";
         }
 
-        /// <summary>解码成功没有。</summary>
+        /// <summary>成没成。</summary>
         public bool Succeeded { get; }
 
         /// <summary>解码出来的图；失败时为 null。</summary>
         public PngImage Image { get; }
 
-        /// <summary>失败原因，中文；成功时为空串。</summary>
+        /// <summary>失败原因；成功时为空串。</summary>
         public string FailureReason { get; }
     }
 
     /// <summary>
-    /// 最小 PNG 解码器：只吃 8/16 位非隔行的五种颜色类型（灰度/真彩/调色板/灰度+alpha/真彩+alpha），
-    /// 其余形态如实拒绝，绝不硬解出一张错的图（决策 23）。
-    /// 位深 1/2/4 只对调色板支持，按位拆包；位深 16 取每通道高字节降到 8 位。
-    /// 本实现不校验 CRC——拒绝坏图也不比校验更安全，别以为校验过了。
+    /// PNG 解码。
+    ///
+    /// **内部走 SixLabors.ImageSharp，不自己实现**。
+    /// 从前这里是一份手写的解码器（zlib inflate + 五种行滤波 + 隔行扫描），
+    /// 七百多行。它能跑，但那类代码是「写得出来但养不起」的典型：
+    /// 出一个位错的症状是某张图在某台机器上花掉，而查起来要从字节流读起；
+    /// 而且它只认自己实现过的那几种子格式，遇到没实现的一律报「不支持」——
+    /// 那句话对拿着一张正常 PNG 的人毫无意义。
+    ///
+    /// 公开面一个字没改（<see cref="PngImage"/> / <see cref="PngDecodeResult"/> /
+    /// <see cref="DecodeFile"/> / <see cref="Decode"/>），所以调用方一行都不用动。
+    /// **失败仍旧带原因、绝不抛到调用方那边**：这一条比谁来解码更重要——
+    /// 上游那些地方（离风格报告、拆图、资产归一）都指望「读不动就说读不动」。
     /// </summary>
     public static class PngDecoder
     {
-        /// <summary>PNG 文件签名：89 50 4E 47 0D 0A 1A 0A。</summary>
-        private static readonly byte[] Signature = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
-
         /// <summary>
-        /// 从文件解码一张 PNG。文件不存在或读不动时失败，原因照抄异常消息。
+        /// 从文件解一张 PNG。文件不存在、读不动、不是合法 PNG，都带原因返回，不抛。
         /// </summary>
         /// <param name="filePath">PNG 文件路径。</param>
         public static PngDecodeResult DecodeFile(string filePath)
         {
-            byte[] bytes;
-            try
+            if (string.IsNullOrWhiteSpace(filePath))
             {
-                bytes = File.ReadAllBytes(filePath);
-            }
-            catch (Exception exception) when (exception is FileNotFoundException
-                || exception is DirectoryNotFoundException
-                || exception is IOException
-                || exception is UnauthorizedAccessException)
-            {
-                return Fail(exception.Message);
+                return Failure("没给文件路径");
             }
 
-            return Decode(bytes);
+            if (!File.Exists(filePath))
+            {
+                return Failure($"文件不存在：{filePath}");
+            }
+
+            try
+            {
+                return Decode(File.ReadAllBytes(filePath));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return Failure($"读不出来：{filePath}（{exception.Message}）");
+            }
         }
 
         /// <summary>
-        /// 从字节解码一张 PNG。
+        /// 从字节流解一张 PNG，统一转成 RGBA8。
         /// </summary>
-        /// <param name="bytes">PNG 文件字节。</param>
+        /// <param name="bytes">PNG 字节流。</param>
         public static PngDecodeResult Decode(byte[] bytes)
         {
-            if (bytes == null || bytes.Length < Signature.Length || !StartsWithSignature(bytes))
+            if (bytes == null || bytes.Length == 0)
             {
-                return Fail("PNG 签名不对，不是一张 PNG 文件");
+                return Failure("字节流是空的");
             }
 
-            // 收集关键块：IHDR 必须在第一个；IDAT 可能多个，按出现顺序拼起来再 inflate。
-            byte[] ihdr = null;
-            var palette = Array.Empty<byte>();
-            var transparency = Array.Empty<byte>();
-            var idatParts = new List<byte[]>();
-
-            var offset = Signature.Length;
-            while (offset < bytes.Length)
+            // **先做一道廉价的结构检查再交给库**。理由是真踩出来的，而且是两条：
+            //
+            // 一、一个声称长度 0x7FFFFFFF（2 GB）而实际只有 8 字节的 IDAT 块，
+            //     交给库会让它按声称的长度去读——整个进程卡死，不是报错，是卡死。
+            // 二、隔行（Adam7）且有空扫描道的小图，会让 ImageSharp 2.1.13 死循环。
+            //
+            // 这条链解的 PNG 来自下游与人上传的附件，不能假设它们都是好的。
+            // 这道检查不解码、只走块头与 IHDR 那 13 个字节，几微秒。
+            if (!TryValidateChunkLayout(bytes, out var layoutReason))
             {
-                if (offset + 12 > bytes.Length)
-                {
-                    return Fail("PNG 块数据不完整，块头越界");
-                }
-
-                var length = ReadUInt32BE(bytes, offset);
-                if ((ulong)offset + 8UL + (ulong)length + 4UL > (ulong)bytes.Length)
-                {
-                    return Fail($"块「{ReadChunkType(bytes, offset)}」声称长度 {length}，超出剩余字节，文件损坏");
-                }
-
-                var chunkType = ReadChunkType(bytes, offset);
-                var dataStart = offset + 8;
-                var dataLength = (int)length;
-                var dataEnd = dataStart + dataLength;
-
-                if (chunkType == "IHDR")
-                {
-                    if (ihdr != null)
-                    {
-                        return Fail("出现两个 IHDR 块，文件损坏");
-                    }
-
-                    ihdr = new byte[dataLength];
-                    Array.Copy(bytes, dataStart, ihdr, 0, dataLength);
-                }
-                else if (chunkType == "PLTE")
-                {
-                    palette = new byte[dataLength];
-                    Array.Copy(bytes, dataStart, palette, 0, dataLength);
-                }
-                else if (chunkType == "tRNS")
-                {
-                    transparency = new byte[dataLength];
-                    Array.Copy(bytes, dataStart, transparency, 0, dataLength);
-                }
-                else if (chunkType == "IDAT")
-                {
-                    var part = new byte[dataLength];
-                    Array.Copy(bytes, dataStart, part, 0, dataLength);
-                    idatParts.Add(part);
-                }
-                else if (chunkType == "IEND")
-                {
-                    break;
-                }
-
-                offset = dataEnd + 4;
+                return Failure(layoutReason);
             }
 
-            if (ihdr == null)
+            try
             {
-                return Fail("缺 IHDR 块，无法得知尺寸与颜色形态");
+                using var image = Image.Load<Rgba32>(bytes);
+                var pixels = new byte[(long)image.Width * image.Height * 4];
+                image.CopyPixelDataTo(pixels);
+                return new PngDecodeResult(true, new PngImage(image.Width, image.Height, pixels), "");
             }
-
-            return DecodeCore(ihdr, palette, transparency, idatParts);
+            catch (Exception exception) when (exception is UnknownImageFormatException || exception is InvalidImageContentException || exception is NotSupportedException || exception is ArgumentException || exception is OverflowException)
+            {
+                // 解不动就**带原因返回**，不抛：调用方（离风格、拆图、资产归一）
+                // 全都指望「读不动就说读不动」，抛出去会把一次读图失败变成一整条链崩掉。
+                return Failure($"不是能解的 PNG：{exception.Message}");
+            }
         }
+
+        /// <summary>PNG 文件签名。</summary>
+        private static readonly byte[] Signature = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
 
         /// <summary>
-        /// 在 IHDR / PLTE / tRNS / IDAT 已收集齐的前提下做解码：
-        /// 校验 IHDR 字段、拼 IDAT、inflate、逐行反滤波、统一转 RGBA8。
+        /// 隔行 PNG 至少要有这么宽/这么高，才轮得到解码器去解。
+        ///
+        /// **这个 5 不是拍脑袋的**。Adam7 把图拆成七道扫描：
+        /// 第 2 道从 x=4 起步、第 3 道从 y=4 起步，所以宽或高不足 5 时至少有一道是空的。
+        /// 实测 ImageSharp 2.1.13 遇到「有空道」的隔行图会**死循环**——
+        /// 不是抛异常，是整个进程停在那儿（1×1 隔行图、字节完全正确，一样卡死）。
+        /// 宽高都 ≥ 5 时七道全非空，实测全部正常。
+        ///
+        /// 所以这里宁可拒掉一张 4×4 的隔行图，也不能让一条链挂死：
+        /// 拒了会说原因，挂死连日志都没有。真出现小隔行图再谈——
+        /// 隔行本来就是给大图做渐进显示的，小图用它本身就不正常。
         /// </summary>
-        private static PngDecodeResult DecodeCore(
-            byte[] ihdr,
-            byte[] palette,
-            byte[] transparency,
-            List<byte[]> idatParts)
+        private const int MinimumInterlacedSide = 5;
+
+        /// <summary>
+        /// 只走块头，检查每个块声称的长度装不装得下，外加 IHDR 里那几个会把解码器带沟里的字段。
+        /// **不校验 CRC、不解压、不看像素**——那些是库的事，这里只挡两种会让库
+        /// 「卡死而不是报错」的输入：声称长度是假的，和有空扫描道的隔行图。
+        /// </summary>
+        /// <param name="bytes">PNG 字节流。</param>
+        /// <param name="reason">不合法时的原因；合法时为空串。</param>
+        private static bool TryValidateChunkLayout(byte[] bytes, out string reason)
         {
-            if (ihdr.Length != 13)
+            reason = "";
+            if (bytes.Length < Signature.Length)
             {
-                return Fail($"IHDR 块长度应是 13 字节，实际 {ihdr.Length}，文件损坏");
+                reason = "字节数还不够一个 PNG 签名";
+                return false;
             }
 
-            var width = ReadInt32BE(ihdr, 0);
-            var height = ReadInt32BE(ihdr, 4);
-            var bitDepth = ihdr[8];
-            var colorType = ihdr[9];
-            var compressionMethod = ihdr[10];
-            var filterMethod = ihdr[11];
-            var interlace = ihdr[12];
-
-            if (width <= 0 || height <= 0)
+            for (var index = 0; index < Signature.Length; index++)
             {
-                return Fail($"宽高必须是正整数，实际 {width}×{height}，文件损坏");
-            }
-
-            if (interlace != 0)
-            {
-                return Fail("暂不支持 Adam7 隔行 PNG");
-            }
-
-            if (compressionMethod != 0)
-            {
-                return Fail($"压缩法 {compressionMethod} 不是 0，不支持的压缩方式");
-            }
-
-            if (filterMethod != 0)
-            {
-                return Fail($"滤波法 {filterMethod} 不是 0，不支持的滤波方式");
-            }
-
-            var channelCount = ChannelCount(colorType);
-            if (channelCount < 0)
-            {
-                return Fail($"颜色类型 {colorType} 不支持（PNG 只定义 0/2/3/4/6 五种）");
-            }
-
-            if (!IsSupportedBitDepth(colorType, bitDepth))
-            {
-                return Fail($"位深 {bitDepth} 与颜色类型 {colorType} 的组合不支持（调色板只吃 1/2/4/8 位，其余只吃 8/16 位）");
-            }
-
-            if (colorType == 3 && palette.Length == 0)
-            {
-                return Fail("颜色类型 3（调色板）缺 PLTE 块");
-            }
-
-            if (colorType != 3 && transparency.Length > 0)
-            {
-                // 灰度/真彩的 tRNS 是 2 字节透明色样本，灰度+alpha/真彩+alpha 规范上不允许 tRNS。
-                // 本解码器只支持调色板的逐索引 alpha，其余形态如实拒绝，不把透明信息硬解成不透明。
-                return Fail($"颜色类型 {colorType} 的 tRNS 块不支持（只支持调色板的逐索引 alpha）");
-            }
-
-            if (idatParts.Count == 0)
-            {
-                return Fail("缺 IDAT 块，无法解出图像数据");
-            }
-
-            // 调色板校验：3 字节一项；tRNS 在类型 3 下是逐索引的 alpha。
-            var paletteEntryCount = 0;
-            if (colorType == 3)
-            {
-                if (palette.Length == 0 || palette.Length % 3 != 0)
+                if (bytes[index] != Signature[index])
                 {
-                    return Fail($"PLTE 块长度应是 3 的倍数且非空，实际 {palette.Length}，文件损坏");
-                }
-
-                paletteEntryCount = palette.Length / 3;
-                if (transparency.Length > paletteEntryCount)
-                {
-                    return Fail($"tRNS 块长度 {transparency.Length} 超过调色板条目数 {paletteEntryCount}，文件损坏");
-                }
-            }
-
-            // 拼 IDAT 再 inflate（多个 IDAT 块按出现顺序拼，这是最常见的坑）。
-            byte[] inflated;
-            try
-            {
-                using var combined = new MemoryStream();
-                foreach (var part in idatParts)
-                {
-                    combined.Write(part, 0, part.Length);
-                }
-
-                combined.Position = 0;
-                using var zlib = new ZLibStream(combined, CompressionMode.Decompress);
-                using var output = new MemoryStream();
-                zlib.CopyTo(output);
-                inflated = output.ToArray();
-            }
-            catch (Exception exception) when (exception is InvalidDataException || exception is IOException)
-            {
-                return Fail($"图像数据解压失败：{exception.Message}");
-            }
-
-            var bitsPerPixel = channelCount * bitDepth;
-            var rowBytes = (int)(((long)width * bitsPerPixel + 7) / 8);
-            var expectedLength = (long)height * (1L + rowBytes);
-            if (inflated.Length != expectedLength)
-            {
-                return Fail($"解压数据长度 {inflated.Length} 与期望 {expectedLength} 不符，文件损坏");
-            }
-
-            var pixelCount = (long)width * height;
-            if (pixelCount * 4L > int.MaxValue)
-            {
-                return Fail($"图像 {width}×{height} 过大，无法在内存里展开成 RGBA8");
-            }
-
-            // bytesPerPixel 供滤波器用；位深小于 8 时按 1 算（PNG 规范）。
-            var bytesPerPixel = bitDepth < 8 ? 1 : channelCount * (bitDepth / 8);
-
-            var pixels = new byte[(int)(pixelCount * 4L)];
-            var previousRow = new byte[rowBytes];
-            var rowStart = 0;
-            try
-            {
-                for (var y = 0; y < height; y++)
-                {
-                    var filterType = inflated[rowStart];
-                    if (filterType > 4)
-                    {
-                        return Fail($"滤波器 {filterType} 不支持（只定义 0–4 五种）");
-                    }
-
-                    var currentRow = new byte[rowBytes];
-                    UnfilterRow(inflated, rowStart + 1, currentRow, previousRow, rowBytes, filterType, bytesPerPixel);
-
-                    WriteRgbaRow(currentRow, pixels, y, width, bitDepth, colorType, palette, paletteEntryCount, transparency);
-
-                    previousRow = currentRow;
-                    rowStart += 1 + rowBytes;
-                }
-            }
-            catch (InvalidDataException exception)
-            {
-                return Fail(exception.Message);
-            }
-
-            return new PngDecodeResult(true, new PngImage(width, height, pixels), "");
-        }
-
-        /// <summary>按滤波器类型把滤波后的行还原成原始像素行；上下文的越界样本按 0 处理。</summary>
-        private static void UnfilterRow(
-            byte[] filtered,
-            int filteredStart,
-            byte[] currentRow,
-            byte[] previousRow,
-            int rowBytes,
-            byte filterType,
-            int bytesPerPixel)
-        {
-            for (var i = 0; i < rowBytes; i++)
-            {
-                var filteredValue = filtered[filteredStart + i];
-                var left = i >= bytesPerPixel ? currentRow[i - bytesPerPixel] : (byte)0;
-                var up = previousRow[i];
-                byte predictor;
-                switch (filterType)
-                {
-                    case 0:
-                        predictor = 0;
-                        break;
-                    case 1:
-                        predictor = left;
-                        break;
-                    case 2:
-                        predictor = up;
-                        break;
-                    case 3:
-                        predictor = (byte)((left + up) / 2);
-                        break;
-                    case 4:
-                        var upperLeft = i >= bytesPerPixel ? previousRow[i - bytesPerPixel] : (byte)0;
-                        predictor = PaethPredictor(left, up, upperLeft);
-                        break;
-                    default:
-                        predictor = 0;
-                        break;
-                }
-
-                currentRow[i] = (byte)(filteredValue + predictor);
-            }
-        }
-
-        /// <summary>Paeth 预测器：从三个候选里挑梯度最平缓的那个。</summary>
-        private static byte PaethPredictor(byte left, byte up, byte upperLeft)
-        {
-            var p = left + up - upperLeft;
-            var pa = Math.Abs(p - left);
-            var pb = Math.Abs(p - up);
-            var pc = Math.Abs(p - upperLeft);
-            if (pa <= pb && pa <= pc)
-            {
-                return left;
-            }
-
-            if (pb <= pc)
-            {
-                return up;
-            }
-
-            return upperLeft;
-        }
-
-        /// <summary>把一行原始像素转成 RGBA8 写进输出缓冲；16 位取高字节，调色板查 PLTE/tRNS。</summary>
-        private static void WriteRgbaRow(
-            byte[] row,
-            byte[] pixels,
-            int y,
-            int width,
-            int bitDepth,
-            int colorType,
-            byte[] palette,
-            int paletteEntryCount,
-            byte[] transparency)
-        {
-            var outputOffset = y * width * 4;
-            for (var x = 0; x < width; x++)
-            {
-                byte red;
-                byte green;
-                byte blue;
-                byte alpha;
-                if (colorType == 3)
-                {
-                    var index = ReadPaletteIndex(row, x, bitDepth);
-                    if (index >= paletteEntryCount)
-                    {
-                        throw new InvalidDataException($"像素索引 {index} 超出调色板条目数 {paletteEntryCount}，文件损坏");
-                    }
-
-                    red = palette[index * 3];
-                    green = palette[index * 3 + 1];
-                    blue = palette[index * 3 + 2];
-                    alpha = index < transparency.Length ? transparency[index] : (byte)255;
-                }
-                else
-                {
-                    // 非调色板类型位深只有 8/16，每通道占 1 或 2 字节，取每通道开头那一字节。
-                    var pixelStart = x * (bitDepth / 8) * ChannelCount(colorType);
-                    switch (colorType)
-                    {
-                        case 0:
-                            red = green = blue = ReadSample(row, pixelStart);
-                            alpha = 255;
-                            break;
-                        case 2:
-                            red = ReadSample(row, pixelStart);
-                            green = ReadSample(row, pixelStart + bitDepth / 8);
-                            blue = ReadSample(row, pixelStart + 2 * (bitDepth / 8));
-                            alpha = 255;
-                            break;
-                        case 4:
-                            red = green = blue = ReadSample(row, pixelStart);
-                            alpha = ReadSample(row, pixelStart + bitDepth / 8);
-                            break;
-                        default:
-                            red = ReadSample(row, pixelStart);
-                            green = ReadSample(row, pixelStart + bitDepth / 8);
-                            blue = ReadSample(row, pixelStart + 2 * (bitDepth / 8));
-                            alpha = ReadSample(row, pixelStart + 3 * (bitDepth / 8));
-                            break;
-                    }
-                }
-
-                pixels[outputOffset] = red;
-                pixels[outputOffset + 1] = green;
-                pixels[outputOffset + 2] = blue;
-                pixels[outputOffset + 3] = alpha;
-                outputOffset += 4;
-            }
-        }
-
-        /// <summary>读一个样本：位深 16 时每通道占 2 字节且高字节在前，取该通道开头那一字节即高字节。</summary>
-        private static byte ReadSample(byte[] row, int pixelOffset)
-        {
-            return row[pixelOffset];
-        }
-
-        /// <summary>读一个调色板索引：位深 8 一字节；位深 1/2/4 按位拆包，每字节内高位在前。</summary>
-        private static int ReadPaletteIndex(byte[] row, int x, int bitDepth)
-        {
-            if (bitDepth == 8)
-            {
-                return row[x];
-            }
-
-            var samplesPerByte = 8 / bitDepth;
-            var byteIndex = x / samplesPerByte;
-            var bitIndexInByte = x % samplesPerByte;
-            var shift = 8 - bitDepth - bitIndexInByte * bitDepth;
-            var mask = (1 << bitDepth) - 1;
-            return (row[byteIndex] >> shift) & mask;
-        }
-
-        /// <summary>读 4 字节大端无符号整数。</summary>
-        private static uint ReadUInt32BE(byte[] bytes, int offset)
-        {
-            return ((uint)bytes[offset] << 24)
-                | ((uint)bytes[offset + 1] << 16)
-                | ((uint)bytes[offset + 2] << 8)
-                | bytes[offset + 3];
-        }
-
-        /// <summary>读 4 字节大端有符号整数。</summary>
-        private static int ReadInt32BE(byte[] bytes, int offset)
-        {
-            return (bytes[offset] << 24)
-                | (bytes[offset + 1] << 16)
-                | (bytes[offset + 2] << 8)
-                | bytes[offset + 3];
-        }
-
-        /// <summary>读块类型名（4 字节 ASCII）。</summary>
-        private static string ReadChunkType(byte[] bytes, int offset)
-        {
-            return Encoding.ASCII.GetString(bytes, offset + 4, 4);
-        }
-
-        /// <summary>字节流是否以 PNG 签名开头。</summary>
-        private static bool StartsWithSignature(byte[] bytes)
-        {
-            for (var i = 0; i < Signature.Length; i++)
-            {
-                if (bytes[i] != Signature[i])
-                {
+                    reason = "PNG 签名不对";
                     return false;
                 }
+            }
+
+            var offset = Signature.Length;
+            while (offset + 8 <= bytes.Length)
+            {
+                var length = (bytes[offset] << 24) | (bytes[offset + 1] << 16)
+                    | (bytes[offset + 2] << 8) | bytes[offset + 3];
+                if (length < 0)
+                {
+                    reason = "块长度是负数（高位被置了 1），这不是合法 PNG";
+                    return false;
+                }
+
+                // 长度 + 类型 4 字节 + 数据 + CRC 4 字节，必须都还在流里。
+                var needed = (long)offset + 8 + length + 4;
+                if (needed > bytes.Length)
+                {
+                    reason = $"有一个块声称长度 {length}，超过剩余字节（还剩 {bytes.Length - offset - 8}）";
+                    return false;
+                }
+
+                // IHDR 一定是第一个块，13 字节：宽 4 + 高 4 + 位深 1 + 色型 1 + 压缩 1 + 滤波 1 + 隔行 1。
+                var isHeader = bytes[offset + 4] == 'I' && bytes[offset + 5] == 'H'
+                    && bytes[offset + 6] == 'D' && bytes[offset + 7] == 'R';
+                if (isHeader && length == 13)
+                {
+                    var data = offset + 8;
+                    var width = (bytes[data] << 24) | (bytes[data + 1] << 16)
+                        | (bytes[data + 2] << 8) | bytes[data + 3];
+                    var height = (bytes[data + 4] << 24) | (bytes[data + 5] << 16)
+                        | (bytes[data + 6] << 8) | bytes[data + 7];
+                    var interlaced = bytes[data + 12] == 1;
+
+                    if (interlaced && (width < MinimumInterlacedSide || height < MinimumInterlacedSide))
+                    {
+                        reason = $"隔行 PNG 小于 {MinimumInterlacedSide}×{MinimumInterlacedSide}（这张 {width}×{height}）："
+                            + "Adam7 会有空扫描道，当前解码器遇到这种图会死循环，所以在这里拒掉";
+                        return false;
+                    }
+                }
+
+                offset += 8 + length + 4;
             }
 
             return true;
         }
 
-        /// <summary>颜色类型 → 每像素通道数；未知类型返回 -1。</summary>
-        private static int ChannelCount(int colorType)
-        {
-            switch (colorType)
-            {
-                case 0:
-                case 3:
-                    return 1;
-                case 2:
-                    return 3;
-                case 4:
-                    return 2;
-                case 6:
-                    return 4;
-                default:
-                    return -1;
-            }
-        }
-
-        /// <summary>位深与颜色类型的组合是否支持：调色板吃 1/2/4/8，其余只吃 8/16。</summary>
-        private static bool IsSupportedBitDepth(int colorType, int bitDepth)
-        {
-            if (colorType == 3)
-            {
-                return bitDepth == 1 || bitDepth == 2 || bitDepth == 4 || bitDepth == 8;
-            }
-
-            return bitDepth == 8 || bitDepth == 16;
-        }
-
-        /// <summary>构造失败结果。</summary>
-        private static PngDecodeResult Fail(string reason)
+        /// <summary>失败结果。</summary>
+        private static PngDecodeResult Failure(string reason)
         {
             return new PngDecodeResult(false, null, reason);
         }
     }
 
     /// <summary>
-    /// 最小 PNG 编码器：只出位深 8、颜色类型 6（真彩 + alpha）、非隔行这一种形态，
-    /// 块顺序签名 → IHDR → IDAT → IEND，不写 tIME 也不写任何文本块——同输入必出逐字节相同的字节流
-    /// （确定性，与决策 45 同源）。每行前置 filter 0（None），整块压成一个 IDAT。
-    /// 每个块的 CRC32 按 IEEE 反射多项式 0xEDB88320 算对（解码器不校验，但浏览器与飞书会校验）。
+    /// PNG 编码：把 RGBA8 像素写成 PNG。
+    ///
+    /// 内部同样走 ImageSharp（理由见 <see cref="PngDecoder"/>）。
+    /// **压缩级别钉死**：同一份像素每次要编出同样的字节，
+    /// 生成物幂等门禁比的就是文件内容——编码器每次给不同字节的话，
+    /// 那道门禁会在什么都没改时变红，而红的原因跟改动毫无关系。
     /// </summary>
     public static class PngEncoder
     {
-        /// <summary>PNG 文件签名：89 50 4E 47 0D 0A 1A 0A。</summary>
-        private static readonly byte[] Signature = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
-
-        /// <summary>CRC32 的 256 项查找表（IEEE 反射多项式 0xEDB88320）。</summary>
-        private static readonly uint[] CrcTable = BuildCrcTable();
+        /// <summary>
+        /// 编码器设置：固定色彩类型、位深、压缩级别与过滤方式。
+        /// **这四项一项都不能不写**——留给库的默认值意味着升一次库就可能换一套字节，
+        /// 而生成物幂等门禁比的正是文件内容，那时它会在什么都没改时变红。
+        /// </summary>
+        private static readonly SixLabors.ImageSharp.Formats.Png.PngEncoder Encoder =
+            new SixLabors.ImageSharp.Formats.Png.PngEncoder
+            {
+                ColorType = PngColorType.RgbWithAlpha,
+                BitDepth = PngBitDepth.Bit8,
+                CompressionLevel = PngCompressionLevel.DefaultCompression,
+                FilterMethod = PngFilterMethod.Adaptive
+            };
 
         /// <summary>
-        /// 把一张 RGBA8 图编成 PNG 字节流。
+        /// 把一张图编成 PNG 字节流。
         /// </summary>
-        /// <param name="image">要编码的图。</param>
+        /// <param name="image">要编码的图；像素长度必须是 宽×高×4。</param>
+        /// <exception cref="ArgumentNullException">image 为 null 时抛。</exception>
+        /// <exception cref="ArgumentException">宽高非正、或像素长度对不上时抛。</exception>
         public static byte[] Encode(PngImage image)
         {
             if (image == null)
@@ -587,62 +282,42 @@ namespace Template.Toolkit.CreationPipeline
                 throw new ArgumentException("像素长度必须是宽×高×4");
             }
 
-            // 每行一个 filter 字节 0（None）+ 宽×4 字节 RGBA，按行从上到下。
-            var rowBytes = image.Width * 4;
-            var scanlines = new byte[(rowBytes + 1) * image.Height];
-            for (var y = 0; y < image.Height; y++)
+            var buffer = image.Pixels as byte[];
+            if (buffer == null)
             {
-                var rowStart = y * (rowBytes + 1);
-                scanlines[rowStart] = 0;
-                var pixelStart = y * rowBytes;
-                for (var x = 0; x < rowBytes; x++)
+                buffer = new byte[image.Pixels.Count];
+                for (var index = 0; index < buffer.Length; index++)
                 {
-                    scanlines[rowStart + 1 + x] = image.Pixels[pixelStart + x];
+                    buffer[index] = image.Pixels[index];
                 }
             }
 
-            byte[] compressed;
-            using (var output = new MemoryStream())
-            {
-                using (var zlib = new ZLibStream(output, CompressionLevel.Optimal, leaveOpen: true))
-                {
-                    zlib.Write(scanlines, 0, scanlines.Length);
-                }
-
-                compressed = output.ToArray();
-            }
-
-            var ihdr = new byte[13];
-            WriteInt32BE(ihdr, 0, image.Width);
-            WriteInt32BE(ihdr, 4, image.Height);
-            ihdr[8] = 8;   // 位深
-            ihdr[9] = 6;   // 颜色类型：真彩 + alpha
-            ihdr[10] = 0;  // 压缩法
-            ihdr[11] = 0;  // 滤波法
-            ihdr[12] = 0;  // 非隔行
-
-            var result = new List<byte>(Signature.Length + ihdr.Length + compressed.Length + 32);
-            result.AddRange(Signature);
-            AppendChunk(result, "IHDR", ihdr);
-            AppendChunk(result, "IDAT", compressed);
-            AppendChunk(result, "IEND", Array.Empty<byte>());
-            return result.ToArray();
+            using var loaded = Image.LoadPixelData<Rgba32>(buffer, image.Width, image.Height);
+            using var stream = new MemoryStream();
+            loaded.Save(stream, Encoder);
+            return stream.ToArray();
         }
 
         /// <summary>
-        /// 把一张 RGBA8 图编码后写盘；编码失败或 IO 失败都转成 false + reason（原因照抄异常消息，不加猜测）。
+        /// 把一张图编码并写到文件；目录不存在时建出来。写不下去时带原因返回 false，不抛。
         /// </summary>
         /// <param name="image">要编码的图。</param>
-        /// <param name="filePath">目标文件路径。</param>
+        /// <param name="filePath">落点。</param>
         /// <param name="reason">失败原因；成功时为空串。</param>
         public static bool EncodeToFile(PngImage image, string filePath, out string reason)
         {
             reason = "";
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                reason = "没给落点";
+                return false;
+            }
+
             try
             {
                 var bytes = Encode(image);
                 var directory = Path.GetDirectoryName(filePath);
-                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                if (!string.IsNullOrEmpty(directory))
                 {
                     Directory.CreateDirectory(directory);
                 }
@@ -650,78 +325,11 @@ namespace Template.Toolkit.CreationPipeline
                 File.WriteAllBytes(filePath, bytes);
                 return true;
             }
-            catch (Exception exception) when (exception is ArgumentException
-                || exception is IOException
-                || exception is UnauthorizedAccessException
-                || exception is NotSupportedException)
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is ArgumentException || exception is NotSupportedException)
             {
                 reason = exception.Message;
                 return false;
             }
-        }
-
-        /// <summary>往块列表追加一个块：长度（大端）+ 类型 + 数据 + 4 字节 CRC32（对类型 + 数据算）。</summary>
-        private static void AppendChunk(List<byte> target, string type, byte[] data)
-        {
-            var length = data.Length;
-            target.Add((byte)(length >> 24));
-            target.Add((byte)(length >> 16));
-            target.Add((byte)(length >> 8));
-            target.Add((byte)length);
-
-            var typeBytes = Encoding.ASCII.GetBytes(type);
-            target.AddRange(typeBytes);
-            target.AddRange(data);
-
-            var crc = ComputeCrc32(typeBytes, data);
-            target.Add((byte)(crc >> 24));
-            target.Add((byte)(crc >> 16));
-            target.Add((byte)(crc >> 8));
-            target.Add((byte)crc);
-        }
-
-        /// <summary>建 CRC32 查找表。</summary>
-        private static uint[] BuildCrcTable()
-        {
-            var table = new uint[256];
-            for (uint i = 0; i < 256; i++)
-            {
-                var c = i;
-                for (var k = 0; k < 8; k++)
-                {
-                    c = (c & 1) != 0 ? 0xEDB88320u ^ (c >> 1) : c >> 1;
-                }
-
-                table[i] = c;
-            }
-
-            return table;
-        }
-
-        /// <summary>对「类型 + 数据」算 CRC32（查表法）。</summary>
-        private static uint ComputeCrc32(byte[] type, byte[] data)
-        {
-            var crc = 0xFFFFFFFFu;
-            for (var i = 0; i < type.Length; i++)
-            {
-                crc = CrcTable[(crc ^ type[i]) & 0xFF] ^ (crc >> 8);
-            }
-
-            for (var i = 0; i < data.Length; i++)
-            {
-                crc = CrcTable[(crc ^ data[i]) & 0xFF] ^ (crc >> 8);
-            }
-
-            return crc ^ 0xFFFFFFFFu;
-        }
-
-        /// <summary>写 4 字节大端有符号整数。</summary>
-        private static void WriteInt32BE(byte[] target, int offset, int value)
-        {
-            target[offset] = (byte)(value >> 24);
-            target[offset + 1] = (byte)(value >> 16);
-            target[offset + 2] = (byte)(value >> 8);
-            target[offset + 3] = (byte)value;
         }
     }
 }
