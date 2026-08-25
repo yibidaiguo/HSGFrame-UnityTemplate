@@ -2,8 +2,43 @@
   "_说明": "模板自带的打包分组规则：资源包按目录分组（YooAsset 的 PackDirectory 规则，一个目录一个包）。「加载分组」只写在动态收集根（Game/ResourceArt/、Game/Scenes/World/）下的分组上，取值三选一：常驻 / 按需 / 随场景；Game/Art/ 下的分组是被引用的源生资产、不是收集入口，所以不写这个字段。「未分组资产是否报错」在这里写 false，是因为工程里大量资产（测试数据、配置镜像、场景）本来就不进资源包，全报出来只会淹掉真问题；这一项存在是留给具体项目收紧时打开的。",
   "打包分组": [
     {
-      "分组名": "美术-共享",
-      "路径前缀": "Game/Art/Shared/",
+      "分组名": "美术-Model-共享",
+      "路径前缀": "Game/Art/Model/Shared/",
+      "是共享组": true
+    },
+    {
+      "分组名": "美术-Material-共享",
+      "路径前缀": "Game/Art/Material/Shared/",
+      "是共享组": true
+    },
+    {
+      "分组名": "美术-Texture-共享",
+      "路径前缀": "Game/Art/Texture/Shared/",
+      "是共享组": true
+    },
+    {
+      "分组名": "美术-Animation-共享",
+      "路径前缀": "Game/Art/Animation/Shared/",
+      "是共享组": true
+    },
+    {
+      "分组名": "美术-Audio-共享",
+      "路径前缀": "Game/Art/Audio/Shared/",
+      "是共享组": true
+    },
+    {
+      "分组名": "美术-Shader-共享",
+      "路径前缀": "Game/Art/Shader/Shared/",
+      "是共享组": true
+    },
+    {
+      "分组名": "美术-Font-共享",
+      "路径前缀": "Game/Art/Font/Shared/",
+      "是共享组": true
+    },
+    {
+      "分组名": "美术-Vfx-共享",
+      "路径前缀": "Game/Art/Vfx/Shared/",
       "是共享组": true
     },
     {
@@ -34,5 +69,6 @@
       "加载分组": "随场景"
     }
   ],
-  "未分组资产是否报错": false
+  "未分组资产是否报错": false,
+  "_共享组说明": "跨模块通用的美术资产归各自类型底下的 Shared/ 门类，一个类型一个共享组。**不再有 Game/Art/Shared/ 那种「共享在前、类型在后」的摆法**——那样同一个东西的模型与材质会走两条完全不同的路径，而分层规则的立身之本正是「把路径里的类型换掉就能找到另一种资产」。前缀匹配是最长优先，所以 Game/Art/Model/Shared/ 会盖过 Game/Art/Model/，共享检查不会被外层业务组吃掉。"
 }
