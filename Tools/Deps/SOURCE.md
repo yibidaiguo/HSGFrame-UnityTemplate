@@ -75,6 +75,27 @@ Roslyn 两个（8.5 MB）、`Microsoft.CodeCoverage` 的包（9 MB）。
 将来嫌大，能砍的地方按性价比排：先看 ClosedXML 那条链还用不用得上（12 MB），
 再考虑把 `native/` 挪到 git-lfs。
 
+## 网页资源那一档（`web/`）
+
+给**浏览器**用的 js/css，不走 NuGet，所以另立一份清单与一个脚本：
+
+```bash
+pwsh -NoProfile -File Tools/Deps/fetch-web.ps1
+```
+
+清单是 [`packages-web.txt`](packages-web.txt)（文件名 / 版本 / 下载地址）。
+每个文件旁边落一份 `.version`，记的是取的哪一版、从哪儿取的——
+文件名里不带版本号（页面按固定名字引它），不记的话「现在装的是哪一版」只能翻 git 历史。
+
+| 文件 | 版本 | 许可 | 谁用它 |
+|---|---|---|---|
+| `model-viewer.min.js` | @google/model-viewer 3.5.0 | Apache-2.0 | `model.viewer` 出的可交互模型预览页 |
+
+**为什么内置而不是写个 CDN 地址**：这些页面是我们自己的 HTTP 服务发出去的。
+一个由本机服务托管、却要连外网才显示的页面，坏起来的样子是「点开一片空白」，
+而那时人第一反应是「预览功能坏了」，不会想到是 CDN 连不上。
+何况这台机器上国内域名与国外域名的通断本来就不一致（BUG-0003）。
+
 ## 手工快照（`Unity.Mathematics.dll` 与 NodeGraph 三个）
 
 这四个不在 `fetch.ps1` 管的范围里——上游还没发 NuGet 包，只能手工取。

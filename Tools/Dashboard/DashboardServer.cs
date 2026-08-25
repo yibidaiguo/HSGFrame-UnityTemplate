@@ -279,6 +279,14 @@ namespace Template.Toolkit.Dashboard
                         HandleCommand(request, response);
                         break;
                     default:
+                        // /preview/… 是模型预览页那一族（model.viewer 产的 HTML 与它旁边的东西）。
+                        // 放在 default 里而不是 case 里，是因为它后面跟的是任意深度的相对路径。
+                        if (request.Url.AbsolutePath.StartsWith(PreviewRoutePrefix, StringComparison.Ordinal))
+                        {
+                            WritePreviewFile(request, response);
+                            break;
+                        }
+
                         WriteNotFound(response);
                         break;
                 }
@@ -287,6 +295,95 @@ namespace Template.Toolkit.Dashboard
             {
                 Console.Error.WriteLine($"[看板] 处理请求异常：{exception.Message}");
                 TryClose(context.Response);
+            }
+        }
+
+        /// <summary>模型预览页那一族的路由前缀。</summary>
+        private const string PreviewRoutePrefix = "/preview/";
+
+        /// <summary>模型预览页在仓库里的落脚处，相对仓库根。</summary>
+        private const string PreviewRootRelativePath = "_Tasks/preview";
+
+        /// <summary>
+        /// 发一个模型预览文件（HTML / glb / js）。
+        ///
+        /// **只发 <c>_Tasks/preview/</c> 底下的东西**，而且要先把解出来的绝对路径
+        /// 与那个根比一遍——不比的话 <c>/preview/../../Tools/CreationPipeline/Config/local.json</c>
+        /// 就能把密钥读走。HttpListener 会替我们规整掉一部分 <c>..</c>，但那是它的实现细节，
+        /// 不是可以依赖的保证：**这一道自己做**。
+        /// </summary>
+        private void WritePreviewFile(HttpListenerRequest request, HttpListenerResponse response)
+        {
+            if (string.IsNullOrEmpty(_repositoryRoot))
+            {
+                WriteNotFound(response);
+                return;
+            }
+
+            var relative = Uri.UnescapeDataString(request.Url.AbsolutePath.Substring(PreviewRoutePrefix.Length));
+            if (relative.Length == 0)
+            {
+                WriteNotFound(response);
+                return;
+            }
+
+            var previewRoot = Path.GetFullPath(Path.Combine(_repositoryRoot, PreviewRootRelativePath));
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(Path.Combine(previewRoot, relative.Replace('/', Path.DirectorySeparatorChar)));
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is NotSupportedException || exception is PathTooLongException)
+            {
+                WriteNotFound(response);
+                return;
+            }
+
+            var rootWithSeparator = previewRoot.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+                ? previewRoot
+                : previewRoot + Path.DirectorySeparatorChar;
+            if (!fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase) || !File.Exists(fullPath))
+            {
+                WriteNotFound(response);
+                return;
+            }
+
+            try
+            {
+                var bytes = File.ReadAllBytes(fullPath);
+                response.StatusCode = (int)HttpStatusCode.OK;
+                response.ContentType = PreviewContentType(Path.GetExtension(fullPath));
+                response.ContentLength64 = bytes.Length;
+                response.OutputStream.Write(bytes, 0, bytes.Length);
+                response.OutputStream.Close();
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine($"[看板] 预览文件读不出来：{exception.Message}");
+                TryClose(response);
+            }
+        }
+
+        /// <summary>
+        /// 预览文件的内容类型。
+        /// <c>.glb</c> 那一条必须给对：给成 application/octet-stream 时浏览器会去下载而不是交给页面，
+        /// 症状是「点开链接弹出一个下载框」。
+        /// </summary>
+        private static string PreviewContentType(string extension)
+        {
+            switch ((extension ?? "").ToLowerInvariant())
+            {
+                case ".html": return "text/html; charset=utf-8";
+                case ".js": return "text/javascript; charset=utf-8";
+                case ".css": return "text/css; charset=utf-8";
+                case ".json": return "application/json; charset=utf-8";
+                case ".glb": return "model/gltf-binary";
+                case ".gltf": return "model/gltf+json";
+                case ".png": return "image/png";
+                case ".jpg":
+                case ".jpeg": return "image/jpeg";
+                case ".gif": return "image/gif";
+                default: return "application/octet-stream";
             }
         }
 
