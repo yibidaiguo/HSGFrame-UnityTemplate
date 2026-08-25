@@ -170,8 +170,15 @@ namespace Template.Toolkit.AssetPipeline
         }
 
         /// <summary>
-        /// 按关键词认一个文件名。**长的关键词先试**——不然 "grass" 会抢在 "grasspatch" 前面命中，
-        /// 而那两条常常指向不同的模块夹。
+        /// 按关键词认一个文件名。
+        ///
+        /// 排序是**先看命中在名字里的位置，再看关键词长度**，两条都不能少：
+        /// - 位置在前：<c>T_Icon_Sword</c> 是一个 UI 图标，不是一把剑的贴图。
+        ///   名字的头一个词说的是「这是什么」，后面的词只是在修饰它。
+        ///   只按长度排的话 "sword"（5）会赢过 "icon"（4），于是图标被搬进了武器夹——
+        ///   这不是假设，第一版就是这么把四张图标搬错的。
+        /// - 位置相同再看长度：<c>M_GrassPatch</c> 里 "grass" 与 "grasspatch" 都从 0 开始，
+        ///   这时要长的那个赢，因为它更具体。
         /// </summary>
         private static KeywordRule Match(List<KeywordRule> rules, string fileName)
         {
@@ -186,15 +193,25 @@ namespace Template.Toolkit.AssetPipeline
             }
 
             var lowered = stem.ToLowerInvariant();
+            KeywordRule best = null;
+            var bestPosition = int.MaxValue;
             foreach (var rule in rules)
             {
-                if (lowered.Contains(rule.Keyword, StringComparison.Ordinal))
+                var position = lowered.IndexOf(rule.Keyword, StringComparison.Ordinal);
+                if (position < 0)
                 {
-                    return rule;
+                    continue;
+                }
+
+                // rules 已经按关键词长度从长到短排过，所以同一个位置上先到的那个就是最长的。
+                if (position < bestPosition)
+                {
+                    bestPosition = position;
+                    best = rule;
                 }
             }
 
-            return null;
+            return best;
         }
 
         /// <summary>读关键词表，按关键词长度从长到短排好。</summary>
