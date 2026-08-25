@@ -8,6 +8,7 @@
     "Solutions/AssetPipeline.Tests/AssetDependencyDirectionCheckerTests.cs": "53fa63fb072a57cfb3d28ab3dc8cae0c58e022fc0a895ac124e188960b2c52b4",
     "Solutions/AssetPipeline.Tests/AssetDuplicateCheckerTests.cs": "094d92b140ad1de3978fe25f84fa2fb7a7411b1205003a919bd62b3d41132c89",
     "Solutions/AssetPipeline.Tests/AssetInboxArchiverTests.cs": "21e0a61e62ae5bacaacd8d8e1dabf47ae8d6ea7490cc7baed3c69dec504d6e47",
+    "Solutions/AssetPipeline.Tests/AssetLayoutCheckerTests.cs": "df91d388bd490673c348aa2c3ef098d5e1238cea0ae49c1edb0b0587029f0dc5",
     "Solutions/AssetPipeline.Tests/AssetLoadGroupCheckerTests.cs": "b8a64323a9d8f3ce065f68abfecdbbd16db991af440866f0f6582968966ed43b",
     "Solutions/AssetPipeline.Tests/AssetNameNormalizerTests.cs": "62af472f2db1703271e470a0d6c9053184b279c1e61e58fbca159a64da9e869e",
     "Solutions/AssetPipeline.Tests/AssetNormalizeIdempotencyTests.cs": "bf5f9694b8d2f8b23d6a2c1f6511f95b2c3fa8ce4d23d8419b90bea523f486ff",
