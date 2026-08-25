@@ -1,0 +1,51 @@
+<!--
+  ClosedXML 的引用片段——**由 Tools/Deps/fetch.ps1 生成，不要手改**。
+  改动请改 Tools/Deps/packages.txt 再重跑 fetch.ps1。
+
+  顶层包：ClosedXML 0.104.2（目标框架 net8.0）
+  下面列的是**整个闭包**（顶层包 + 全部传递依赖），共 8 个程序集。
+  用法：在 csproj 里 <Import Project="..\Deps\props\ClosedXML.props" />
+-->
+<Project>
+  <PropertyGroup>
+    <DepsRoot Condition="'$(DepsRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\'))</DepsRoot>
+    <DepsLibDir>$(DepsRoot)lib\</DepsLibDir>
+    <DepsNativeDir>$(DepsRoot)native\win-x64\</DepsNativeDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="ClosedXML">
+      <HintPath>$(DepsLibDir)ClosedXML.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="ClosedXML.Parser">
+      <HintPath>$(DepsLibDir)ClosedXML.Parser.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="DocumentFormat.OpenXml">
+      <HintPath>$(DepsLibDir)DocumentFormat.OpenXml.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="DocumentFormat.OpenXml.Framework">
+      <HintPath>$(DepsLibDir)DocumentFormat.OpenXml.Framework.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="ExcelNumberFormat">
+      <HintPath>$(DepsLibDir)ExcelNumberFormat.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="RBush">
+      <HintPath>$(DepsLibDir)RBush.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="SixLabors.Fonts">
+      <HintPath>$(DepsLibDir)SixLabors.Fonts.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.IO.Packaging">
+      <HintPath>$(DepsLibDir)System.IO.Packaging.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

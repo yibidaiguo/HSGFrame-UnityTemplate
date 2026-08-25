@@ -10,10 +10,20 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <!-- 版本必须不高于 Unity 自带的 Roslyn（6000.3.11f1 是 4.3.1），
+       高了编译器加载不了这个生成器，症状是「没有报错但产物里什么都没有」。
+       版本钉在 Tools/Deps/packages.txt 里，那份是内置依赖的清单。 -->
+  <Import Project="../../Deps/props/Roslyn.props" />
+
+  <!--
+    把 Roslyn 那一串改成不拷到输出目录（原来的 PrivateAssets="all" 是这个意思）。
+    生成器是被**编译器进程**加载的，Roslyn 由编译器自己提供；
+    跟着生成器一起发一份，轻则冗余，重则版本打架。
+  -->
   <ItemGroup>
-    <!-- 版本必须不高于 Unity 自带的 Roslyn（6000.3.11f1 是 4.3.1），
-         高了编译器加载不了这个生成器，症状是「没有报错但产物里什么都没有」。 -->
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.1" PrivateAssets="all" />
+    <Reference Update="@(Reference)">
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>

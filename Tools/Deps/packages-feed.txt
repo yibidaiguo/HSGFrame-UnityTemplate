@@ -1,0 +1,22 @@
+# 内置依赖清单·本地源那一档（fetch.ps1 读这份）
+#
+# 每行三列，用制表符分隔：包名<TAB>版本<TAB>目标框架。
+#
+# 这里的包**不能铺平成 dll**，所以整个 .nupkg 收进 nupkg/，当本地 NuGet 源用。
+# 判据是「这个包除了程序集之外还带别的东西」：
+#   - Microsoft.NET.Test.Sdk / xunit.runner.visualstudio 带 MSBuild targets 与测试宿主，
+#     没有它们 dotnet test 根本不认这个工程是测试工程；
+#   - xunit 带分析器；
+#   - NETStandard.Library 是 SDK 给 netstandard2.0 工程隐式加的，
+#     它不出现在任何 csproj 里，但少了它那个工程还原不了。
+# 这几样都得走 NuGet 自己的还原流程，<Reference><HintPath> 挂不上去。
+#
+# 与 packages.txt 的分工：
+#   packages.txt      能铺平的 → lib/ + props/（引用面干净，不用还原）
+#   packages-feed.txt 铺不平的 → nupkg/（照旧还原，但源在本地）
+# 两份合起来才是「执行机不联网也能编」。
+
+Microsoft.NET.Test.Sdk	17.11.1	net8.0
+xunit	2.9.2	net8.0
+xunit.runner.visualstudio	2.8.2	net8.0
+NETStandard.Library	2.0.3	netstandard2.0

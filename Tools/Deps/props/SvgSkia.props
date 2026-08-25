@@ -1,0 +1,71 @@
+<!--
+  SvgSkia 的引用片段——**由 Tools/Deps/fetch.ps1 生成，不要手改**。
+  改动请改 Tools/Deps/packages.txt 再重跑 fetch.ps1。
+
+  顶层包：Svg.Skia 5.2.1（目标框架 net8.0）
+  下面列的是**整个闭包**（顶层包 + 全部传递依赖），共 9 个程序集。
+  用法：在 csproj 里 <Import Project="..\Deps\props\SvgSkia.props" />
+-->
+<Project>
+  <PropertyGroup>
+    <DepsRoot Condition="'$(DepsRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\'))</DepsRoot>
+    <DepsLibDir>$(DepsRoot)lib\</DepsLibDir>
+    <DepsNativeDir>$(DepsRoot)native\win-x64\</DepsNativeDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="ExCSS">
+      <HintPath>$(DepsLibDir)ExCSS.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="HarfBuzzSharp">
+      <HintPath>$(DepsLibDir)HarfBuzzSharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="ShimSkiaSharp">
+      <HintPath>$(DepsLibDir)ShimSkiaSharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="SkiaSharp">
+      <HintPath>$(DepsLibDir)SkiaSharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Svg.Animation">
+      <HintPath>$(DepsLibDir)Svg.Animation.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Svg.Custom">
+      <HintPath>$(DepsLibDir)Svg.Custom.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Svg.Model">
+      <HintPath>$(DepsLibDir)Svg.Model.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Svg.SceneGraph">
+      <HintPath>$(DepsLibDir)Svg.SceneGraph.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Svg.Skia">
+      <HintPath>$(DepsLibDir)Svg.Skia.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!--
+    原生库：跟 dll 平级拷到输出目录。
+    **不能只挂 Reference**——原生库没有 CLI 头，引用不到它；
+    而 SkiaSharp 那一族是在运行时按文件名去进程目录找的，所以必须真的拷过去。
+    只有 win-x64 这一份。换平台要重跑 fetch.ps1 -Rid <别的>，理由见 SOURCE.md。
+  -->
+  <ItemGroup>
+    <None Include="$(DepsNativeDir)libHarfBuzzSharp.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>libHarfBuzzSharp.dll</Link>
+    </None>
+    <None Include="$(DepsNativeDir)libSkiaSharp.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>libSkiaSharp.dll</Link>
+    </None>
+  </ItemGroup>
+</Project>

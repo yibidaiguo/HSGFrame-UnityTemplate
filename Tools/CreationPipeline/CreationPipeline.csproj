@@ -14,24 +14,21 @@
     飞书文档的图片块只收位图，SVG 塞不进去；而 SVG 那份要留着进 git 看 diff。
     **选 Svg.Skia 而不是裸 SkiaSharp**：我们已经在渲 SVG，转一道能保证两张图
     天然一致；自己再画一遍 PNG 就是两套渲染器，迟早漂成两个样子。
-    它会带进 SkiaSharp 的原生库（每平台一份，十几 MB）——这是这个仓库
-    第一个原生依赖，值得记一笔：换来的是不必自带点阵字，且将来标中文也能画。
-  -->
-  <!--
+    它带进 SkiaSharp 的原生库（libSkiaSharp.dll + libHarfBuzzSharp.dll，win-x64 一份约 14 MB）——
+    这是这个仓库第一个原生依赖，值得记一笔：换来的是不必自带点阵字，且将来标中文也能画。
+
     SixLabors.ImageSharp：位图的编解码（PNG 读写、动图 GIF 写出）。
     **不自己手写编解码器**——GIF 的 LZW 与 PNG 的 zlib/滤波都是「写得出来但养不起」的东西：
     出一个位错，症状是某台机器上某张图花掉，而查起来要从字节流读起。
-
     钉 2.1.x 是有意的：**2.1 是 Apache-2.0 的最后一支**，3.x 起换成 Six Labors 分割许可
-    （开源与小企业免费，商用要买）。这是个会跟着项目走很久的选择，所以写在这里而不是只留版本号。
+    （开源与小企业免费，商用要买）。升它等于换许可，不是版本号问题。
 
-    走 PackageReference 而不是往 Tools/Deps 里搬 dll：它在这一档带两个传递依赖
-    （System.Text.Encoding.CodePages 不在 net8.0 内置里），手搬就得把传递依赖也一个个搬，
-    漏一个的症状是换台机器才炸。而这个工程本来就要还原 NuGet（下面 Svg.Skia），
-    所以这条路不新增任何约束。
+    两个都是**内置依赖**，不走 PackageReference：dll 在 Tools/Deps/lib/，
+    原生库在 Tools/Deps/native/win-x64/，版本在 Tools/Deps/packages.txt，
+    许可在 Tools/Deps/LICENSES.md。这样执行机不联网也能编——
+    理由与重取办法见 Tools/Deps/SOURCE.md。
   -->
-  <ItemGroup>
-    <PackageReference Include="Svg.Skia" Version="5.2.1" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.13" />
-  </ItemGroup>
+  <Import Project="../Deps/props/ImageSharp.props" />
+  <Import Project="../Deps/props/SvgSkia.props" />
+
 </Project>

@@ -1,0 +1,21 @@
+# 内置依赖清单（fetch.ps1 读这份）
+#
+# 每行三或四列，用制表符分隔：束名<TAB>包名<TAB>版本<TAB>目标框架（第四列可省，默认 net8.0）。
+# 「束」是引用单位：一个束 = 一个顶层包 + 它的**全部传递依赖**，
+# 生成出来的 props/<束名>.props 就是给 csproj 用 <Import> 挂的那一份。
+#
+# 只写顶层包，传递依赖不写在这里——写了就会漂。
+# 传递依赖由 NuGet 自己解，fetch.ps1 把解出来的整个闭包铺平到 lib/。
+# 这一条是这份清单存在的理由：上一次没走内置化，就是因为手数传递依赖必然漏，
+# 而漏一个的症状是「换台机器才炸」。
+#
+# 改版本号 → 重跑 fetch.ps1 → lib/ 与 props/ 与 LICENSES.md 一起重生成，
+# 然后 git diff 看得见换了哪些 dll。
+
+ImageSharp	SixLabors.ImageSharp	2.1.13
+SvgSkia	Svg.Skia	5.2.1
+ClosedXML	ClosedXML	0.104.2
+Scriban	Scriban	7.2.6
+# Roslyn 走 netstandard2.0：源生成器只能是这一档（编译器进程加载不了别的），
+# 而它在这一档的闭包比 net8.0 多 9 个（System.Collections.Immutable 那一串）。
+Roslyn	Microsoft.CodeAnalysis.CSharp	4.3.1	netstandard2.0

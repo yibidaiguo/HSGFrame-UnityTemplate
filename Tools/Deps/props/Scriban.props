@@ -1,0 +1,23 @@
+<!--
+  Scriban 的引用片段——**由 Tools/Deps/fetch.ps1 生成，不要手改**。
+  改动请改 Tools/Deps/packages.txt 再重跑 fetch.ps1。
+
+  顶层包：Scriban 7.2.6（目标框架 net8.0）
+  下面列的是**整个闭包**（顶层包 + 全部传递依赖），共 1 个程序集。
+  用法：在 csproj 里 <Import Project="..\Deps\props\Scriban.props" />
+-->
+<Project>
+  <PropertyGroup>
+    <DepsRoot Condition="'$(DepsRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\'))</DepsRoot>
+    <DepsLibDir>$(DepsRoot)lib\</DepsLibDir>
+    <DepsNativeDir>$(DepsRoot)native\win-x64\</DepsNativeDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Scriban">
+      <HintPath>$(DepsLibDir)Scriban.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

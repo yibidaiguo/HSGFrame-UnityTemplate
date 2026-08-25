@@ -29,7 +29,8 @@
     ".gitignore",
     ".gitattributes",
     ".editorconfig",
-    "Directory.Build.props"
+    "Directory.Build.props",
+    "NuGet.config"
   ],
   "editorOwnedPathPrefixes": [],
   "_documentExemptions说明": "创作管线总纲是「拆完七份子文档之后剩下的总纲」，它的价值就在于一口气读完整条链路；再按 200 行切一刀只会把总纲切碎。子文档一律不豁免，仍按 200 行管。",

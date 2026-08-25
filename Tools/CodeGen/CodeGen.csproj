@@ -8,8 +8,10 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>CS1591</NoWarn>
   </PropertyGroup>
+  <!-- Scriban 是内置依赖：dll 在 Tools/Deps/lib/，版本在 Tools/Deps/packages.txt。 -->
+  <Import Project="../Deps/props/Scriban.props" />
+
   <ItemGroup>
-    <PackageReference Include="Scriban" Version="7.2.6" />
     <ProjectReference Include="../ConfigBridge/ConfigBridge.csproj" />
   </ItemGroup>
 </Project>

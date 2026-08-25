@@ -1,0 +1,59 @@
+<!--
+  Roslyn 的引用片段——**由 Tools/Deps/fetch.ps1 生成，不要手改**。
+  改动请改 Tools/Deps/packages.txt 再重跑 fetch.ps1。
+
+  顶层包：Microsoft.CodeAnalysis.CSharp 4.3.1（目标框架 netstandard2.0）
+  下面列的是**整个闭包**（顶层包 + 全部传递依赖），共 10 个程序集。
+  用法：在 csproj 里 <Import Project="..\Deps\props\Roslyn.props" />
+-->
+<Project>
+  <PropertyGroup>
+    <DepsRoot Condition="'$(DepsRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\'))</DepsRoot>
+    <DepsLibDir>$(DepsRoot)lib\</DepsLibDir>
+    <DepsNativeDir>$(DepsRoot)native\win-x64\</DepsNativeDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.CodeAnalysis">
+      <HintPath>$(DepsLibDir)Microsoft.CodeAnalysis.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp">
+      <HintPath>$(DepsLibDir)Microsoft.CodeAnalysis.CSharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Buffers">
+      <HintPath>$(DepsLibDir)System.Buffers.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Collections.Immutable">
+      <HintPath>$(DepsLibDir)System.Collections.Immutable.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Memory">
+      <HintPath>$(DepsLibDir)System.Memory.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Numerics.Vectors">
+      <HintPath>$(DepsLibDir)System.Numerics.Vectors.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Reflection.Metadata">
+      <HintPath>$(DepsLibDir)System.Reflection.Metadata.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe">
+      <HintPath>$(DepsLibDir)System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Text.Encoding.CodePages">
+      <HintPath>$(DepsLibDir)System.Text.Encoding.CodePages.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Threading.Tasks.Extensions">
+      <HintPath>$(DepsLibDir)System.Threading.Tasks.Extensions.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>
