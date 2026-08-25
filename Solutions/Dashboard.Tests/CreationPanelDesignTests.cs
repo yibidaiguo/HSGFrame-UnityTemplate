@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using Template.Toolkit.CreationPipeline;
@@ -330,16 +329,15 @@ namespace Template.Toolkit.DashboardTests
 
         private void WritePreviewPng()
         {
-            // 1×1 纯红（RGB 255,0,0），滤波 None。
-            var bytes = BuildPng(1, 1, 8, 2, new byte[] { 0, 255, 0, 0 });
+            // 1×1 纯红。
+            //
+            // **用 PngEncoder 而不是手拼字节**。这里原来抄了一份 PngImageTests 的手写拼块器，
+            // 连同它那个「CRC 填四个零」的毛病一起抄了过来——那种字节流不是合法 PNG，
+            // 只是当年那版不校验 CRC 的解码器恰好收。换成真解码器之后它一次就红了。
+            // 仓库零二进制样例（决策 4）这条不变：图仍然是现造的，只是造它的活交给了编码器。
             var path = AssetPaths.PreviewFile(_repositoryRoot, "REQ-0001", "ASSET-0001-01");
-            var directory = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            File.WriteAllBytes(path, bytes);
+            var image = new PngImage(1, 1, new byte[] { 255, 0, 0, 255 });
+            Assert.True(PngEncoder.EncodeToFile(image, path, out var reason), reason);
         }
 
         private static void WriteFile(string path, string content)
@@ -353,60 +351,5 @@ namespace Template.Toolkit.DashboardTests
             File.WriteAllText(path, content, new UTF8Encoding(false));
         }
 
-        /// <summary>手工拼一个合法 PNG 字节流（照 PngImageTests 的辅助方法抄，仓库零二进制样例——决策 4）。</summary>
-        private static byte[] BuildPng(
-            int width,
-            int height,
-            int bitDepth,
-            int colorType,
-            byte[] scanlines)
-        {
-            var bytes = new List<byte>();
-            bytes.AddRange(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A });
-
-            var ihdr = new byte[13];
-            WriteInt32BE(ihdr, 0, width);
-            WriteInt32BE(ihdr, 4, height);
-            ihdr[8] = (byte)bitDepth;
-            ihdr[9] = (byte)colorType;
-            ihdr[10] = 0;
-            ihdr[11] = 0;
-            ihdr[12] = 0;
-            AddChunk(bytes, "IHDR", ihdr);
-
-            AddChunk(bytes, "IDAT", Compress(scanlines));
-            AddChunk(bytes, "IEND", Array.Empty<byte>());
-            return bytes.ToArray();
-        }
-
-        /// <summary>往块列表里追加一个块：长度（大端）+ 类型 + 数据 + 4 字节 CRC 占位（解码器不校验 CRC）。</summary>
-        private static void AddChunk(List<byte> target, string type, byte[] data)
-        {
-            target.AddRange(BitConverter.GetBytes(data.Length).Reverse());
-            target.AddRange(Encoding.ASCII.GetBytes(type));
-            target.AddRange(data);
-            target.AddRange(new byte[4]);
-        }
-
-        /// <summary>用 ZLibStream 压缩一段原始扫描线字节。</summary>
-        private static byte[] Compress(byte[] data)
-        {
-            using var output = new MemoryStream();
-            using (var zlib = new ZLibStream(output, CompressionLevel.Optimal, leaveOpen: true))
-            {
-                zlib.Write(data, 0, data.Length);
-            }
-
-            return output.ToArray();
-        }
-
-        /// <summary>写 4 字节大端整数。</summary>
-        private static void WriteInt32BE(byte[] target, int offset, int value)
-        {
-            target[offset] = (byte)(value >> 24);
-            target[offset + 1] = (byte)(value >> 16);
-            target[offset + 2] = (byte)(value >> 8);
-            target[offset + 3] = (byte)value;
-        }
     }
 }

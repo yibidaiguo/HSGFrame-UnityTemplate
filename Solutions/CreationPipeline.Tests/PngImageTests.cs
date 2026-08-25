@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Template.Toolkit.CreationPipeline.Tests
@@ -115,16 +116,27 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
         /// <summary>位深 16 真彩：取每通道高字节，结果对得上。</summary>
         [Fact]
-        public void DecodesSixteenBitByTakingHighByte()
+        public void DecodesSixteenBitDownToEightBit()
         {
-            // 像素 0x1234, 0x00AB, 0xCDEF → 高字节 0x12, 0x00, 0xCD。
+            // 像素 0x1234, 0x00AB, 0xCDEF。
+            //
+            // **这条断言原来钉的是「取高字节」**（0x12/0x00/0xCD），那是当年手写解码器
+            // 的做法——直接截断。换成库之后它按比例缩放（0xFFFF→0xFF 是线性映射），
+            // 结果与截断差 1。缩放比截断对：截断会让纯白 0xFFFF 之外的高值整体偏暗。
+            //
+            // 所以这里改成钉**行为**：16 位能解、落到 8 位、值与高字节相差不超过 1。
+            // 钉具体算法等于把实现细节焊进测试，换实现就假红。
             var scanlines = new byte[] { 0, 0x12, 0x34, 0x00, 0xAB, 0xCD, 0xEF };
             var bytes = BuildPng(1, 1, 16, 2, scanlines);
 
             var result = PngDecoder.Decode(bytes);
 
             Assert.True(result.Succeeded, result.FailureReason);
-            Assert.Equal(new byte[] { 0x12, 0x00, 0xCD, 255 }, result.Image.Pixels);
+            Assert.Equal(4, result.Image.Pixels.Count);
+            Assert.InRange(result.Image.Pixels[0], (byte)0x11, (byte)0x13);
+            Assert.InRange(result.Image.Pixels[1], (byte)0x00, (byte)0x01);
+            Assert.InRange(result.Image.Pixels[2], (byte)0xCC, (byte)0xCE);
+            Assert.Equal(255, result.Image.Pixels[3]);
         }
 
         /// <summary>多个 IDAT 块：把压缩流切成两段分别装块，解出来与单块逐字节相同。</summary>
@@ -184,14 +196,49 @@ namespace Template.Toolkit.CreationPipeline.Tests
             }
         }
 
-        /// <summary>隔行 PNG（interlace=1）：拒绝，原因含「隔行」。</summary>
+        /// <summary>隔行（Adam7）PNG 能解，且逐像素与非隔行的同一张图相同。</summary>
         [Fact]
-        public void RejectsInterlacedPng()
+        public void DecodesInterlacedPng()
         {
-            var scanlines = new byte[] { 0, 1, 2, 3 };
-            var bytes = BuildPng(1, 1, 8, 6, scanlines, interlace: true);
+            // **这条原来钉的是「拒绝隔行」**。那不是规格，是当年手写解码器没实现 Adam7 而已——
+            // 拿着一张正常隔行 PNG 的人得到「不支持」这句话，毫无意义。换库之后它本来就能解。
+            //
+            // 钉法是**和非隔行的同一张图比**：这样断言的是「隔行解对了」，
+            // 而不是「解出了某一串我抄下来的数字」。后者换实现就假红。
+            var pixels = SampleRgba(8, 8);
+            var interlaced = BuildPng(8, 8, 8, 6, Adam7Scanlines(8, 8, pixels), interlace: true);
+            var plain = BuildPng(8, 8, 8, 6, PlainScanlines(8, 8, pixels));
 
-            var result = PngDecoder.Decode(bytes);
+            var interlacedResult = PngDecoder.Decode(interlaced);
+            var plainResult = PngDecoder.Decode(plain);
+
+            Assert.True(interlacedResult.Succeeded, interlacedResult.FailureReason);
+            Assert.True(plainResult.Succeeded, plainResult.FailureReason);
+            Assert.Equal(8, interlacedResult.Image.Width);
+            Assert.Equal(8, interlacedResult.Image.Height);
+            Assert.Equal(pixels, interlacedResult.Image.Pixels);
+            Assert.Equal(plainResult.Image.Pixels, interlacedResult.Image.Pixels);
+        }
+
+        /// <summary>
+        /// 小于 5×5 的隔行 PNG：拒绝。**这条守的是「不许挂死」**。
+        ///
+        /// ImageSharp 2.1.13 遇到有空 Adam7 扫描道的隔行图会死循环——
+        /// 1×1 隔行图、字节完全正确，一样把进程停在那儿。这不是假设：
+        /// 这一条最早就是以「跑测试 600 秒不结束」的形式出现的。
+        /// 所以解码器在交给库之前把这种图拦下来，这条测试钉的就是那道拦截还在。
+        ///
+        /// 用 xunit 的超时兜底：万一拦截被人删了，这条会**超时失败**而不是把整轮测试拖死。
+        /// 写成 async 是被 xunit 逼的——它的 Timeout 只对返回 Task 的测试生效，
+        /// 同步测试上写了不报错也不生效（会直接判失败，说「只支持 async」）。
+        /// </summary>
+        [Fact(Timeout = 15000)]
+        public async Task RejectsTinyInterlacedPngThatWouldHangTheDecoder()
+        {
+            var pixels = SampleRgba(1, 1);
+            var bytes = BuildPng(1, 1, 8, 6, Adam7Scanlines(1, 1, pixels), interlace: true);
+
+            var result = await Task.Run(() => PngDecoder.Decode(bytes));
 
             Assert.False(result.Succeeded);
             Assert.Contains("隔行", result.FailureReason);
@@ -219,8 +266,13 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             var result = PngDecoder.Decode(bytes);
 
+            // 钉的是**拒绝**这件事，不钉原因里出现哪个词：
+            // 原因文案来自解码器，换一个解码器就换一套措辞（现在是
+            // 「PNG Image does not contain a data chunk」），
+            // 而「拒不拒绝」才是这条要守的东西。原因非空也要守——
+            // 拒了却说不出为什么，跟没拒一样难查。
             Assert.False(result.Succeeded);
-            Assert.Contains("IDAT", result.FailureReason);
+            Assert.NotEqual("", result.FailureReason);
         }
 
         /// <summary>颜色类型 3 缺 PLTE 块：拒绝，原因含「PLTE」。</summary>
@@ -233,8 +285,9 @@ namespace Template.Toolkit.CreationPipeline.Tests
 
             var result = PngDecoder.Decode(bytes);
 
+            // 同上：钉拒绝与「说得出原因」，不钉措辞。
             Assert.False(result.Succeeded);
-            Assert.Contains("PLTE", result.FailureReason);
+            Assert.NotEqual("", result.FailureReason);
         }
 
         /// <summary>块声称的长度超出剩余字节：拒绝，不抛异常。</summary>
@@ -273,18 +326,23 @@ namespace Template.Toolkit.CreationPipeline.Tests
             Assert.False(result.Succeeded);
         }
 
-        /// <summary>非调色板颜色类型带 tRNS：拒绝，不把透明信息硬解成不透明。</summary>
+        /// <summary>真彩（颜色类型 2）带 tRNS：认这份透明色，命中的像素 alpha 解成 0。</summary>
         [Fact]
-        public void RejectsTransparencyForNonPaletteColorType()
+        public void HonoursTransparencyForNonPaletteColorType()
         {
-            // 类型 2（真彩）带 2 字节 tRNS：本解码器不支持，应如实拒绝。
-            var scanlines = new byte[] { 0, 255, 0, 0 };
-            var bytes = BuildPng(1, 1, 8, 2, scanlines, transparency: new byte[] { 0x00, 0x00 });
+            // **这条原来钉的是「拒绝」**，理由同隔行那条：不是规格，是手写解码器没实现。
+            // 非调色板的 tRNS 给的是「哪个颜色算透明」，真彩是 3 个 16 位分量共 6 字节。
+            //
+            // 两个像素：第一个 (255,0,0) 正好是 tRNS 点名的颜色 → alpha 0；
+            // 第二个 (0,255,0) 没被点名 → alpha 255。一条断言同时守住「认」和「只认该认的」。
+            var scanlines = new byte[] { 0, 255, 0, 0, 0, 255, 0 };
+            var transparency = new byte[] { 0, 255, 0, 0, 0, 0 };
+            var bytes = BuildPng(2, 1, 8, 2, scanlines, transparency: transparency);
 
             var result = PngDecoder.Decode(bytes);
 
-            Assert.False(result.Succeeded);
-            Assert.Contains("tRNS", result.FailureReason);
+            Assert.True(result.Succeeded, result.FailureReason);
+            Assert.Equal(new byte[] { 255, 0, 0, 0, 0, 255, 0, 255 }, result.Image.Pixels);
         }
 
         /// <summary>编解码往返：3×2 渐变图 → Encode → Decode → 逐像素相等。</summary>
@@ -463,12 +521,24 @@ namespace Template.Toolkit.CreationPipeline.Tests
         }
 
         /// <summary>往块列表里追加一个块：长度（大端）+ 类型 + 数据 + 4 字节 CRC 占位（本解码器不校验 CRC）。</summary>
+        /// <summary>
+        /// 拼一个 PNG 块：长度 + 类型 + 数据 + **真 CRC**。
+        ///
+        /// 从前这里写的是四个零字节。当时的解码器不校验 CRC，所以样本照样能解——
+        /// 于是这一整套测试喂的其实都不是合法 PNG，只是「那一版解码器恰好收」。
+        /// 换成真解码器（ImageSharp 会校验）之后，它们一次全红，红得完全正确。
+        /// </summary>
         private static void AddChunk(List<byte> target, string type, byte[] data)
         {
+            var typeAndData = new List<byte>();
+            typeAndData.AddRange(Encoding.ASCII.GetBytes(type));
+            typeAndData.AddRange(data);
+
             target.AddRange(BitConverter.GetBytes(data.Length).Reverse());
-            target.AddRange(Encoding.ASCII.GetBytes(type));
-            target.AddRange(data);
-            target.AddRange(new byte[4]);
+            target.AddRange(typeAndData);
+
+            var crc = Crc32(typeAndData.ToArray(), 0, typeAndData.Count);
+            target.AddRange(BitConverter.GetBytes(crc).Reverse());
         }
 
         /// <summary>用 ZLibStream 压缩一段原始扫描线字节。</summary>
@@ -478,6 +548,86 @@ namespace Template.Toolkit.CreationPipeline.Tests
             using (var zlib = new ZLibStream(output, CompressionLevel.Optimal, leaveOpen: true))
             {
                 zlib.Write(data, 0, data.Length);
+            }
+
+            return output.ToArray();
+        }
+
+        /// <summary>Adam7 七道扫描的起点与步长（x 起点、y 起点、x 步长、y 步长）。</summary>
+        private static readonly int[][] Adam7 =
+        {
+            new[] { 0, 0, 8, 8 },
+            new[] { 4, 0, 8, 8 },
+            new[] { 0, 4, 4, 8 },
+            new[] { 2, 0, 4, 4 },
+            new[] { 0, 2, 2, 4 },
+            new[] { 1, 0, 2, 2 },
+            new[] { 0, 1, 1, 2 }
+        };
+
+        /// <summary>造一张可复现的 RGBA 样图：值只跟坐标有关，不用随机数，红了能一眼看出错在哪个像素。</summary>
+        private static byte[] SampleRgba(int width, int height)
+        {
+            var pixels = new byte[width * height * 4];
+            for (var y = 0; y < height; y++)
+            {
+                for (var x = 0; x < width; x++)
+                {
+                    var i = (y * width + x) * 4;
+                    pixels[i] = (byte)(x * 31 + 1);
+                    pixels[i + 1] = (byte)(y * 29 + 2);
+                    pixels[i + 2] = (byte)(x * y + 3);
+                    pixels[i + 3] = 255;
+                }
+            }
+
+            return pixels;
+        }
+
+        /// <summary>把 RGBA 像素铺成非隔行扫描线（每行一个 0 滤波字节 + 整行 RGBA）。</summary>
+        private static byte[] PlainScanlines(int width, int height, byte[] pixels)
+        {
+            var output = new List<byte>();
+            for (var y = 0; y < height; y++)
+            {
+                output.Add(0);
+                for (var x = 0; x < width; x++)
+                {
+                    var i = (y * width + x) * 4;
+                    output.AddRange(new[] { pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3] });
+                }
+            }
+
+            return output.ToArray();
+        }
+
+        /// <summary>
+        /// 把 RGBA 像素铺成 Adam7 隔行扫描线。
+        /// **空的道整道不写**（PNG 规格如此：某一道宽或高算出来是 0 就一个字节都不占），
+        /// 写了反而是错的——多出来的字节会被下一道当成自己的数据。
+        /// </summary>
+        private static byte[] Adam7Scanlines(int width, int height, byte[] pixels)
+        {
+            var output = new List<byte>();
+            foreach (var pass in Adam7)
+            {
+                int xOffset = pass[0], yOffset = pass[1], xStep = pass[2], yStep = pass[3];
+                var passWidth = Math.Max(0, (width - xOffset + xStep - 1) / xStep);
+                var passHeight = Math.Max(0, (height - yOffset + yStep - 1) / yStep);
+                if (passWidth == 0 || passHeight == 0)
+                {
+                    continue;
+                }
+
+                for (var row = 0; row < passHeight; row++)
+                {
+                    output.Add(0);
+                    for (var column = 0; column < passWidth; column++)
+                    {
+                        var i = ((yOffset + row * yStep) * width + (xOffset + column * xStep)) * 4;
+                        output.AddRange(new[] { pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3] });
+                    }
+                }
             }
 
             return output.ToArray();

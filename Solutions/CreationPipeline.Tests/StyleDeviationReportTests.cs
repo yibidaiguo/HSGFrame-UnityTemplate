@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using Xunit;
@@ -276,60 +275,22 @@ namespace Template.Toolkit.CreationPipeline.Tests
             File.WriteAllText(Path.Combine(directory, "final.json"), json, new UTF8Encoding(false));
         }
 
-        /// <summary>在指定目录写一张 1×1 纯色 RGBA PNG 文件，返回路径。</summary>
+        /// <summary>
+        /// 在指定目录写一张 1×1 纯色 RGBA PNG 文件，返回路径。
+        ///
+        /// **用 PngEncoder 而不是手拼字节**。这里原来有一份手写的拼块器，
+        /// 它把每个块的 CRC 填成四个零——那不是合法 PNG，只是当年那版不校验 CRC 的
+        /// 解码器恰好收。于是这一整组测试喂进去的其实都是坏图，换成真解码器之后一次全红。
+        ///
+        /// 仓库零二进制样例（决策 4）这条不变：图仍然是现造的，
+        /// 只是造它的活交给了编码器——而编码器本来就是这条链自己的东西，顺带也被这些测试用到了。
+        /// </summary>
         private static string WriteSolidPng(string directory, string fileName, byte red, byte green, byte blue, byte alpha = 255)
         {
-            var scanlines = new byte[] { 0, red, green, blue, alpha };
             var path = Path.Combine(directory, fileName);
-            File.WriteAllBytes(path, BuildSimpleRgbaPng(1, 1, scanlines));
+            var image = new PngImage(1, 1, new byte[] { red, green, blue, alpha });
+            Assert.True(PngEncoder.EncodeToFile(image, path, out var reason), reason);
             return path;
-        }
-
-        /// <summary>手工拼一张 1×1 RGBA（颜色类型 6、位深 8、None 滤波）PNG 字节。</summary>
-        private static byte[] BuildSimpleRgbaPng(int width, int height, byte[] scanlines)
-        {
-            var bytes = new List<byte>();
-            bytes.AddRange(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A });
-
-            var ihdr = new byte[13];
-            WriteInt32BE(ihdr, 0, width);
-            WriteInt32BE(ihdr, 4, height);
-            ihdr[8] = 8;
-            ihdr[9] = 6;
-            AddChunk(bytes, "IHDR", ihdr);
-            AddChunk(bytes, "IDAT", Compress(scanlines));
-            AddChunk(bytes, "IEND", Array.Empty<byte>());
-            return bytes.ToArray();
-        }
-
-        /// <summary>往块列表里追加一个块：长度（大端）+ 类型 + 数据 + CRC 占位。</summary>
-        private static void AddChunk(List<byte> target, string type, byte[] data)
-        {
-            target.AddRange(BitConverter.GetBytes(data.Length).Reverse());
-            target.AddRange(Encoding.ASCII.GetBytes(type));
-            target.AddRange(data);
-            target.AddRange(new byte[4]);
-        }
-
-        /// <summary>用 ZLibStream 压缩一段原始扫描线字节。</summary>
-        private static byte[] Compress(byte[] data)
-        {
-            using var output = new MemoryStream();
-            using (var zlib = new ZLibStream(output, CompressionLevel.Optimal, leaveOpen: true))
-            {
-                zlib.Write(data, 0, data.Length);
-            }
-
-            return output.ToArray();
-        }
-
-        /// <summary>写 4 字节大端整数。</summary>
-        private static void WriteInt32BE(byte[] target, int offset, int value)
-        {
-            target[offset] = (byte)(value >> 24);
-            target[offset + 1] = (byte)(value >> 16);
-            target[offset + 2] = (byte)(value >> 8);
-            target[offset + 3] = (byte)value;
         }
 
         /// <summary>测试工作区：在系统临时目录下建一个用完即删的目录。</summary>
