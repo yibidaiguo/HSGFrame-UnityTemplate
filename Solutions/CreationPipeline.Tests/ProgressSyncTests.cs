@@ -279,6 +279,45 @@ namespace Template.Toolkit.CreationPipeline.Tests
         }
 
         /// <summary>
+        /// 有工作项失败时，「阶段」这一格要把失败的工作项说出来。
+        ///
+        /// **这一格就是飞书任务表里「引擎阶段」那一列**——人在飞书看到的就这一格。
+        /// 只写「验收/等人」的话，一条卡在出图失败上的需求与一条正常等人验收的需求
+        /// 长得一模一样，而这两件事要做的动作完全相反。
+        /// </summary>
+        [Fact]
+        public void StageCellNamesFailedWorkItems()
+        {
+            using var workspace = new PoolTestWorkspace();
+            Directory.CreateDirectory(PoolPaths.RequirementDirectory(workspace.Root, "REQ-0001"));
+            File.WriteAllText(
+                PoolPaths.RequirementFile(workspace.Root, "REQ-0001"),
+                """{"id":"REQ-0001","标题":"背包系统","状态":"草稿"}""");
+
+            var taskDirectory = Path.Combine(workspace.RepositoryRoot, "_Tasks", "REQ-0001");
+            Directory.CreateDirectory(taskDirectory);
+            File.WriteAllText(
+                Path.Combine(taskDirectory, "state.json"),
+                """{"阶段":"验收","子状态":"等人","当前工作项":"WI-0001-02","产物哈希":{},"预算":{}}""");
+
+            var workItems = Path.Combine(taskDirectory, "20-work-items");
+            Directory.CreateDirectory(workItems);
+            File.WriteAllText(Path.Combine(workItems, "WI-0001-01.json"),
+                """{"id":"WI-0001-01","标题":"拆需求","依赖":[],"状态":"已完成","引用需求字段":[]}""");
+            File.WriteAllText(Path.Combine(workItems, "WI-0001-02.json"),
+                """{"id":"WI-0001-02","标题":"出图","依赖":["WI-0001-01"],"状态":"失败","引用需求字段":[]}""");
+
+            var snapshot = ProgressSnapshot.CollectFromRepository(workspace.RepositoryRoot, workspace.Root);
+
+            var stage = Assert.Single(snapshot.Entries).Value(ProgressSnapshot.StageField);
+            Assert.Contains("验收/等人", stage);
+            Assert.Contains("WI-0001-02", stage);
+            Assert.Contains("卡住", stage);
+            // 没失败的那个不许出现——把「已完成」也列出来等于没说
+            Assert.DoesNotContain("WI-0001-01", stage);
+        }
+
+        /// <summary>
         /// 进度文档的**正文**里一个时间戳都没有：换一个生成时间重渲，正文哈希必须一样。
         /// 这一条守的是「只推变了的」——正文带时间戳的话每轮都会往知识库刷一版空版本。
         /// </summary>
