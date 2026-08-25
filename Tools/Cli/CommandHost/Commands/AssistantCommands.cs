@@ -566,7 +566,7 @@ namespace Template.Toolkit.CommandHost.Commands
             // 「生成一个模型」这一支：与出图同形状——先给人看要建什么，点了才真去下游。
             if (reply.WantsModel)
             {
-                var modelIdentifier = AssistantServeTurn.ImageRequestKey(reply.ModelRequest);
+                var modelIdentifier = AssistantServeTurn.ModelRequestKey(reply.ModelRequest);
                 var modelCard = AssistantCard.ForModelRequest(
                     modelIdentifier, reply.ModelRequest, reply.ReplyText, reply.MissingItems);
 

@@ -186,6 +186,23 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
+        /// 给一份**生成模型**请求算 key。规矩与 <see cref="ImageRequestKey"/> 一模一样，
+        /// 只有前缀不同。
+        ///
+        /// 单开一个而不是复用出图那个，纯粹是为了查起来不打架：
+        /// 从前模型请求也顶着 IMG- 前缀，于是台账里一条「模型待确认」旁边写着 IMG-8ff77e，
+        /// 而 drafts/ 下躺着一个同名文件——查的人第一反应是「这是不是串了」。
+        /// 前缀不承载任何判断（没有一处代码去解析它），所以换它不会动到行为；
+        /// 已经发出去的旧按钮带的还是旧 key，按文件名照样找得到。
+        /// </summary>
+        /// <param name="request">生成模型请求。</param>
+        public static string ModelRequestKey(JsonObject request)
+        {
+            var text = request == null ? "" : request.ToJsonString(LedgerWriteOptions);
+            return "MODEL-" + AssistantServePrompt.ShortHash(text);
+        }
+
+        /// <summary>
         /// 处置一轮：补全草稿 → 校验 → 决定回话。
         /// </summary>
         /// <param name="repositoryRoot">仓库根目录。</param>
