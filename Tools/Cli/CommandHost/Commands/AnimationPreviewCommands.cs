@@ -69,11 +69,14 @@ namespace Template.Toolkit.CommandHost.Commands
     ///
     /// 三条来路一个出口：
     /// - **2D 帧动画 / 人物帧动画**：给帧目录，直接合。
-    /// - **3D 动画**：给模型，先跑 Blender 转台渲一圈（有贴图就带贴图渲，
+    /// - **3D 动画**：给模型，先按「转台」port 挑的下游渲一圈（有贴图就带贴图渲，
     ///   没贴图就是白模——转台脚本渲的就是模型本来的样子，不额外上色），再合。
     ///
     /// 合出来的 GIF 是**本地文件**，助手把它挂到卡片的图片位上发飞书；
     /// 引擎不认识下游怎么传图，那是桥的事（决策 93）。
+    ///
+    /// **上面一个下游的名字都没写**，不是因为不知道，是因为下游边界门禁不许——
+    /// driver 名只能是运行时参数（子文档 05）。想知道现在挂的是谁，看 Bridges/ 下的 driver.json。
     /// </summary>
     public static class AnimationPreviewCommands
     {
@@ -151,7 +154,7 @@ namespace Template.Toolkit.CommandHost.Commands
         }
 
         /// <summary>
-        /// 跑一趟 Blender 转台，把帧渲到模型旁边的 turntable 目录里。
+        /// 跑一趟转台，把帧渲到模型旁边的 turntable 目录里。
         /// </summary>
         private static bool TryRenderTurntable(
             string repositoryRoot,
