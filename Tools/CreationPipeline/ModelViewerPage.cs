@@ -73,8 +73,9 @@ namespace Template.Toolkit.CreationPipeline
     {
         /// <summary>
         /// <c>&lt;model-viewer&gt;</c> 只吃 glTF 家族。
-        /// **这正是那两条 Tripo 路要统一到 .glb 的现实理由**：
-        /// CLI 那条如果交出 .fbx，这页就打不开，而症状是「预览没有」不是「格式不对」。
+        /// **这正是模型生成那两条路要统一到 .glb 的现实理由**：
+        /// 其中一条如果交出 .fbx，这页就打不开，而症状是「预览没有」不是「格式不对」。
+        /// （具体是哪两条下游，看 Bridges/ 下的 driver.json——下游边界门禁不许在这里写它们的名字。）
         /// </summary>
         private static readonly string[] ViewableExtensions = { ".glb", ".gltf" };
 
@@ -118,7 +119,7 @@ namespace Template.Toolkit.CreationPipeline
                 return Failure(
                     $"这一页只能显示 glTF 家族（{string.Join(" / ", ViewableExtensions)}），"
                     + $"给的是「{extension}」。把模型转成 .glb 再来——"
-                    + "生成那一步本来就该交出 .glb（两条 Tripo 路已经统一到它）。");
+                    + "生成那一步本来就该交出 .glb（模型生成的两条路都已经统一到它）。");
             }
 
             if (string.IsNullOrWhiteSpace(viewerScriptPath) || !File.Exists(viewerScriptPath))
