@@ -14,6 +14,7 @@
     "Solutions/AssetPipeline.Tests/AssetNormalizeIdempotencyTests.cs": "bf5f9694b8d2f8b23d6a2c1f6511f95b2c3fa8ce4d23d8419b90bea523f486ff",
     "Solutions/AssetPipeline.Tests/AssetReferenceScannerScopeTests.cs": "c5df953d1ab93d8d75637465f7cb3f57a87ab7c5f7c9861b35383fc16af973c5",
     "Solutions/AssetPipeline.Tests/AssetReferenceScannerTests.cs": "75111ae8531422618e3e346fd4f137942007bbd951fee5d850f63c66cee128a2",
+    "Solutions/AssetPipeline.Tests/AssetRelayoutPlannerTests.cs": "98d0dcd9f5e96e29dab122db0600961ed73a39fa7209eadfcfcd7eaecd6fbb80",
     "Solutions/AssetPipeline.Tests/AssetResidentBudgetCheckerTests.cs": "c36d311341838ff2c763aa9a4d8e7e04e4cb0dbe7821b5eb16edbf944940223c",
     "Solutions/AssetPipeline.Tests/AssetRuleCoverageCheckerTests.cs": "04eed664ba1f73201b6b5fb09277d0b14229cc30aa10eb228ff69fc7d8771ecc",
     "Solutions/AssetPipeline.Tests/AssetValidatorTests.cs": "73ace5009cb931f53cf2157ef70e1539559cfd5caca73c7c0d1eceaf6b1a1431",
