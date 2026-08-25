@@ -317,7 +317,15 @@ namespace Template.Toolkit.CreationPipeline
             return "";
         }
 
-        /// <summary>把任务状态说成一格：「阶段/子状态」，没开跑就是「尚未开跑」。</summary>
+        /// <summary>
+        /// 把任务状态说成一格：「阶段/子状态」，没开跑就是「尚未开跑」；
+        /// **有工作项失败时把失败的那几个缀在后面**。
+        ///
+        /// 缀这一句是因为这一格是飞书任务表里「引擎阶段」那一列——
+        /// 人在飞书看到的就这一格。只写「验收/等人」的话，一条卡在出图失败上的需求
+        /// 与一条正常等人验收的需求长得一模一样，而这两件事要做的动作完全相反。
+        /// 面板的依赖图上那个红框说的是同一件事，两处要一致（子文档 04）。
+        /// </summary>
         private static string DescribeStage(string repositoryRoot, string identifier)
         {
             if (!TaskState.TryLoad(repositoryRoot, identifier, out var state, out _))
@@ -326,7 +334,43 @@ namespace Template.Toolkit.CreationPipeline
             }
 
             var stage = string.IsNullOrEmpty(state.Stage) ? "未知" : state.Stage;
-            return string.IsNullOrEmpty(state.SubState) ? stage : stage + "/" + state.SubState;
+            var text = string.IsNullOrEmpty(state.SubState) ? stage : stage + "/" + state.SubState;
+
+            var failed = FailedWorkItems(repositoryRoot, identifier);
+            if (failed.Count > 0)
+            {
+                text += "　⚠ 卡住：" + string.Join("、", failed) + " 失败";
+            }
+
+            return text;
+        }
+
+        /// <summary>
+        /// 这条需求下失败的工作项 id。读不动工作项目录时给空表——
+        /// **进度这一格不该因为读不到工作项就整格失败**，那会把一次读文件的意外
+        /// 变成飞书上一列空白。
+        /// </summary>
+        private static IReadOnlyList<string> FailedWorkItems(string repositoryRoot, string identifier)
+        {
+            try
+            {
+                var graph = WorkItemGraph.Load(repositoryRoot, identifier);
+                var failed = new List<string>();
+                foreach (var node in graph.Nodes)
+                {
+                    if ((node.State ?? "").IndexOf("失败", StringComparison.Ordinal) >= 0)
+                    {
+                        failed.Add(node.Identifier);
+                    }
+                }
+
+                failed.Sort(StringComparer.Ordinal);
+                return failed;
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return Array.Empty<string>();
+            }
         }
 
         /// <summary>

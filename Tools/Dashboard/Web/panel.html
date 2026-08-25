@@ -256,6 +256,13 @@ td .截 { display: block; max-width: 330px; overflow: hidden; text-overflow: ell
 .节点框.完 { stroke: var(--绿); fill: var(--绿浅); }
 .节点框.环 { stroke: var(--红); fill: var(--红浅); stroke-width: 1.6; }
 .节点框.做 { stroke: var(--主); fill: var(--主浅); }
+/* 失败要一眼看得出来：粗边 + 红底。**这一档以前是没有的**，
+   于是一个「失败」的工作项画出来跟一个还没开始的一模一样——
+   流程图最该回答的问题恰恰是「卡在哪一步」。 */
+.节点框.错 { stroke: var(--红); fill: var(--红浅); stroke-width: 2.2; }
+.节点框.挂 { stroke: var(--黄); fill: var(--黄浅); stroke-dasharray: 4 3; }
+.节点框.脏 { stroke: var(--黄); fill: var(--黄浅); }
+.节点标.错字 { fill: var(--红); font-weight: 600; }
 .节点标 { fill: var(--字); font-size: 11px; font-weight: 600; }
 .节点副 { fill: var(--字弱); font-size: 10px; }
 .连线 { stroke: var(--线亮); stroke-width: 1.3; fill: none; }
