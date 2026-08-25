@@ -18,7 +18,7 @@
     "加工链": {
       "类型": "string",
       "默认": "",
-      "_说明": "透传 CLI 的 --then，如 texture,rig,convert:fbx。留空则不传。"
+      "_说明": "透传 CLI 的 --then，如 texture,rig。留空则不传。**别在这里配 convert:fbx**：这条链对外只认 .glb（API 那条路拿回来的就是 glb），配了转换只会在同一个目录里多留一个 fbx，本桥仍旧挑 glb 交出去，那个 fbx 白占地方。真要 fbx 是导入 Unity 那一步的事，不是生成这一步的事。"
     }
   },
   "密钥字段": [],

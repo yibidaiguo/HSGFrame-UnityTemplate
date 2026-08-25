@@ -34,8 +34,34 @@ namespace Template.Bridges.Tripocli
         /// <summary>缺省超时秒数。生成一个模型常常要几分钟，给足。</summary>
         private const int DefaultTimeoutSeconds = 900;
 
-        /// <summary>模型文件的扩展名，扫目录认产物时用。</summary>
+        /// <summary>
+        /// 模型文件的扩展名，**按优先级从高到低排**，扫目录认产物时用。
+        ///
+        /// 顺序是有意义的，不是随手写的：这条链对外只认 <c>.glb</c>。
+        /// API 那条路（Bridges/tripo）拿回来的本来就是 <c>.glb</c>；
+        /// CLI 这条路在配了 <c>--then convert:fbx</c> 之后会在同一个目录里
+        /// **同时**留下 glb 与 fbx，谁先被捡到全看目录枚举顺序——
+        /// 于是同一个请求走两条路会得到两种格式，下游（导入、预览、提交）各自再猜一遍。
+        /// 按这个顺序挑，两条路的产出就统一了。
+        /// </summary>
         private static readonly string[] ModelExtensions = { ".glb", ".gltf", ".fbx", ".obj", ".usdz" };
+
+        /// <summary>
+        /// 按 <see cref="ModelExtensions"/> 的优先级给一个路径打分，越小越优先；不是模型文件给 int.MaxValue。
+        /// </summary>
+        private static int ModelExtensionRank(string path)
+        {
+            var extension = Path.GetExtension(path);
+            for (var index = 0; index < ModelExtensions.Length; index++)
+            {
+                if (string.Equals(ModelExtensions[index], extension, StringComparison.OrdinalIgnoreCase))
+                {
+                    return index;
+                }
+            }
+
+            return int.MaxValue;
+        }
 
         /// <summary>
         /// generate 动作：起 <c>tripo make</c>。
@@ -349,8 +375,9 @@ namespace Template.Bridges.Tripocli
         private static string ReadModelFile(JsonObject payload, string producedDirectory, string requestedDirectory, out string howFound)
         {
             var direct = ReadString(payload, "model_file");
-            if (direct.Length > 0)
+            if (direct.Length > 0 && ModelExtensionRank(direct) == 0)
             {
+                // 已经是 .glb，就是它，不用再比。
                 howFound = "下游 JSON 的 model_file";
                 return direct;
             }
@@ -358,15 +385,26 @@ namespace Template.Bridges.Tripocli
             var baseDirectory = producedDirectory.Length > 0 ? producedDirectory : requestedDirectory;
             if (payload.TryGetPropertyValue("files", out var files) && files is JsonArray array)
             {
-                foreach (var item in array)
+                // **挑优先级最高的那个，不是列表里第一个**。加工链带 convert:fbx 时
+                // files 里 glb 与 fbx 都在，先来后到取决于 CLI 怎么排——那就成了随机的。
+                var best = array
+                    .Select(item => item?.ToString() ?? "")
+                    .Where(name => name.Length > 0 && ModelExtensionRank(name) != int.MaxValue)
+                    .OrderBy(ModelExtensionRank)
+                    .FirstOrDefault();
+                if (best != null && (direct.Length == 0 || ModelExtensionRank(best) < ModelExtensionRank(direct)))
                 {
-                    var name = item?.ToString() ?? "";
-                    if (name.Length > 0 && ModelExtensions.Contains(Path.GetExtension(name), StringComparer.OrdinalIgnoreCase))
-                    {
-                        howFound = "下游 JSON 的 files 里那个模型文件名，拼上 output_dir";
-                        return Path.Combine(baseDirectory, name);
-                    }
+                    howFound = "下游 JSON 的 files 里优先级最高的那个模型文件名，拼上 output_dir";
+                    return Path.Combine(baseDirectory, best);
                 }
+            }
+
+            // files 里没有比 model_file 更靠前的，那就还是它。
+            // 走到这里说明它不是 .glb——CLI 只产出了别的格式，如实用，不假装。
+            if (direct.Length > 0)
+            {
+                howFound = "下游 JSON 的 model_file（files 里没有优先级更高的）";
+                return direct;
             }
 
             howFound = "JSON 里没有，扫落点目录扫出来的（有可能捡到上一次的产物）";
@@ -383,9 +421,13 @@ namespace Template.Bridges.Tripocli
 
             try
             {
+                // 先按扩展名优先级，再按改动时间。**次序不能反**：
+                // 反过来的话，convert:fbx 产出的 fbx 通常比 glb 晚写，于是永远赢——
+                // 这条链就又回到「两条路两种格式」了。
                 return Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
-                    .Where(path => ModelExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
-                    .OrderByDescending(path => new FileInfo(path).LastWriteTimeUtc)
+                    .Where(path => ModelExtensionRank(path) != int.MaxValue)
+                    .OrderBy(ModelExtensionRank)
+                    .ThenByDescending(path => new FileInfo(path).LastWriteTimeUtc)
                     .FirstOrDefault() ?? "";
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)

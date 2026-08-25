@@ -500,6 +500,22 @@ namespace Template.Toolkit.CommandHost.Commands
         public string Choice { get; set; }
     }
 
+    /// <summary>冲突对齐销账命令 conflict.align 的参数。</summary>
+    public sealed class ConflictAlignArguments
+    {
+        /// <summary>池子根目录，相对当前工作目录。</summary>
+        [Summary("池子根目录，相对当前工作目录")]
+        public string PoolRoot { get; set; }
+
+        /// <summary>冲突 id，形如 CF-0009。</summary>
+        [Summary("冲突 id，形如 CF-0009")]
+        public string ConflictIdentifier { get; set; }
+
+        /// <summary>对齐人姓名。</summary>
+        [Summary("对齐人姓名")]
+        public string AlignerName { get; set; }
+    }
+
     /// <summary>冲突自动探测命令 conflict.detect 的参数。</summary>
     public sealed class ConflictDetectArguments
     {
@@ -1587,10 +1603,28 @@ namespace Template.Toolkit.CommandHost.Commands
                 }
 
                 var choice = entry.Choice.Length > 0 ? entry.Choice : "—";
-                lines.Add($"{entry.Identifier}　旧 {entry.OldIdentifier}　新 {entry.NewIdentifier}　{entry.State}　选择 {choice}");
+                // 欠对齐要跟在行尾说出来。**这是「下一轮为什么又判出同一个冲突」的答案**——
+                // 裁决只销账不改格，那一侧没改之前两边仍然是冲突的。
+                var alignment = string.Equals(entry.State, ConflictEntry.ResolvedState, StringComparison.Ordinal) && !entry.IsAligned
+                    ? "　⚠ 欠对齐"
+                    : "";
+                lines.Add($"{entry.Identifier}　旧 {entry.OldIdentifier}　新 {entry.NewIdentifier}　{entry.State}　选择 {choice}{alignment}");
+                foreach (var todo in entry.AlignmentTodo)
+                {
+                    if (!entry.IsAligned)
+                    {
+                        lines.Add($"　　待办：{todo}");
+                    }
+                }
             }
 
             lines.Add($"未销账 {list.PendingCount()} 条");
+            var unaligned = list.UnalignedCount();
+            if (unaligned > 0)
+            {
+                lines.Add($"欠对齐 {unaligned} 条——这些已经裁决了，但让步那一侧还没改，下一轮探测照旧会判出同一个冲突。");
+                lines.Add("改完那一侧之后跑 conflict.align 销掉待办。");
+            }
             if (list.LoadFailureReason.Length > 0)
             {
                 lines.Add($"注意：{list.LoadFailureReason}");
@@ -1671,6 +1705,67 @@ namespace Template.Toolkit.CommandHost.Commands
             lines.Add($"裁决流水：本条冲突累计 {history.Count} 次裁决（本次是第 {history.Count} 次）");
 
             return CommandResult.Success($"冲突 {result.Entry.Identifier} 裁决完成", lines);
+        }
+
+        /// <summary>
+        /// 冲突对齐销账：把一条已裁决冲突的「对齐待办」标成做完了。
+        ///
+        /// **它一个字都不改需求或设计**，与 conflict.resolve 同一条道理：
+        /// 改哪一侧、怎么改是人的事，自动去改改错了没人看得见。这里只把「做完了」记下来。
+        /// 有了这一步，裁决才算真的走完——在这之前下一轮探测会照旧判出同一个冲突。
+        /// </summary>
+        /// <param name="arguments">冲突对齐命令参数。</param>
+        [EditorCommand("conflict.align")]
+        [Summary("冲突对齐销账：把已裁决冲突的对齐待办标成做完")]
+        public static CommandResult AlignConflict(ConflictAlignArguments arguments)
+        {
+            if (arguments == null || string.IsNullOrWhiteSpace(arguments.PoolRoot))
+            {
+                return CommandResult.Failure("参数 PoolRoot 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.ConflictIdentifier))
+            {
+                return CommandResult.Failure("参数 ConflictIdentifier 为必填项");
+            }
+
+            if (string.IsNullOrWhiteSpace(arguments.AlignerName))
+            {
+                return CommandResult.Failure("参数 AlignerName 为必填项");
+            }
+
+            var poolRoot = Path.GetFullPath(arguments.PoolRoot);
+            if (!Directory.Exists(poolRoot))
+            {
+                return CommandResult.Failure($"位置：{poolRoot}；原因：池子根目录不存在；修复：把 PoolRoot 指向池子根");
+            }
+
+            ConflictResolutionResult result;
+            try
+            {
+                result = ConflictList.Align(
+                    poolRoot,
+                    arguments.ConflictIdentifier,
+                    arguments.AlignerName,
+                    DateTimeOffset.Now.ToString("o"));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return CommandResult.Failure($"冲突对齐失败：{exception.Message}");
+            }
+
+            if (!result.IsResolved)
+            {
+                return CommandResult.Failure(result.Reason);
+            }
+
+            var lines = new List<string> { $"{result.Entry.Identifier} 对齐待办已销：{result.Entry.AlignerName}" };
+            foreach (var todo in result.Entry.AlignmentTodo)
+            {
+                lines.Add($"做完的待办：{todo}");
+            }
+
+            return CommandResult.Success($"冲突 {result.Entry.Identifier} 对齐完成", lines);
         }
 
         /// <summary>

@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace Template.Toolkit.CreationPipeline
 {
     /// <summary>一条冲突：新旧配对、发现阶段、状态与裁决结果，形状见子文档 01 §六。</summary>
@@ -24,6 +27,12 @@ namespace Template.Toolkit.CreationPipeline
         public const string ResolvedState = "已裁决";
 
         /// <summary>
+        /// 「强制推送」这个选择：挂账不销账。
+        /// 这里也留一份是因为对齐待办要按它分档——强制推送不产生对齐义务（两侧本来就没动）。
+        /// </summary>
+        public const string ForcePushChoice = "强制推送";
+
+        /// <summary>
         /// 构造一条冲突条目。
         /// </summary>
         /// <param name="identifier">冲突 id，形如 CF-0009。</param>
@@ -35,6 +44,10 @@ namespace Template.Toolkit.CreationPipeline
         /// <param name="choice">裁决选择，未决时为空串。</param>
         /// <param name="resolvedMoment">裁决时间，未决时为空串。</param>
         /// <param name="hasResolutionPayload">裁决对象是否非 null。</param>
+        /// <param name="alignmentTodo">对齐待办：裁决落定后还要人动手改的那一侧，逐条。</param>
+        /// <param name="isAligned">对齐待办是否已经做完。</param>
+        /// <param name="alignerName">对齐人，没对齐时为空串。</param>
+        /// <param name="alignedMoment">对齐时间，没对齐时为空串。</param>
         internal ConflictEntry(
             string identifier,
             string oldIdentifier,
@@ -44,8 +57,16 @@ namespace Template.Toolkit.CreationPipeline
             string resolverName,
             string choice,
             string resolvedMoment,
-            bool hasResolutionPayload)
+            bool hasResolutionPayload,
+            IReadOnlyList<string> alignmentTodo = null,
+            bool isAligned = false,
+            string alignerName = "",
+            string alignedMoment = "")
         {
+            AlignmentTodo = alignmentTodo ?? Array.Empty<string>();
+            IsAligned = isAligned;
+            AlignerName = alignerName ?? "";
+            AlignedMoment = alignedMoment ?? "";
             Identifier = identifier;
             OldIdentifier = oldIdentifier;
             NewIdentifier = newIdentifier;
@@ -83,5 +104,25 @@ namespace Template.Toolkit.CreationPipeline
 
         /// <summary>裁决对象是否非 null；未决条目的裁决必须为 null，门禁用它查状态与裁决对不上。</summary>
         public bool HasResolutionPayload { get; }
+
+        /// <summary>
+        /// 对齐待办：裁决落定之后**还要人动手改的那一侧**，逐条。
+        ///
+        /// 裁决本身不改任何一侧的内容——那是有意的：冲突这时候确实还在，
+        /// 一个命令自动去改需求或设计，改错了没人看得见。
+        /// 但「不自动改」不等于「不用改」，以前这几句话只在裁决那一刻打印一次就没了，
+        /// 于是下一轮探测照旧判出同一个冲突，而没人说得清上次到底做没做。
+        /// 所以它落盘：待办是账的一部分，不是一次输出。
+        /// </summary>
+        public IReadOnlyList<string> AlignmentTodo { get; }
+
+        /// <summary>对齐待办是否已经做完（走 conflict.align 销）。没有待办的条目恒为 true。</summary>
+        public bool IsAligned { get; }
+
+        /// <summary>对齐人，没对齐时为空串。</summary>
+        public string AlignerName { get; }
+
+        /// <summary>对齐时间，没对齐时为空串。</summary>
+        public string AlignedMoment { get; }
     }
 }

@@ -57,6 +57,28 @@ namespace Template.Toolkit.CreationPipeline
         }
 
         /// <summary>
+        /// 欠对齐条数：已裁决、但对齐待办还没销的条目。
+        ///
+        /// 这个数与 <see cref="PendingCount"/> 是**两件事**，别合并：
+        /// 未销账说的是「还没人拍板」，欠对齐说的是「拍板了但那一侧还没改」。
+        /// 后者才是「下一轮为什么又判出同一个冲突」的答案。
+        /// </summary>
+        public int UnalignedCount()
+        {
+            var count = 0;
+            foreach (var entry in _entries)
+            {
+                if (string.Equals(entry.State, ConflictEntry.ResolvedState, StringComparison.Ordinal)
+                    && !entry.IsAligned)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>
         /// 从池子加载冲突列表：文件不存在返回空列表且原因为空串；顶层不是数组或整份 JSON 坏掉时
         /// 返回空列表并给出原因；单条解析不了的条目跳过并把原因累加进 LoadFailureReason，
         /// 不让整份列表因为一条坏数据全丢。
@@ -297,10 +319,111 @@ namespace Template.Toolkit.CreationPipeline
                 ["时间"] = moment
             };
 
+            // **对齐待办落盘**。裁决不改任何一侧的内容（那是有意的：冲突这时候确实还在，
+            // 让一个命令自动去改需求或设计，改错了没人看得见）。但「不自动改」不等于「不用改」——
+            // 以前这几句只在裁决那一刻打印一次就没了，于是下一轮探测照旧判出同一个冲突，
+            // 而没人说得清上次到底做没做。落盘之后它变成账的一部分，由 conflict.align 销。
+            var todo = BuildSystemActions(ReadEntryFromObject(target));
+            var todoArray = new JsonArray();
+            foreach (var item in todo)
+            {
+                todoArray.Add(item);
+            }
+
+            target["对齐待办"] = todoArray;
+            // 强制推送不产生对齐义务：它压根没让任何一侧让步，冲突整条还挂在未决上。
+            target["对齐完成"] = isForcePush || todo.Count == 0;
+            target["对齐"] = null;
+
             File.WriteAllText(filePath, array.ToJsonString(WriteOptions), new UTF8Encoding(false));
 
             var resolvedEntry = ReadEntryFromObject(target);
-            return ConflictResolutionResult.Resolved(resolvedEntry, BuildSystemActions(resolvedEntry));
+            return ConflictResolutionResult.Resolved(resolvedEntry, resolvedEntry.AlignmentTodo);
+        }
+
+        /// <summary>
+        /// 对齐销账：把一条已裁决冲突的「对齐待办」标成做完了。
+        ///
+        /// **它同样一个字都不改需求或设计**——改哪一侧、怎么改，是人（或助手）的事。
+        /// 这个命令只负责把「做完了」这件事记下来，让下一轮看得见。
+        /// 记的是人和时间，不是内容：内容的证据在 git 里。
+        /// </summary>
+        /// <param name="poolRoot">池子根目录。</param>
+        /// <param name="conflictIdentifier">冲突 id。</param>
+        /// <param name="alignerName">对齐人姓名。</param>
+        /// <param name="moment">对齐时间（ISO 8601）。</param>
+        public static ConflictResolutionResult Align(
+            string poolRoot,
+            string conflictIdentifier,
+            string alignerName,
+            string moment)
+        {
+            if (string.IsNullOrWhiteSpace(alignerName))
+            {
+                return ConflictResolutionResult.Failed("对齐人为空：必须给出对齐人姓名");
+            }
+
+            var filePath = PoolPaths.ConflictListFile(poolRoot);
+            if (!File.Exists(filePath))
+            {
+                return ConflictResolutionResult.Failed($"冲突列表不存在：{filePath}");
+            }
+
+            JsonArray array;
+            try
+            {
+                array = JsonNode.Parse(File.ReadAllText(filePath)) as JsonArray;
+            }
+            catch (JsonException exception)
+            {
+                return ConflictResolutionResult.Failed($"冲突列表读不动：{exception.Message}");
+            }
+
+            if (array == null)
+            {
+                return ConflictResolutionResult.Failed("冲突列表顶层不是数组");
+            }
+
+            JsonObject target = null;
+            foreach (var node in array)
+            {
+                if (node is JsonObject candidate
+                    && string.Equals(ReadEntryString(candidate, "id"), conflictIdentifier, StringComparison.Ordinal))
+                {
+                    target = candidate;
+                    break;
+                }
+            }
+
+            if (target == null)
+            {
+                return ConflictResolutionResult.Failed($"冲突列表里没有 {conflictIdentifier}");
+            }
+
+            if (!string.Equals(ReadEntryString(target, "状态"), ConflictEntry.ResolvedState, StringComparison.Ordinal))
+            {
+                return ConflictResolutionResult.Failed(
+                    $"冲突 {conflictIdentifier} 还没销账（状态不是「已裁决」），没有对齐待办可销；先跑 conflict.resolve");
+            }
+
+            if (ReadAlignmentDone(target))
+            {
+                var who = ReadAlignmentString(target, "人");
+                var previous = who.Length > 0 ? $"上次是 {who} 做的" : "它本来就没有对齐待办";
+                return ConflictResolutionResult.Failed($"冲突 {conflictIdentifier} 的对齐待办已经销过了（{previous}）；销账不许覆盖");
+            }
+
+            target["对齐完成"] = true;
+            target["对齐"] = new JsonObject
+            {
+                ["人"] = alignerName,
+                ["时间"] = moment
+            };
+
+            File.WriteAllText(filePath, array.ToJsonString(WriteOptions), new UTF8Encoding(false));
+
+            var entry = ReadEntryFromObject(target);
+            return ConflictResolutionResult.Resolved(entry, entry.AlignmentTodo);
         }
 
         /// <summary>「强制推送」这个选择：挂账不销账，与另外两个选择的处置不同，单独立个常量。</summary>
@@ -414,6 +537,9 @@ namespace Template.Toolkit.CreationPipeline
                 resolvedMoment = ReadStringOrEmpty(resolutionObject, "时间");
             }
 
+            // 对齐那四项跟裁决那几项一样从原文读。**漏在这儿读的话症状很隐蔽**：
+            // Load 出来的条目对齐字段全是默认值，于是 conflict.list 会把每条已裁决的
+            // 都显示成「欠对齐」，而 conflict.align 明明已经销过了。
             entry = new ConflictEntry(
                 identifier,
                 oldIdentifier,
@@ -423,7 +549,11 @@ namespace Template.Toolkit.CreationPipeline
                 resolverName,
                 choice,
                 resolvedMoment,
-                hasResolution);
+                hasResolution,
+                ReadAlignmentTodo(obj),
+                ReadAlignmentDone(obj),
+                ReadAlignmentString(obj, "人"),
+                ReadAlignmentString(obj, "时间"));
             return true;
         }
 
@@ -441,7 +571,58 @@ namespace Template.Toolkit.CreationPipeline
                 ReadResolutionString(obj, "时间"),
                 obj.TryGetPropertyValue("裁决", out var resolutionNode)
                     && resolutionNode != null
-                    && resolutionNode.GetValueKind() != JsonValueKind.Null);
+                    && resolutionNode.GetValueKind() != JsonValueKind.Null,
+                ReadAlignmentTodo(obj),
+                ReadAlignmentDone(obj),
+                ReadAlignmentString(obj, "人"),
+                ReadAlignmentString(obj, "时间"));
+        }
+
+        /// <summary>读「对齐待办」数组；缺失或不是数组给空表。</summary>
+        private static IReadOnlyList<string> ReadAlignmentTodo(JsonObject obj)
+        {
+            if (!obj.TryGetPropertyValue("对齐待办", out var node) || node is not JsonArray array)
+            {
+                return Array.Empty<string>();
+            }
+
+            var items = new List<string>();
+            foreach (var item in array)
+            {
+                var text = item?.ToString() ?? "";
+                if (text.Length > 0)
+                {
+                    items.Add(text);
+                }
+            }
+
+            return items;
+        }
+
+        /// <summary>
+        /// 读「对齐完成」。
+        /// **缺这个键时按 true 算**，不是 false：老数据是在这套待办存在之前写的，
+        /// 当 false 处理会让一批历史上早就处理完的冲突集体诈尸成「欠对齐」。
+        /// </summary>
+        private static bool ReadAlignmentDone(JsonObject obj)
+        {
+            if (!obj.TryGetPropertyValue("对齐完成", out var node) || node == null)
+            {
+                return true;
+            }
+
+            return node.GetValueKind() != JsonValueKind.False;
+        }
+
+        /// <summary>读「对齐」对象里的字符串键；缺失或不是对象给空串。</summary>
+        private static string ReadAlignmentString(JsonObject obj, string key)
+        {
+            if (!obj.TryGetPropertyValue("对齐", out var node) || node is not JsonObject alignment)
+            {
+                return "";
+            }
+
+            return TryReadString(alignment, key, out var value) ? value : "";
         }
 
         /// <summary>读条目自己的字符串键；缺失给空串。</summary>
