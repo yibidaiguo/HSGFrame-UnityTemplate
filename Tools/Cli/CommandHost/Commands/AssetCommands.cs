@@ -523,6 +523,113 @@ namespace Template.Toolkit.CommandHost.Commands
         public string SettingsPath { get; set; }
     }
 
+    /// <summary>资产搬迁命令 asset.relayout 的参数。</summary>
+    public sealed class AssetRelayoutArguments
+    {
+        /// <summary>Assets 根目录。</summary>
+        [Summary("Assets 根目录")]
+        [DefaultValue("UnityProject/Assets")]
+        public string AssetsRootDirectory { get; set; }
+
+        /// <summary>仓库根目录，用来找分层词表与关键词表。</summary>
+        [Summary("仓库根目录，用来找分层词表与关键词表")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+
+        /// <summary>关键词表路径；留空用模板自带的那份。</summary>
+        [Summary("关键词表路径；留空用 Tools/AssetPipeline/Config/relayout-keywords.json")]
+        [DefaultValue("")]
+        public string KeywordPath { get; set; }
+
+        /// <summary>真搬还是只算。</summary>
+        [Summary("只算不搬：把计划打出来，不动任何文件。默认 true，要真搬显式传 false")]
+        [DefaultValue(true)]
+        public bool DryRun { get; set; }
+    }
+
+    /// <summary>
+    /// 资产搬迁命令：把平铺的资产按分层词表搬到 <c>&lt;类型&gt;/&lt;门类&gt;/&lt;模块&gt;/</c> 底下。
+    ///
+    /// **默认干跑**，要真搬得显式传 <c>--DryRun false</c>（决策 92）。
+    /// **认不出来的一个都不搬**，列进「要人定」——猜错归属不会报错，只会让人以后找不到它。
+    /// </summary>
+    public static class AssetRelayoutCommand
+    {
+        /// <summary>算一份搬迁计划，必要时执行。</summary>
+        /// <param name="arguments">搬迁参数。</param>
+        [EditorCommand("asset.relayout")]
+        [Summary("把平铺的资产按分层词表搬到位；默认干跑，--DryRun false 才真搬")]
+        public static CommandResult Execute(AssetRelayoutArguments arguments)
+        {
+            var repositoryRoot = Path.GetFullPath(
+                string.IsNullOrWhiteSpace(arguments?.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+            var assetsRoot = string.IsNullOrWhiteSpace(arguments?.AssetsRootDirectory)
+                ? Path.Combine(repositoryRoot, "UnityProject", "Assets")
+                : arguments.AssetsRootDirectory;
+            var keywordPath = string.IsNullOrWhiteSpace(arguments?.KeywordPath)
+                ? Path.Combine(repositoryRoot, "Tools", "AssetPipeline", "Config", "relayout-keywords.json")
+                : arguments.KeywordPath;
+
+            var ruleSet = AssetLayoutRuleSet.Load(
+                Path.Combine(repositoryRoot, "Specifications", "Baseline", AssetLayoutRuleSet.BaselineFileName),
+                Path.Combine(repositoryRoot, "Specifications", "Project", AssetLayoutRuleSet.ProjectFileName));
+
+            var plan = AssetRelayoutPlanner.Plan(assetsRoot, ruleSet, keywordPath);
+            if (plan.FailureReason.Length > 0)
+            {
+                return CommandResult.Failure($"搬迁计划算不出来：{plan.FailureReason}");
+            }
+
+            var lines = new List<string>();
+            foreach (var move in plan.Moves)
+            {
+                lines.Add($"搬：{move.FromPath} → {move.ToPath}（认出来的词：{move.MatchedKeyword}）");
+            }
+
+            foreach (var item in plan.Undecided)
+            {
+                lines.Add($"要人定：{item}（名字里没有能对上的关键词，或者它是放错了树——这条一个字都没动）");
+            }
+
+            if (arguments != null && !arguments.DryRun && plan.Moves.Count > 0)
+            {
+                var movedCount = 0;
+                foreach (var move in plan.Moves)
+                {
+                    var from = Path.Combine(assetsRoot, move.FromPath.Replace('/', Path.DirectorySeparatorChar));
+                    var to = Path.Combine(assetsRoot, move.ToPath.Replace('/', Path.DirectorySeparatorChar));
+                    try
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(to));
+                        File.Move(from, to, overwrite: false);
+
+                        // **.meta 必须跟着一起搬**：留在原地会变成孤儿 meta，
+                        // 而新位置没有 meta 时 Unity 会重新发一个 guid——
+                        // 那一刻所有引用这个资产的预制体与场景全部指空，而且不报错。
+                        if (File.Exists(from + ".meta"))
+                        {
+                            File.Move(from + ".meta", to + ".meta", overwrite: false);
+                        }
+
+                        movedCount++;
+                    }
+                    catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+                    {
+                        lines.Add($"搬不动：{move.FromPath}（{exception.Message}）");
+                    }
+                }
+
+                lines.Add($"真搬了 {movedCount} 个；要人定的 {plan.Undecided.Count} 个一个都没动。");
+                return CommandResult.Success(
+                    $"搬迁完成：搬了 {movedCount} 个，要人定 {plan.Undecided.Count} 个", lines);
+            }
+
+            lines.Add("这一趟没有动任何文件。确认无误再跑一次并带 --DryRun false。");
+            return CommandResult.Success(
+                $"干跑完成：能搬 {plan.Moves.Count} 个，要人定 {plan.Undecided.Count} 个", lines);
+        }
+    }
+
     /// <summary>资产分层门禁命令 asset.layout 的参数。</summary>
     public sealed class AssetLayoutArguments
     {
