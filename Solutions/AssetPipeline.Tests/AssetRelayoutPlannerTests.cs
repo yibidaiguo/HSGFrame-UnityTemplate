@@ -48,6 +48,26 @@ namespace Template.Toolkit.AssetPipeline.Tests
             Assert.Equal("grasspatch", move.MatchedKeyword);
         }
 
+        /// <summary>
+        /// 名字里靠前的词赢：<c>T_Icon_Sword</c> 是 UI 图标，不是剑的贴图。
+        ///
+        /// **这条对着一次真事**：只按关键词长度排的时候 "sword"(5) 赢了 "icon"(4)，
+        /// 于是四张 UI 图标被搬进了 Weapon/ 与 Rock/ 夹。名字的头一个词说的是「这是什么」，
+        /// 后面的词只是在修饰它。
+        /// </summary>
+        [Fact]
+        public void EarlierKeywordInTheNameWinsOverALongerLaterOne()
+        {
+            using var workspace = new TempWorkspace();
+            workspace.WriteAsset("Game/Art/Texture/T_Icon_BigRock.png");
+
+            var plan = workspace.Plan();
+
+            var move = Assert.Single(plan.Moves);
+            Assert.Equal("Game/Art/Texture/Ui/Icon/T_Icon_BigRock.png", move.ToPath);
+            Assert.Equal("icon", move.MatchedKeyword);
+        }
+
         /// <summary>前缀先剥掉再认：Mat_ 与 M_ 都不该影响判断。</summary>
         [Fact]
         public void NamePrefixIsStrippedBeforeMatching()
@@ -183,6 +203,7 @@ namespace Template.Toolkit.AssetPipeline.Tests
   ""模块层禁用名"": [""Misc""],
   ""类型"": {
     ""Model"": { ""门类"": [], ""用主题门类"": true, ""允许扩展名"": ["".fbx""] },
+    ""Texture"": { ""门类"": [""Icon""], ""用主题门类"": true, ""允许扩展名"": ["".png""] },
     ""Material"": { ""门类"": [], ""用主题门类"": true, ""允许扩展名"": ["".mat""] },
     ""Animation"": { ""门类"": [], ""用主题门类"": true, ""允许扩展名"": ["".anim""] },
     ""Audio"": { ""门类"": [""Music"", ""Sound""], ""用主题门类"": false, ""允许扩展名"": ["".wav""] }
@@ -195,6 +216,7 @@ namespace Template.Toolkit.AssetPipeline.Tests
     { ""关键词"": ""grass"",      ""门类"": ""Vegetation"", ""模块"": ""Undergrowth"" },
     { ""关键词"": ""pinesapling"",""门类"": ""Vegetation"", ""模块"": ""Tree"" },
     { ""关键词"": ""bigrock"",    ""门类"": ""Rock"",       ""模块"": ""Boulder"" },
+    { ""关键词"": ""icon"",       ""门类"": ""Ui"",         ""模块"": ""Icon"" },
     { ""关键词"": ""rock"",       ""门类"": ""Rock"",       ""模块"": ""Boulder"" }
   ]
 }";
