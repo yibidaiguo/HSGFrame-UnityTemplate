@@ -153,6 +153,12 @@
       },
       "hash": "94422fc41491228eed0999ce4845d7b23ee2b8ae"
     },
+    "com.unity.2d.sprite": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {}
+    },
     "com.unity.ext.nunit": {
       "version": "2.0.5",
       "depth": 1,

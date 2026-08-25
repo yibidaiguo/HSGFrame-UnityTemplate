@@ -523,6 +523,58 @@ namespace Template.Toolkit.CommandHost.Commands
         public string SettingsPath { get; set; }
     }
 
+    /// <summary>资产分层门禁命令 asset.layout 的参数。</summary>
+    public sealed class AssetLayoutArguments
+    {
+        /// <summary>Assets 根目录。</summary>
+        [Summary("Assets 根目录")]
+        [DefaultValue("UnityProject/Assets")]
+        public string AssetsRootDirectory { get; set; }
+
+        /// <summary>仓库根目录，用来找分层词表。</summary>
+        [Summary("仓库根目录，用来找 Specifications/ 下的分层词表")]
+        [DefaultValue(".")]
+        public string RepositoryRoot { get; set; }
+    }
+
+    /// <summary>资产分层门禁命令：每个资产都要落到完整深度，门类要在词表里，扩展名要对得上那棵树。</summary>
+    public static class AssetLayoutCommand
+    {
+        /// <summary>检查资产分层。</summary>
+        /// <param name="arguments">校验参数。</param>
+        [EditorCommand("asset.layout")]
+        [Summary("资产分层门禁：深度、门类词表、扩展名、模块层命名")]
+        public static CommandResult Execute(AssetLayoutArguments arguments)
+        {
+            var repositoryRoot = Path.GetFullPath(
+                string.IsNullOrWhiteSpace(arguments?.RepositoryRoot) ? "." : arguments.RepositoryRoot);
+
+            var baselinePath = Path.Combine(
+                repositoryRoot, "Specifications", "Baseline", AssetLayoutRuleSet.BaselineFileName);
+            var projectPath = Path.Combine(
+                repositoryRoot, "Specifications", "Project", AssetLayoutRuleSet.ProjectFileName);
+
+            var assetsRoot = string.IsNullOrWhiteSpace(arguments?.AssetsRootDirectory)
+                ? Path.Combine(repositoryRoot, "UnityProject", "Assets")
+                : arguments.AssetsRootDirectory;
+
+            var ruleSet = AssetLayoutRuleSet.Load(baselinePath, projectPath);
+            var violations = AssetLayoutChecker.Check(assetsRoot, ruleSet);
+            var lines = violations.Select(violation => violation.ToDisplayText()).ToList();
+
+            if (violations.Count > 0)
+            {
+                return CommandResult.Failure(
+                    $"资产分层门禁失败，问题 {violations.Count} 条（类型 {ruleSet.TypeNames.Count} 类，最小层数 {ruleSet.MinimumDepth}）",
+                    lines);
+            }
+
+            return CommandResult.Success(
+                $"资产分层门禁通过：类型 {ruleSet.TypeNames.Count} 类，最小层数 {ruleSet.MinimumDepth}，问题 0 条",
+                lines);
+        }
+    }
+
     /// <summary>导入规则覆盖校验命令：放了资产的目录必须能解析到一份导入规则。</summary>
     public static class AssetRuleCoverageCommand
     {

@@ -9,13 +9,8 @@ Assets/
   _Inbox/                     中转收件箱：外来资产先进这，asset.import 归位（保持现状机制）
   Game/                       业务正式区
     Art/                      源生美术：只被引用，不做加载入口
-      Texture/   Ui/ Character/ Environment/ Effect/ Icon/ Shared/
-      Model/     Character/ Environment/ Prop/ Shared/
-      Animation/ Character/ Ui/ Shared/
-      Material/  Character/ Environment/ Ui/ Effect/ Shared/
-      Shader/    （含 ShaderGraph；按功能再分夹）
-      Audio/     Music/ Sound/ Voice/ Shared/
-      Font/
+      Texture/ Model/ Material/ Animation/ Shader/ Audio/ Font/ Vfx/
+                 每棵树下都是 <门类>/<模块>/，门类词表见 asset-layout.baseline.json
     ResourceArt/              成品资源单元：预制体等，代码按 key 加载的东西全在这
       Character/ Ui/ Level/ Effect/ Item/ Shared/   （功能层，按需增，增即配导入规则）
     Scenes/
@@ -28,9 +23,47 @@ Assets/
                               第三方与生成物自留地：各自工具管理，业务资产禁入，业务也不改它们
 ```
 
-功能层的层级公式：`类型 → 功能 → 模块 → 内容`，例
-`Art/Texture/Ui/Inventory/T_背包格子.png`、`ResourceArt/Character/Enemy/P_史莱姆.prefab`。
-某功能层下模块少时可以先平铺（`Art/Texture/Ui/T_通用按钮.png` 直接放 Shared），涨了再开模块夹。
+### 层级公式：`Art/<类型>/<门类>/<模块>/<文件>`，三层目录一层都不许省
+
+例：`Art/Texture/Ui/Inventory/T_背包格子.png`、`Art/Model/Vegetation/Grass/M_Grass01.fbx`、
+`Art/Audio/Sound/Combat/A_SwordHit_01.wav`。
+
+**「模块少时先平铺、涨了再开夹」这一档已经取消。** 那句话在上一版规范里存在过，
+代价是真实工程跑几个月之后：`Art/Model/` 两百多个文件平铺在根上，
+`Art/Material/` 只分出 `Character` 与 `Level` 两夹、其余全在根，`Art/Audio/` 一个夹都没有。
+没人偷懒——是规则给了「以后再开」这个选项，而「以后」不会自己到。
+**一个文件的目录不丑，两百个文件的根目录才丑。**
+
+三层各是什么：
+
+| 层 | 是什么 | 谁定 |
+|---|---|---|
+| `<类型>` | Texture / Model / Material / Animation / Shader / Audio / Font / Vfx | 固定八类 |
+| `<门类>` | 这一类里的大分格（用途或主题） | [`asset-layout.baseline.json`](Baseline/asset-layout.baseline.json) 的词表 |
+| `<模块>` | 这批资产属于谁：玩法模块名（`Inventory`）或具体主题（`Grass`、`StoneWall`） | 就近起名，PascalCase |
+
+**模型、材质、贴图、动画四棵树共用一套门类词表**（`Character` `Vegetation` `Rock` `Terrain`
+`Architecture` `Prop` `Weapon` …）。所以同一个东西的四种资产走同一条路径——
+`Art/Model/Vegetation/Grass/M_Grass01.fbx` 对着 `Art/Material/Vegetation/Grass/Mat_Grass01.mat`，
+把路径里的类型换掉就行，不用重新想它归哪类。
+
+`Shader` 与 `Audio` **不用主题门类**，各有自己一套：shader 按它干什么分
+（`Surface`/`Effect`/`Ui`/`PostProcess`），音频按用途分（`Music`/`Ambience`/`Sound`/`Voice`/`Ui`）——
+音频这一层决定的是打包与本地化策略，语音要跟着语言分包，音乐要流式加载。
+
+**每棵树只收自己那几种扩展名。** `Animation/` 下只许有 `.anim`/`.controller`/`.overrideController`/`.mask`；
+带动画的模型属于 `Model/`，动画要从模型里提成 clip 再放进来。
+（这一条是踩出来的：`Art/Animation/Character/` 里曾经躺着 `A_Idle.fbx`、`A_Walk.fbx`，
+人点开只会看到一个模型。）
+
+模块层禁用 `Misc`/`Other`/`Common`/`Temp`/`New` 这类名字——它们等于没分，
+而且一旦出现就会变成新的垃圾堆。
+
+**这一节由 `asset.layout` 门禁把关**（深度、门类、扩展名、模块层命名四项），
+`gate-unity.ps1` 的资产门禁那一组里跑。词表是数据不是代码：宿主要加门类就往
+`Specifications/Project/asset-layout.json` 里加，不改引擎。
+
+`ResourceArt/` 同一条公式：`ResourceArt/<功能>/<模块>/P_史莱姆.prefab`。
 
 ## 二、Art 与 ResourceArt 的分界
 

@@ -35,8 +35,9 @@ Scripts/
       Utilities/             模块内工具
       Editor/                模块专属编辑器工具（asmref → Game.Editor）
   Shared/               跨模块通用，内部按同样的职责夹分：Contracts/ Events/ Data/ Utilities/ View/ Editor/
-  View/                 Game.View.asmdef 落点 + 跨模块共享视觉基类
-  Editor/               Game.Editor.asmdef 落点 + 跨模块共享编辑器工具
+  View/                 Game.View.asmdef 落点；**下面按桥的是哪块引擎能力分子夹**
+    Audio/ Input/ Scene/ Ui/ Logging/ Framework/ Camera/ World/   （按需建，不够就加）
+  Editor/               Game.Editor.asmdef 落点；同样按子系统分子夹
   Toolkit/Editor/       工具链驻 Unity 的编辑器入口（Toolkit.Editor 程序集，见第五节）
 Tests/EditMode|PlayMode 保持现状位置与装配
 ```
@@ -44,7 +45,18 @@ Tests/EditMode|PlayMode 保持现状位置与装配
 要点：
 
 - **状态与服务住模块根**，六个职责夹按需建，空夹不建。
-- 模块内文件少于 5 个时允许先不开职责夹、全放模块根；超过再分。目录是给人和 AI 导航的，不是仪式。
+- **不许有平铺的散文件堆。** 除了模块根上的 `<模块>Service.cs` 与 `<模块>State.cs` 这两个，
+  `Scripts/` 下任何目录里的代码都要落在职责夹或子系统夹里，**哪怕那个夹只有一个文件**。
+
+  上一版这里写的是「文件少于 5 个时允许先不开职责夹，超过再分」。那一档已经取消，
+  理由与资源侧那条一模一样（见《结构规范-资源》第二节）：**「超过再分」的那个「再」不会自己到。**
+  真实工程里 `Scripts/View/` 就这么平铺了十来个 Behaviour，
+  而它们分属音频、输入、场景、UI、日志五个完全不相干的子系统。
+
+- **`View/` 按「桥的是哪一块引擎能力」分**，不按模块分——View 的职责就是把引擎那一半隔开，
+  所以分格跟着引擎能力走：`AudioPlayerBehaviour` 进 `Audio/`、`InputDriverBehaviour` 进 `Input/`、
+  `UnityConsoleLogSink` 进 `Logging/`。模块自己的视觉件留在模块的 `View/` 夹里（asmref 归并），
+  只有跨模块共享的才上提到 `Scripts/View/`。
 - **Shared 的进入门槛**：被 ≥2 个模块引用才进 `Shared/`；只有一个使用者的东西留在那个模块里。
   从模块上提到 Shared 是单独一次提交。
 - View 夹与 Editor 夹靠 **asmref** 归并进各自的公共程序集（见下节），
@@ -115,7 +127,7 @@ R2 查的正是这批命名空间，改完没人守就会立刻开始漂。
 - 一个文件一个主类型，紧密伴生的小类型（如返回值记录）可同居；文件名 = 主类型名。
 - 业务代码打日志走 `HSGFrame.Logging` 的接口，不写裸 `UnityEngine.Debug.Log`。
   **R7 查 `Modules/`、`Shared/`、`View/` 三棵子树**；`Boot/` 与 `Toolkit/` 不查（启动装配与工具链
-  本来就直接对着引擎说话）。唯一的永久豁免是日志落点自己（`View/UnityConsoleLogSink.cs`）。
+  本来就直接对着引擎说话）。唯一的永久豁免是日志落点自己（`View/Logging/UnityConsoleLogSink.cs`）。
 - 每个模块根放一份 ≤40 行的 `README.md`：一句话职责、公开面清单、依赖了谁的事件。
   说明里的命令与路径要能直接复制执行。
 - `Update` 类逐帧逻辑集中经 `HSGFrame.MonoDriver` 驱动，业务 MonoBehaviour 数量克制——性能维度的代码侧。

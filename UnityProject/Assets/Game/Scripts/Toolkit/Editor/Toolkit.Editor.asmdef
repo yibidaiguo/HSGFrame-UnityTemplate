@@ -11,7 +11,8 @@
     "HSGFrame.Logging",
     "HSGFrame.Input",
     "HSGFrame.UiFramework.Unity",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "Unity.2D.Sprite.Editor"
   ],
   "includePlatforms": [
     "Editor"

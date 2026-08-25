@@ -38,7 +38,7 @@ function Invoke-GateCommand {
 # 资产门禁：全部是纯 C# 检查器，不启 Unity。此前这十道有实现、有单测，却不在任何 gate 脚本里——
 # 加了检查器忘接线是静默的，这里接上之后由 Gates.Tests 的接线对账测试盯死。
 Write-Host ''
-Write-Host '[gate-unity] ==== 资产门禁（不启 Unity 的十道）===='
+Write-Host '[gate-unity] ==== 资产门禁（不启 Unity 的十一道）===='
 
 # asset.validate 按「带 import-rules.json 的目录」逐个跑：清单动态发现，加一个资产根不用改脚本。
 $importRuleDirectories = @(Get-ChildItem $assetsRoot -Recurse -Filter 'import-rules.json' -ErrorAction SilentlyContinue |
@@ -62,7 +62,8 @@ $assetRootGates = @(
     @{ Name = '规则覆盖（asset.rulecoverage）';   Command = 'asset.rulecoverage' },
     @{ Name = '重复资产（asset.duplicates）';     Command = 'asset.duplicates' },
     @{ Name = '图集对齐（asset.atlas）';          Command = 'asset.atlas' },
-    @{ Name = '常驻预算（asset.residentbudget）'; Command = 'asset.residentbudget' }
+    @{ Name = '常驻预算（asset.residentbudget）'; Command = 'asset.residentbudget' },
+    @{ Name = '资产分层（asset.layout）';         Command = 'asset.layout' }
 )
 foreach ($assetGate in $assetRootGates) {
     if ((Invoke-GateCommand -CommandName $assetGate.Command -CommandArguments @{ AssetsRootDirectory = $assetsRoot }) -ne 0) {
