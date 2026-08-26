@@ -1,0 +1,55 @@
+/* 动效样式表：所有面板共用这一份，别在各面板 USS 里各写各的。
+   规范正本在项目的 Pools/Designs/UI/motion.md。
+
+   **UI Toolkit 只有 transition，没有 @keyframes**——
+   所以这里能做的全部是「状态 A 到状态 B 的过渡」，做不了循环动画与关键帧序列。
+   要循环动画（比如加载转圈）得走代码逐帧改样式，那是另一件事，不在这份里。 */
+
+/* ── 面板进出场 ────────────────────────────────────────────────
+   进场：PanelBase 在挂上视觉树时先加「面板-进场前」，布局完成后摘掉，
+   于是 opacity 与 translate 各自从这里的值过渡回常态。
+   退场是瞬时的——见 motion.md 里那条，不是漏了。 */
+.panel-root {
+    opacity: 1;
+    translate: 0 0;
+    transition-property: opacity, translate;
+    transition-duration: var(--动效-中), var(--动效-中);
+    transition-timing-function: var(--动效-进场缓动), var(--动效-进场缓动);
+}
+
+.面板-进场前 {
+    opacity: 0;
+    translate: 0 var(--动效-进场位移);
+}
+
+/* ── 列表项：悬停、选中 ───────────────────────────────────────
+   只过渡背景色，**不过渡尺寸**：列表项一变大就会把下面的项推下去，
+   鼠标扫过一列的时候整列都在动，比没有动效难受得多。 */
+.list-entry {
+    background-color: rgba(255, 255, 255, 0);
+    transition-property: background-color;
+    transition-duration: var(--动效-快);
+    transition-timing-function: var(--动效-状态缓动);
+}
+
+.list-entry:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.list-entry-selected {
+    background-color: var(--颜色-主色);
+}
+
+/* ── 按钮：按下去要有反应 ─────────────────────────────────────
+   缩到 0.97 而不是更小：这一下是「确认收到」，不是「弹一下」。
+   :active 在 UI Toolkit 里就是按住那一刻。 */
+.unity-button {
+    scale: 1 1;
+    transition-property: scale, background-color;
+    transition-duration: var(--动效-快), var(--动效-快);
+    transition-timing-function: var(--动效-状态缓动), var(--动效-状态缓动);
+}
+
+.unity-button:active {
+    scale: 0.97 0.97;
+}
